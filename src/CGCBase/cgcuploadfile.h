@@ -1,0 +1,63 @@
+/*
+    MYCP is a HTTP and C++ Web Application Server.
+    Copyright (C) 2009-2010  Akee Yang <akee.yang@gmail.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// cgcuploadfile.h file here
+#ifndef __cgcuploadfile__head__
+#define __cgcuploadfile__head__
+
+#include <boost/shared_ptr.hpp>
+#include <string>
+
+namespace cgc {
+
+class cgcUploadFile
+{
+public:
+	typedef boost::shared_ptr<cgcUploadFile> pointer;
+
+	void setName(const std::string& v) {m_name = v;}
+	const std::string& getName(void) const {return m_name;}
+	void setFileName(const std::string& v) {m_fileName = v;}
+	const std::string& getFileName(void) const {return m_fileName;}
+	void setContentType(const std::string& v) {m_contentType = v;}
+	const std::string& getContentType(void) const {return m_contentType;}
+	void setFileSize(int v) {m_fileSize = v;}
+	int getFileSize(void) const {return m_fileSize;}
+
+	void setFilePath(const tstring& v) {m_filepath = v;}
+	const tstring& getFilePath(void) const {return m_filepath;}
+
+	cgcUploadFile(void)
+		: m_name(""), m_fileName(""), m_contentType("")
+		, m_fileSize(0), m_filepath("")
+	{}
+
+private:
+	std::string m_name;
+	std::string m_fileName;
+	std::string m_contentType;
+	int m_fileSize;
+	tstring m_filepath;
+};
+const cgcUploadFile::pointer cgcNullUploadFile;
+
+#define CGC_UPLOADFILE() cgcUploadFile::pointer(new cgcUploadFile())
+
+} // namespace cgc
+
+#endif // __cgcuploadfile__head__

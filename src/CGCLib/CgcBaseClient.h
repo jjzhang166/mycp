@@ -1,0 +1,337 @@
+/*
+    MYCP is a HTTP and C++ Web Application Server.
+    Copyright (C) 2009-2010  Akee Yang <akee.yang@gmail.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// CgcBaseClient.h file here
+#ifndef __CgcBaseClient_h__
+#define __CgcBaseClient_h__
+
+//
+// include
+#include "IncludeBase.h"
+#include <boost/enable_shared_from_this.hpp>
+#include "CgcClientHandler.h"
+#include "../ThirdParty/stl/lockmap.h"
+#include "cgcaddress.h"
+#include "dlldefine.h"
+#include "../CGCBase/cgcSeqInfo.h"
+
+namespace cgc
+{
+// typedef
+//
+//
+// BoostThreadList
+#ifndef BoostThreadList
+typedef std::list<boost::thread*> BoostThreadList;
+typedef BoostThreadList::const_iterator BoostThreadListCIter;
+#endif
+//
+typedef std::map<unsigned long, void*> ULongPtrMap;
+typedef std::pair<unsigned long, void*> ULongPtrPair;
+
+#define MAX_CID_MASKS_SIZE 500//120
+
+class CGCLIB_CLASS CgcBaseClient
+	: public SotpCallTable2
+	, public DoSotpClientHandler
+	, public boost::enable_shared_from_this<CgcBaseClient>
+{
+public:
+	typedef boost::shared_ptr<CgcBaseClient> pointer;
+
+	enum ClientState
+	{
+		Init_Client		= 0x1
+		, Start_Client	= 0x2
+		, Stop_Client	= 0x4
+		, Exit_Client	= 0x8
+
+	};
+
+	CgcBaseClient(const tstring & clientType);
+	virtual ~CgcBaseClient(void);
+
+	static int ParseString(const char * lpszString, const char * lpszInterval, std::vector<std::string> & pOut);
+	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
+
+protected:
+	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort) = 0;
+	virtual void stopClient(void) = 0;
+	virtual bool isInvalidate(void) const = 0;
+	virtual size_t sendData(const unsigned char * data, size_t size) = 0;
+	virtual size_t sendData(const unsigned char * data, size_t size, unsigned int timestamp) {return 0;}	// for RTP
+	virtual size_t recvData(unsigned char * buffer, size_t size) {return 0;}
+	virtual void parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId);
+	virtual void setRemoteAddr(const tstring & sRemoteAddr) {}
+	virtual void setMediaType(unsigned short mediatype) {}	// for RTP
+
+	/////////////////////////////////////////////////////////////////////////////////
+	// DoSotpClientHandler handler
+	virtual void doSetResponseHandler(CgcClientHandler * newValue) {setHandler(newValue);}
+	virtual const CgcClientHandler * doGetResponseHandler(void) const {return getHandler();}
+	virtual void doSetDisableSotpParser(bool newv) {m_bDisableSotpparser = newv;}
+
+	virtual void doSetConfig(int nConfig, unsigned int nInValue){}
+	virtual void doGetConfig(int nConfig, unsigned int* nOutValue){}
+
+	// session
+	virtual bool doSendOpenSession(unsigned long * pOutCallId) {return sendOpenSession(pOutCallId);}
+	virtual void doSendCloseSession(unsigned long * pOutCallId) {sendCloseSession(pOutCallId);}
+	virtual bool doIsSessionOpened(void) const {return isSessionOpened();}
+	virtual const tstring & doGetSessionId(void) const {return getSessionId();}
+
+	// app call
+	virtual void doBeginCallLock(void) {beginCallLock();}
+	virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,
+		const cgcAttachment::pointer& pAttach, unsigned long * pOutCallId){
+			return sendAppCall(nCallSign,sCallName,bNeedAck,pAttach,pOutCallId);}
+	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign=0,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
+		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach);}
+	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
+
+	// threads
+	virtual void doSetCIDTResends(unsigned int timeoutResends, unsigned int timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}
+	virtual void doStartRecvThreads(unsigned short nRecvThreads) {StartRecvThreads(nRecvThreads);}
+	virtual void doStartActiveThread(unsigned short nActiveWaitSeconds,unsigned short nSendP2PTrySeconds) {StartActiveThread(nActiveWaitSeconds,nSendP2PTrySeconds);}
+
+	// parameter
+	virtual void doAddParameter(const cgcParameter::pointer& parameter, bool bAddForce = true) {addParameter(parameter,bAddForce);}
+	virtual void doAddParameters(const std::vector<cgcParameter::pointer>& parameters, bool bAddForce = true) {addParameters(parameters,bAddForce);}
+	virtual size_t doGetParameterSize(void) const {return getParameterSize();}
+
+	// info
+	virtual void doSetEncoding(const tstring & newv) {setEncoding(newv);}
+	virtual const tstring & doGetEncoding(void) const {return getEncoding();}
+	virtual void doSetAppName(const tstring & newv) {setAppName(newv);}
+	virtual const tstring & doGetAppName(void) const {return getAppName();}
+	virtual void doSetAccount(const tstring & account, const tstring & passwd) {setAccount(account); setPasswd(passwd);}
+	virtual void doGetAccount(tstring & account, tstring & passwd) const {account=getAccount(); passwd=getPasswd();}
+	virtual const tstring & doGetClientType(void) const {return GetClientType();}
+
+	// other
+	virtual time_t doGetLastSendRecvTime(void) const {return m_tSendRecv;}
+	virtual void doSetRemoteAddr(const tstring & newv) {setRemoteAddr(newv);}
+	virtual const tstring& doGetLocalIp(void) const {return m_ipLocal.getip();}
+	virtual unsigned short doGetLocalPort(void) const {return m_ipLocal.getport();}
+	virtual void doSetMediaType(unsigned short newv) {setMediaType(newv);}	// for RTP
+	virtual size_t doSendData(const unsigned char * data, size_t size) {return sendData(data, size);}
+	virtual size_t doSendData(const unsigned char * data, size_t size, unsigned int timestamp) {return sendData(data, size, timestamp);}
+
+public:
+	//
+	// WSAStartup
+	static int WSAInit(void);
+	//
+	// WSACleanup
+	static void WSAExit(void);
+
+	//
+	// CwsClientHandler
+	void setHandler(CgcClientHandler * newValue=NULL) {m_pHandler = newValue;}
+	const CgcClientHandler * getHandler(void) const {return m_pHandler;}
+
+	//
+	// Inspects whether already started the cws client.
+	bool isStarted(void) const {return isClientState(Start_Client);}
+
+	//
+	// Set client path to load the client infomation. Default "" for current path.
+	// For example cluster list.
+	// return true that have client info.
+	bool setClientPath(const tstring & sClientPath = _T(""));
+
+	const tstring & getClientPath(void) const {return m_currentPath;}
+
+	//
+	// callid timeout resends, set '0' do not resend
+	void setCIDTResends(unsigned int timeoutResends=2, unsigned int timeoutSeconds=4);
+
+	//
+	// Start the cws client.
+	// sCgcServerAddr: ip:port Format
+	// nActiveWaitSeconds: how many second regular active the session.
+	//  >0, cycle seconds, <=0, do not regular
+	//int StartClient(const tstring & sCwssHostName, u_short nCwssPort=8089, int nRecvThreads=2, int nActiveWaitSeconds=60);
+	int StartClient(const tstring & sCgcServerAddr, unsigned int bindPort);
+
+	// nRecvThreads: 0 <= nRecvThreads <= 20
+	void StartRecvThreads(unsigned short nRecvThreads = 2);
+	void StopRecvThreads(void);
+
+	void StartActiveThread(unsigned short nActiveWaitSeconds = 30,unsigned short nSendP2PTrySeconds=20);
+	void StopActiveThread(void);
+	// 
+	// by clusterlist info
+	//int StartClient(int nRecvThreads=0, int nActiveWaitSeconds=60);
+	int NextCluster(void);
+	//
+	// Stop the cws client.
+	void StopClient(bool exitClient = true);
+
+	const tstring & GetClientType(void) const {return m_clientType;}
+
+	ClientState GetCientState(void) const {return m_clientState;}
+	bool isClientState(ClientState cs) const {return m_clientState == cs;}
+
+	//
+	// cluster
+	int sendQueryClusterSvr(const tstring & sAccount=_T(""), const tstring & sPasswd=_T(""), unsigned long * pCallId = 0);
+	// verify current clusterSvr
+	int sendVerifyClusterSvr(unsigned long * pCallId = 0);
+	//
+	// cluster infomation
+//	size_t getClusterSvrCount(void) const {return this->m_custerSvrList.size();}
+//	const ClusterSvrList & getClusters(void) const {return m_custerSvrList;}
+
+	//
+	// Send open session request.
+	bool sendOpenSession(unsigned long * pCallId = 0);
+	//
+	// from sendOpenSession(...)
+//	const tstring & getAppName(void) const {return m_sAppName;}
+//	const tstring & getAccount(void) const {return m_sAccount;}
+//	const tstring & getPasswd(void) const {return m_sPasswd;}
+	//
+	// Send close session request.
+	void sendCloseSession(unsigned long * pCallId = 0);
+	//
+	// Send active session request.
+	void sendActiveSession(unsigned long * pCallId = 0);
+	void sendP2PTry(unsigned short nTryCount);
+
+	//
+	// Send app call request.
+	//   return 0: send succeeded.
+	// nCIDTimeoutSeconds:
+	//   ==0: do not check timeout
+	//   if want recv OnCIDTimeout event, then recommand set to 10-20.
+	//int sendAppCall(unsigned long nCallSign, const tstring & sCallName, const tstring & sAppName=L"", const Attachment * pAttach = NULL, unsigned long * pCallId = 0);
+	void beginCallLock(void);	// lock
+	bool sendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pCallId = 0);
+	bool sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment);
+
+	//
+	// cid ptr(data)
+	// 
+	// The SetCidData method set the cid specifies data, and return the original cid data.
+	void * SetCidData(unsigned long cid, void * pData);
+	void * GetCidData(unsigned long cid);
+	void * RemoveCidData(unsigned long cid);
+	void RemoveAllCidData(void);
+	void RemoveAllCidData(ULongPtrMap &mapCidPtr);
+
+	tstring getLocaleAddr(u_short & portOut) const;
+	tstring getRemoteAddr(void) const;
+
+protected:
+	//
+	// static thread
+	static void do_proc_CgcClient(CgcBaseClient * udpclient);
+	static void do_proc_activesession(CgcBaseClient::pointer udpclient);
+	static void do_proc_cid_timeout(CgcBaseClient * udpclient);
+
+	//
+	// 
+	bool isTimeToActiveSes(void) const;
+	bool isTimeToSendP2PTry(void) const;
+
+	// seq
+	bool checkSeqTimeout(void);
+
+	//
+	// Serialize
+	virtual void ClearClientInfo(void);
+	virtual void SaveClientInfo(void);
+	virtual void Serialize(bool isStoring, tfstream& ar);
+
+private:
+	//
+	// socket
+	size_t RecvData(unsigned char * buffer, size_t size);
+	//size_t SendData(const unsigned char * data, size_t size);
+
+	void addSeqInfo(const unsigned char * callData, unsigned int dataSize, unsigned short seq,  unsigned long cid, unsigned long sign=0,unsigned int nUserData=0);
+	bool addSeqInfo(unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign=0,unsigned int nUserData=0);
+
+protected:
+	time_t m_tSendRecv;
+	//unsigned long m_destIp;
+	//unsigned short m_destPort;
+	CCgcAddress m_ipLocal;
+	CCgcAddress m_ipRemote;
+
+private:
+	CgcClientHandler * m_pHandler;
+//	unsigned int m_clientState;
+	ClientState m_clientState;
+	tstring m_clientType;
+	bool m_bDisableSotpparser;
+
+	boost::mutex m_sendMutex;
+	boost::mutex m_recvMutex;
+	boost::mutex::scoped_lock * m_pSendLock;
+	BoostThreadList m_listBoostThread;
+	boost::thread * m_threadActiveSes;
+	boost::thread * m_threadCIDTimeout;
+	unsigned short m_nActiveWaitSeconds;					// 
+	unsigned short m_nSendP2PTrySeconds;
+
+//	tstring m_sAppName;						// for open session
+//	tstring m_sAccount;						// for open session
+//	tstring m_sPasswd;						// for open session
+//	ClusterSvrList m_custerSvrList;
+
+	class CReceiveInfo
+	{
+	public:
+		typedef boost::shared_ptr<CReceiveInfo> pointer;
+		static CReceiveInfo::pointer create(void)
+		{
+			return CReceiveInfo::pointer(new CReceiveInfo());
+		}
+		unsigned int m_nDataIndex;
+		time_t m_tLastCid;
+		boost::mutex m_recvSeq;
+		int m_pReceiveCidMasks[MAX_CID_MASKS_SIZE];
+		CReceiveInfo(void)
+			: m_nDataIndex(0), m_tLastCid(0)
+		{
+			memset(&m_pReceiveCidMasks,-1,sizeof(m_pReceiveCidMasks));
+		}
+	};
+	CLockMap<unsigned long, CReceiveInfo::pointer> m_pReceiveInfoList;	// support P2P
+	//CReceiveInfo::pointer m_pDefaultReceiveInfo;
+	//time_t m_tLastCid;
+	//boost::mutex m_recvSeq;
+	//int m_pReceiveCidMasks[MAX_CID_MASKS_SIZE];
+	// cid map
+	CLockMap<unsigned short, cgcSeqInfo::pointer> m_mapSeqInfo;
+	unsigned int m_timeoutSeconds;			// default '0', do not resend
+	unsigned int m_timeoutResends;			// default '0', do not resend
+
+	//
+	// cid ptr(data)
+	boost::mutex m_mutexCidPtrMap;
+	ULongPtrMap m_mapCidPtr;
+
+	tstring m_currentPath;
+
+};
+
+} // namespace cgc
+#endif // __CgcBaseClient_h__

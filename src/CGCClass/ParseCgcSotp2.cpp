@@ -1,0 +1,519 @@
+/*
+    MYCP is a HTTP and C++ Web Application Server.
+    Copyright (C) 2009-2010  Akee Yang <akee.yang@gmail.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#ifdef WIN32
+#pragma warning(disable:4267 4819 4996)
+#endif // WIN32
+
+#include "CGCClass.h"
+#include "ParseCgcSotp2.h"
+
+#ifdef WIN32
+#include "windows.h"
+std::string str_convert(const char * strSource, int sourceCodepage, int targetCodepage)
+{
+	int unicodeLen = MultiByteToWideChar(sourceCodepage, 0, strSource, -1, NULL, 0);
+	if (unicodeLen <= 0) return "";
+
+	wchar_t * pUnicode = new wchar_t[unicodeLen];
+	memset(pUnicode,0,(unicodeLen)*sizeof(wchar_t));
+
+	MultiByteToWideChar(sourceCodepage, 0, strSource, -1, (wchar_t*)pUnicode, unicodeLen);
+
+	char * pTargetData = 0;
+	int targetLen = WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char*)pTargetData, 0, NULL, NULL);
+	if (targetLen <= 0)
+	{
+		delete[] pUnicode;
+		return "";
+	}
+
+	pTargetData = new char[targetLen];
+	memset(pTargetData, 0, targetLen);
+
+	WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char *)pTargetData, targetLen, NULL, NULL);
+
+	std::string result = pTargetData;
+	//	tstring result(pTargetData, targetLen);
+	delete[] pUnicode;
+	delete[] pTargetData;
+	return   result;
+}
+#endif
+
+ParseCgcSotp2::ParseCgcSotp2(void)
+: m_nCgcProto(0), m_nProtoType(0),m_bHasSeq(false),m_seq(0), m_bNeedAck(false)
+, m_sSid(_T("")), m_sApp(_T("")), m_sApi(_T(""))
+, m_nCallId(0), m_nSign(0), m_bResulted(false), m_nResultValue(0)
+, m_sAccount(_T("")), m_sPasswd(_T(""))
+, m_et(ModuleItem::ET_NONE)
+{
+	m_attach = cgcAttachment::create();
+}
+ParseCgcSotp2::~ParseCgcSotp2(void)
+{
+	FreeHandle();
+}
+
+/*
+cgcParameter::pointer ParseCgcSotp2::getParameter(const tstring & paramName) const
+{
+	cgcParameter::pointer result;
+	m_parameterMap.find(paramName, result);
+	return result;
+}
+
+bool ParseCgcSotp2::getParameter(const tstring & paramName, std::vector<cgcParameter::pointer>& outParams) const
+{
+	return m_parameterMap.find(paramName, outParams);
+}
+
+tstring ParseCgcSotp2::getParameterString(const tstring & paramName, const tstring & defaultValue) const
+{
+	cgcParameter::pointer result;
+	if (!m_parameterMap.find(paramName, result))
+		return defaultValue;
+	return result->toString();
+}*/
+/*
+int ParseCgcSotp2::getClusters(ClusterSvrList & listResult)
+{
+	// get clusters list, return get out count
+	int result = m_custerSvrList.size();
+	ClusterSvrList::iterator pIter;
+	for (pIter=m_custerSvrList.begin(); pIter!=m_custerSvrList.end(); pIter++)
+	{
+		ClusterSvr * pClusterSvr = *pIter;
+		listResult.push_back(new ClusterSvr(*pClusterSvr));
+	}
+	return result;
+}
+*/
+void ParseCgcSotp2::FreeHandle(void)
+{
+	m_nCgcProto = 0;
+	m_nProtoType = 0;
+	m_seq = 0;
+	m_bNeedAck = false;
+	//m_sProtoValue.clear();
+	m_sApp = _T("");
+	m_sApi = _T("");
+	m_sSid = _T("");
+	m_nCallId = 0;
+
+	m_bResulted = false;
+	//	m_sResultValue.clear();
+	m_nResultValue = 0;
+
+	m_parameterMap.clear();
+
+	m_attach->clear();
+
+	//for_each(m_custerSvrList.begin(), m_custerSvrList.end(), DeletePtr());
+	//m_custerSvrList.clear();
+}
+void ParseCgcSotp2::addParameter(cgcParameter::pointer parameter)
+{
+	if (parameter.get() == 0) return;
+	m_parameterMap.insert(parameter->getName(), parameter);
+}
+
+bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncoding)
+{
+	if (pBuffer == 0) return false;
+
+	m_sEncoding = sEncoding;
+	// Get Proto Type.
+	const char * pCgcProto = strstr((const char*)pBuffer, "SOTP/2.0");
+	if (pCgcProto == NULL) return false;
+
+	int leftIndex = 0;
+	if (sotpCompare((const char *)pBuffer, "ACK", leftIndex))
+	{
+		m_nCgcProto = 3;
+	}else if (sotpCompare((const char *)pBuffer, "CALL", leftIndex))
+	{
+		m_nCgcProto = 2;
+		m_nProtoType = 10;
+	}else if (sotpCompare((const char *)pBuffer, "OPEN", leftIndex))
+	{
+		m_nCgcProto = 1;
+		m_nProtoType = 1;
+	}else if (sotpCompare((const char *)pBuffer, "CLOSE", leftIndex))
+	{
+		m_nCgcProto = 1;
+		m_nProtoType = 2;
+	}else if (sotpCompare((const char *)pBuffer, "ACTIVE", leftIndex))
+	{
+		m_nCgcProto = 1;
+		m_nProtoType = 3;
+	}else if (sotpCompare((const char *)pBuffer, "P2P", leftIndex))
+	{
+		m_nCgcProto = 4;
+	}
+	/*else if (sotpCompare(v, "QUERY", leftIndex))
+	 {
+	 m_nCgcProto = 3;
+	 m_nProtoType = 20;
+	 }else if (sotpCompare(pBuffer, "VERIFY", leftIndex))
+	 {
+	 m_nCgcProto = 3;
+	 m_nProtoType = 30;
+	 }*/else
+	 return false;
+
+	// Get SOTP/2.0 [CODE]
+	const char * pNextLineFind = strstr(pCgcProto, "\n");
+	if (pNextLineFind == NULL)
+		return false;
+	if (pNextLineFind-pCgcProto-9 > 0)
+	{
+		m_bResulted = true;
+		std::string sTemp(pCgcProto+9, pNextLineFind-pCgcProto-9);
+		try
+		{
+			m_nResultValue = cgc_atoi64(sTemp.c_str());
+		}catch(...)
+		{
+			m_nResultValue = 0;
+		}
+
+	}
+
+	// ? 要调整并且需要测试！
+	pNextLineFind = strstr(pNextLineFind, "\n");
+	while (pNextLineFind != NULL && pNextLineFind[0] == '\n')
+	{
+		pNextLineFind = parseOneLine(pNextLineFind+1);
+	}
+	return m_nCgcProto > 0;
+	/*
+	const char * pOneLine = pCgcProto;
+	while (true)
+	{
+	try
+	{
+	pOneLine = strstr(pOneLine, "\n");
+	}catch(const std::exception& e)
+	{
+	return m_nCgcProto > 0;
+	}catch(...)
+	{
+	return m_nCgcProto > 0;
+	}
+	if (pOneLine == NULL)
+	return m_nCgcProto > 0;
+
+	//parseOneLine(pOneLine-pBuffer);
+	pOneLine = parseOneLine(pOneLine+1);
+	}
+	*/
+}
+
+	// 把SOTP协议，改到2.0版本
+const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
+{
+	if (pLineBuffer == NULL) return NULL;
+
+	const char * pNextLineFind = strstr(pLineBuffer, "\n");
+	if (pNextLineFind == NULL) return NULL;
+	const short const_r_offset = ((pNextLineFind-1)[0])=='\r'?1:0;
+
+	int leftIndex = 0;
+	if (sotpCompare(pLineBuffer, "Cid: ", leftIndex))
+	{
+		leftIndex += 5;
+		std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+		try
+		{
+			m_nCallId = cgc_atoi64(sDest.c_str());
+		}catch(...)
+		{
+			m_nCallId = 0;
+		}
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Seq: ", leftIndex))
+	{
+		leftIndex += 5;
+		std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+		try
+		{
+			m_bHasSeq = true;
+			m_seq = atoi(sDest.c_str());
+		}catch(...)
+		{
+			m_seq = 0;
+		}
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "NAck: ", leftIndex))
+	{
+		leftIndex += 6;
+		std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+		try
+		{
+			m_bNeedAck = bool(atoi(sDest.c_str()) == 1);
+		}catch(...)
+		{
+			m_bNeedAck = false;
+		}
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Sign: ", leftIndex))
+	{
+		leftIndex += 6;
+		std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+		try
+		{
+			m_nSign = cgc_atoi64(sDest.c_str());
+		}catch(...)
+		{
+			m_nSign = 0;
+		}
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Api: ", leftIndex))
+	{
+		leftIndex += 5;
+//#ifdef _UNICODE
+//		std::string sTemp(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex);
+//		m_sApi = cgcString::Char2W(sTemp);
+//#else
+		m_sApi = std::string(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+//#endif // _UNICODE
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Pv: ", leftIndex))
+	{
+		leftIndex += 4;
+		std::string sCurLineBuffer(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+
+
+		// Get Parameter Name.
+		std::string::size_type nFindPT = sCurLineBuffer.find(";pt=");
+		if (nFindPT == std::string::npos)
+		{
+			return pNextLineFind;
+		}
+		std::string parameterName = sCurLineBuffer.substr(0, nFindPT);
+
+		// Get Parameter Type.
+		std::string::size_type nFindPL = sCurLineBuffer.find(";pl=", nFindPT+4);
+		if (nFindPL == std::string::npos)
+		{
+			return pNextLineFind;
+		}
+		std::string parameterType = sCurLineBuffer.substr(nFindPT+4, nFindPL-nFindPT-4);
+
+		// Get Parameter Value Length.
+		tstring sTemp = sCurLineBuffer.substr(nFindPL+4);
+		long length = 0;
+		try
+		{
+			length = cgc_atoi64(sTemp.c_str());
+		}catch(...)
+		{
+			length = 0;
+		}
+		// Get Parameter Value.
+		std::string sParamValue = "";
+		const char * pPvEnd = pNextLineFind;
+		try
+		{
+			pPvEnd = pNextLineFind + length + 1;
+			sParamValue = std::string(pNextLineFind+1, length);
+		}catch(...)
+		{
+			sParamValue = "";
+		}
+
+		// new Parameter Class.
+		cgcParameter::pointer parameter = CGC_PARAMETER(parameterName, sParamValue);
+		parameter->totype(cgcParameter::cgcGetValueType(parameterType));
+#ifdef WIN32
+		if (parameter->getType() == cgcValueInfo::TYPE_STRING && m_sEncoding=="UTF8")
+		{
+			parameter->setStr(str_convert(parameter->getStr().c_str(),CP_UTF8,CP_ACP));
+		}
+#endif
+		addParameter(parameter);
+		return pPvEnd;
+	}else if (sotpCompare(pLineBuffer, "At: ", leftIndex))
+	{
+		leftIndex += 4;
+		std::string sCurLineBuffer(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+
+		// Get Attach Name.
+		std::string::size_type nFindAT = sCurLineBuffer.find(";at=");
+		if (nFindAT == std::string::npos)
+		{
+			return pNextLineFind;
+		}
+		std::string sTemp = sCurLineBuffer.substr(0, nFindAT);
+		m_attach->setName(sTemp);
+
+		// Get Attach Total.
+		std::string::size_type nFindAI = sCurLineBuffer.find(";ai=", nFindAT+4);
+		if (nFindAI == std::string::npos)
+		{
+			m_attach->clear();
+			return pNextLineFind;
+		}
+		sTemp = sCurLineBuffer.substr(nFindAT+4, nFindAI-nFindAT-4);
+		cgc::bigint total = 0;
+		try
+		{
+			total = cgc_atoi64(sTemp.c_str());
+		}catch(...)
+		{
+			total = 0;
+		}
+		m_attach->setTotal(total);
+
+		// Get Attach Index.
+		std::string::size_type nFindAL = sCurLineBuffer.find(";al=", nFindAI+4);
+		if (nFindAL == std::string::npos)
+		{
+			m_attach->clear();
+			return pNextLineFind;
+		}
+		sTemp = sCurLineBuffer.substr(nFindAI+4, nFindAL-nFindAI-4);
+		cgc::bigint index = 0;
+		try
+		{
+			index = cgc_atoi64(sTemp.c_str());
+		}catch(...)
+		{
+			index = 0;
+		}
+		m_attach->setIndex(index);
+
+		// Get Attach Length.
+		sTemp = sCurLineBuffer.substr(nFindAL+4);
+		unsigned int attachSize = 0;
+		try
+		{
+			attachSize = cgc_atoi64(sTemp.c_str());
+		}catch(...)
+		{
+			attachSize = 0;
+		}
+		const char * pAttachEnd = pNextLineFind;
+		if (attachSize > 0)
+		{
+			// Get Attach Data.
+			//std::string sAttachData = "";
+			try
+			{
+				pAttachEnd = pNextLineFind + attachSize + 1;
+				//sAttachData = std::string(pNextLineFind+1, attachSize);
+				m_attach->setAttach((const unsigned char *)pNextLineFind+1, attachSize);
+			}catch(const std::exception&)
+			{
+				//sAttachData = "";
+			}catch(...)
+			{
+				//sAttachData = "";
+			}
+			//m_attach->setAttach((const unsigned char *)sAttachData.c_str(), attachSize);
+		}
+
+		return pAttachEnd;
+	}else if (sotpCompare(pLineBuffer, "App: ", leftIndex))
+	{
+		leftIndex += 5;
+//#ifdef _UNICODE
+//		std::string sTemp(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex);
+//		m_sApp = cgcString::Char2W(sTemp);
+//#else
+		m_sApp = std::string(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+//#endif // _UNICODE
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Sid: ", leftIndex))
+	{
+		leftIndex += 5;
+//#ifdef _UNICODE
+//		std::string sTemp(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex);
+//		m_sSid = cgcString::Char2W(sTemp);
+//#else
+		m_sSid = std::string(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+//#endif // _UNICODE
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Ua: ", leftIndex))
+	{
+		leftIndex += 4;
+		std::string sCurLineBuffer(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+
+		// Get Account.
+		std::string::size_type nFindPwd = sCurLineBuffer.find(";pwd=");
+		if (nFindPwd == std::string::npos)
+		{
+			return pNextLineFind;
+		}
+		std::string sTemp = sCurLineBuffer.substr(0, nFindPwd);
+//#ifdef _UNICODE
+//		m_sAccount = cgcString::Char2W(sTemp);
+//#else
+		m_sAccount = sTemp;
+//#endif // _UNICODE
+
+		// Get Pwd.
+		std::string::size_type nFindEnc = sCurLineBuffer.find(";enc=", nFindPwd+5);
+		if (nFindEnc == std::string::npos)
+		{
+			return pNextLineFind;
+		}
+//#ifdef _UNICODE
+//		sTemp = sCurLineBuffer.substr(nFindPwd+5, nFindEnc-nFindPwd-5);
+//		m_sPasswd = cgcString::Char2W(sTemp);
+//#else
+		m_sPasswd = sCurLineBuffer.substr(nFindPwd+5, nFindEnc-nFindPwd-5);
+//#endif // _UNICODE
+
+		// Get Enc
+		sTemp = sCurLineBuffer.substr(nFindEnc+5);
+//#ifdef _UNICODE
+//		m_et = ModuleItem::getEncryption(cgcString::Char2W(sTemp));
+//#else
+		m_et = ModuleItem::getEncryption(sTemp);
+//#endif // _UNICODE
+
+		return pNextLineFind;
+	}
+
+	return pNextLineFind;
+	//return parsePv(pLineBuffer);
+}
+bool ParseCgcSotp2::sotpCompare(const char * pBuffer, const char * pCompare, int & leftIndex)
+{
+	int i1 = 0, i2 = 0;
+	leftIndex = 0;
+	// 判断前面空格或者‘TAB’键；
+	//while (' ' == pBuffer[leftIndex] || '\t' == pBuffer[leftIndex] || '\r' == pBuffer[leftIndex])
+	while (' ' == pBuffer[leftIndex] || '\t' == pBuffer[leftIndex])
+	{
+		leftIndex++;
+	}
+
+	i1 = leftIndex;
+	while (pCompare[i2] != '\0')
+	{
+		if (pCompare[i2++] != pBuffer[i1] || '\0' == pBuffer[i1])
+		{
+			return false;
+		}
+		i1++;
+	}
+	return true;
+}
