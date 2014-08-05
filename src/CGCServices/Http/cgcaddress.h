@@ -20,7 +20,7 @@
 #ifndef __cgcaddress_h__
 #define __cgcaddress_h__
 
-#include "../ThirdParty/stl/stldef.h"
+#include <ThirdParty/stl/stldef.h>
 
 class CCgcAddress
 {

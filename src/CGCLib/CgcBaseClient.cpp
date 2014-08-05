@@ -1012,7 +1012,7 @@ bool CgcBaseClient::isTimeToSendP2PTry(void) const
 
 bool CgcBaseClient::checkSeqTimeout(void)
 {
-	AUTO_LOCK(m_mapSeqInfo);
+	BoostReadLock rdlock(m_mapSeqInfo.mutex());
 	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
 	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)
 	{
@@ -1035,8 +1035,9 @@ bool CgcBaseClient::checkSeqTimeout(void)
 			}else
 			{
 				// 
-				m_mapSeqInfo.erase(pIter);
-				lock.unlock();
+				unsigned short nSeq = pIter->first;
+				rdlock.unlock();
+				m_mapSeqInfo.remove(nSeq);
 
 				// OnCidResend
 				if (m_pHandler)

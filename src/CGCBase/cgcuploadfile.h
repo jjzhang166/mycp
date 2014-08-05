@@ -36,8 +36,8 @@ public:
 	const std::string& getFileName(void) const {return m_fileName;}
 	void setContentType(const std::string& v) {m_contentType = v;}
 	const std::string& getContentType(void) const {return m_contentType;}
-	void setFileSize(int v) {m_fileSize = v;}
-	int getFileSize(void) const {return m_fileSize;}
+	void setFileSize(size_t v) {m_fileSize = v;}
+	size_t getFileSize(void) const {return m_fileSize;}
 
 	void setFilePath(const tstring& v) {m_filepath = v;}
 	const tstring& getFilePath(void) const {return m_filepath;}
@@ -51,7 +51,7 @@ private:
 	std::string m_name;
 	std::string m_fileName;
 	std::string m_contentType;
-	int m_fileSize;
+	size_t m_fileSize;
 	tstring m_filepath;
 };
 const cgcUploadFile::pointer cgcNullUploadFile;

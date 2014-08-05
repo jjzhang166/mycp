@@ -209,4 +209,9 @@ void CPPSotp2::setResAttachData(const unsigned char * attachData, unsigned int a
 	m_attach->setAttach(attachData, attachSize);
 }
 
+void CPPSotp2::setResAttach(const cgcAttachment::pointer& pAttach)
+{
+	m_attach = pAttach;
+}
+
 } // cgc namespace

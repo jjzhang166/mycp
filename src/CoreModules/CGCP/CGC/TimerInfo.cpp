@@ -141,6 +141,7 @@ void TimerInfo::doRunTimer(void)
 
 		try
 		{
+			ftime(&m_tLastRunTime);
 			m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
 		}catch (const std::exception & e)
 		{
@@ -155,7 +156,7 @@ void TimerInfo::doRunTimer(void)
 		KillTimer();
 		return;
 	}
-	ftime(&m_tLastRunTime);
+	//ftime(&m_tLastRunTime);
 	
 	if (m_nElapse < 50) return;
 

@@ -22,6 +22,7 @@
 
 #include <stl/stldef.h>
 #include <stl/lockmap.h>
+#include <boost/thread/mutex.hpp>
 #include "tableinfo.h"
 #include "fieldvariant.h"
 

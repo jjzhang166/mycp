@@ -65,9 +65,24 @@ int CSotpResponseImpl::sendSessionResult(long retCode, const tstring & sSessionI
 
 int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool bNeedAck)
 {
-	if (isInvalidate() || m_cgcParser.get() == NULL) return -1;
+	if (isInvalidate() || m_cgcParser.get() == NULL)
+	{
+		if (m_pSendLock!=NULL)
+		{
+			boost::mutex::scoped_lock * pSendLockTemp = m_pSendLock;
+			m_pSendLock = NULL;
+			delete pSendLockTemp;
+		}
+		return -1;
+	}
 	if (m_bNotResponse)
 	{
+		if (m_pSendLock!=NULL)
+		{
+			boost::mutex::scoped_lock * pSendLockTemp = m_pSendLock;
+			m_pSendLock = NULL;
+			delete pSendLockTemp;
+		}
 		//if (m_session.get() != NULL)
 		//{
 		//	CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
@@ -119,15 +134,16 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 			memcpy(pSendData+responseData.size(), pAttachData, nAttachSize);
 			pSendData[nAttachSize+responseData.size()] = '\0';
 
-			m_cgcParser->getResAttachment()->clear();
-			if (pSendLockTemp)
-				delete pSendLockTemp;
+			// ?
+			//m_cgcParser->getResAttachment()->clear();
 
 			int ret = -1;
 			if (bNeedAck && m_pResponseHandler != NULL)
 				ret = m_pResponseHandler->onAddSeqInfo(pSendData, nAttachSize+responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
 
 			size_t sendSize = m_cgcRemote->sendData(pSendData, nAttachSize+responseData.size());
+			if (pSendLockTemp)
+				delete pSendLockTemp;
 			delete[] pAttachData;
 			if (ret != 0)
 				delete[] pSendData;
@@ -135,12 +151,12 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 		}
 	}
 
-	if (pSendLockTemp)
-		delete pSendLockTemp;
-
 	if (bNeedAck && m_pResponseHandler != NULL)
 		m_pResponseHandler->onAddSeqInfo((const unsigned char *)responseData.c_str(), responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
-	return m_cgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.size());
+	size_t sendSize = m_cgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.size());
+	if (pSendLockTemp)
+		delete pSendLockTemp;
+	return sendSize;
 }
 int CSotpResponseImpl::sendP2PTry(void)
 {

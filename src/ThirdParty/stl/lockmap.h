@@ -7,11 +7,21 @@
 #include <map>
 #include "stldef.h"
 #include <algorithm>
-#include <boost/thread/mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/lock_types.hpp>
+//#include <boost/thread/mutex.hpp>
 
 #ifndef AUTO_LOCK
-#define AUTO_LOCK(l) boost::mutex::scoped_lock lock(l.mutex())
+#define AUTO_LOCK(l) boost::unique_lock<boost::shared_mutex> writeLock(l.mutex())
+//#define AUTO_LOCK(l) boost::mutex::scoped_lock lock(l.mutex())
+typedef boost::shared_lock<boost::shared_mutex> BoostReadLock;  
+typedef boost::unique_lock<boost::shared_mutex> BoostWriteLock;  
+#define AUTO_RLOCK(l) BoostReadLock rdLock(l.mutex())
+#define AUTO_WLOCK(l) BoostWriteLock wtLock(l.mutex())
+#define AUTO_CONST_RLOCK(l) BoostReadLock rdLock(const_cast<boost::shared_mutex&>(l.mutex()))
+#define AUTO_CONST_WLOCK(l) BoostWriteLock wtLock(const_cast<boost::shared_mutex&>(l.mutex()))
 #endif // AUTO_LOCK
+
 
 template<typename K, typename T>
 class CLockMap
@@ -19,31 +29,59 @@ class CLockMap
 {
 public:
 	typedef std::pair<K, T>		Pair;
-protected:
-	boost::mutex m_mutex;
-public:
-	boost::mutex & mutex(void) {return m_mutex;}
-	const boost::mutex & mutex(void) const {return m_mutex;}
 
-	void insert(const K& k, const T& t)
+protected:
+	boost::shared_mutex m_mutex; 
+	//boost::mutex m_mutex;
+public:
+	boost::shared_mutex & mutex(void) {return m_mutex;}
+	const boost::shared_mutex & mutex(void) const {return m_mutex;}
+	//boost::mutex & mutex(void) {return m_mutex;}
+	//const boost::mutex & mutex(void) const {return m_mutex;}
+
+	bool insert(const K& k, const T& t,bool bInsertForce=true,T* pOutOld=NULL)
 	{
-		AUTO_LOCK((*this));
+		BoostWriteLock wtlock(m_mutex);
+		typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
+		if (iter != std::map<K, T>::end())
+		{
+			if (pOutOld!=NULL)
+				*pOutOld = iter->second;
+			if (bInsertForce)
+			{
+				std::map<K, T>::erase(iter);
+			}else
+			{
+				return false;
+			}
+		}
 		std::map<K, T>::insert(Pair(k, t));
+		return true;
 	}
 	bool find(const K& k, T & out, bool erase)
 	{
-		AUTO_LOCK((*this));
-		typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
-		if (iter == std::map<K, T>::end())
-			return false;
-		out = iter->second;
 		if (erase)
-			std::map<K, T>::erase(iter);
+		{
+			BoostWriteLock wtlock(m_mutex);
+			typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
+			if (iter == std::map<K, T>::end())
+				return false;
+			out = iter->second;
+			if (erase)
+				std::map<K, T>::erase(iter);
+		}else
+		{
+			BoostReadLock rdlock(m_mutex);
+			typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
+			if (iter == std::map<K, T>::end())
+				return false;
+			out = iter->second;
+		}
 		return true;
 	}
 	bool find(const K& k, T & out) const
 	{
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_mutex));
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		typename std::map<K, T>::const_iterator iter = std::map<K, T>::find(k);
 		if (iter == std::map<K, T>::end())
 			return false;
@@ -52,14 +90,14 @@ public:
 	}
 	bool exist(const K& k) const
 	{
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_mutex));
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		typename std::map<K, T>::const_iterator iter = std::map<K, T>::find(k);
 		return iter != std::map<K, T>::end();
 	}
 
 	bool remove(const K& k)
 	{
-		AUTO_LOCK((*this));
+		BoostWriteLock wtlock(m_mutex);
 		typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
 		if (iter != std::map<K, T>::end())
 		{
@@ -73,7 +111,7 @@ public:
 	{
 		if (is_lock)
 		{
-			AUTO_LOCK((*this));
+			BoostWriteLock wtlock(m_mutex);
 			std::map<K, T>::clear();
 		}else
 		{
@@ -117,7 +155,7 @@ public:
 	{
 		if (is_lock)
 		{
-			AUTO_LOCK((*this));
+			BoostWriteLock wtlock(this->mutex());
 			if (is_delete)
 				for_each(CLockMap<K, T>::begin(), CLockMap<K, T>::end(), DeletePair());
 			std::map<K, T>::clear();
@@ -148,47 +186,71 @@ public:
 	typedef typename std::pair<CIT, CIT> Range;
 
 protected:
-	boost::mutex m_mutex;
+	boost::shared_mutex m_mutex; 
+	//boost::mutex m_mutex;
 
 public:
-	boost::mutex & mutex(void) {return m_mutex;}
-	const boost::mutex & mutex(void) const {return m_mutex;}
+	boost::shared_mutex & mutex(void) {return m_mutex;}
+	const boost::shared_mutex & mutex(void) const {return m_mutex;}
+	//boost::mutex & mutex(void) {return m_mutex;}
+	//const boost::mutex & mutex(void) const {return m_mutex;}
 
 	void insert(const K& k, const T& t, bool clear = false)
 	{
-		AUTO_LOCK((*this));
+		BoostWriteLock wtlock(m_mutex);
 		if (clear)
 			std::multimap<K, T>::erase(k);
 		std::multimap<K, T>::insert(Pair(k, t));
 	}
 	bool find(const K& k, T & out, bool erase)
 	{
-		AUTO_LOCK((*this));
-		IT iter = std::multimap<K, T>::find(k);
-		if (iter == std::multimap<K, T>::end())
-			return false;
-		out = iter->second;
 		if (erase)
+		{
+			BoostWriteLock wtlock(m_mutex);
+			IT iter = std::multimap<K, T>::find(k);
+			if (iter == std::multimap<K, T>::end())
+				return false;
+			out = iter->second;
 			std::multimap<K, T>::erase(iter);
+		}else
+		{
+			BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+			IT iter = std::multimap<K, T>::find(k);
+			if (iter == std::multimap<K, T>::end())
+				return false;
+			out = iter->second;
+		}
 		return true;
 	}
 	bool find(const K& k, std::vector<T> & out, bool erase)
 	{
 		bool result = false;
-		AUTO_LOCK((*this));
-		Range range = std::multimap<K, T>::equal_range(k);
-		for(CIT iter=range.first; iter!=range.second; ++iter)
+		if (erase)
 		{
-			result = true;
-			out.push_back(iter->second);
+			BoostWriteLock wtlock(m_mutex);
+			Range range = std::multimap<K, T>::equal_range(k);
+			for(CIT iter=range.first; iter!=range.second; ++iter)
+			{
+				result = true;
+				out.push_back(iter->second);
+			}
+			if (result)
+				std::multimap<K, T>::erase(k);
+		}else
+		{
+			BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+			Range range = std::multimap<K, T>::equal_range(k);
+			for(CIT iter=range.first; iter!=range.second; ++iter)
+			{
+				result = true;
+				out.push_back(iter->second);
+			}
 		}
-		if (result && erase)
-			std::multimap<K, T>::erase(k);
 		return result;
 	}
 	bool find(const K& k, T & out) const
 	{
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_mutex));
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		CIT iter = std::multimap<K, T>::find(k);
 		if (iter == std::multimap<K, T>::end())
 			return false;
@@ -197,8 +259,8 @@ public:
 	}
 	bool find(const K& k, std::vector<T> & out) const
 	{
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		bool result = false;
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_mutex));
 		Range range = std::multimap<K, T>::equal_range(k);
 		for(CIT iter=range.first; iter!=range.second; ++iter)
 		{
@@ -209,8 +271,8 @@ public:
 	}
 	size_t sizek(const K& k) const
 	{
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		size_t result = 0;
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_mutex));
 		Range range = std::multimap<K, T>::equal_range(k);
 		for(CIT iter=range.first; iter!=range.second; ++iter)
 		{
@@ -220,14 +282,14 @@ public:
 	}
 	bool exist(const K& k) const
 	{
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_mutex));
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		CIT iter = std::multimap<K, T>::find(k);
 		return iter != std::multimap<K, T>::end();
 	}
 
 	void remove(const K& k)
 	{
-		boost::mutex::scoped_lock lock(m_mutex);
+		BoostWriteLock wtlock(m_mutex);
 		std::multimap<K, T>::erase(k);
 	}
 
@@ -235,7 +297,7 @@ public:
 	{
 		if (is_lock)
 		{
-			AUTO_LOCK((*this));
+			BoostWriteLock wtlock(m_mutex);
 			std::multimap<K, T>::clear();
 		}else
 		{

@@ -129,14 +129,15 @@ namespace bo
 		if (m_started)
 		{
 			m_started = false;
-			CLockMap<tstring, CDatabase::pointer>::const_iterator iter;
-			boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_databases.mutex()));
-			for (iter=m_databases.begin(); iter!=m_databases.end(); iter++)
 			{
-				iter->second->close();
+				CLockMap<tstring, CDatabase::pointer>::const_iterator iter;
+				AUTO_WLOCK(m_databases);
+				for (iter=m_databases.begin(); iter!=m_databases.end(); iter++)
+				{
+					iter->second->close();
+				}
+				m_databases.clear(false);
 			}
-			m_databases.clear(false);
-
 			close();
 		}
 	}

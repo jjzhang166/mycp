@@ -684,14 +684,14 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 
 		//printf("**** %s\n",lpszFileName);
-		int nRangeFrom = request->getRangeFrom();
-		int nRangeTo = request->getRangeTo();
+		unsigned int nRangeFrom = request->getRangeFrom();
+		unsigned int nRangeTo = request->getRangeTo();
 		const tstring sRange = request->getHeader(Http_Range);
 		//printf("**** %s\n",sRange.c_str());
 		//printf("**** Range %d-%d\n",nRangeFrom,nRangeTo);
 		if (nRangeTo == 0)
 			nRangeTo = pResInfo->m_nSize-1;
-		int nReadTotal = nRangeTo-nRangeFrom+1;				// 重设数据长度
+		unsigned int nReadTotal = nRangeTo-nRangeFrom+1;				// 重设数据长度
 		//if (nReadTotal >= 1024)
 		//{
 		//	statusCode = STATUS_CODE_206;

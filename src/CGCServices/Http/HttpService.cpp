@@ -99,6 +99,7 @@ protected:
 			// http://ip:port/aaa.html?xxx=aaa
 			// http://www.entboost.com/abc.csp?xxx=bbb
 			tstring sFullUrl = inParam->getStr();
+			//printf("**** url=%s\n",sFullUrl.c_str());
 			tstring::size_type find = sFullUrl.find("://");
 			if (find != tstring::npos)	// remove before http://
 			{
@@ -110,6 +111,17 @@ protected:
 			{
 				pOutUrl = sFullUrl.substr(find);		// "/abc.csp?xxx=bbb"
 				sFullUrl = sFullUrl.substr(0,find);	// "www.entboost.com" OR "ip:port"
+			}else
+			{
+				find = sFullUrl.find("?");
+				if (find != tstring::npos)
+				{
+					pOutUrl = "/";
+					sFullUrl = sFullUrl.substr(0,find);	// "www.entboost.com" OR "ip:port"
+				}else
+				{
+					return false;
+				}
 			}
 			// find port
 			find = sFullUrl.find(":");
@@ -119,8 +131,12 @@ protected:
 				pOutPort = sFullUrl.substr(find+1);
 			}else
 			{
+				pOutHost = sFullUrl;
 				pOutPort = "80";
 			}
+			//printf("**** out-url=%s\n",pOutUrl.c_str());
+			//printf("**** out-host=%s\n",pOutHost.c_str());
+			//printf("**** out-port=%s\n",pOutPort.c_str());
 			return true;
 		}else if (inParam->getType() == cgcValueInfo::TYPE_VECTOR && !inParam->empty())
 		{
@@ -279,18 +295,16 @@ protected:
 					outParam->totype(cgcValueInfo::TYPE_VECTOR);
 					outParam->reset();
 					tstring::size_type find = sResponse.find(const_http_version);
-					bool bFindHttpState = false;
 					if (find != tstring::npos)
 					{
 						tstring::size_type find2 = sResponse.find("\r\n", find+const_http_version.size());
 						if (find2 != tstring::npos)
 						{
-							bFindHttpState = true;
 							tstring sHttpState = sResponse.substr(find+const_http_version.size()+1, find2 - find - const_http_version.size()-1);
 							outParam->operator +=(CGC_VALUEINFO(sHttpState));
 						}
 					}
-					if (!bFindHttpState)
+					if (outParam->empty())
 					{
 						outParam->operator +=(CGC_VALUEINFO((tstring)"200"));
 						//return false;

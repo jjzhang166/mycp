@@ -104,13 +104,13 @@ public:
 	virtual LongObjectMapPointer	getLongAttributes(const tstring & attributeName, bool newIfNotExist);
 	virtual VoidObjectMapPointer	getVoidAttributes(const tstring & attributeName, bool newIfNotExist);
 
-	virtual cgcObject::pointer setAttribute(int attributeName, const tstring & key, const cgcObject::pointer& pObject);
-	virtual cgcObject::pointer setAttribute(int attributeName, int key, const cgcObject::pointer& pObject);
-	virtual cgcObject::pointer setAttribute(int attributeName, bigint key, const cgcObject::pointer& pObject);
-	virtual cgcObject::pointer setAttribute(int attributeName, void* key, const cgcObject::pointer& pObject);
-	virtual cgcObject::pointer setAttribute(const tstring & attributeName, const tstring & key, const cgcObject::pointer& pObject);
-	virtual cgcObject::pointer setAttribute(const tstring & attributeName, int key, const cgcObject::pointer& pObject);
-	virtual cgcObject::pointer setAttribute(const tstring & attributeName, void* key, const cgcObject::pointer& pObject);
+	virtual cgcObject::pointer setAttribute(int attributeName, const tstring & key, const cgcObject::pointer& pObject,bool force = true);
+	virtual cgcObject::pointer setAttribute(int attributeName, int key, const cgcObject::pointer& pObject,bool force = true);
+	virtual cgcObject::pointer setAttribute(int attributeName, bigint key, const cgcObject::pointer& pObject,bool force = true);
+	virtual cgcObject::pointer setAttribute(int attributeName, void* key, const cgcObject::pointer& pObject,bool force = true);
+	virtual cgcObject::pointer setAttribute(const tstring & attributeName, const tstring & key, const cgcObject::pointer& pObject,bool force = true);
+	virtual cgcObject::pointer setAttribute(const tstring & attributeName, int key, const cgcObject::pointer& pObject,bool force = true);
+	virtual cgcObject::pointer setAttribute(const tstring & attributeName, void* key, const cgcObject::pointer& pObject,bool force = true);
 	
 	//virtual int setValue(int key, const tstring& value);
 	//virtual int setValue(int key, void* value);

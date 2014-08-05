@@ -67,7 +67,7 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libHttpService_la_LIBADD =
-am__objects_1 = HttpService.lo
+am__objects_1 = HttpService.lo CgcTcpClient.lo
 am_libHttpService_la_OBJECTS = $(am__objects_1)
 libHttpService_la_OBJECTS = $(am_libHttpService_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -205,7 +205,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libHttpService.la
-THESOURCES = HttpService.cpp
+THESOURCES = HttpService.cpp CgcTcpClient.cpp
 libHttpService_la_SOURCES = $(THESOURCES)
 AM_CFLAGS = -fPIC -shared -Wall
 AM_CXXFLAGS = -fPIC -shared -Wall
@@ -283,6 +283,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CgcTcpClient.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HttpService.Plo@am__quote@
 
 .cpp.o:

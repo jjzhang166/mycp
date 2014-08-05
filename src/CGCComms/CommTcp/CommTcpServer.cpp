@@ -331,14 +331,19 @@ private:
 };
 
 const int ATTRIBUTE_NAME	= 1;
-const int EVENT_ATTRIBUTE	= 2;
-static unsigned int theCurrentIdEvent	= 0;
-class CIDEvent : public cgcObject
-{
-public:
-	unsigned int m_nCurIDEvent;
-	int m_nCapacity;
-};
+//const int EVENT_ATTRIBUTE	= 2;
+
+#define MAIN_MGR_EVENT_ID	1
+#define MIN_EVENT_THREAD	6
+#define MAX_EVENT_THREAD	600
+
+//static unsigned int theCurrentIdEvent	= 0;
+//class CIDEvent : public cgcObject
+//{
+//public:
+//	unsigned int m_nCurIDEvent;
+//	int m_nCapacity;
+//};
 cgcAttributes::pointer theAppAttributes;
 
 /////////////////////////////////////////
@@ -353,14 +358,15 @@ class CTcpServer
 {
 public:
 	typedef boost::shared_ptr<CTcpServer> pointer;
-	static CTcpServer::pointer create(void)
+	static CTcpServer::pointer create(int nIndex)
 	{
-		return CTcpServer::pointer(new CTcpServer());
+		return CTcpServer::pointer(new CTcpServer(nIndex));
 	}
 
 private:
+	int m_nIndex;
 	int m_commPort;
-	int m_capacity;
+	//int m_capacity;
 	int m_protocol;
 
 #ifdef USES_OPENSSL
@@ -375,6 +381,10 @@ private:
 
 	// 
 	CLockListPtr<CCommEventData*> m_listMgr;
+	int m_nCurrentThread;
+	int m_nNullEventDataCount;
+	int m_nFindEventDataCount;
+
 #ifdef WIN32
 	HANDLE m_hDoCloseEvent;
 	HANDLE m_hDoStopServer;
@@ -385,8 +395,9 @@ private:
 	//boost::mutex m_mutexRemoteId;
 	//unsigned long m_nCurrentRemoteId;
 public:
-	CTcpServer(void)
-		: m_commPort(0), m_capacity(1), m_protocol(0)
+	CTcpServer(int nIndex)
+		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0)
+		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 #ifdef USES_OPENSSL
 		, m_sslctx(NULL)
 #endif
@@ -448,8 +459,8 @@ public:
 			const std::vector<cgcValueInfo::pointer>& lists = parameter->getVector();
 			if (lists.size() > 2)
 				m_protocol = lists[2]->getInt();
-			if (lists.size() > 1)
-				m_capacity = lists[1]->getInt();
+			//if (lists.size() > 1)
+			//	m_capacity = lists[1]->getInt();
 			if (lists.size() > 0)
 				m_commPort = lists[0]->getInt();
 			else
@@ -514,16 +525,22 @@ public:
 #endif
 		m_acceptor->start(m_ioservice->ioservice(), m_commPort, shared_from_this());
 
-		m_capacity = m_capacity < 1 ? 1 : m_capacity;
-		CIDEvent * pIDEvent = new CIDEvent();
-		pIDEvent->m_nCurIDEvent = theCurrentIdEvent+1;
-		pIDEvent->m_nCapacity = m_capacity;
-		theAppAttributes->setAttribute(EVENT_ATTRIBUTE, this, cgcObject::pointer(pIDEvent));
-
-		for (int i=0; i<m_capacity; i++)
+		m_nCurrentThread = MIN_EVENT_THREAD;
+		for (int i=1; i<=m_nCurrentThread; i++)
 		{
-			theApplication->SetTimer(++theCurrentIdEvent, m_capacity, shared_from_this());
+			theApplication->SetTimer((this->m_nIndex*MAX_EVENT_THREAD)+i, 10, shared_from_this());	// 10ms
 		}
+
+		//m_capacity = m_capacity < 1 ? 1 : m_capacity;
+		//CIDEvent * pIDEvent = new CIDEvent();
+		//pIDEvent->m_nCurIDEvent = theCurrentIdEvent+1;
+		//pIDEvent->m_nCapacity = m_capacity;
+		//theAppAttributes->setAttribute(EVENT_ATTRIBUTE, this, cgcObject::pointer(pIDEvent));
+
+		//for (int i=0; i<m_capacity; i++)
+		//{
+		//	theApplication->SetTimer(++theCurrentIdEvent, m_capacity, shared_from_this());
+		//}
 
 		m_bServiceInited = true;
 		theApplication->log(LOG_INFO, _T("**** [*:%d] Start succeeded ****\n"), m_commPort);
@@ -534,13 +551,15 @@ public:
 	{
 		if (!m_bServiceInited) return;
 
-		cgcObject::pointer eventPointer = theAppAttributes->removeAttribute(EVENT_ATTRIBUTE, this);
-		CIDEvent * pIDEvent = (CIDEvent*)eventPointer.get();
-		if (pIDEvent != NULL)
-		{
-			for (unsigned int i=pIDEvent->m_nCurIDEvent; i<pIDEvent->m_nCurIDEvent+pIDEvent->m_nCapacity; i++)
-				theApplication->KillTimer(i);
-		}
+		for (unsigned int i=this->m_nIndex*MAX_EVENT_THREAD+1; i<=this->m_nIndex*MAX_EVENT_THREAD+m_nCurrentThread; i++)
+			theApplication->KillTimer(i);
+		//cgcObject::pointer eventPointer = theAppAttributes->removeAttribute(EVENT_ATTRIBUTE, this);
+		//CIDEvent * pIDEvent = (CIDEvent*)eventPointer.get();
+		//if (pIDEvent != NULL)
+		//{
+		//	for (unsigned int i=pIDEvent->m_nCurIDEvent; i<pIDEvent->m_nCurIDEvent+pIDEvent->m_nCapacity; i++)
+		//		theApplication->KillTimer(i);
+		//}
 
 #ifdef WIN32
 		if (m_hDoStopServer)
@@ -572,6 +591,36 @@ protected:
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
+		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)
+		{
+			const size_t nSize = m_listMgr.size();
+			if (nSize>(m_nCurrentThread+20))
+			{
+				m_nNullEventDataCount = 0;
+				m_nFindEventDataCount++;
+				if (m_nCurrentThread<MAX_EVENT_THREAD && (nSize>(MAX_EVENT_THREAD*2) || (nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100))	// 100*10ms=1S
+				{
+					m_nFindEventDataCount = 0;
+					const unsigned int nNewTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+(++m_nCurrentThread);
+					printf("**** TCPServer:NewTimerId=%d size=%d ****\n",nNewTimerId,nSize);
+					theApplication->SetTimer(nNewTimerId, 10, shared_from_this());	// 10ms
+				}
+			}else
+			{
+				m_nFindEventDataCount = 0;
+				m_nNullEventDataCount++;
+				if (m_nCurrentThread>MIN_EVENT_THREAD && ((nSize<(m_nCurrentThread/2)&&m_nNullEventDataCount>100) || m_nNullEventDataCount>300))	// 300*10ms=3S
+				{
+					m_nNullEventDataCount = 0;
+					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;
+					printf("**** TCPServer:KillTimerId=%d ****\n",nKillTimerId);
+					theApplication->KillTimer(nKillTimerId);
+					m_nCurrentThread--;
+				}
+			}
+			return;
+		}
+
 		CCommEventData * pCommEventData = m_listMgr.front();
 		if (pCommEventData == NULL) return;
 
@@ -633,7 +682,8 @@ protected:
 			{
 				if (!m_listMgr.empty())
 				{
-					boost::mutex::scoped_lock lock(m_listMgr.mutex());
+
+					AUTO_WLOCK(m_listMgr);
 					CLockListPtr<CCommEventData*>::iterator pIter = m_listMgr.begin();
 					for (; pIter!=m_listMgr.end(); pIter++)
 					{
@@ -901,9 +951,10 @@ extern "C" void CGC_API CGC_Module_Free(void)
 #endif // WIN32
 }
 
+int theServiceIndex = 0;
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)
 {
-	CTcpServer::pointer commServer = CTcpServer::create();
+	CTcpServer::pointer commServer = CTcpServer::create(theServiceIndex++);
 	outService = commServer;
 	theAppAttributes->setAttribute(ATTRIBUTE_NAME, outService.get(), commServer);
 }

@@ -164,7 +164,7 @@ int sink_pool_del()
 	Sink *sink = 0;
 	int ndelindex = sink_number-1;
 	if (sink_number <= sink_minnumber)
-		return 0;
+		return -1;
 
 	//printf("================ sink_pool_del\n");
 	sink = sinks[ndelindex];
@@ -192,7 +192,7 @@ int sink_pool_del()
 //	sink_set_busy(sink, 0);
 
 	//printf("================ sink_pool_del OK\n");
-	return 0;
+	return 1;
 }
 
 Sink * sink_pool_add()
@@ -262,9 +262,11 @@ Sink*  sink_pool_get()
 				theminnumbercount++;
 				if (theminnumbercount >= 100)	// 连续100个正常数据库连接低于最低连接数，减少一个数据库连接；
 				{
-					theminnumbercount = 0;
 					LOCK (&theAddDelLock);
-					sink_pool_del();
+					if (sink_pool_del()!=0)
+					{
+						theminnumbercount = 0;	// add by hd,20148-2
+					}
 					UNLOCK (&theAddDelLock);
 				}
 			}else

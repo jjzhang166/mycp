@@ -60,7 +60,7 @@ public:
 	{
 		if (!m_stream.is_open()) return false;
 
-		int writeSize = m_uploadFile->getFileSize() + size;
+		const size_t writeSize = m_uploadFile->getFileSize() + size;
 		m_uploadFile->setFileSize(writeSize);
 		m_stream.clear();
 		m_stream.write(data, size);

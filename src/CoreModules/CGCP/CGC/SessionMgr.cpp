@@ -135,7 +135,7 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 		bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
 	}
 
-	boost::mutex::scoped_lock lock(m_pSessionModuleList.mutex());
+	BoostReadLock rdlock(m_pSessionModuleList.mutex());
 	CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
 	for (;pIter!=m_pSessionModuleList.end(); pIter++)
 	{
@@ -186,12 +186,14 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 void CSessionImpl::OnRunCGC_Session_Close(void)
 {
 	// call CGC_Session_Close
-	boost::mutex::scoped_lock lock(m_pSessionModuleList.mutex());
-	CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
-	for (;pIter!=m_pSessionModuleList.end(); pIter++)
 	{
-		CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
-		OnRunCGC_Session_Close(pSessionModuleInfo);
+		BoostReadLock rdlock(m_pSessionModuleList.mutex());
+		CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
+		for (;pIter!=m_pSessionModuleList.end(); pIter++)
+		{
+			CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
+			OnRunCGC_Session_Close(pSessionModuleInfo);
+		}
 	}
 	m_pSessionModuleList.clear(false);
 	m_pHoldResponseList.clear();
@@ -231,7 +233,7 @@ void CSessionImpl::ProcHoldResponseTimeout(void)
 {
 	if (!m_pHoldResponseList.empty())
 	{
-		boost::mutex::scoped_lock lock(m_pHoldResponseList.mutex());
+		BoostWriteLock wtlock(m_pHoldResponseList.mutex());
 		CLockMap<unsigned long,CHoldResponseInfo::pointer>::iterator pIter = m_pHoldResponseList.begin();
 		for (; pIter!=m_pHoldResponseList.end(); pIter++)
 		{
@@ -525,7 +527,7 @@ ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool
 		return pSessionModuleItem->m_pModuleItem;
 	}else if(bGetDefault && !m_pSessionModuleList.empty())
 	{
-		boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_pSessionModuleList.mutex()));
+		AUTO_CONST_RLOCK(m_pSessionModuleList);
 		CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter = m_pSessionModuleList.begin();
 		if (pIter != m_pSessionModuleList.end())
 		{
@@ -537,7 +539,7 @@ ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool
 
 bool CSessionImpl::ProcessDataResend(void)
 {
-	AUTO_LOCK(m_mapSeqInfo);
+	BoostReadLock rdlock(m_mapSeqInfo.mutex());
 	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
 	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)
 	{
@@ -556,8 +558,9 @@ bool CSessionImpl::ProcessDataResend(void)
 			}else
 			{
 				// 
-				m_mapSeqInfo.erase(pIter);
-				lock.unlock();
+				unsigned short nSeq = pIter->first;
+				rdlock.unlock();
+				m_mapSeqInfo.remove(nSeq);
 
 				//// OnCidResend
 				//if (m_pHandler)

@@ -54,7 +54,7 @@ namespace bo
 		}
 		m_fields3.remove(fieldInfo->id());
 
-		boost::mutex::scoped_lock lock(m_fields.mutex());
+		AUTO_WLOCK(m_fields);
 		CLockList<CFieldInfo::pointer>::iterator pIter = m_fields.begin();
 		for (;pIter!=m_fields.end(); pIter++)
 		{

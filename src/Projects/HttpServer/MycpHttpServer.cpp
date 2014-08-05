@@ -1827,7 +1827,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 						cgcUploadFile::pointer uploadFile = uploadFiles->m_files[getIndex];
 						m_pageParameters->setProperty(CSP_TEMP_VAR_FILENAME, CGC_VALUEINFO(uploadFile->getFileName()));
 						m_pageParameters->setProperty(CSP_TEMP_VAR_FILEPATH, CGC_VALUEINFO(uploadFile->getFilePath()));
-						m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO(uploadFile->getFileSize()));
+						m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO((cgc::bigint)uploadFile->getFileSize()));
 						m_pageParameters->setProperty(CSP_TEMP_VAR_FILETYPE, CGC_VALUEINFO(uploadFile->getFileName()));
 					}
 				}
@@ -1995,7 +1995,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 					cgcUploadFile::pointer uploadFile = uploadFiles->m_files[forIndex];
 					m_pageParameters->setProperty(CSP_TEMP_VAR_FILENAME, CGC_VALUEINFO(uploadFile->getFileName()));
 					m_pageParameters->setProperty(CSP_TEMP_VAR_FILEPATH, CGC_VALUEINFO(uploadFile->getFilePath()));
-					m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO(uploadFile->getFileSize()));
+					m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO((cgc::bigint)uploadFile->getFileSize()));
 					m_pageParameters->setProperty(CSP_TEMP_VAR_FILETYPE, CGC_VALUEINFO(uploadFile->getContentType()));
 				}else
 				{

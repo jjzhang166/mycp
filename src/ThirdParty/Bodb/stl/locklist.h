@@ -6,10 +6,19 @@
 #include "list"
 #include "stldef.h"
 #include <algorithm>
-#include <boost/thread/mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/lock_types.hpp>
+//#include <boost/thread/mutex.hpp>
 
 #ifndef AUTO_LOCK
-#define AUTO_LOCK(l) boost::mutex::scoped_lock lock(l.mutex())
+#define AUTO_LOCK(l) boost::unique_lock<boost::shared_mutex> writeLock(l.mutex())
+//#define AUTO_LOCK(l) boost::mutex::scoped_lock lock(l.mutex())
+typedef boost::shared_lock<boost::shared_mutex> BoostReadLock;  
+typedef boost::unique_lock<boost::shared_mutex> BoostWriteLock;  
+#define AUTO_RLOCK(l) BoostReadLock rdLock(l.mutex())
+#define AUTO_WLOCK(l) BoostWriteLock wtLock(l.mutex())
+#define AUTO_CONST_RLOCK(l) BoostReadLock rdLock(const_cast<boost::shared_mutex&>(l.mutex()))
+#define AUTO_CONST_WLOCK(l) BoostWriteLock wtLock(const_cast<boost::shared_mutex&>(l.mutex()))
 #endif // AUTO_LOCK
 
 template<typename T>
@@ -17,36 +26,69 @@ class CLockList
 	: public std::list<T>
 {
 protected:
-	boost::mutex m_mutex;
+	boost::shared_mutex m_mutex; 
+	//boost::mutex m_mutex;
 
 public:
-	boost::mutex & mutex(void) {return m_mutex;}
-	const boost::mutex & mutex(void) const {return m_mutex;}
+	boost::shared_mutex & mutex(void) {return m_mutex;}
+	const boost::shared_mutex & mutex(void) const {return m_mutex;}
+	//boost::mutex & mutex(void) {return m_mutex;}
+	//const boost::mutex & mutex(void) const {return m_mutex;}
 
-	void add(T t)
+	void add(const T& t)
 	{
-		AUTO_LOCK((*this));
+		BoostWriteLock wtlock(m_mutex);
 		std::list<T>::push_back(t);
 	}
 	bool front(T & out, bool is_pop = true)
 	{
-		AUTO_LOCK((*this));
-		typename std::list<T>::iterator pIter = std::list<T>::begin();
-		if (pIter == std::list<T>::end())
-			return false;
-
-		out = *pIter;
 		if (is_pop)
+		{
+			BoostWriteLock wtlock(m_mutex);
+			typename std::list<T>::iterator pIter = std::list<T>::begin();
+			if (pIter == std::list<T>::end())
+				return false;
+			out = *pIter;
 			std::list<T>::pop_front();
+		}else
+		{
+			BoostReadLock rdlock(m_mutex);
+			typename std::list<T>::iterator pIter = std::list<T>::begin();
+			if (pIter == std::list<T>::end())
+				return false;
+			out = *pIter;
+		}
 		return true;
 	}
-
+	bool back(T & out, bool is_pop = true)
+	{
+		if (is_pop)
+		{
+			BoostWriteLock wtlock(m_mutex);
+			if (std::list<T>::empty())
+				return false;
+			typename std::list<T>::iterator pIter = std::list<T>::end();
+			pIter--;
+			out = *pIter;
+			if (is_pop)
+				std::list<T>::pop_back();
+		}else
+		{
+			BoostReadLock rdlock(m_mutex);
+			if (std::list<T>::empty())
+				return false;
+			typename std::list<T>::iterator pIter = std::list<T>::end();
+			pIter--;
+			out = *pIter;
+		}
+		return true;
+	}
 
 	void clear(bool is_lock = true)
 	{
 		if (is_lock)
 		{
-			AUTO_LOCK((*this));
+			BoostWriteLock wtlock(m_mutex);
 			std::list<T>::clear();
 		}else
 		{
@@ -58,7 +100,7 @@ public:
 	CLockList(void)
 	{
 	}
-	~CLockList(void)
+	virtual ~CLockList(void)
 	{
 		clear();
 	}
@@ -80,7 +122,7 @@ public:
 	{
 		if (is_lock)
 		{
-			AUTO_LOCK((*this));
+			BoostWriteLock wtlock(this->mutex());
 			if (is_delete)
 				for_each(std::list<T>::begin(), std::list<T>::end(), DeletePtr());
 			std::list<T>::clear();
@@ -94,7 +136,7 @@ public:
 public:
 	CLockListPtr(void)
 	{}
-	~CLockListPtr(void)
+	virtual ~CLockListPtr(void)
 	{
 		clear();
 	}

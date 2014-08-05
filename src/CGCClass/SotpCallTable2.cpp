@@ -362,7 +362,7 @@ std::string SotpCallTable2::GetParametersString(void) const
 	std::string result = _T("");
 
 	// ???
-	boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_parameters.mutex()));
+	AUTO_CONST_RLOCK(m_parameters);
 	//long index=0;
 	cgcParameterMap::const_iterator pConstIter;
 	for (pConstIter=m_parameters.begin(); pConstIter!=m_parameters.end(); pConstIter++)

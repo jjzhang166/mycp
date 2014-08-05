@@ -130,7 +130,7 @@ bool AttributesImpl::getProperty(void* key, std::vector<cgcValueInfo::pointer>& 
 
 bool AttributesImpl::getSPropertys(std::vector<cgcKeyValue::pointer>& outValues) const
 {
-	boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_strPropertys.mutex()));
+	AUTO_CONST_RLOCK(m_strPropertys);
 	CLockMultiMap<tstring, cgcValueInfo::pointer>::const_iterator iter;
 	for (iter=m_strPropertys.begin(); iter!=m_strPropertys.end(); iter++)
 	{
@@ -142,7 +142,7 @@ bool AttributesImpl::getSPropertys(std::vector<cgcKeyValue::pointer>& outValues)
 
 bool AttributesImpl::getIPropertys(std::vector<cgcKeyValue::pointer>& outValues) const
 {
-	boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_intPropertys.mutex()));
+	AUTO_CONST_RLOCK(m_intPropertys);
 	CLockMultiMap<int, cgcValueInfo::pointer>::const_iterator iter;
 	for (iter=m_intPropertys.begin(); iter!=m_intPropertys.end(); iter++)
 	{
@@ -154,7 +154,7 @@ bool AttributesImpl::getIPropertys(std::vector<cgcKeyValue::pointer>& outValues)
 }
 bool AttributesImpl::getBPropertys(std::vector<cgcKeyValue::pointer>& outValues) const
 {
-	boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_bigintPropertys.mutex()));
+	AUTO_CONST_RLOCK(m_bigintPropertys);
 	CLockMultiMap<bigint, cgcValueInfo::pointer>::const_iterator iter;
 	for (iter=m_bigintPropertys.begin(); iter!=m_bigintPropertys.end(); iter++)
 	{
@@ -171,11 +171,11 @@ bool AttributesImpl::getBPropertys(std::vector<cgcKeyValue::pointer>& outValues)
 
 bool AttributesImpl::getPPropertys(std::vector<cgcKeyValue::pointer>& outValues) const
 {
-	boost::mutex::scoped_lock lock(const_cast<boost::mutex&>(m_pointerPropertys.mutex()));
+	AUTO_CONST_RLOCK(m_pointerPropertys);
 	CLockMultiMap<void*, cgcValueInfo::pointer>::const_iterator iter;
 	for (iter=m_pointerPropertys.begin(); iter!=m_pointerPropertys.end(); iter++)
 	{
-		char buffer[12];
+		char buffer[24];
 		sprintf(buffer, "%p", iter->first);
 		 outValues.push_back(CGC_KEYVALUE(buffer, iter->second));
 	}
@@ -351,79 +351,86 @@ VoidObjectMapPointer AttributesImpl::getVoidAttributes(const tstring & attribute
 	return result;
 }
 
-cgcObject::pointer AttributesImpl::setAttribute(int attributeName, const tstring & key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(int attributeName, const tstring & key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	StringObjectMapPointer stringMapPointer = getStringAttributes(attributeName, true);
 	BOOST_ASSERT (stringMapPointer.get() != NULL);
 
-	stringMapPointer->find(key, result, true);
-	stringMapPointer->insert(key, pObject);
+	stringMapPointer->insert(key, pObject,force,&result);
+	//stringMapPointer->find(key, result, true);
+	//stringMapPointer->insert(key, pObject);
 	return result;
 }
 
-cgcObject::pointer AttributesImpl::setAttribute(int attributeName, int key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(int attributeName, int key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	LongObjectMapPointer longMapPointer = getLongAttributes(attributeName, true);
 	BOOST_ASSERT (longMapPointer.get() != NULL);
 
-	longMapPointer->find(key, result, true);
-	longMapPointer->insert(key, pObject);
+	longMapPointer->insert(key, pObject,force,&result);
+	//longMapPointer->find(key, result, true);
+	//longMapPointer->insert(key, pObject);
 	return result;
 }
-cgcObject::pointer AttributesImpl::setAttribute(int attributeName, bigint key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(int attributeName, bigint key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	BigIntObjectMapPointer longMapPointer = getBigIntAttributes(attributeName, true);
 	BOOST_ASSERT (longMapPointer.get() != NULL);
 
-	longMapPointer->find(key, result, true);
-	longMapPointer->insert(key, pObject);
+	longMapPointer->insert(key, pObject,force,&result);
+	//longMapPointer->find(key, result, true);
+	//longMapPointer->insert(key, pObject);
 	return result;
 }
 
-cgcObject::pointer AttributesImpl::setAttribute(int attributeName, void* key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(int attributeName, void* key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	VoidObjectMapPointer voidMapPointer = getVoidAttributes(attributeName, true);
 	BOOST_ASSERT (voidMapPointer.get() != NULL);
 
-	voidMapPointer->find(key, result, true);
-	voidMapPointer->insert(key, pObject);
+	voidMapPointer->insert(key, pObject,force,&result);
+	//voidMapPointer->find(key, result, true);
+	//voidMapPointer->insert(key, pObject);
 	return result;
 }
 
-cgcObject::pointer AttributesImpl::setAttribute(const tstring & attributeName, const tstring & key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(const tstring & attributeName, const tstring & key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	StringObjectMapPointer stringMapPointer = getStringAttributes(attributeName, true);
 	BOOST_ASSERT (stringMapPointer.get() != NULL);
 
-	stringMapPointer->find(key, result, true);
-	stringMapPointer->insert(key, pObject);
+	stringMapPointer->insert(key, pObject,force,&result);
+	//stringMapPointer->find(key, result, true);
+	//stringMapPointer->insert(key, pObject);
 	return result;
 }
 
-cgcObject::pointer AttributesImpl::setAttribute(const tstring & attributeName, int key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(const tstring & attributeName, int key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	LongObjectMapPointer longMapPointer = getLongAttributes(attributeName, true);
 	BOOST_ASSERT (longMapPointer.get() != NULL);
 
-	longMapPointer->find(key, result, true);
-	longMapPointer->insert(key, pObject);
+	longMapPointer->insert(key, pObject,force,&result);
+	//longMapPointer->find(key, result, true);
+	//longMapPointer->insert(key, pObject);
 	return result;
 }
 
-cgcObject::pointer AttributesImpl::setAttribute(const tstring & attributeName, void* key, const cgcObject::pointer& pObject)
+cgcObject::pointer AttributesImpl::setAttribute(const tstring & attributeName, void* key, const cgcObject::pointer& pObject,bool force)
 {
 	cgcObject::pointer result;
 	VoidObjectMapPointer voidMapPointer = getVoidAttributes(attributeName, true);
 	BOOST_ASSERT (voidMapPointer.get() != NULL);
 
-	voidMapPointer->find(key, result, true);
-	voidMapPointer->insert(key, pObject);
+	voidMapPointer->insert(key, pObject,force,&result);
+	//voidMapPointer->find(key, result, true);
+	//voidMapPointer->insert(key, pObject);
 	return result;
 }
 

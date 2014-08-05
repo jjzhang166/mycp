@@ -86,6 +86,7 @@ protected:
 	virtual void setAttachName(const tstring & name) {if (m_cgcParser.get() != NULL) m_cgcParser->setResAttachName(name);}
 	virtual void setAttachInfo(cgc::bigint total, cgc::bigint index) {if (m_cgcParser.get() != NULL) m_cgcParser->setResAttachInfo(total, index);}
 	virtual void setAttachData(const unsigned char * attachData, unsigned int attachSize) {if (m_cgcParser.get() != NULL) m_cgcParser->setResAttachData(attachData, attachSize);}
+	virtual void setAttach(const cgcAttachment::pointer& pAttach) {if (m_cgcParser.get() != NULL) m_cgcParser->setResAttach(pAttach);}
 	virtual void setParameter(const cgcParameter::pointer& parameter, bool bSetForce) {if (m_cgcParser.get() != NULL) m_cgcParser->setResParameter(parameter,bSetForce);}
 	virtual void addParameter(const cgcParameter::pointer& parameter, bool bAddForce) {if (m_cgcParser.get() != NULL) m_cgcParser->addResParameter(parameter,bAddForce);}
 	virtual void addParameters(const std::vector<cgcParameter::pointer>& parameters, bool bAddForce) {if (m_cgcParser.get() != NULL) m_cgcParser->addResParameters(parameters,bAddForce);}

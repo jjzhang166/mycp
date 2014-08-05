@@ -106,13 +106,13 @@ public:
 	virtual VoidObjectMapPointer	getVoidAttributes(const tstring & attributeName, bool newIfNotExist = true) = 0;
 
 	// Return the old attributeName(attributeKey) value.
-	virtual cgcObject::pointer setAttribute(int attributeName, const tstring & key, const cgcObject::pointer& pObject) = 0;
-	virtual cgcObject::pointer setAttribute(int attributeName, int key, const cgcObject::pointer& pObject) = 0;
-	virtual cgcObject::pointer setAttribute(int attributeName, bigint key, const cgcObject::pointer& pObject) = 0;
-	virtual cgcObject::pointer setAttribute(int attributeName, void* key, const cgcObject::pointer& pObject) = 0;
-	virtual cgcObject::pointer setAttribute(const tstring & attributeName, const tstring & key, const cgcObject::pointer& pObject) = 0;
-	virtual cgcObject::pointer setAttribute(const tstring & attributeName, int key, const cgcObject::pointer& pObject) = 0;
-	virtual cgcObject::pointer setAttribute(const tstring & attributeName, void* key, const cgcObject::pointer& pObject) = 0;
+	virtual cgcObject::pointer setAttribute(int attributeName, const tstring & key, const cgcObject::pointer& pObject,bool force = true) = 0;
+	virtual cgcObject::pointer setAttribute(int attributeName, int key, const cgcObject::pointer& pObject,bool force = true) = 0;
+	virtual cgcObject::pointer setAttribute(int attributeName, bigint key, const cgcObject::pointer& pObject,bool force = true) = 0;
+	virtual cgcObject::pointer setAttribute(int attributeName, void* key, const cgcObject::pointer& pObject,bool force = true) = 0;
+	virtual cgcObject::pointer setAttribute(const tstring & attributeName, const tstring & key, const cgcObject::pointer& pObject,bool force = true) = 0;
+	virtual cgcObject::pointer setAttribute(const tstring & attributeName, int key, const cgcObject::pointer& pObject,bool force = true) = 0;
+	virtual cgcObject::pointer setAttribute(const tstring & attributeName, void* key, const cgcObject::pointer& pObject,bool force = true) = 0;
 
 	virtual cgcObject::pointer getAttribute(int attributeName, const tstring & key) const = 0;
 	virtual cgcObject::pointer getAttribute(int attributeName, int key) const = 0;

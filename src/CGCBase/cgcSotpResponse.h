@@ -36,6 +36,7 @@ public:
 	virtual void setAttachName(const tstring & name) = 0;
 	virtual void setAttachInfo(cgc::bigint total, cgc::bigint index) = 0;
 	virtual void setAttachData(const unsigned char * attachData, unsigned int attachSize) = 0;
+	virtual void setAttach(const cgcAttachment::pointer& pAttach) = 0;
 
 	virtual void setParameter(const cgcParameter::pointer& parameter, bool bSetForce=false) = 0;
 	virtual void addParameter(const cgcParameter::pointer& parameter, bool bAddForce=false) = 0;

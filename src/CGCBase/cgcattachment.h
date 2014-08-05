@@ -83,18 +83,20 @@ public:
 			clearAttachData();
 			return;
 		}
-		if (m_len >= nAttachSize)
+		if (m_len < nAttachSize)
 		{
-			m_len = nAttachSize;
-			memcpy(m_data, pAttachData, m_len);
-			m_data[m_len] = '\0';
-			return;
+			clearAttachData();
+			m_data = new unsigned char[nAttachSize+1];
+			if (m_data==NULL)
+			{
+				// memory error
+				clearAttachData();
+				return;
+			}
+			memset(m_data, 0, nAttachSize+1);
 		}
-		clearAttachData();
 		m_len = nAttachSize;
-		m_data = new unsigned char[m_len+1];
 		memcpy(m_data, pAttachData, m_len);
-		m_data[m_len] = '\0';
 	}
 	const unsigned char * getAttachData(void) const {return m_data;}
 	/*unsigned char * getAttachData(void)

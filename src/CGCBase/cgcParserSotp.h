@@ -100,6 +100,7 @@ public:
 	virtual void setResAttachName(const tstring & name)=0;
 	virtual void setResAttachInfo(cgc::bigint total, cgc::bigint index)=0;
 	virtual void setResAttachData(const unsigned char * attachData, unsigned int attachSize)=0;
+	virtual void setResAttach(const cgcAttachment::pointer& pAttach)=0;
 	virtual bool isResHasAttachInfo(void) const = 0;
 	virtual cgcAttachment::pointer getResAttachment(void) const = 0;
 

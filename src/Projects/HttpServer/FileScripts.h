@@ -34,21 +34,21 @@ class CCSPFileInfo
 public:
 	typedef boost::shared_ptr<CCSPFileInfo> pointer;
 
-	bool isModified(size_t filesize, time_t lastTime) {return m_fileSize != filesize || m_lastTime != lastTime;}
+	bool isModified(ubigint filesize, time_t lastTime) {return m_fileSize != filesize || m_lastTime != lastTime;}
 
 	const std::string& getFileName(void) const {return m_fileName;}
-	void setFileSize(size_t v) {m_fileSize = v;}
-	size_t getFileSize(void) const {return m_fileSize;}
+	void setFileSize(ubigint v) {m_fileSize = v;}
+	ubigint getFileSize(void) const {return m_fileSize;}
 	time_t getLastTime(void) const {return m_lastTime;}
 	void setLastTime(time_t v) {m_lastTime = v;}
 
-	CCSPFileInfo(const std::string& filename, size_t filesize, time_t lastTime)
+	CCSPFileInfo(const std::string& filename, ubigint filesize, time_t lastTime)
 		: m_fileName(filename), m_fileSize(filesize), m_lastTime(lastTime)
 	{}
 
 private:
 	std::string m_fileName;
-	size_t m_fileSize;
+	ubigint m_fileSize;
 	time_t m_lastTime;
 };
 

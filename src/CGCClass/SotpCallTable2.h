@@ -21,6 +21,7 @@
 #define __SotpCallTable2_h__
 
 #include <vector>
+#include <boost/thread/mutex.hpp>
 #include "../CGCBase/cgcparameter.h"
 #include "../CGCBase/cgcattachment.h"
 #include "ModuleItem.h"

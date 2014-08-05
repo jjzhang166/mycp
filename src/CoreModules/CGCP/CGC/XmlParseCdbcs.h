@@ -89,7 +89,7 @@ private:
 			std::string charset = v.second.get("charset", "");
 			//std::string descriptiop = v.second.get("descriptiop", "");
 			int nMin = v.second.get("minsize", 5);
-			int nMax = v.second.get("maxsize", 20);
+			int nMax = v.second.get("maxsize", 500);
 
 			cgc::cgcCDBCInfo::pointer cdbcInfo = CGC_CDBCINFO(name, database);
 			cdbcInfo->setHost(host);
