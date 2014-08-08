@@ -229,7 +229,6 @@ Sink * sink_pool_add()
 
 Sink*  sink_pool_get()
 {
-
 	Sink *sink = 0;
 	int i =0;
 	int nosinkcount = 0;
@@ -257,15 +256,17 @@ Sink*  sink_pool_get()
 			sink_unlock(sink);
 			//break;
 			// add by hd
-			if (sink_number > sink_minnumber && i <= sink_minnumber-1)
+			if (sink_number>sink_minnumber && i<=(sink_minnumber-2))	// 只使用了最小值后面二条
 			{
 				theminnumbercount++;
-				if (theminnumbercount >= 100)	// 连续100个正常数据库连接低于最低连接数，减少一个数据库连接；
+				if ((i<(sink_minnumber-2) && theminnumbercount>=30) ||	// 连接30个，只用到最小连接数，减少一个数据库连接
+					theminnumbercount>=100)								// 连续100个正常数据库连接低于最低连接数，减少一个数据库连接；
 				{
 					LOCK (&theAddDelLock);
 					if (sink_pool_del()!=0)
 					{
-						theminnumbercount = 0;	// add by hd,20148-2
+						theminnumbercount = 0;	// add by hd,2014-8-2
+						//printf("*********** sink_pool_del OK size:%d\n",sink_number);
 					}
 					UNLOCK (&theAddDelLock);
 				}
@@ -277,7 +278,7 @@ Sink*  sink_pool_get()
 		}
 
 		// add by hd
-		if (sink_number==0 || (nosinkcount++) > 100)	// 全部忙，并且等100次以上（100*10=一秒左右），增加一个数据库连接
+		if (sink_number==0 || (nosinkcount++)>25)	// 全部忙，并且等25次以上（25*10=250ms左右），增加一个数据库连接，（**25这个值不能太低，低了不好；**)
 		{
 			nosinkcount = 0;	// 如果找不到还可以重新开始等
 			LOCK (&theAddDelLock);
@@ -285,6 +286,7 @@ Sink*  sink_pool_get()
 			UNLOCK (&theAddDelLock);
 			if (sink)
 			{
+				//printf("*********** sink_pool_add OK size:%d\n",sink_number);
 				return sink;
 			}
 		}

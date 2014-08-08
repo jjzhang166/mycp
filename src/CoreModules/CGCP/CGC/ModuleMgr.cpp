@@ -151,7 +151,7 @@ CModuleMgr::~CModuleMgr(void)
 
 void CModuleMgr::StopModule(void)
 {
-	AUTO_LOCK(m_mapModuleImpl);
+	BoostReadLock rdlock(m_mapModuleImpl.mutex());
 	//for_each(m_mapModuleImpl.begin(), m_mapModuleImpl.end(),
 	//	boost::bind(&CModuleMgr::stopModule, boost::bind(&std::map<unsigned long, cgcApplication::pointer>::value_type::second,_1)));
 

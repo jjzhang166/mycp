@@ -588,7 +588,7 @@ bool CSessionImpl::ProcessDuplationSeq(unsigned short seq)
 		for (int i=0; i<MAX_SEQ_MASKS_SIZE; i++)
 		{
 			// Receive duplation message, 
-			if (m_pReceiveSeqMasks[i] == seq)
+			if (m_pReceiveSeqMasks[i] == (int)seq)
 			{
 				m_tLastSeq = m_tLastAccessedtime;
 				return true;
@@ -833,7 +833,7 @@ void CSessionMgr::onRemoteClose(unsigned long remoteId, int nErrorCode)
 bool CSessionMgr::ProcDataResend(void)
 {
 	// lock
-	AUTO_LOCK(m_mapSessionImpl);
+	BoostReadLock rdlock(m_mapSessionImpl.mutex());
 	cgcSession::pointer pSessionImplTimeout;
 	CLockMap<tstring, cgcSession::pointer>::iterator pIter;
 	for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
@@ -854,7 +854,7 @@ void CSessionMgr::ProcLastAccessedTime(std::string& pOutCloseSid)
 	time_t now = time(0);
 	cgcSession::pointer pSessionImplTimeout;
 	{
-		AUTO_LOCK(m_mapSessionImpl);
+		BoostReadLock rdlock(m_mapSessionImpl.mutex());
 		CLockMap<tstring, cgcSession::pointer>::iterator pIter;
 		for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
 		{

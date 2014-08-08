@@ -127,13 +127,14 @@ public:
 			return false;
 		}
 
-		unsigned int timerInterval = m_resendTimes+2;	// 2,3,4
-		if (timerInterval > m_timeoutSeconds)
-			timerInterval = m_timeoutSeconds;
-		return (tNow - m_sendTime) >= timerInterval;
-		//
-		// timeout
-		return (time_t)(m_sendTime + m_timeoutSeconds) <= tNow;
+		return (tNow - m_sendTime) >= 3;
+		//unsigned int timerInterval = m_resendTimes+2;	// 2,3,4
+		//if (timerInterval > m_timeoutSeconds)
+		//	timerInterval = m_timeoutSeconds;
+		//return (tNow - m_sendTime) >= timerInterval;
+		////
+		//// timeout
+		//return (time_t)(m_sendTime + m_timeoutSeconds) <= tNow;
 	}
 	unsigned int increaseResends(void) {return ++m_resendTimes;}
 	bool canResendAgain(void) const {return m_resendTimes < m_timeoutResends;}

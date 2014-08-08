@@ -329,7 +329,7 @@ private:
 			{
 				m_nFindEventDataCount = 0;
 				m_nNullEventDataCount++;
-				if (m_nCurrentThread>MIN_EVENT_THREAD && ((nSize<(m_nCurrentThread/2)&&m_nNullEventDataCount>100) || m_nNullEventDataCount>300))	// 300*10ms=3S
+				if (m_nCurrentThread>MIN_EVENT_THREAD && ((nSize<(m_nCurrentThread/2)&&m_nNullEventDataCount>200) || m_nNullEventDataCount>300))	// 300*10ms=3S
 				{
 					m_nNullEventDataCount = 0;
 					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;

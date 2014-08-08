@@ -192,12 +192,14 @@ const std::string escape_out[] = {"'"};
 
 class CPgCdbc
 	: public cgcCDBCService
+	, public cgcOnTimerHandler
+	, public boost::enable_shared_from_this<CPgCdbc>
 {
 public:
 	typedef boost::shared_ptr<CPgCdbc> pointer;
 
-	CPgCdbc(void)
-		: m_isopen(false)
+	CPgCdbc(int nIndex)
+		: m_nIndex(nIndex), m_isopen(false)
 		, m_tLastTime(0)
 	{}
 	virtual ~CPgCdbc(void)
@@ -208,16 +210,27 @@ public:
 	{
 		if (isServiceInited()) return true;
 		m_bServiceInited = true;
+		theApplication->SetTimer(m_nIndex+1, 1000, shared_from_this());
 		return isServiceInited();
 	}
 	virtual void finalService(void)
 	{
+		theApplication->KillTimer(m_nIndex+1);
 		close();
 		m_cdbcInfo.reset();
 		m_bServiceInited = false;
 	}
 private:
 	virtual tstring serviceName(void) const {return _T("PGCDBC");}
+	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
+	{
+		if (isopen())
+		{
+			// 主要用于整理数据库连接池；
+			Sink *sink = sink_pool_get();
+			sink_pool_put(sink);
+		}
+	}
 
 	static const std::string & replace(std::string & strSource, const std::string & strFind, const std::string &strReplace)
 	{
@@ -336,6 +349,23 @@ private:
 			}
 			ret = result_rn (sink, res);
 			result_clean (sink, res);
+//			static unsigned int theIndex = 0;
+//			theIndex++;
+//			if (theIndex%5==0)
+//			{
+//#ifdef WIN32
+//				Sleep(5000);
+//#else
+//				usleep(5000000);
+//#endif
+//			}else
+//			{
+//#ifdef WIN32
+//				Sleep(1000);
+//#else
+//				usleep(1000000);
+//#endif
+//			}
 			sink_pool_put (sink);
 		}catch(...)
 		{
@@ -449,6 +479,7 @@ private:
 		//return mysql_rollback(m_mysql) == 1;
 	}
 private:
+	int m_nIndex;
 	bool m_isopen;
 	time_t m_tLastTime;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;
@@ -487,12 +518,14 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		}
 	}
 	theAppAttributes.reset();
+	theApplication->KillAllTimer();
 }
 
+int theServiceIndex = 0;
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)
 {
 	if (theAppAttributes.get() == NULL) return;
-	CPgCdbc::pointer bodbCdbc = CPgCdbc::pointer(new CPgCdbc());
+	CPgCdbc::pointer bodbCdbc = CPgCdbc::pointer(new CPgCdbc(theServiceIndex++));
 	outService = bodbCdbc;
 	theAppAttributes->setAttribute(ATTRIBUTE_NAME, outService.get(), outService);
 }
