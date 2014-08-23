@@ -57,7 +57,7 @@ extern "C"
 void DesEncrypt(const char* szKey, unsigned char* lpbySrc, unsigned char* lpbyDest, int iLength)
 {
 	unsigned char byKey[8] = {0};
-	char szTempKey[20];
+	char szTempKey[128];
 	strcpy(szTempKey, szKey);
 	makekey(szTempKey, byKey);
 
@@ -69,7 +69,7 @@ void DesEncrypt(const char* szKey, unsigned char* lpbySrc, unsigned char* lpbyDe
 void DesDecrypt(const char* szKey, unsigned char* lpbySrc, unsigned char* lpbyDest, int iLength)
 {
 	unsigned char byKey[8] = {0};
-	char szTempKey[20];
+	char szTempKey[128];
 	strcpy(szTempKey, szKey);
 	makekey(szTempKey, byKey);
 
@@ -348,7 +348,9 @@ protected:
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
 
-			const tstring& sKey = inParam->getVector()[0]->getStr();
+			tstring sKey = inParam->getVector()[0]->getStr();
+			if (sKey.size()>128)
+				sKey = sKey.substr(0,128);
 			const tstring& sInString = inParam->getVector()[1]->getStr();
 			bool bConvert2t16 = true;
 			if (inParam->getVector().size()>=3)
@@ -357,13 +359,13 @@ protected:
 			//printf("**** string=%s\n",sInString.c_str());
 
 			unsigned char * lpszIn = new unsigned char[sInString.size()+8];
+			memset(lpszIn,0,sInString.size()+8);
 			memcpy(lpszIn,sInString.c_str(),sInString.size());
 			unsigned char * lpszOut = new unsigned char[sInString.size()+8];
 			memset(lpszOut,0,sInString.size()+8);
 
 			DesEncrypt(sKey.c_str(),lpszIn,lpszOut,sInString.size());
-			//Des_Go(lpszOut,lpszIn,sInString.size(),sKey.c_str(),sKey.size(),true);
-			const size_t nEncLen = ((sInString.size()+8)/8)*8;	// 加密后数据长度；
+			const size_t nEncLen = ((sInString.size()+7)/8)*8;	// 加密后数据长度；
 
 			std::string sOutString;
 			if (bConvert2t16)
@@ -371,13 +373,18 @@ protected:
 			else
 				sOutString = std::string((const char*)lpszOut,nEncLen);
 
-			//{
-			//	// test DesDecrypt
-			//	unsigned char * lpszBuffer2 = new unsigned char[nEncLen+8];
-			//	memset(lpszBuffer2,0,nEncLen+8);
-			//	DesDecrypt(sKey.c_str(),(unsigned char*)lpszBuffer,lpszBuffer2,nEncLen);
-			//	printf("**** 3des result2=%s\n",lpszBuffer2);
-			//	delete[] lpszBuffer2;
+			//{	// test OK
+			//	printf("** 2t16=%s\n",sOutString.c_str());
+			//	unsigned char * lpszIn2 = new unsigned char[sOutString.size()+8];
+			//	size_t nInLen = convert_16t2((const unsigned char*)sOutString.c_str(),sOutString.size(),lpszIn2);
+			//	printf("** 16t2=%s\n",lpszIn2);
+
+			//	unsigned char * lpszOut2 = new unsigned char[nInLen+8];
+			//	memset(lpszOut2,0,nInLen+8);
+			//	DesDecrypt(sKey.c_str(),lpszIn2,lpszOut2,nInLen);
+			//	printf("** dec-result=%s\n",lpszOut2);
+			//	delete[] lpszOut2;
+			//	delete[] lpszIn2;
 			//}
 
 			delete[] lpszOut;
@@ -397,15 +404,26 @@ protected:
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
 
-			const tstring& sKey = inParam->getVector()[0]->getStr();
+			tstring sKey = inParam->getVector()[0]->getStr();
+			if (sKey.size()>128)
+				sKey = sKey.substr(0,128);
 			const tstring& sInString = inParam->getVector()[1]->getStr();
-
+			bool bConvert16t2 = true;
+			if (inParam->getVector().size()>=3)
+				bConvert16t2 = inParam->getVector()[2]->getBoolean();
 			unsigned char * lpszIn = new unsigned char[sInString.size()+8];
-			memcpy(lpszIn,sInString.c_str(),sInString.size());
-			unsigned char * lpszOut = new unsigned char[sInString.size()+8];
-			memset(lpszOut,0,sInString.size()+8);
+			size_t nInLen = sInString.size();
+			if (bConvert16t2)
+			{
+				nInLen = convert_16t2((const unsigned char*)sInString.c_str(),nInLen,lpszIn);
+			}else
+			{
+				memcpy(lpszIn,sInString.c_str(),nInLen);
+			}
 
-			DesDecrypt(sKey.c_str(),lpszIn,lpszOut,sInString.size());
+			unsigned char * lpszOut = new unsigned char[nInLen+8];
+			memset(lpszOut,0,nInLen+8);
+			DesDecrypt(sKey.c_str(),lpszIn,lpszOut,nInLen);
 			const std::string sOutString((const char*)lpszOut);
 			delete[] lpszOut;
 			delete[] lpszIn;
@@ -635,12 +653,13 @@ protected:
 
 	unsigned char toHex(const unsigned char &x)
 	{
-		return x > 9 ? x -10 + 'A': x + '0';
+		return x > 9 ? x-10 + 'A': x+'0';
 	}
 
 	unsigned char fromHex(const unsigned char &x)
 	{
-		return isdigit(x) ? x-'0' : x-'A'+10;
+		return (x>=48&&x<=57) ? x-'0' : x-'A'+10;	// 48='0' 57='9'
+		//return isdigit(x) ? x-'0' : x-'A'+10;
 	}
 
 	//void convert(char *input, char *output)
@@ -677,16 +696,26 @@ protected:
 	//	}
 	//}
 
-	// 二进制转16进制
+	// 16进制转2进制
+	size_t convert_16t2(const unsigned char *sIn, size_t nEncLen,unsigned char *pOut)
+	{
+		size_t index = 0;
+		for( size_t ix = 0; ix<(nEncLen-1); ix++ )
+		{
+			unsigned char ch = 0;
+			ch = (fromHex(sIn[ix+0])<<4);
+			ch |= fromHex(sIn[ix+1]);
+			ix += 1;
+			pOut[index++] = ch;
+		}
+		return index;
+	}
+	// 2进制转16进制
 	std::string convert_2t16(const unsigned char *sIn, size_t nEncLen)
 	{
 		std::string sOut;
 		for( size_t ix = 0; ix <nEncLen; ix++ )
 		{
-			//unsigned char buf[2];
-			//memset( buf, 0, 2 );
-			//buf[0] = toHex( (unsigned char)sIn[ix] >> 4 );
-			//buf[0] += toHex( (unsigned char)sIn[ix] % 4 );
 			unsigned char buf[3];
 			memset( buf, 0, 3 );
 			buf[0] = toHex( (unsigned char)sIn[ix] >> 4 );

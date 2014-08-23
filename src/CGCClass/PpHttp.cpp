@@ -32,7 +32,7 @@ const char * SERVERNAME		= "MYCP Http Server/1.0";
 
 CPpHttp::CPpHttp(void)
 : m_host("127.0.0.1"), m_account(""), m_secure(""), m_moduleName(""), m_functionName("doHttpFunc"), m_httpVersion("HTTP/1.1"),m_restVersion("v01"), m_contentLength(0), m_method(HTTP_NONE)
-, m_requestURL(""), m_requestURI(""), m_queryString(""), m_fileName("")
+, m_requestURL(""), m_requestURI(""), m_queryString(""),m_postString(""), m_fileName("")
 , m_nRangeFrom(0), m_nRangeTo(0)
 , m_keepAlive(true), m_keepAliveInterval(0), /*m_contentData(NULL), */m_contentSize(0),m_receiveSize(0)/*,m_nCookieExpiresMinute(0)*/
 , m_statusCode(STATUS_CODE_200), m_addDateHeader(false),m_addContentLength(true), m_sReqContentType(""), m_sResContentType("text/html"), m_sLocation("")
@@ -455,6 +455,40 @@ void CPpHttp::GeServletInfo(void)
 	}
 }
 
+void CPpHttp::GetPropertys(const std::string& sString)
+{
+	if (sString.empty()) return;
+	tstring parameter;
+	std::string::size_type find = 0;
+	do
+	{
+		// Get [parameter=value]
+		tstring::size_type findParameter = sString.find("&", find+1);
+		if (findParameter == std::string::npos)
+		{
+			parameter = sString.substr(find, sString.size()-find);
+		}else
+		{
+			parameter = sString.substr(find, findParameter-find);
+			findParameter += 1;
+		}
+		find = findParameter;
+
+		// Get parameter/value
+		findParameter = parameter.find("=", 1);
+		if (findParameter == std::string::npos)
+		{
+			// ERROR
+			break;
+		}
+
+		tstring p = parameter.substr(0, findParameter);
+		tstring v = parameter.substr(findParameter+1, parameter.size()-findParameter);
+
+		m_propertys.setProperty(p, CGC_VALUEINFO(v));
+	}while (find != std::string::npos);
+}
+
 void CPpHttp::GeRequestInfo(void)
 {
 	m_requestURI = m_requestURL;		
@@ -478,40 +512,46 @@ void CPpHttp::GeRequestInfo(void)
 	if (nFind != std::string::npos)
 	{
 		m_queryString = URLDecode(m_queryString.c_str());
+		if (!m_postString.empty())
+			m_postString = URLDecode(m_postString.c_str());
 	}
 
-	if (!m_queryString.empty())
-	{
-		tstring parameter;
-		std::string::size_type find = 0;
-		do
-		{
-			// Get [parameter=value]
-			tstring::size_type findParameter = m_queryString.find("&", find+1);
-			if (findParameter == std::string::npos)
-			{
-				parameter = m_queryString.substr(find, m_queryString.size()-find);
-			}else
-			{
-				parameter = m_queryString.substr(find, findParameter-find);
-				findParameter += 1;
-			}
-			find = findParameter;
+	GetPropertys(m_queryString);
+	GetPropertys(m_postString);
+	if (m_method == HTTP_POST || !m_postString.empty())
+		m_queryString = m_postString;
+	//if (!m_queryString.empty())
+	//{
+	//	tstring parameter;
+	//	std::string::size_type find = 0;
+	//	do
+	//	{
+	//		// Get [parameter=value]
+	//		tstring::size_type findParameter = m_queryString.find("&", find+1);
+	//		if (findParameter == std::string::npos)
+	//		{
+	//			parameter = m_queryString.substr(find, m_queryString.size()-find);
+	//		}else
+	//		{
+	//			parameter = m_queryString.substr(find, findParameter-find);
+	//			findParameter += 1;
+	//		}
+	//		find = findParameter;
 
-			// Get parameter/value
-			findParameter = parameter.find("=", 1);
-			if (findParameter == std::string::npos)
-			{
-				// ERROR
-				break;
-			}
+	//		// Get parameter/value
+	//		findParameter = parameter.find("=", 1);
+	//		if (findParameter == std::string::npos)
+	//		{
+	//			// ERROR
+	//			break;
+	//		}
 
-			tstring p = parameter.substr(0, findParameter);
-			tstring v = parameter.substr(findParameter+1, parameter.size()-findParameter);
+	//		tstring p = parameter.substr(0, findParameter);
+	//		tstring v = parameter.substr(findParameter+1, parameter.size()-findParameter);
 
-			m_propertys.setProperty(p, CGC_VALUEINFO(v));
-		}while (find != std::string::npos);
-	}
+	//		m_propertys.setProperty(p, CGC_VALUEINFO(v));
+	//	}while (find != std::string::npos);
+	//}
 }
 
 bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader)
@@ -580,12 +620,14 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		{
 			m_currentMultiPart.reset();
 			m_queryString = httpRequest;
+			m_postString = m_queryString;
 			m_receiveSize = requestSize;
 			return true;
 		}else if (m_contentSize >= (m_receiveSize + requestSize) && m_currentMultiPart->getBoundary().empty())
 		{
 			//strncpy(m_contentData+m_receiveSize,httpRequest,requestSize);
 			m_queryString.append(httpRequest);
+			m_postString.append(httpRequest);
 			m_receiveSize += requestSize;
 			//if (m_receiveSize==m_contentSize)
 			{
@@ -959,6 +1001,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 						////printf("=================\n%s\n================\n",m_contentData);
 						//m_queryString = m_contentData;
 						m_queryString = find;
+						m_postString = find;
 						//m_queryString = tstring(m_contentData, m_contentSize);
 						if (m_contentSize > m_receiveSize)
 						{

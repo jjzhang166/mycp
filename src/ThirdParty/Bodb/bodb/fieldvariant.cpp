@@ -1310,6 +1310,83 @@ namespace bo
 			FreeBuffer(&v.varlobVal, false);
 			CopyBuffer(&v.varlobVal, value, size);
 			break;
+		case FT_BOOLEAN:
+			v.booleanVal = value!=NULL&&(strcmp(value,"1")==0 || strcmp(value,"true")==0 || strcmp(value,"TRUE")==0) ? true : false;
+			break;
+		case FT_TINYINT:
+			v.tinyintVal = static_cast<tinyint>(atoi(value));
+			break;
+		case FT_UTINYINT:
+			v.utinyintVal = static_cast<utinyint>(atoi(value));
+			break;
+		case FT_SMALLINT:
+			v.smallintVal = static_cast<smallint>(atoi(value));
+			break;
+		case FT_USMALLINT:
+			v.usmallintVal = static_cast<usmallint>(atoi(value));
+			break;
+		case FT_INTEGER:
+			v.integerVal = atoi(value);
+			break;
+		case FT_UINTEGER:
+			v.uintegerVal = static_cast<uinteger>(bo_atoi64(value));
+			break;
+		case FT_BIGINT:
+			v.bigintVal = bo_atoi64(value);
+			break;
+		case FT_UBIGINT:
+			v.ubigintVal = bo_atoi64(value);
+			break;
+		case FT_NUMERIC:
+			{
+				bigint tempValue = bo_atoi64(value);
+				if (v.numericVal == 0)
+				{
+					v.numericVal = new NUMERIC;
+				}
+				v.numericVal->negative = tempValue < 0;
+				if (v.numericVal->negative)
+					tempValue *= -1;
+
+				memset(v.numericVal->numeric, 0, sizeof(v.numericVal->numeric));
+				for (short i=v.numericVal->size1-v.numericVal->size2-1; i>=0; i--)
+				{
+					v.numericVal->numeric[i] = Number2Char(tempValue % 10);
+					tempValue = tempValue / 10;
+					if (tempValue == 0) break;
+				}
+
+				//memset(v.numericVal->numeric1, 0, sizeof(v.numericVal->numeric1));
+				//memset(v.numericVal->numeric2, 0, sizeof(v.numericVal->numeric2));
+				//if (value > MAX_DEFAULT_NUMERIC_ITEM)
+				//{
+				//	v.numericVal->numeric1[MAX_NUMERIC_SIZE-1] = value % (MAX_DEFAULT_NUMERIC_ITEM+1);
+				//	v.numericVal->numeric1[MAX_NUMERIC_SIZE-2] = value / (MAX_DEFAULT_NUMERIC_ITEM+1);
+				//}else
+				//{
+				//	v.numericVal->numeric1[MAX_NUMERIC_SIZE-1] = value;
+				//}
+			}break;
+		case FT_FLOAT:
+			v.floatVal.value = static_cast<float>(atof(value));
+			break;
+		case FT_REAL:
+			v.realVal = static_cast<float>(atof(value));
+			break;
+		case FT_DOUBLE:
+			v.doubleVal = static_cast<double>(atof(value));
+			break;
+		case FT_DATE:
+			v.dateVal = bo_atoi64(value);
+			break;
+		case FT_TIME:
+			v.timeVal = bo_atoi64(value);
+			break;
+		case FT_TIMESTAMP:
+			{
+				v.timestampVal.time = bo_atoi64(value);
+				v.timestampVal.millsecond = 0;
+			}break;
 		default:
 			return false;
 			break;
@@ -1378,9 +1455,95 @@ namespace bo
 	{
 		switch (VARTYPE)
 		{
+		case FT_CHAR:
+			{
+				FreeBuffer(&v.charVal, false);
+				CopyBuffer(&v.charVal, value?"1":"0", 1);
+			}break;
+		case FT_VARCHAR:
+			{
+				FreeBuffer(&v.varcharVal, false);
+				CopyBuffer(&v.varcharVal, value?"1":"0", 1);
+			}break;
+		case FT_CLOB:
+			{
+				FreeBuffer(&v.clobVal, false);
+				CopyBuffer(&v.clobVal, value?"1":"0", 1);
+			}break;
+		case FT_NCHAR:
+			{
+
+			}break;
+		case FT_NVARCHAR:
+			// ???
+			break;
+		case FT_BINARY:
+			{
+				FreeBuffer(&v.lobVal, false);
+				CopyBuffer(&v.lobVal, value?"1":"0", 1);
+			}break;
+		case FT_VARBINARY:
+			{
+				FreeBuffer(&v.varlobVal, false);
+				CopyBuffer(&v.varlobVal, value?"1":"0", 1);
+			}break;
 		case FT_BOOLEAN:
 			v.booleanVal = value;
 			break;
+		case FT_TINYINT:
+			v.tinyintVal = value?1:0;
+			break;
+		case FT_UTINYINT:
+			v.utinyintVal = value?1:0;
+			break;
+		case FT_SMALLINT:
+			v.smallintVal = value?1:0;
+			break;
+		case FT_USMALLINT:
+			v.usmallintVal = value?1:0;
+			break;
+		case FT_INTEGER:
+			v.integerVal = value?1:0;
+			break;
+		case FT_UINTEGER:
+			v.uintegerVal = value?1:0;
+			break;
+		case FT_BIGINT:
+			v.bigintVal = value?1:0;
+			break;
+		case FT_UBIGINT:
+			v.ubigintVal = value?1:0;
+			break;
+		case FT_NUMERIC:
+			{
+				if (v.numericVal == 0)
+				{
+					v.numericVal = new NUMERIC;
+				}
+				v.numericVal->negative = false;
+				memset(v.numericVal->numeric, 0, sizeof(v.numericVal->numeric));
+				v.numericVal->numeric[0] = value?'1':'0';
+			}break;
+		case FT_FLOAT:
+			v.floatVal.value = value?1.0:0.0;
+			break;
+		case FT_REAL:
+			v.realVal = value?1.0:0.0;
+			break;
+		case FT_DOUBLE:
+			v.doubleVal = value?1.0:0.0;
+			break;
+		case FT_DATE:
+			v.dateVal = static_cast<DATE>(value);
+			break;
+		case FT_TIME:
+			v.timeVal = static_cast<TIME>(value);
+			break;
+		case FT_TIMESTAMP:
+			{
+				v.timestampVal.time = static_cast<botime_t>(value);
+				v.timestampVal.millsecond = 0;
+			}break;
 		default:
 			return false;
 			break;
@@ -1392,6 +1555,48 @@ namespace bo
 	{
 		switch (VARTYPE)
 		{
+		case FT_CHAR:
+			{
+				FreeBuffer(&v.charVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%d",value);
+				CopyBuffer(&v.charVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARCHAR:
+			{
+				FreeBuffer(&v.varcharVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%d",value);
+				CopyBuffer(&v.varcharVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_CLOB:
+			{
+				FreeBuffer(&v.clobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%d",value);
+				CopyBuffer(&v.clobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_NCHAR:
+			{
+
+			}break;
+		case FT_NVARCHAR:
+			// ???
+			break;
+		case FT_BINARY:
+			{
+				FreeBuffer(&v.lobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%d",value);
+				CopyBuffer(&v.lobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARBINARY:
+			{
+				FreeBuffer(&v.varlobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%d",value);
+				CopyBuffer(&v.varlobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
 		case FT_BOOLEAN:
 			v.booleanVal = value == 1 ? true : false;
 			break;
@@ -1467,7 +1672,6 @@ namespace bo
 			{
 				v.timestampVal.time = static_cast<botime_t>(value);
 				v.timestampVal.millsecond = 0;
-				//v.timestampVal.timezone = tbNow.timezone;
 			}break;
 		default:
 			return false;
@@ -1479,6 +1683,48 @@ namespace bo
 	{
 		switch (VARTYPE)
 		{
+		case FT_CHAR:
+			{
+				FreeBuffer(&v.charVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%lld",value);
+				CopyBuffer(&v.charVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARCHAR:
+			{
+				FreeBuffer(&v.varcharVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%lld",value);
+				CopyBuffer(&v.varcharVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_CLOB:
+			{
+				FreeBuffer(&v.clobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%lld",value);
+				CopyBuffer(&v.clobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_NCHAR:
+			{
+
+			}break;
+		case FT_NVARCHAR:
+			// ???
+			break;
+		case FT_BINARY:
+			{
+				FreeBuffer(&v.lobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%lld",value);
+				CopyBuffer(&v.lobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARBINARY:
+			{
+				FreeBuffer(&v.varlobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%lld",value);
+				CopyBuffer(&v.varlobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
 		case FT_BOOLEAN:
 			v.booleanVal = value == 1 ? true : false;
 			break;
@@ -1547,6 +1793,17 @@ namespace bo
 		case FT_DOUBLE:
 			v.doubleVal = static_cast<double>(value);
 			break;
+		case FT_DATE:
+			v.dateVal = static_cast<DATE>(value);
+			break;
+		case FT_TIME:
+			v.timeVal = static_cast<TIME>(value);
+			break;
+		case FT_TIMESTAMP:
+			{
+				v.timestampVal.time = static_cast<botime_t>(value);
+				v.timestampVal.millsecond = 0;
+			}break;
 		default:
 			return false;
 			break;
@@ -1557,6 +1814,48 @@ namespace bo
 	{
 		switch (VARTYPE)
 		{
+		case FT_CHAR:
+			{
+				FreeBuffer(&v.charVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%f",value);
+				CopyBuffer(&v.charVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARCHAR:
+			{
+				FreeBuffer(&v.varcharVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%f",value);
+				CopyBuffer(&v.varcharVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_CLOB:
+			{
+				FreeBuffer(&v.clobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%d",value);
+				CopyBuffer(&v.clobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_NCHAR:
+			{
+
+			}break;
+		case FT_NVARCHAR:
+			// ???
+			break;
+		case FT_BINARY:
+			{
+				FreeBuffer(&v.lobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%f",value);
+				CopyBuffer(&v.lobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARBINARY:
+			{
+				FreeBuffer(&v.varlobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%f",value);
+				CopyBuffer(&v.varlobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
 		case FT_BOOLEAN:
 			v.booleanVal = value == 1.0 ? true : false;
 			break;
@@ -1625,6 +1924,17 @@ namespace bo
 		case FT_DOUBLE:
 			v.doubleVal = static_cast<double>(value);
 			break;
+		case FT_DATE:
+			v.dateVal = static_cast<DATE>(value);
+			break;
+		case FT_TIME:
+			v.timeVal = static_cast<TIME>(value);
+			break;
+		case FT_TIMESTAMP:
+			{
+				v.timestampVal.time = static_cast<botime_t>(value);
+				v.timestampVal.millsecond = 0;
+			}break;
 		default:
 			return false;
 			break;
@@ -1635,6 +1945,48 @@ namespace bo
 	{
 		switch (VARTYPE)
 		{
+		case FT_CHAR:
+			{
+				FreeBuffer(&v.charVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%u",value);
+				CopyBuffer(&v.charVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARCHAR:
+			{
+				FreeBuffer(&v.varcharVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%u",value);
+				CopyBuffer(&v.varcharVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_CLOB:
+			{
+				FreeBuffer(&v.clobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%u",value);
+				CopyBuffer(&v.clobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_NCHAR:
+			{
+
+			}break;
+		case FT_NVARCHAR:
+			// ???
+			break;
+		case FT_BINARY:
+			{
+				FreeBuffer(&v.lobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%u",value);
+				CopyBuffer(&v.lobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
+		case FT_VARBINARY:
+			{
+				FreeBuffer(&v.varlobVal, false);
+				char lpszBuffer[24];
+				sprintf(lpszBuffer,"%u",value);
+				CopyBuffer(&v.varlobVal, lpszBuffer, strlen(lpszBuffer));
+			}break;
 		case FT_BOOLEAN:
 			v.booleanVal = value == 1 ? true : false;
 			break;
@@ -1698,6 +2050,17 @@ namespace bo
 		case FT_DOUBLE:
 			v.doubleVal = static_cast<double>(value);
 			break;
+		case FT_DATE:
+			v.dateVal = static_cast<DATE>(value);
+			break;
+		case FT_TIME:
+			v.timeVal = static_cast<TIME>(value);
+			break;
+		case FT_TIMESTAMP:
+			{
+				v.timestampVal.time = static_cast<botime_t>(value);
+				v.timestampVal.millsecond = 0;
+			}break;
 		default:
 			return false;
 			break;

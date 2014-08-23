@@ -53,6 +53,7 @@ private:
 	tstring m_requestURL;		// "/path/file.csp?p=v&..."
 	tstring m_requestURI;		// "/path/file.csp"
 	tstring m_queryString;		// "p=v&..."
+	tstring m_postString;		// "p=v&..."
 	tstring m_fileName;			// file.csp
 	unsigned int m_nRangeFrom;		// default 0=start
 	unsigned int m_nRangeTo;			// default 0=end
@@ -181,6 +182,7 @@ protected:
 	virtual const char * getHttpResult(size_t& outSize) const;
 	virtual bool doParse(const unsigned char * requestData, size_t requestSize,const char* sEncoding);
 	void GeServletInfo(void);
+	void GetPropertys(const std::string& sString);
 	void GeRequestInfo(void);
 	bool IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader);
 	const char * strstrl(const char * sourceBuffer, const char * findBuffer, size_t sourceSize, size_t fineSize);

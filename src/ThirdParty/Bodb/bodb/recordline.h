@@ -22,9 +22,9 @@
 
 #include <stl/stldef.h>
 #include <stl/lockmap.h>
-#include <boost/thread/mutex.hpp>
 #include "tableinfo.h"
 #include "fieldvariant.h"
+#include <boost/thread/mutex.hpp>
 
 namespace bo
 {
@@ -90,7 +90,8 @@ namespace bo
 		CLockMap<uinteger, CFieldVariant::pointer> m_variants;	// FieldId ->
 		CLockMap<tstring, CFieldVariant::pointer> m_variants2;		// FieldName ->
 		CLockMap<uinteger, CFieldVariant::pointer>::iterator m_curiter;
-		boost::mutex m_mutex;
+		boost::shared_mutex m_mutex; 
+		//boost::mutex m_mutex;
 	};
 
 	const CRecordLine::pointer boNullRecordLine;
