@@ -49,10 +49,11 @@ using namespace cgc;
 
 #if (USES_MYSQLCDBC)
 
-#include <mysql.h>
-#ifdef WIN32
-#pragma comment(lib,"libmySQL.lib")
-#endif // WIN32
+#include "MysqlPool.h"
+//#include <mysql.h>
+//#ifdef WIN32
+//#pragma comment(lib,"libmysql.lib")
+//#endif // WIN32
 
 my_ulonglong GetRowsNumber(MYSQL_RES * res)
 {
@@ -184,7 +185,7 @@ protected:
 			{
 				for(unsigned int i=0; i<m_resultset->field_count; i++)
 				{
-					tstring s = row[i] ? (const char*)row[i] : "NULL";
+					tstring s = row[i] ? (const char*)row[i] : "";
 					record.push_back(CGC_VALUEINFO(s));
 				}
 			}
@@ -234,8 +235,8 @@ public:
 
 	CMysqlCdbc(const tstring& path)
 		//: m_driver(NULL), m_con(NULL)
-		: m_mysql(NULL)
-		, m_tLastTime(0)
+		//: m_mysql(NULL)
+		: m_tLastTime(0)
 	{}
 	virtual ~CMysqlCdbc(void)
 	{
@@ -308,26 +309,40 @@ private:
 
 		try
 		{
-			m_mysql = mysql_init((MYSQL*)NULL);
-			if (m_mysql == NULL)
-				return false;
+			unsigned short nMin = m_cdbcInfo->getMinSize();
+			unsigned short nMax = m_cdbcInfo->getMaxSize();
 
-			if (!mysql_real_connect(m_mysql, m_cdbcInfo->getHost().c_str(), m_cdbcInfo->getAccount().c_str(),
-				m_cdbcInfo->getSecure().c_str(), m_cdbcInfo->getDatabase().c_str(), 0, NULL, 0))
+			if (m_mysqlPool.PoolInit(nMin,nMax,
+				m_cdbcInfo->getHost().c_str(), 
+				m_cdbcInfo->getAccount().c_str(),
+				m_cdbcInfo->getSecure().c_str(),
+				m_cdbcInfo->getDatabase().c_str(),
+				m_cdbcInfo->getCharset().c_str())==0)
 			{
-				mysql_close(m_mysql);
-				m_mysql = NULL;
+				m_mysqlPool.PoolExit();
 				return false;
 			}
 
-			tstring sCharset = m_cdbcInfo->getCharset();
-			if (sCharset.empty())
-			{
-				sCharset = "utf8";
-			}
-			char lpszCharsetCommand[100];
-			sprintf(lpszCharsetCommand, "set names %s;", sCharset.c_str());
-			mysql_query(m_mysql, lpszCharsetCommand);
+			//m_mysql = mysql_init((MYSQL*)NULL);
+			//if (m_mysql == NULL)
+			//	return false;
+
+			//if (!mysql_real_connect(m_mysql, m_cdbcInfo->getHost().c_str(), m_cdbcInfo->getAccount().c_str(),
+			//	m_cdbcInfo->getSecure().c_str(), m_cdbcInfo->getDatabase().c_str(), 0, NULL, 0))
+			//{
+			//	mysql_close(m_mysql);
+			//	m_mysql = NULL;
+			//	return false;
+			//}
+
+			//tstring sCharset = m_cdbcInfo->getCharset();
+			//if (sCharset.empty())
+			//{
+			//	sCharset = "utf8";
+			//}
+			//char lpszCharsetCommand[100];
+			//sprintf(lpszCharsetCommand, "set names %s;", sCharset.c_str());
+			//mysql_query(m_mysql, lpszCharsetCommand);
 			//mysql_query("set names utf8;");
 		}catch(...)
 		{
@@ -356,12 +371,17 @@ private:
 	{
 		try
 		{
-			if (m_mysql)
+			if (m_mysqlPool.IsOpen())
 			{
-				mysql_close(m_mysql);
-				m_mysql = NULL;
+				m_mysqlPool.PoolExit();
 				m_tLastTime = time(0);
 			}
+			//if (m_mysql)
+			//{
+			//	mysql_close(m_mysql);
+			//	m_mysql = NULL;
+			//	m_tLastTime = time(0);
+			//}
 		}catch(...)
 		{
 		}
@@ -375,7 +395,8 @@ private:
 	}
 	virtual bool isopen(void) const
 	{
-		return m_mysql != NULL;
+		return m_mysqlPool.IsOpen();
+		//return m_mysql != NULL;
 		//return (m_con != NULL && !m_con->isClosed());
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
@@ -388,11 +409,21 @@ private:
 		int ret = 0;
 		try
 		{
-			if(mysql_query(m_mysql, exeSql))
+			CMysqlSink* pSink = m_mysqlPool.SinkGet();
+			MYSQL * pMysql = pSink->GetMYSQL();
+			if(mysql_query(pMysql, exeSql))
+			{
+				m_mysqlPool.SinkPut(pSink);
 				return -1;
+			}
+			ret = (int)mysql_affected_rows(pMysql);
+			m_mysqlPool.SinkPut(pSink);
 
-			ret = (int)mysql_affected_rows(m_mysql);
-			//resultset = mysql_store_result(m_mysql);
+			//if(mysql_query(m_mysql, exeSql))
+			//	return -1;
+
+			//ret = (int)mysql_affected_rows(m_mysql);
+			////resultset = mysql_store_result(m_mysql);
 		}catch(...)
 		{
 			return -1;
@@ -418,11 +449,22 @@ private:
 		int rows = 0;
 		try
 		{
-			if(mysql_query(m_mysql, selectSql))
+			CMysqlSink* pSink = m_mysqlPool.SinkGet();
+			MYSQL * pMysql = pSink->GetMYSQL();
+			if(mysql_query(pMysql, selectSql))
+			{
+				m_mysqlPool.SinkPut(pSink);
 				return -1;
-
-			resultset = mysql_store_result(m_mysql);
+			}
+			resultset = mysql_store_result(pMysql);
 			rows = (int)mysql_num_rows(resultset);
+			m_mysqlPool.SinkPut(pSink);
+
+			//if(mysql_query(m_mysql, selectSql))
+			//	return -1;
+
+			//resultset = mysql_store_result(m_mysql);
+			//rows = (int)mysql_num_rows(resultset);
 
 			if (rows <= 0)
 			{
@@ -514,25 +556,29 @@ private:
 	virtual bool auto_commit(bool autocommit)
 	{
 		if (!isopen()) return false;
+		return false;
 
-		return mysql_autocommit(m_mysql, autocommit ? 1 : 0) == 1;
+		//return mysql_autocommit(m_mysql, autocommit ? 1 : 0) == 1;
 	}
 	virtual bool commit(void)
 	{
 		if (!isopen()) return false;
+		return false;
 
-		return mysql_commit(m_mysql) == 1;
+		//return mysql_commit(m_mysql) == 1;
 	}
 	virtual bool rollback(void)
 	{
 		if (!isopen()) return false;
+		return false;
 
-		return mysql_rollback(m_mysql) == 1;
+		//return mysql_rollback(m_mysql) == 1;
 	}
 private:
 	//sql::Driver * m_driver;
 	//sql::Connection * m_con;
-	MYSQL * m_mysql;
+	CMysqlPool m_mysqlPool;
+	//MYSQL * m_mysql;
 
 	time_t m_tLastTime;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;

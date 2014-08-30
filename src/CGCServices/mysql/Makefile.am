@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libMysqlService.la
-THESOURCES = MysqlService.cpp
+THESOURCES = MysqlService.cpp MysqlPool.cpp
 libMysqlService_la_SOURCES = $(THESOURCES)
 
 #libMysqlService_la_LIBADD = $(libdir)/libmysqlclient.a

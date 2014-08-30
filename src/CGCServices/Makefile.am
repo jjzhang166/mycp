@@ -1,1 +1,1 @@
-SUBDIRS = Configuration String FileSystem Namespace Bodb pg Xml Http DateTime
+SUBDIRS = Configuration String FileSystem Namespace Bodb mysql pg Xml Http DateTime

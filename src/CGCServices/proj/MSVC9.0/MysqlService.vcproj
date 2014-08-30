@@ -198,6 +198,18 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="db"
+			>
+			<File
+				RelativePath="..\..\mysql\MysqlPool.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\mysql\MysqlPool.h"
+				>
+			</File>
+		</Filter>
 	</Files>
 	<Globals>
 	</Globals>
