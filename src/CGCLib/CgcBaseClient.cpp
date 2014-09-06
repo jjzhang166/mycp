@@ -622,8 +622,14 @@ void CgcBaseClient::beginCallLock(void)
 //int CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallName, const tstring & sAppName, const Attachment * pAttach, unsigned long * pCallId)
 bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach, unsigned long * pCallId)
 {
-	if (sCallName.empty() || this->isInvalidate()) return false;
-
+	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
+	m_pSendLock = NULL;
+	if (sCallName.empty() || this->isInvalidate())
+	{
+		if (pLockTemp)
+			delete pLockTemp;
+		return false;
+	}
 	unsigned long cid = getNextCallId();
 	if (pCallId)
 		*pCallId = cid;
@@ -632,8 +638,6 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 
 	const std::string requestData = toAppCallString(cid,nCallSign,sCallName,seq,bNeedAck);
 
-	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
-	m_pSendLock = NULL;
 	// sendData
 	if (pAttach.get() != NULL)
 	{
@@ -652,9 +656,7 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 				ret = addSeqInfo(pSendData, nAttachSize+requestData.size(), seq, cid, nCallSign);
 
 			if (pLockTemp)
-			{
 				delete pLockTemp;
-			}
 			sendData(pSendData, nAttachSize+requestData.size());
 			delete[] pAttachData;
 			if (!ret)
@@ -670,9 +672,7 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 		addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid, nCallSign);
 	}
 	if (pLockTemp)
-	{
 		delete pLockTemp;
-	}
 
 	sendData((const unsigned char*)requestData.c_str(), requestData.size());
 	//return sendSize != requestData.size() ? 0 : 1;
@@ -680,15 +680,19 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 }
 bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck,const cgcAttachment::pointer& pAttach)
 {
-	if (this->isInvalidate()) return false;
-
+	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
+	m_pSendLock = NULL;
+	if (this->isInvalidate())
+	{
+		if (pLockTemp)
+			delete pLockTemp;
+		return false;
+	}
 	//const unsigned short seq = getNextSeq();
 	const unsigned short seq = bNeedAck?getNextSeq():0;
 
 	const std::string requestData = toAppCallResult(nCallId,nCallSign,nResult,seq,bNeedAck);
 
-	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
-	m_pSendLock = NULL;
 	// sendData
 	if (pAttach.get() != NULL)
 	{
@@ -707,9 +711,7 @@ bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned l
 				ret = addSeqInfo(pSendData, nAttachSize+requestData.size(), seq, nCallId, nCallSign);
 
 			if (pLockTemp)
-			{
 				delete pLockTemp;
-			}
 			sendData(pSendData, nAttachSize+requestData.size());
 			delete[] pAttachData;
 			if (!ret)
@@ -725,9 +727,7 @@ bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned l
 		addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, nCallId, nCallSign);
 	}
 	if (pLockTemp)
-	{
 		delete pLockTemp;
-	}
 
 	sendData((const unsigned char*)requestData.c_str(), requestData.size());
 	return true;
