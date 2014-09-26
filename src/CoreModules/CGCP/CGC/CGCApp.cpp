@@ -2017,10 +2017,12 @@ void CGCApp::InitLibModules(unsigned int mt)
 		//if ((mt & (int)moduleMT) != (int)moduleMT)
 		//	continue;
 
-	CLockMap<tstring, cgc::ModuleItem::pointer>::iterator iter;
-	for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
+	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
 	{
-		ModuleItem::pointer moduleItem = iter->second;
+		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
+		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
 
@@ -2062,10 +2064,12 @@ void CGCApp::InitLibModules(unsigned int mt)
 
 void CGCApp::OpenLibrarys(void)
 {
-	CLockMap<tstring, cgc::ModuleItem::pointer>::iterator iter;
-	for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
+	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	for (size_t i=0;i<m_parseModules.m_modules.size(); i++)
 	{
-		ModuleItem::pointer moduleItem = iter->second;
+		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
+		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
 
@@ -2192,10 +2196,12 @@ void CGCApp::FreeLibrarys(void)
 		pModuleImpl->StopModule();
 	}
 
-	CLockMap<tstring, cgc::ModuleItem::pointer>::iterator iter;
-	for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
+	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
 	{
-		ModuleItem::pointer moduleItem = iter->second;
+		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
+		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
 

@@ -85,4 +85,14 @@ struct DeletePair
 	}
 };
 
+// DisableCompare, for CLockMap<int, int,DisableCompare<int> >;
+template<class T>
+struct DisableCompare :public std::binary_function<T,T,bool>
+{
+    bool operator()(const T& lhs, const T& rhs)  const
+    {
+        return true;
+     }
+};
+
 #endif // __stldef_h__

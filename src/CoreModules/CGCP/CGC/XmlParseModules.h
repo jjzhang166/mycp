@@ -35,12 +35,13 @@ public:
 	XmlParseModules(void)
 		: m_bSupportDebug(true)
 	{}
-	~XmlParseModules(void)
+	virtual ~XmlParseModules(void)
 	{
 		FreeHandle();
 	}
 
-	CLockMap<tstring, cgc::ModuleItem::pointer> m_modules;
+	std::vector<cgc::ModuleItem::pointer> m_modules;
+	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> > m_modules;
 	//cgc::ModulesMap m_modules;
 
 public:
@@ -51,17 +52,37 @@ public:
 	}
 	bool getAllowMethod(const tstring & moduleName, const tstring & invokeName, tstring & methodName)
 	{
-		ModuleItem::pointer result;
-		if (!m_modules.find(moduleName, result))
-			return false;
-		return result->getAllowMethod(invokeName, methodName);
+		for (size_t i=0;i<m_modules.size();i++)
+		{
+			ModuleItem::pointer moduleItem = m_modules[i];
+			if (moduleItem->getName()==moduleName)
+			{
+				return moduleItem->getAllowMethod(invokeName, methodName);
+			}
+		}
+		return false;
+		//ModuleItem::pointer result;
+		//if (!m_modules.find(moduleName, result))
+		//	return false;
+		//return result->getAllowMethod(invokeName, methodName);
 	}
 
 	ModuleItem::pointer getModuleItem(const tstring & appName) const
 	{
-		ModuleItem::pointer result;
-		m_modules.find(appName, result);
-		return result;
+		for (size_t i=0;i<m_modules.size();i++)
+		{
+			ModuleItem::pointer moduleItem = m_modules[i];
+			if (moduleItem->getName()==appName)
+			{
+				return moduleItem;
+			}
+		}
+		ModuleItem::pointer NullResult;
+		return NullResult;
+
+		//ModuleItem::pointer result;
+		//m_modules.find(appName, result);
+		//return result;
 	}
 	//bool isModuleItem(const ModuleItem::pointer & pModuleItem) const;
 	bool isSupportDebug(void) const {return m_bSupportDebug;}
@@ -166,7 +187,8 @@ private:
 			moduleItem->setAuthAccount(authaccount == 1);
 			moduleItem->setLockState(ModuleItem::getLockState(lockstate));
 
-			this->m_modules.insert(moduleItem->getName(), moduleItem);
+			m_modules.push_back(moduleItem);
+			//this->m_modules.insert(moduleItem->getName(), moduleItem);
 		}
 	}
 
