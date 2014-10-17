@@ -80,6 +80,7 @@ const std::string CSP_SYS_VAR_REQUESTURL	= "S$RequestURL";	// "/path/file.csp?p=
 const std::string CSP_SYS_VAR_REQUESTURI	= "S$RequestURI";	// "/path/file.csp"
 const std::string CSP_SYS_VAR_QUERYSTRING	= "S$QueryString";	// "p=v&..."
 
+const std::string CSP_SYS_VAR_REMOTEIP		= "S$RemoteIp";		//
 const std::string CSP_SYS_VAR_REMOTEADDR	= "S$RemoteAddr";		//
 const std::string CSP_SYS_VAR_REMOTEHOST	= "S$RemoteHost";		//
 const std::string CSP_SYS_VAR_AUTHACCOUNT	= "S$AuthAccount";	//

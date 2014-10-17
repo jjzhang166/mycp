@@ -472,6 +472,14 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 					var_value = CGC_VALUEINFOA(request->getQueryString(), cgcValueInfo::ATTRIBUTE_READONLY);
 					m_pageParameters->setProperty(CSP_SYS_VAR_QUERYSTRING, var_value);
 				}
+			}else if (string == CSP_SYS_VAR_REMOTEIP)
+			{
+				var_value = m_pageParameters->getProperty(CSP_SYS_VAR_REMOTEIP);
+				if (var_value.get() == NULL)
+				{
+					var_value = CGC_VALUEINFOA((cgc::bigint)request->getIpAddress(), cgcValueInfo::ATTRIBUTE_READONLY);
+					m_pageParameters->setProperty(CSP_SYS_VAR_REMOTEIP, var_value);
+				}
 			}else if (string == CSP_SYS_VAR_REMOTEADDR)
 			{
 				var_value = m_pageParameters->getProperty(CSP_SYS_VAR_REMOTEADDR);
