@@ -449,18 +449,28 @@ bool CgcBaseClient::sendOpenSession(unsigned long * pCallId)
 	if (!m_sSessionId.empty()) return true;
 
 	// cid
-	unsigned long cid = getNextCallId();
+	const unsigned long cid = getNextCallId();
 	if (pCallId)
 		*pCallId = cid;
 	const unsigned short seq = getNextSeq();
 	// requestData
-	std::string requestData = toOpenSesString(cid, seq, true);
+	const std::string requestData = toOpenSesString(cid, seq, true);
 	// addSeqInfo
 	addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid);
 	// sendData
 	try
 	{
 		sendData((const unsigned char*)requestData.c_str(), requestData.size());
+		for (int i=0;i<30; i++)	// 3S
+		{
+			if (!m_sSessionId.empty())
+				break;
+#ifdef WIN32
+			Sleep(100);
+#else
+			usleep(100000);
+#endif
+		}
 		//return (sendSize == requestData.size()) ? 0 : 1;
 		return true;
 	}catch (std::exception& e)

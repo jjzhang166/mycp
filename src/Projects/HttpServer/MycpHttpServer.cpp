@@ -886,7 +886,8 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 							response->write(vectors[nIndex]->toString());
 						}else
 						{
-							response->write("null");
+							//response->write("null");
+							response->write("");
 						}
 					}else if (value->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty().empty())
 					{
@@ -897,7 +898,8 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 							response->write(findValue->toString());
 						}else
 						{
-							response->write("null");
+							response->write("");
+							//response->write("null");
 						}
 					}else
 					{
@@ -906,21 +908,24 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				}else
 				{
 					if (getVariableType(scriptItem->getId()) != VARIABLE_REQUESTPARAM)
-						response->write("null");
+						response->write("");
+						//response->write("null");
 				}
 			}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Name)
 			{
 				cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName());
 				if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT)
 				{
-					response->write("null");
+					response->write("");
+					//response->write("null");
 					return 0;
 				}
 
 				cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
 				if (var_property.get() == NULL)
 				{
-					response->write("null");
+					response->write("");
+					//response->write("null");
 					return 0;
 				}
 
@@ -928,7 +933,8 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				cgcAttributes::pointer appAttributes = serviceInterface->getAttributes();
 				if (appAttributes.get() == NULL)
 				{
-					response->write("null");
+					response->write("");
+					//response->write("null");
 					return 0;
 				}
 				cgcValueInfo::pointer value = appAttributes->getProperty(var_property->getStr());
@@ -937,7 +943,8 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 					 response->write(value->toString());
 				}else
 				{
-					response->write("null");
+					response->write("");
+					//response->write("null");
 				}
 			}else
 			{
@@ -1726,7 +1733,8 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
 			tstring typeString;
 			if (var_id.get() == NULL)
-				typeString = "null";
+				typeString = "";
+				//typeString = "null";
 			else if (var_id->getType() == cgcValueInfo::TYPE_OBJECT)
 				typeString = var_id->getInt() == 1 ? "app" : "cdbc";
 			else

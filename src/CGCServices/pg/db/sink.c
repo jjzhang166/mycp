@@ -159,7 +159,8 @@ void  sink_unlock(Sink* sink)
 }
 void sink_set_busy(Sink* sink, int val)
 {
-    sink->busy = val;
+	if (sink)
+		sink->busy = val;
 }
 int sink_is_busy(Sink* sink)
 {

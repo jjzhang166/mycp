@@ -124,9 +124,9 @@ void do_dataresend(CGCApp * pCGCApp)
 			if (!pCGCApp->ProcDataResend())
 			{
 #ifdef WIN32
-				Sleep(200);
+				Sleep(500);
 #else
-				usleep(200000);
+				usleep(500000);
 #endif
 			}
 		}catch(std::exception const &)
@@ -284,7 +284,6 @@ void CGCApp::AppStop(void)
 	m_logModuleImpl.log(LOG_INFO, _T("Stop %s Service......\n"), m_parseDefault.getCgcpName().c_str());
 	m_bStopedApp = true;
 	m_parsePortApps.clear();
-
 	
 	m_mgrSession.invalidates(true);
 	FreeLibModules(MODULE_COMM);
@@ -1491,7 +1490,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 			}
 			if (pcgcParser->isNeedAck())
 			{
-				tstring responseData = pcgcParser->getAckResult(seq);
+				const tstring responseData = pcgcParser->getAckResult(seq);
 				pcgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.length());
 			}
 			size_t nContentLength = dataSize;
@@ -1785,8 +1784,8 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 	long retCode = 0;
 	if (pcgcParser->isCallType())
 	{
-		unsigned long nCallId = pcgcParser->getCallid();
-		unsigned long nSign = pcgcParser->getSign();
+		const unsigned long nCallId = pcgcParser->getCallid();
+		const unsigned long nSign = pcgcParser->getSign();
 
 		const tstring & sCallName = pcgcParser->getFunctionName();
 		tstring methodName(sCallName);
@@ -1955,6 +1954,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 	}
 	if (!pResponseImpl->isResponseSended())
 	{
+		//responseImpl->lockResponse();	// *
 		pResponseImpl->SetResponseHandler(pRemoteSessionImpl);
 		pResponseImpl->sendAppCallResult(retCode);
 	}

@@ -37,7 +37,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	return TRUE;
 }
 
-
 //#pragma comment(lib, "mysqlcppconn.lib")
 //#pragma comment(lib, "mysqlcppconn-static.lib")
 
@@ -45,7 +44,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 #include <CGCBase/cdbc.h>
 using namespace cgc;
-
 
 #if (USES_MYSQLCDBC)
 
@@ -113,7 +111,6 @@ public:
 	{
 		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		//if (!m_resultset->last()) return cgcNullValueInfo;
-
 		m_currentIndex = m_rows - 1;
 		return getCurrentRecord();
 	}
@@ -129,7 +126,6 @@ public:
 			m_resultset = NULL;
 		}
 		m_rows = 0;
-
 		//try
 		//{
 		//	if (m_resultset)
@@ -146,7 +142,6 @@ public:
 		//}catch(sql::SQLException &e)
 		//{
 		//}
-
 		//m_currentIndex = 0;
 	}
 
@@ -312,13 +307,19 @@ private:
 			unsigned short nMin = m_cdbcInfo->getMinSize();
 			unsigned short nMax = m_cdbcInfo->getMaxSize();
 
+			tstring sHost = m_cdbcInfo->getHost();
+			const tstring::size_type find = sHost.find(":");
+			if (find != tstring::npos)
+				sHost = sHost.substr(0,find);	// ip:port, remove *:port
+			//printf("**** open mysql host=%s,account=%s,pwd=%s\n",sHost.c_str(),m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str());
 			if (m_mysqlPool.PoolInit(nMin,nMax,
-				m_cdbcInfo->getHost().c_str(), 
+				sHost.c_str(), 
 				m_cdbcInfo->getAccount().c_str(),
 				m_cdbcInfo->getSecure().c_str(),
 				m_cdbcInfo->getDatabase().c_str(),
 				m_cdbcInfo->getCharset().c_str())==0)
 			{
+				//printf("**** open mysql error.(host=%s,account=%s,pwd=%s,db=%s)\n",sHost.c_str(),m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str(),m_cdbcInfo->getDatabase().c_str());
 				m_mysqlPool.PoolExit();
 				return false;
 			}

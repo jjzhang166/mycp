@@ -784,18 +784,18 @@ void CSessionMgr::RemoveSessionImpl(const cgcSession::pointer & sessionImpl)
 	m_mapSessionImpl.remove(sessionImpl->getId());
 }
 
-void CSessionMgr::setInterval(unsigned long remoteId, int interval)
-{
-	cgcSession::pointer pSessionImpl = GetSessionImplByRemote(remoteId);
-	if (pSessionImpl.get() != NULL)
-	{
-		if (pSessionImpl->getProtocol() == PROTOCOL_SOTP)
-			interval = 30;
-		else if ((pSessionImpl->getProtocol() & PROTOCOL_HTTP) != PROTOCOL_HTTP)
-			interval = 5;
-		pSessionImpl->setMaxInactiveInterval(interval);
-	}
-}
+//void CSessionMgr::setInterval(unsigned long remoteId, int interval)
+//{
+//	cgcSession::pointer pSessionImpl = GetSessionImplByRemote(remoteId);
+//	if (pSessionImpl.get() != NULL)
+//	{
+//		if (pSessionImpl->getProtocol() == PROTOCOL_SOTP)
+//			interval = 30;
+//		else if ((pSessionImpl->getProtocol() & PROTOCOL_HTTP) != PROTOCOL_HTTP)
+//			interval = 5;
+//		pSessionImpl->setMaxInactiveInterval(interval);
+//	}
+//}
 
 void CSessionMgr::onRemoteClose(unsigned long remoteId, int nErrorCode)
 {
@@ -863,7 +863,7 @@ void CSessionMgr::ProcLastAccessedTime(std::string& pOutCloseSid)
 			// local time error
 			if (now < pSessionImpl->getLastAccessedtime())
 				continue;
-			time_t timeout = now - pSessionImpl->getLastAccessedtime();
+			const time_t timeout = now - pSessionImpl->getLastAccessedtime();
 
 			// SESSION ÒÑ¾­Ê§Ð§
 			if (timeout > pSessionImpl->getMaxInactiveInterval()*60)

@@ -189,6 +189,8 @@ void CSotpResponseImpl::setCgcParser(const cgcParserSotp::pointer& pcgcParser)
 
 void CSotpResponseImpl::lockResponse(void)
 {
+	if (m_bNotResponse)
+		return;
 	boost::mutex::scoped_lock * pLockTemp = new boost::mutex::scoped_lock(m_sendMutex);
 	m_pSendLock = pLockTemp;
 }

@@ -1,4 +1,4 @@
 #! /bin/sh
-./configure CPPFLAGS="-I/usr/local/include/mysql"
+./configure CPPFLAGS="-I/usr/local/mysql/include" LDFLAGS="-L/usr/local/mysql/lib"
 
 

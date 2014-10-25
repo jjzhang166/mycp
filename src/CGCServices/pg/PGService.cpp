@@ -222,13 +222,20 @@ public:
 	}
 private:
 	virtual tstring serviceName(void) const {return _T("PGCDBC");}
+	boost::shared_mutex m_mutex; 
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
-		if (isopen())
+		try
 		{
-			// 主要用于整理数据库连接池；
-			Sink *sink = sink_pool_get();
-			sink_pool_put(sink);
+			BoostWriteLock wtlock(m_mutex);
+			if (isopen())
+			{
+				// 主要用于整理数据库连接池；
+				Sink *sink = sink_pool_get();
+				sink_pool_put(sink);
+			}
+		}catch(...)
+		{
 		}
 	}
 
@@ -310,6 +317,7 @@ private:
 			m_tLastTime = time(0);
 			try
 			{
+				BoostWriteLock wtlock(m_mutex);
 				sink_pool_cleanup();
 			}catch(...)
 			{

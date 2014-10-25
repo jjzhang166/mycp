@@ -11,6 +11,7 @@
 #include <db/postsink.h>
 
 
+static int thecleanup = 0;
 static Sink **sinks = 0;
 static Sink **sinks_log = 0;
 static int    sink_number = 0;
@@ -42,6 +43,7 @@ int sink_pool_init(const char *type,
 	sinks[i] = (Sink*)malloc(sizeof(Sink));
     }
     
+	thecleanup = 0;
     if(strcmp(type, POSTSINK) == 0) {
 	for(i = 0; i < maxsize; i++) {
 	    sinks[i]->sos = &sos;
@@ -227,14 +229,14 @@ Sink * sink_pool_add()
 	return sink;
 }
 
-Sink*  sink_pool_get()
+Sink*  sink_pool_get(void)
 {
 	Sink *sink = 0;
 	int i =0;
 	int nosinkcount = 0;
 	static int theminnumbercount = 0;
 	//printf("================ %d\n", sink_number);
-	while(1) 
+	while(1 && thecleanup==0) 
 	{
 		//sink = sinks[random() % sink_number];
 		for (i =0; i< sink_number; ++i)
@@ -350,19 +352,31 @@ void sink_pool_cleanup()
     Sink *sink;
     int i;
 
-    for(i = 0; i < sink_maxnumber; i++) {
-	sink = sinks[i];
-	sink_disconnect(sink);
-	sink_cleanup(sink);
-    }
-    free(sinks);
+	thecleanup = 1;
+	if (sinks)
+	{
+		for(i = 0; i < sink_maxnumber; i++) {
+			sink = sinks[i];
+			sink_disconnect(sink);
+			sink_cleanup(sink);
+		}
+		free(sinks);
+		sinks = 0;
+	} 
+	sink_maxnumber = 0;
+	sink_number = 0;
 
-	for(i = 0; i < sink_number_log; i++) {
-	sink = sinks_log[i];
-	sink_disconnect(sink);
-	sink_cleanup(sink);
-    }
-    free(sinks_log);
+	if (sinks_log)
+	{
+		for(i = 0; i < sink_number_log; i++) {
+			sink = sinks_log[i];
+			sink_disconnect(sink);
+			sink_cleanup(sink);
+		}
+		free(sinks_log);
+		sinks_log = 0;
+	}
+	sink_number_log = 0;
 }
 
 

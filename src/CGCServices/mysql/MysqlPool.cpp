@@ -18,6 +18,8 @@ bool CMysqlSink::Init(void)
 {
 	if (m_mysql==NULL)
 		m_mysql = mysql_init((MYSQL*)NULL);
+	if (m_mysql==NULL)
+		printf("**** mysql_init error.\n");
 	return m_mysql!=NULL?true:false;
 }
 
@@ -28,6 +30,7 @@ bool CMysqlSink::Connect(void)
 	if (!mysql_real_connect(m_mysql, m_sHost.c_str(), m_sAccount.c_str(),
 		m_sSecure.c_str(), m_sDatabase.c_str(), 0, NULL, 0))
 	{
+		printf("**** mysql_real_connect error.(%s)\n",mysql_error(m_mysql));
 		mysql_close(m_mysql);
 		m_mysql = NULL;
 		return false;

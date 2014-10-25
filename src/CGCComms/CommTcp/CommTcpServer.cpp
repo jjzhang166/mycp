@@ -142,9 +142,11 @@ private:
 			return "TCP";
 	}
 	virtual const tstring & getRemoteAddr(void) const {return m_sRemoteAddr;}
+	//boost::mutex m_sendMutex;
 	virtual int sendData(const unsigned char * data, size_t size)
 	{
 		if (data == NULL || isInvalidate()) return -1;
+		//boost::mutex::scoped_lock lock(m_sendMutex);
 		try
 		{
 #ifndef WIN32

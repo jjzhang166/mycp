@@ -126,11 +126,13 @@ private:
 	virtual unsigned long getIpAddress(void) const {return m_nIpAddress;}
 	virtual tstring getScheme(void) const {return _T("UDP");}
 	virtual const tstring & getRemoteAddr(void) const {return m_sRemoteAddr;}
+	//boost::mutex m_sendMutex;
 	virtual int sendData(const unsigned char * data, size_t size)
 	{
-		if (data == NULL || isInvalidate()) return -1;
+		if (m_socket==NULL || data == NULL || isInvalidate()) return -1;
 		try
 		{
+			//boost::mutex::scoped_lock lock(m_sendMutex);
 			boost::system::error_code ignored_error;
 			m_socket->send_to(boost::asio::buffer(data, size), m_endpoint, 0, ignored_error);
 		}catch (std::exception& e)
@@ -145,7 +147,6 @@ private:
 	}
 	virtual void invalidate(bool bClose) {m_socket = 0;}
 	virtual bool isInvalidate(void) const {return m_socket == 0;}
-
 };
 
 const int ATTRIBUTE_NAME	= 1;
@@ -168,6 +169,7 @@ cgcAttributes::pointer theAppAttributes;
 // CUdpServer
 class CUdpServer
 	: public UdpSocket_Handler
+	, public IoService_Handler
 	, public cgcOnTimerHandler
 	, public cgcCommunication
 	, public CRemoteHandler
@@ -186,7 +188,7 @@ private:
 	//int m_capacity;
 	int m_protocol;
 
-	IoService m_ioservice;
+	IoService::pointer m_ioservice;
 	UdpSocket m_socket;
 	CLockMap<unsigned long, cgcRemote::pointer> m_mapCgcRemote;
 	int m_nDoCommEventCount;
@@ -231,8 +233,10 @@ public:
 		// ??
 		//m_socket.setMaxBufferSize(10*1024);
 		//m_socket.setUnusedSize(0, false);
-		m_socket.start(m_ioservice.ioservice(), m_commPort, shared_from_this());
-		m_ioservice.start();
+		if (m_ioservice.get() == NULL)
+			m_ioservice = IoService::create();
+		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
+		m_ioservice->start(shared_from_this());
 
 		m_nCurrentThread = MIN_EVENT_THREAD;
 		for (int i=1; i<=m_nCurrentThread; i++)
@@ -273,7 +277,7 @@ public:
 		m_socket.stop();
 		m_listMgr.clear();
 		m_mapCgcRemote.clear();
-		m_ioservice.stop();
+		m_ioservice.reset();
 		m_bServiceInited = false;
 		CGC_LOG((LOG_INFO, _T("**** [%s:%d] Stop succeeded ****\n"), serviceName().c_str(), m_commPort));
 	}
@@ -351,6 +355,30 @@ private:
 		case CCommEventData::CET_Recv:
 			m_commHandler->onRecvData(pCommEventData->getRemote(), pCommEventData->getRecvData(), pCommEventData->getRecvSize());
 			break;
+		case CCommEventData::CET_Exception:
+			{
+				CGC_LOG((LOG_ERROR, _T("**** [%s:%d] CET_Exception ****\n"), serviceName().c_str(), m_commPort));
+				if (!m_listMgr.empty())
+				{
+					m_listMgr.clear();
+
+					//AUTO_WLOCK(m_listMgr);
+					//CLockListPtr<CCommEventData*>::iterator pIter = m_listMgr.begin();
+					//for (; pIter!=m_listMgr.end(); pIter++)
+					//{
+					//	CCommEventData * pCloseCommEventData = m_listMgr.front();
+					//	m_commHandler->onRemoteClose(pCloseCommEventData->getRemoteId(),pCloseCommEventData->GetErrorCode());
+					//}
+					//m_listMgr.clear(false,true);
+				}
+				m_mapCgcRemote.clear();
+				m_socket.stop();
+				m_ioservice.reset();
+				m_ioservice = IoService::create();
+				m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
+				m_ioservice->start(shared_from_this());
+				CGC_LOG((LOG_INFO, _T("**** [%s:%d] Restart OK ****\n"), serviceName().c_str(), m_commPort));
+			}break;
 		default:
 			break;
 		}
@@ -361,6 +389,13 @@ private:
 	virtual unsigned long getCommId(void) const {return getId();}
 	virtual int getProtocol(void) const {return m_protocol;}
 	virtual int getServerPort(void) const {return m_commPort;}
+
+	// IoService_Handler
+	virtual void OnIoServiceException(void)
+	{
+		CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Exception);
+		m_listMgr.add(pEventData);
+	}
 
 	// UdpSocket_Handler
 	virtual void OnReceiveData(const UdpSocket & socket2, const UdpEndPoint::pointer& endpoint)

@@ -24,7 +24,7 @@ int sink_pool_init_log(const char *type,
 		   const char *dbname,
 		   const char *login,
 		   const char *pwd);
-Sink*  sink_pool_get();
+Sink*  sink_pool_get(void);
 Sink*  sink_pool_get_log();
 void   sink_pool_put(Sink*);
 void   sink_pool_cleanup();

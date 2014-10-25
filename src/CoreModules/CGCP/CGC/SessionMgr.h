@@ -210,7 +210,7 @@ public:
 	void SetRemoteSession(unsigned long remoteId,const tstring& sSessionId);
 
 	void RemoveSessionImpl(const cgcSession::pointer & pSessionImpl);
-	void setInterval(unsigned long remoteId, int interval);
+	//void setInterval(unsigned long remoteId, int interval);
 	void onRemoteClose(unsigned long remoteId, int nErrorCode);
 
 	bool ProcDataResend(void);

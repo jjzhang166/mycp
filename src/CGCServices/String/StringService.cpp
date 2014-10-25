@@ -394,6 +394,7 @@ protected:
 			//返回结果
 			if (outParam.get() == NULL)
 			{
+				inParam->totype(cgcValueInfo::TYPE_STRING);
 				inParam->setStr(sOutString);
 			}else
 			{
@@ -447,6 +448,7 @@ protected:
 			//返回结果
 			if (outParam.get() == NULL)
 			{
+				inParam->totype(cgcValueInfo::TYPE_STRING);
 				inParam->setStr(sOutString);
 			}else
 			{
