@@ -2481,10 +2481,11 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 				{
 					sIndex = sId.substr(nFindIndex1+1, sId.size()-nFindIndex1-2);
 					trimstring(sIndex);
-					if (scriptItemNew->getProperty().empty())
-						scriptItemNew->setProperty(sIndex);
-					else
-						scriptItemNew->setType(sIndex);	// ???
+					scriptItemNew->setProperty2(sIndex);
+					//if (scriptItemNew->getProperty().empty())
+					//	scriptItemNew->setProperty(sIndex);
+					//else
+					//	scriptItemNew->setType(sIndex);	// ???
 					lpszBuffer2[nFindIndex1] = '\0';
 				}
 

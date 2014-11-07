@@ -164,6 +164,9 @@ public:
 	void setProperty(const std::string& property) {m_property = property;}
 	const std::string& getProperty(void) const {return m_property;}
 
+	void setProperty2(const std::string& property) {m_property2 = property;}
+	const std::string& getProperty2(void) const {return m_property2;}
+
 	void setValue(const std::string& value) {m_value = value;}
 	const std::string& getValue(void) const {return m_value;}
 
@@ -189,6 +192,7 @@ protected:
 	std::string m_scope;
 	std::string m_name;
 	std::string m_property;
+	std::string m_property2;
 	std::string m_value;
 	std::string m_type;
 };

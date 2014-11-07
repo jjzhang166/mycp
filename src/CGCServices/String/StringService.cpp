@@ -45,6 +45,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <CGCBase/cgcService.h>
 #include "md5.h"
 #include "Base64.h"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/locale/encoding.hpp>
+//#include <boost/foreach.hpp>
+using namespace boost::property_tree;
+using namespace boost::locale;
 
 // cgc head
 #include "cgcString.h"
@@ -620,15 +626,136 @@ protected:
 					outParam->insertMap(p, CGC_VALUEINFO(v));
 				}while (find != std::string::npos);
 			}
+		}else if (function == "to_json")
+		{
+			if (inParam.get() == NULL) return false;
+			return toJson(inParam,outParam);
+		}else if (function == "split_str2list")
+		{
+			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->size()<2) return false;
+			const tstring sString = inParam->getVector()[0]->getStr();
+			const tstring sInterval = inParam->getVector()[1]->getStr();
 
+			cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
+			pOutParam->totype(cgcValueInfo::TYPE_VECTOR);
+			pOutParam->reset();
+
+			std::vector<std::string> pList;
+			SplitString2List(sString.c_str(),sInterval.c_str(),pList);
+			for (size_t i=0;i<pList.size();i++)
+			{
+				pOutParam->addVector(CGC_VALUEINFO(pList[i]));
+			}
 		}else
 		{
 			return false;
 		}
-
+		//SplitString2List
 		return true;
 	}
 
+//创建JSON数组：
+//boost::property_tree::ptree array;
+//array.push_back(std::make_pair("", "element0"));
+//array.push_back(std::make_pair("", "element1"));
+//boost::property_tree::ptree props;
+//props.push_back(std::make_pair("array", array));
+//boost::property_tree::write_json("prob.json", props);
+
+	void PutJson(wptree& ptResponse,const tstring& sKey, const cgcValueInfo::pointer& pValueInfo, bool bRoot=false)
+	{
+		//printf("type=%d,key=%s\n",pValueInfo->getType(),sKey.c_str());
+		switch (pValueInfo->getType())
+		{
+		case cgcValueInfo::TYPE_VALUEINFO:
+			{
+				wptree ptChild;
+				PutJson(ptChild, "", pValueInfo->getValueInfo());
+				if (sKey.empty())
+					ptResponse.push_back(std::make_pair(L"", ptChild));
+				else
+					ptResponse.push_back(std::make_pair(conv::utf_to_utf<wchar_t>(sKey), ptChild));
+			}break;
+		case cgcValueInfo::TYPE_MAP:
+			{
+				wptree ptChild;
+				const CLockMap<tstring, cgcValueInfo::pointer>& pInfoList = pValueInfo->getMap();
+				CLockMap<tstring, cgcValueInfo::pointer>::const_iterator pIter = pInfoList.begin();
+				for (; pIter!=pInfoList.end(); pIter++)
+				{
+					if (bRoot && sKey.empty())	// 直接写到MAP里面，生成结果没有 {"":....}
+						PutJson(ptResponse,pIter->first,pIter->second);
+					else
+						PutJson(ptChild,pIter->first,pIter->second);
+				}
+				if (bRoot && sKey.empty())
+					break;
+				if (sKey.empty())
+					ptResponse.push_back(std::make_pair(L"", ptChild));
+				else
+					ptResponse.push_back(std::make_pair(conv::utf_to_utf<wchar_t>(sKey), ptChild));
+			}break;
+		case cgcValueInfo::TYPE_VECTOR:
+			{
+				wptree ptChild;
+				const std::vector<cgcValueInfo::pointer>& pInfoList = pValueInfo->getVector();
+				for (size_t i=0; i<pInfoList.size(); i++)
+				{
+					PutJson(ptChild,"",pInfoList[i]);
+				}
+				if (sKey.empty())
+					ptResponse.push_back(std::make_pair(L"", ptChild));
+				else
+					ptResponse.push_back(std::make_pair(conv::utf_to_utf<wchar_t>(sKey), ptChild));
+			}break;
+		default:
+			{
+				if (sKey.empty())
+					ptResponse.push_back(std::make_pair(L"", conv::utf_to_utf<wchar_t>(pValueInfo->toString())));
+				else
+					ptResponse.push_back(std::make_pair(conv::utf_to_utf<wchar_t>(sKey), conv::utf_to_utf<wchar_t>(pValueInfo->toString())));
+				//if (bVector || (bRoot && sKey.empty()))
+				//	ptResponse.push_back(std::make_pair(L"", conv::utf_to_utf<wchar_t>(pValueInfo->toString())));		// 数组
+				//else
+				//	ptResponse.put(conv::utf_to_utf<wchar_t>(sKey), conv::utf_to_utf<wchar_t>(pValueInfo->toString()));
+			}break;
+		}
+	}
+	bool toJson(const cgcValueInfo::pointer& inParam,cgcValueInfo::pointer outParam)
+	{
+		wptree ptResponse;
+		PutJson(ptResponse,"",inParam,true);
+
+		cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
+		pOutParam->totype(cgcValueInfo::TYPE_STRING);
+		pOutParam->reset();
+		try{
+
+			std::wstringstream s2;
+			write_json(s2, ptResponse,false);
+			std::string sTextString(conv::utf_to_utf<char>(s2.str()));
+			if ((inParam->getType()==cgcValueInfo::TYPE_VECTOR || inParam->getType()==cgcValueInfo::TYPE_VALUEINFO)
+				&& sTextString.substr(0,4)=="{\"\":")
+			{
+				// 去掉开头的：{"":
+				// 和去掉结尾的：}
+				sTextString = sTextString.substr(4);
+				const std::string::size_type find = sTextString.rfind("}");
+				if (find != std::string::npos)
+				{
+					sTextString = sTextString.substr(0,find);
+				}else
+				{
+					//  }后面还有一个空格，所有去掉二个
+					sTextString = sTextString.substr(0,sTextString.size()-2);
+				}
+			}
+			pOutParam->setStr(sTextString);
+		}catch(ptree_error &) { 
+			return false;
+		}
+		return true;
+	}
 	//std::string toHex(const std::string &src)
 	//{
 	//	std::string result;
@@ -975,6 +1102,27 @@ protected:
 		{
 		}
 		return defaultValue;
+	}
+	int SplitString2List(const char * lpszString, const char * lpszInterval, std::vector<std::string> & pOut)
+	{
+		std::string sIn(lpszString);
+		const size_t nIntervalLen = strlen(lpszInterval);
+		pOut.clear();
+		while (!sIn.empty())
+		{
+			std::string::size_type find = sIn.find(lpszInterval);
+			if (find == std::string::npos)
+			{
+				pOut.push_back(sIn);
+				break;
+			}
+			if (find==0)
+				pOut.push_back("");	// 空
+			else
+				pOut.push_back(sIn.substr(0, find));
+			sIn = sIn.substr(find+nIntervalLen);
+		}
+		return (int)pOut.size();
 	}
 
 };

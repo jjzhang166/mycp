@@ -723,7 +723,8 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo2(const CScriptItem::po
 		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue(), scriptItem->getScope());
 		if (var_value.get() == NULL) return cgcNullValueInfo;
 
-		if (var_value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
+		if (var_value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty2().empty())
+		//if (var_value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
 		{
 			int nIndex = atoi(scriptItem->getProperty().c_str());
 			const std::vector<cgcValueInfo::pointer>& vectors = var_value->getVector();
@@ -731,7 +732,8 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo2(const CScriptItem::po
 			{
 				value = vectors[nIndex]->copy();
 			}
-		}else if (var_value->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty().empty())
+		}else if (var_value->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty2().empty())
+		//}else if (var_value->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty().empty())
 		{
 			// ?? $var_time['timestamp'] = $var_getresponse['ts']; 用于获取后面 ts
 			const tstring & sIndex = !scriptItem->getType().empty() ? scriptItem->getType() : scriptItem->getProperty();
@@ -1523,6 +1525,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				attributes->setProperty(scriptItem->getId(), var_variable);
 			}else
 			{
+				//printf("****** type=%d\n",var_variable->getType());
 				if (var_variable->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
 				{
 					int nIndex = atoi(scriptItem->getProperty().c_str());
@@ -1537,8 +1540,8 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				}else if (var_variable->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty().empty())
 				{
 					const tstring & sIndex = scriptItem->getProperty();
+					//printf("****** index=%s,type=%d,type2=%d\n",sIndex.c_str(),var_variable->getType(),var_value->getType());
 					CLockMap<tstring, cgcValueInfo::pointer>& maps = const_cast<CLockMap<tstring, cgcValueInfo::pointer>&>(var_variable->getMap());
-					maps.remove(sIndex);
 					maps.insert(sIndex, var_value);
 				}else
 				{

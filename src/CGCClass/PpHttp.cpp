@@ -75,13 +75,13 @@ bool CPpHttp::getUploadFile(std::vector<cgcUploadFile::pointer>& outFiles) const
 
 tstring CPpHttp::getCookie(const tstring & name, const tstring& defaultValue) const
 {
-	cgcValueInfo::pointer valueInfo = m_pReqCookies.getProperty(name);
+	const cgcValueInfo::pointer valueInfo = m_pReqCookies.getProperty(name);
 	return valueInfo.get() == NULL ? defaultValue : valueInfo->getStr();
 }
 
 tstring CPpHttp::getHeader(const tstring & header, const tstring& defaultValue) const
 {
-	cgcValueInfo::pointer valueInfo = m_pReqHeaders.getProperty(header);
+	const cgcValueInfo::pointer valueInfo = m_pReqHeaders.getProperty(header);
 	return valueInfo.get() == NULL ? defaultValue : valueInfo->getStr();
 }
 
@@ -157,7 +157,7 @@ void CPpHttp::setCookie(const tstring& name, const tstring& value)
 {
 	if (!name.empty())
 	{
-		m_pResCookies.remove(name);
+		//m_pResCookies.remove(name);
 		m_pResCookies.insert(name,cgcCookieInfo::create(name,value));
 	}
 }
@@ -165,7 +165,7 @@ void CPpHttp::setCookie(const cgcCookieInfo::pointer& pCookieInfo)
 {
 	if (pCookieInfo.get()!= NULL && !pCookieInfo->m_sCookieName.empty())
 	{
-		m_pResCookies.remove(pCookieInfo->m_sCookieName);
+		//m_pResCookies.remove(pCookieInfo->m_sCookieName);
 		m_pResCookies.insert(pCookieInfo->m_sCookieName,pCookieInfo);
 	}
 }
@@ -174,7 +174,7 @@ void CPpHttp::setHeader(const tstring& name, const tstring& value)
 {
 	if (!name.empty())
 	{
-		m_pResHeaders.remove(name);
+		//m_pResHeaders.remove(name);
 		m_pResHeaders.insert(name,CGC_VALUEINFO(value));
 		//m_pResHeaders.push_back(CGC_KEYVALUE(name,CGC_VALUEINFO(value)));
 	}
@@ -204,12 +204,14 @@ void CPpHttp::forward(const tstring& url)
 		m_requestURL = sTemp+url;
 	}
 	//printf("******* m_forwardFromURL=%s\n",m_forwardFromURL.c_str());
-	//printf("******* m_requestURL=%s\n",m_requestURL.c_str());
+	//printf("******* forward(): =%s\n",m_requestURL.c_str());
 	GeServletInfo();
 	GeRequestInfo();
 }
 void CPpHttp::location(const tstring& url)
 {
+	// /eb/login.html?type=config/config.csp
+	//printf("******* location(): url=%s\n",url.c_str());
 	const tstring::size_type find = m_requestURL.rfind("/");
 	if (url.empty())
 		m_sLocation = "/";
@@ -220,7 +222,7 @@ void CPpHttp::location(const tstring& url)
 		std::string sTemp = m_requestURL.substr(0,find+1);
 		m_sLocation = sTemp+url;
 	}
-	//printf("******* m_sLocation=%s\n",m_sLocation.c_str());
+	//printf("******* location(): =%s\n",m_sLocation.c_str());
 }
 
 const char * CPpHttp::getHttpResult(size_t& outSize) const
@@ -491,7 +493,8 @@ void CPpHttp::GetPropertys(const std::string& sString)
 
 void CPpHttp::GeRequestInfo(void)
 {
-	m_requestURI = m_requestURL;		
+	m_requestURI = m_requestURL;	
+	//printf("******* GeRequestInfo(): m_requestURI=%s\n",m_requestURI.c_str());
 	//if (m_method != HTTP_POST)
 		//if (m_method == HTTP_GET)
 	{
@@ -500,7 +503,7 @@ void CPpHttp::GeRequestInfo(void)
 		{
 			m_requestURI = m_requestURL.substr(0, find);
 			m_queryString = m_requestURL.substr(find+1);
-			tstring::size_type findFileName = m_requestURI.rfind("/");
+			const tstring::size_type findFileName = m_requestURI.rfind("/");
 			if (findFileName != std::string::npos)
 			{
 				m_fileName = m_requestURI.substr(findFileName+1);
@@ -569,41 +572,56 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		leftIndex += 4;
 		m_method = HTTP_GET;
 		m_functionName = "doGET";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "HEAD", leftIndex))
 	{
 		leftIndex += 5;
 		m_method = HTTP_HEAD;
 		m_functionName = "doHEAD";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "POST", leftIndex))
 	{
 		leftIndex += 5;
 		m_method = HTTP_POST;
 		m_functionName = "doPOST";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "PUT", leftIndex))
 	{
 		leftIndex += 4;
 		m_method = HTTP_PUT;
 		m_functionName = "doPUT";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "DELETE", leftIndex))
 	{
 		leftIndex += 7;
 		m_method = HTTP_DELETE;
 		m_functionName = "doDELETE";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "OPTIONS", leftIndex))
 	{
 		leftIndex += 8;
 		m_method = HTTP_OPTIONS;
 		m_functionName = "doOPTIONS";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "TRACE", leftIndex))
 	{
 		leftIndex += 6;
 		m_method = HTTP_TRACE;
 		m_functionName = "doTRACE";
+		m_sCurrentParameterData.clear();
 	}else if (sotpCompare(httpRequest, "CONNECT", leftIndex))
 	{
 		leftIndex += 8;
 		m_method = HTTP_CONNECT;
 		m_functionName = "doCONNECT";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
 	}else
 	{
 		if (m_currentMultiPart.get() == NULL) return false;
@@ -638,7 +656,22 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		}
 
 		bool findBoundary = false;
-		if (requestSize >= m_currentMultiPart->getBoundary().size()+2)
+		if (!m_sCurrentParameterData.empty() && m_currentMultiPart->getFileName().empty() && m_currentMultiPart->getName().empty() && !m_currentMultiPart->getBoundary().empty())
+		{
+			// 普通参数，前面有处理未完成数据；
+			m_queryString.append(httpRequest);
+			m_postString.append(httpRequest);
+			m_receiveSize += requestSize;
+			findBoundary = true;
+			multipartyBoundary = m_currentMultiPart->getBoundary();
+			m_sCurrentParameterData.append(httpRequest,requestSize);
+			//if (sotpCompare(m_sCurrentParameterData.c_str(), Http_ContentDisposition.c_str(), leftIndex))
+			{
+				httpRequest = m_sCurrentParameterData.c_str();
+				requestSize = m_sCurrentParameterData.size();
+			}
+		}else if (m_currentMultiPart->getFileName().empty() ||				// 普通参数，不是文件
+			requestSize >= m_currentMultiPart->getBoundary().size()+2)		// 文件
 		{
 			if (sotpCompare(httpRequest, m_currentMultiPart->getBoundary().c_str(), leftIndex))
 			{
@@ -713,6 +746,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		if (findSearch == NULL)
 			return false;
 		m_requestURL = tstring(httpRequest+leftIndex, findSearch-httpRequest-leftIndex);
+		//printf("******* IsComplete(): Get file name;%s,%s\n",httpRequest,m_requestURL.c_str());
 		m_requestURL = URLDecode(m_requestURL.c_str());
 		leftIndex += (m_requestURL.size()+1);
 
@@ -736,7 +770,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					if (sotpCompare(httpRequest+boundaryFind.size()+leftIndex, "--\r\n", leftIndex))
 					{
 						// 最后完成1；
-						//printf("******* finale ok1 ************\n");
+						//printf("******* final ok1 ************\n");
 						return true;
 					}
 					httpRequest += boundaryFind.size() + 2;
@@ -754,8 +788,8 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					findSearchEnd = strstr(httpRequest, boundaryFind.c_str());
 					if (findSearchEnd == NULL) break;
 					// 查找到一个参数；
-					tstring p = m_currentMultiPart->getName();
-					tstring v(httpRequest,findSearchEnd-httpRequest);
+					const tstring p = m_currentMultiPart->getName();
+					const tstring v(httpRequest,findSearchEnd-httpRequest);
 					//printf("**** %s:%s\n",p.c_str(),v.c_str());
 					m_propertys.setProperty(p, CGC_VALUEINFO(v));
 					m_currentMultiPart->close();
@@ -768,7 +802,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					if (sotpCompare(httpRequest, "--\r\n", leftIndex))
 					{
 						// 最后完成2；
-						//printf("******* finale ok2 ************\n");
+						//printf("******* final ok2 ************\n");
 						return true;
 					}
 					httpRequest += 2;
@@ -783,9 +817,10 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		if (findSearchEnd == NULL) break;
 
 		pOutHeader = true;
-		tstring param(httpRequest, findSearch-httpRequest);
+		const tstring param(httpRequest, findSearch-httpRequest);
 		tstring value(findSearch+2, findSearchEnd-findSearch-2);
-		m_pReqHeaders.setProperty(param, CGC_VALUEINFO(value));
+		if (param != Http_ContentDisposition)
+			m_pReqHeaders.setProperty(param, CGC_VALUEINFO(value));
 		//printf("IsComplete: %s: %s\n",param.c_str(),value.c_str());
 
 		if (m_currentMultiPart.get() != NULL && param == Http_ContentDisposition)
@@ -965,7 +1000,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					return true;	// 由api去处理；
 				}
 
-				if (multipartyBoundary.empty())
+				//if (multipartyBoundary.empty())
 				{
 					const char * find = strstrl(httpRequest, "\r\n\r\n", requestSize-(httpRequest-httpRequestOld), 4);
 					//const char * find = strstrl(httpRequest, "\r\n\r\n", strlen(httpRequest), 4);
@@ -980,33 +1015,36 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					//m_receiveSize = strlen(find);
 					//printf("**** m_contentSize=%d,m_receiveSize=%d\n",m_contentSize,m_receiveSize);
 
-					if (m_receiveSize == 0)
+					if (multipartyBoundary.empty())
 					{
-						m_currentMultiPart = CGC_MULTIPART("");
-						//return false;
-					}else
-					{
-						//int offset = 0;
-						//if (httpRequest[strlen(httpRequest)-1] == '\n')
-						//	offset += 1;
-						//if (httpRequest[strlen(httpRequest)-2] == '\r')
-						//	offset += 1;
-
-						//if (m_contentData)
-						//	delete[] m_contentData;
-						//m_contentData = new char[m_contentSize+1];
-						//strncpy(m_contentData, find, m_receiveSize);
-						////strncpy(m_contentData, httpRequest+strlen(httpRequest)-m_contentSize-offset, m_contentSize);
-						//m_contentData[m_receiveSize] = '\0';
-						////printf("=================\n%s\n================\n",m_contentData);
-						//m_queryString = m_contentData;
-						m_queryString = find;
-						m_postString = find;
-						//m_queryString = tstring(m_contentData, m_contentSize);
-						if (m_contentSize > m_receiveSize)
+						if (m_receiveSize == 0)
 						{
 							m_currentMultiPart = CGC_MULTIPART("");
-							// 下面会返回false
+							//return false;
+						}else
+						{
+							//int offset = 0;
+							//if (httpRequest[strlen(httpRequest)-1] == '\n')
+							//	offset += 1;
+							//if (httpRequest[strlen(httpRequest)-2] == '\r')
+							//	offset += 1;
+
+							//if (m_contentData)
+							//	delete[] m_contentData;
+							//m_contentData = new char[m_contentSize+1];
+							//strncpy(m_contentData, find, m_receiveSize);
+							////strncpy(m_contentData, httpRequest+strlen(httpRequest)-m_contentSize-offset, m_contentSize);
+							//m_contentData[m_receiveSize] = '\0';
+							////printf("=================\n%s\n================\n",m_contentData);
+							//m_queryString = m_contentData;
+							m_queryString = find;
+							m_postString = find;
+							//m_queryString = tstring(m_contentData, m_contentSize);
+							if (m_contentSize > m_receiveSize)
+							{
+								m_currentMultiPart = CGC_MULTIPART("");
+								// 下面会返回false
+							}
 						}
 					}
 				}
@@ -1042,9 +1080,17 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 	{
 		m_currentMultiPart = CGC_MULTIPART(multipartyBoundary);
 		return false;
-	}else if (m_currentMultiPart.get() != NULL && m_currentMultiPart->getBoundary().empty())
+	}else if (m_currentMultiPart.get() != NULL)
+	//}else if (m_currentMultiPart.get() != NULL && m_currentMultiPart->getBoundary().empty())
 	{
 		// 数据未收完整
+		if (httpRequest!=NULL && m_currentMultiPart->getFileName().empty() && m_currentMultiPart->getName().empty() && !m_currentMultiPart->getBoundary().empty())
+		{
+			// 普通参数，不是文件，并且当前未解析到名称，说明协议被截包；
+			// 记下当前参数内容，下次再解析多一次；预防截包	如：Content-Disposition: form-data; name="
+			m_sCurrentParameterData = httpRequest;
+		}
+
 		return false;
 	}
 

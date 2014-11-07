@@ -90,10 +90,10 @@ namespace cgc{
 		void setStr(const tstring& v) {if (m_attribute != ATTRIBUTE_READONLY) m_str = v;}
 		const tstring& getStr(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? cgcEmptyTString : m_str;}
 
-		void setObject(cgcObject::pointer v) {if (m_attribute != ATTRIBUTE_READONLY) m_object = v;}
+		void setObject(const cgcObject::pointer& v) {if (m_attribute != ATTRIBUTE_READONLY) m_object = v;}
 		cgcObject::pointer getObject(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? cgcNullObject : m_object;}
 
-		void setValueInfo(cgcValueInfo::pointer v) {if (m_attribute != ATTRIBUTE_READONLY) m_valueInfo = v;}
+		void setValueInfo(const cgcValueInfo::pointer& v) {if (m_attribute != ATTRIBUTE_READONLY) m_valueInfo = v;}
 		cgcValueInfo::pointer getValueInfo(void) const {cgcValueInfo::pointer nullValueInfo; return m_attribute == ATTRIBUTE_WRITEONLY ? nullValueInfo : m_valueInfo;}
 
 		void addVector(const cgcValueInfo::pointer& v) {if (v.get() != NULL && m_attribute != ATTRIBUTE_READONLY) m_vector.push_back(v);}
@@ -110,9 +110,10 @@ namespace cgc{
 		cgcValueInfo(bool v, ValueAttribute a = ATTRIBUTE_BOTH);
 		cgcValueInfo(double v, ValueAttribute a = ATTRIBUTE_BOTH);
 		cgcValueInfo(const void* v, ValueAttribute a = ATTRIBUTE_BOTH);
+		cgcValueInfo(const char* v, ValueAttribute a = ATTRIBUTE_BOTH);
 		cgcValueInfo(const tstring & v, ValueAttribute a = ATTRIBUTE_BOTH);
-		cgcValueInfo(cgcObject::pointer v, ValueAttribute a = ATTRIBUTE_BOTH);
-		cgcValueInfo(cgcValueInfo::pointer v, ValueAttribute a = ATTRIBUTE_BOTH);
+		cgcValueInfo(const cgcObject::pointer& v, ValueAttribute a = ATTRIBUTE_BOTH);
+		cgcValueInfo(const cgcValueInfo::pointer& v, ValueAttribute a = ATTRIBUTE_BOTH);
 		cgcValueInfo(const std::vector<cgcValueInfo::pointer> & v, ValueAttribute a = ATTRIBUTE_BOTH);
 		cgcValueInfo(const CLockMap<tstring, cgcValueInfo::pointer> & v, ValueAttribute a = ATTRIBUTE_BOTH);
 		virtual ~cgcValueInfo(void);
@@ -206,12 +207,17 @@ namespace cgc{
 	{
 		memset(&u, 0, sizeof(u));
 	}
-	inline cgcValueInfo::cgcValueInfo(cgcObject::pointer v, ValueAttribute a)
+	inline cgcValueInfo::cgcValueInfo(const char* v, ValueAttribute a)
+		: m_type(TYPE_STRING), m_attribute(a), m_str(v)
+	{
+		memset(&u, 0, sizeof(u));
+	}
+	inline cgcValueInfo::cgcValueInfo(const cgcObject::pointer& v, ValueAttribute a)
 		: m_type(TYPE_OBJECT), m_attribute(a), m_str(""), m_object(v)
 	{
 		memset(&u, 0, sizeof(u));
 	}
-	inline cgcValueInfo::cgcValueInfo(cgcValueInfo::pointer v, ValueAttribute a)
+	inline cgcValueInfo::cgcValueInfo(const cgcValueInfo::pointer& v, ValueAttribute a)
 		: m_type(TYPE_VALUEINFO), m_attribute(a), m_str(""), m_valueInfo(v)
 	{
 		memset(&u, 0, sizeof(u));

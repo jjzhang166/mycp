@@ -437,7 +437,12 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	fs::path src_path(sFilePath);
 	if (!fs::exists(src_path))
 	{
-		response->println("%s: NOT FOUND", sFileName.c_str());
+		response->println("HTTP Status 404 - %s", sFileName.c_str());
+		return STATUS_CODE_404;
+	}else if (fs::is_directory(src_path))
+	{
+		// ??
+		response->println("HTTP Status 404 - %s", sFileName.c_str());
 		return STATUS_CODE_404;
 	}
 
@@ -446,8 +451,8 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	if (isCSPFile(sFilePath, sMimeType))
 	{
 		fs::path src_path(sFilePath);
-		size_t fileSize = (size_t)fs::file_size(src_path);
-		time_t lastTime = fs::last_write_time(src_path);
+		const size_t fileSize = (size_t)fs::file_size(src_path);
+		const time_t lastTime = fs::last_write_time(src_path);
 
 		bool buildCSPFile = false;
 		CCSPFileInfo::pointer fileInfo;

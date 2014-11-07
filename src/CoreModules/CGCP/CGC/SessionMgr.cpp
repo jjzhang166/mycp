@@ -769,9 +769,9 @@ cgcSession::pointer CSessionMgr::GetSessionImpl(const tstring & sSessionId) cons
 //}
 void CSessionMgr::SetRemoteSession(unsigned long remoteId,const tstring& sSessionId)
 {
-#ifndef USES_MULTI_REMOTE_SESSION
-	m_mapRemoteSessionId.remove(remoteId);
-#endif
+//#ifndef USES_MULTI_REMOTE_SESSION
+//	m_mapRemoteSessionId.remove(remoteId);
+//#endif
 	m_mapRemoteSessionId.insert(remoteId, sSessionId);
 }
 

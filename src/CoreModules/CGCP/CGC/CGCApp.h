@@ -144,7 +144,7 @@ private:
 	virtual cgcAttributes::pointer getAttributes(void) const {return m_attributes;}
 	virtual cgcAttributes::pointer getAppAttributes(const tstring & appName) const;
 
-	tstring SetNewMySessionId(cgcParserHttp::pointer& phttpParser);
+	tstring SetNewMySessionId(cgcParserHttp::pointer& phttpParser,const tstring& sSessionId="");
 	HTTP_STATUSCODE ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote);
 	HTTP_STATUSCODE ProcHttpAppProto(const cgcHttpRequest::pointer& pRequestImpl,const cgcHttpResponse::pointer& pResponseImpl,const cgcParserHttp::pointer& pcgcParser);
 	HTTP_STATUSCODE ProcHttpLibMethod(const ModuleItem::pointer& moduleItem,const tstring& sMethodName,const cgcHttpRequest::pointer& pRequest,const cgcHttpResponse::pointer& pResponse);

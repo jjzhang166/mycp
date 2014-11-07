@@ -102,6 +102,7 @@ private:
 
 	std::vector<cgcMultiPart::pointer> m_files;
 	cgcMultiPart::pointer m_currentMultiPart;
+	tstring	m_sCurrentParameterData;
 
 	cgcServiceInterface::pointer m_fileSystemService;
 	//tstring m_sTempSavePath;

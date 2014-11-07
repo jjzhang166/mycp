@@ -1025,20 +1025,27 @@ cgcAttributes::pointer CGCApp::getAppAttributes(const tstring & appName) const
 	return applicationImpl.get() == NULL ? cgcNullAttributes : applicationImpl->getAttributes();
 }
 
-tstring CGCApp::SetNewMySessionId(cgcParserHttp::pointer& phttpParser)
+tstring CGCApp::SetNewMySessionId(cgcParserHttp::pointer& phttpParser,const tstring& sSessionId)
 {
-	char lpszMySessionId[100];
-	static unsigned short the_sid_index=0;
-	sprintf(lpszMySessionId, "%d%d%d",(int)time(0),(int)rand(),(the_sid_index++));
-	MD5 md5;
-	md5.update((const unsigned char*)lpszMySessionId,strlen(lpszMySessionId));
-	md5.finalize();
-	const std::string sMySessionId = md5.hex_digest();
-	phttpParser->setCookieMySessionId(sMySessionId);
+	if (sSessionId.empty())
+	{
+		char lpszMySessionId[100];
+		static unsigned short the_sid_index=0;
+		sprintf(lpszMySessionId, "%d%d%d",(int)time(0),(int)rand(),(the_sid_index++));
+		MD5 md5;
+		md5.update((const unsigned char*)lpszMySessionId,strlen(lpszMySessionId));
+		md5.finalize();
+		const std::string sMySessionId = md5.hex_digest();
+		phttpParser->setCookieMySessionId(sMySessionId);
+	}else
+	{
+		phttpParser->setCookieMySessionId(sSessionId);
+	}
 	//phttpParser->setHeader("P3P","CP=\"CAO PSA OUR\"");	// 解决IE多窗口SESSION不正常问题
 	//phttpParser->setHeader("P3P","\"policyref=\"http://test-lc.entboost.com/w3c/p3p.xml\" CP=\"ALL DSP COR CUR OUR IND PUR\"");
-	return sMySessionId;
+	return phttpParser->getCookieMySessionId();
 }
+
 HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote)
 {
 	bool findMultiPartEnd = false;
@@ -1105,8 +1112,10 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 		cgcSession::pointer sessionImpl = m_mgrSession.GetSessionImplByRemote(pcgcRemote->getRemoteId());
 		if (phttpParser->isEmptyCookieMySessionId())
 		{
-			SetNewMySessionId(phttpParser);
-		}else
+			const tstring sSessionId = sessionImpl.get()==NULL?"":sessionImpl->getId();	// add by hd 2014-10-29
+			SetNewMySessionId(phttpParser,sSessionId);
+		}else if (sessionImpl.get()==NULL)	// add by hd 2014-10-29
+		//}else
 		{
 			sessionImpl = m_mgrSession.GetSessionImpl(phttpParser->getCookieMySessionId());
 			if (sessionImpl.get()==NULL)
@@ -1114,6 +1123,11 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 				printf("**** Can not find Session'%s',changed!\n", phttpParser->getCookieMySessionId().c_str());
 				SetNewMySessionId(phttpParser);
 			}
+		}else if (sessionImpl.get()!=NULL && sessionImpl->getId()!=phttpParser->getCookieMySessionId())
+		{
+			// add by hd 2014-10-29
+			printf("**** Find old session '%s',changed to '%s'!\n",phttpParser->getCookieMySessionId().c_str(),sessionImpl->getId().c_str());
+			SetNewMySessionId(phttpParser,sessionImpl->getId());
 		}
 		CSessionImpl * pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
 		if (phttpParser->getStatusCode()==STATUS_CODE_200)
