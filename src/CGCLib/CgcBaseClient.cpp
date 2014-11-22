@@ -899,7 +899,7 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 				for (int i=0; i<MAX_CID_MASKS_SIZE; i++)
 				{
 					// Receive duplation message, 
-					if (pReceiveInfo->m_pReceiveCidMasks[i] == seq)
+					if (pReceiveInfo->m_pReceiveCidMasks[i] == (int)seq)
 					{
 						//m_tLastCid = m_tSendRecv;
 						return;

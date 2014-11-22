@@ -47,15 +47,15 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 		return -1;
 	}
 	std::string sIp;
-	for (int i=0;i<5;i++)
+	for (int i=0;i<10;i++)
 	{
 		sIp = CgcBaseClient::GetHostIp(pList[0].c_str(),"");
 		if (!sIp.empty())
 			break;
 #ifdef WIN32
-		Sleep(100);
+		Sleep(200);
 #else
-		usleep(100000);
+		usleep(200000);
 #endif
 	}
 	if (sIp.empty())

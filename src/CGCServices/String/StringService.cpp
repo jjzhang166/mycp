@@ -447,36 +447,52 @@ protected:
 		}else if (function == "url_enc")
 		{
 			if (inParam.get() == NULL) return false;
-
 			const tstring & sInString = inParam->getStr();
-			std::string sOutString = URLEncode(sInString.c_str());
-
+			const std::string sOutString = URLEncode(sInString.c_str());
 			//返回结果
-			if (outParam.get() == NULL)
-			{
-				inParam->totype(cgcValueInfo::TYPE_STRING);
-				inParam->setStr(sOutString);
-			}else
-			{
-				outParam->totype(cgcValueInfo::TYPE_STRING);
-				outParam->setStr(sOutString);
-			}
+			cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+			pOutParam->totype(cgcValueInfo::TYPE_STRING);
+			pOutParam->setStr(sOutString);
 		}else if (function == "url_dec")
 		{
 			if (inParam.get() == NULL) return false;
-
 			const tstring & sInString = inParam->getStr();
-			std::string sOutString = URLDecode(sInString.c_str());
-
+			const std::string sOutString = URLDecode(sInString.c_str());
 			//返回结果
-			if (outParam.get() == NULL)
-			{
-				inParam->setStr(sOutString);
-			}else
-			{
-				outParam->totype(cgcValueInfo::TYPE_STRING);
-				outParam->setStr(sOutString);
-			}
+			cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+			pOutParam->totype(cgcValueInfo::TYPE_STRING);
+			pOutParam->setStr(sOutString);
+		}else if (function == "html_to_source")
+		{
+			if (inParam.get() == NULL) return false;
+			tstring sText = inParam->getStr();
+			replace(sText,"&","&amp;");
+			replace(sText,"\'","&apos;");
+			replace(sText,"\"","&quot;");
+			replace(sText,"<","&lt;");
+			replace(sText,">","&gt;");
+			replace(sText,"\r\n","<br/>");
+			replace(sText,"\r","<br/>");
+			replace(sText,"\n","<br/>");
+			//返回结果
+			cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+			pOutParam->totype(cgcValueInfo::TYPE_STRING);
+			pOutParam->setStr(sText);
+		}else if (function == "source_to_html")
+		{
+			if (inParam.get() == NULL) return false;
+			tstring sText = inParam->getStr();
+			replace(sText,"&amp;","&");
+			replace(sText,"&apos;","\'");
+			replace(sText,"&quot;","\"");
+			replace(sText,"&lt;","<");
+			replace(sText,"&gt;",">");
+			replace(sText,"<br/>","\r\n");
+			//replace(sText,"<br/>","\n");
+			//返回结果
+			cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+			pOutParam->totype(cgcValueInfo::TYPE_STRING);
+			pOutParam->setStr(sText);
 		}else if (function == "utf8")
 		{
 			if (inParam.get() == NULL) return false;
@@ -734,6 +750,9 @@ protected:
 			std::wstringstream s2;
 			write_json(s2, ptResponse,false);
 			std::string sTextString(conv::utf_to_utf<char>(s2.str()));
+			//printf("****\n");
+			//printf("%s\n",sTextString.c_str());
+			//printf("****\n");
 			if ((inParam->getType()==cgcValueInfo::TYPE_VECTOR || inParam->getType()==cgcValueInfo::TYPE_VALUEINFO)
 				&& sTextString.substr(0,4)=="{\"\":")
 			{
@@ -751,6 +770,8 @@ protected:
 				}
 			}
 			pOutParam->setStr(sTextString);
+			//printf("%s\n",sTextString.c_str());
+			//printf("****\n");
 		}catch(ptree_error &) { 
 			return false;
 		}

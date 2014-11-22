@@ -116,6 +116,7 @@ void CPpHttp::write(const char * text, size_t size)
 	}
 	memcpy(m_resultBuffer+MAX_HTTPHEAD_SIZE+m_bodySize, text, size);
 	m_bodySize += size;
+	m_resultBuffer[MAX_HTTPHEAD_SIZE+m_bodySize] = '\0';
 }
 void CPpHttp::write(const tstring& text)
 {

@@ -343,9 +343,9 @@ Sink*  sink_pool_get_log()
 
 void sink_pool_put(Sink *sink)
 {
-    sink_lock(sink);
-    sink_set_busy(sink, 0);
-    sink_unlock(sink);
+	sink_lock(sink);
+	sink_set_busy(sink, 0);
+	sink_unlock(sink);
 }
 void sink_pool_cleanup()
 {

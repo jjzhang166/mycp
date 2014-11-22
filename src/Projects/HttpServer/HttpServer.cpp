@@ -365,7 +365,7 @@ public:
 
 
 const int const_memory_size = 50*1024*1024;		// max 50MB
-const int const_max_size = 21*1024*1024;		// max 21MB
+const int const_max_size = 30*1024*1024;		// max 30MB
 extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	HTTP_STATUSCODE statusCode = STATUS_CODE_200;

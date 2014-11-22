@@ -71,16 +71,18 @@ public:
 	{
 		clearParameters();
 
-		ptree pt;
-		read_xml(filename, pt);
 
 		try
 		{
+			ptree pt;
+			read_xml(filename, pt);
 			BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root"))
 				Insert(v);
 
 		}catch(...)
-		{}
+		{
+			int i=0;
+		}
 	}
 
 private:

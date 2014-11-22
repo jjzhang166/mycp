@@ -407,13 +407,15 @@ private:
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
+		CMysqlSink* pSink = NULL;
 		int ret = 0;
 		try
 		{
-			CMysqlSink* pSink = m_mysqlPool.SinkGet();
+			pSink = m_mysqlPool.SinkGet();
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, exeSql))
 			{
+				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", exeSql,mysql_error(pMysql)));
 				m_mysqlPool.SinkPut(pSink);
 				return -1;
 			}
@@ -427,6 +429,8 @@ private:
 			////resultset = mysql_store_result(m_mysql);
 		}catch(...)
 		{
+			m_mysqlPool.SinkPut(pSink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}
 		//try
@@ -446,18 +450,19 @@ private:
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		MYSQL_RES * resultset = NULL;
+		CMysqlSink * pSink = NULL;
 		int rows = 0;
 		try
 		{
-			CMysqlSink* pSink = m_mysqlPool.SinkGet();
+			pSink = m_mysqlPool.SinkGet();
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, selectSql))
 			{
+				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", selectSql,mysql_error(pMysql)));
 				m_mysqlPool.SinkPut(pSink);
 				return -1;
 			}
-			resultset = mysql_store_result(pMysql);
+			MYSQL_RES * resultset = mysql_store_result(pMysql);
 			rows = (int)mysql_num_rows(resultset);
 			m_mysqlPool.SinkPut(pSink);
 
@@ -467,19 +472,20 @@ private:
 			//resultset = mysql_store_result(m_mysql);
 			//rows = (int)mysql_num_rows(resultset);
 
-			if (rows <= 0)
+			if (rows > 0)
+			{
+				outCookie = (int)resultset;
+				m_results.insert(outCookie, CDBC_RESULTSET(resultset));
+			}else
 			{
 				mysql_free_result(resultset);
 				resultset = NULL;
 			}
 		}catch(...)
 		{
+			m_mysqlPool.SinkPut(pSink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
 			return -1;
-		}
-		if (rows > 0)
-		{
-			outCookie = (int)resultset;
-			m_results.insert(outCookie, CDBC_RESULTSET(resultset));
 		}
 		return rows;
 		//sql::ResultSet * resultset = NULL;

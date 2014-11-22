@@ -336,16 +336,15 @@ private:
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		Result *res;
 		int ret = 0;
-		int state;
+		Sink *sink = NULL;
 		try
 		{
 			m_tLastTime = time(0);
-			Sink *sink = sink_pool_get();
+			sink = sink_pool_get();
 
-			res= sink_exec (sink, exeSql);
-			state = result_state (sink, res);
+			Result * res = sink_exec (sink, exeSql);
+			int state = result_state (sink, res);
 			if((state != RES_COMMAND_OK) &&
 				(state != RES_TUPLES_OK)  &&
 				(state != RES_COPY_IN)  &&
@@ -353,30 +352,16 @@ private:
 			{
 				result_clean(sink, res);
 				sink_pool_put (sink);
+				CGC_LOG((cgc::LOG_WARNING, "%s\n", exeSql));
 				return -1;
 			}
 			ret = result_rn (sink, res);
 			result_clean (sink, res);
-//			static unsigned int theIndex = 0;
-//			theIndex++;
-//			if (theIndex%5==0)
-//			{
-//#ifdef WIN32
-//				Sleep(5000);
-//#else
-//				usleep(5000000);
-//#endif
-//			}else
-//			{
-//#ifdef WIN32
-//				Sleep(1000);
-//#else
-//				usleep(1000000);
-//#endif
-//			}
 			sink_pool_put (sink);
 		}catch(...)
 		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}
 		return ret;
@@ -388,15 +373,14 @@ private:
 		if (!open()) return -1;
 
 		int rows = 0;
+		Sink *sink = NULL;
 		try
 		{
 			m_tLastTime = time(0);
-			Sink *sink = sink_pool_get();
+			sink = sink_pool_get();
 
-			Result *res=0;
-			int    state;
-			res= sink_exec( sink, selectSql);
-			state = result_state (sink, res);
+			Result * res = sink_exec( sink, selectSql);
+			int state = result_state (sink, res);
 			if((state != RES_COMMAND_OK) &&
 				(state != RES_TUPLES_OK)  &&
 				(state != RES_COPY_IN)    &&
@@ -404,7 +388,9 @@ private:
 			{
 				result_clean(sink, res);
 				sink_pool_put (sink);
-				return 0;
+				CGC_LOG((cgc::LOG_WARNING, "%s\n", selectSql));
+				return -1;
+				//return 0;
 			}
 			rows = result_rn(sink, res);
 			if (rows > 0)
@@ -418,6 +404,8 @@ private:
 			}
 		}catch(...)
 		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
 			return -1;
 		}
 		return rows;
