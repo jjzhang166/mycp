@@ -343,7 +343,7 @@ private:
 
 	void ShowNetWorkError( const boost::system::error_code &error )
 	{
-		printf("**** ShowNetWorkError: %s(%d) ****\n",error.message().c_str(),error.value());
+		printf("**** Tcp Connection: %s(%d) ****\n",error.message().c_str(),error.value());
 	}
 
 	//static void do_proc_data(TcpConnection * owner)

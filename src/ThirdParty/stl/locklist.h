@@ -35,6 +35,11 @@ public:
 	//boost::mutex & mutex(void) {return m_mutex;}
 	//const boost::mutex & mutex(void) const {return m_mutex;}
 
+	void pushfront(const T& t)
+	{
+		BoostWriteLock wtlock(m_mutex);
+		std::list<T>::push_front(t);
+	}
 	void add(const T& t)
 	{
 		BoostWriteLock wtlock(m_mutex);

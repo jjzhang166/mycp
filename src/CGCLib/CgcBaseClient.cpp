@@ -542,6 +542,7 @@ void CgcBaseClient::sendP2PTry(unsigned short nTryCount)
 
 void CgcBaseClient::addSeqInfo(const unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign,unsigned int nUserData)
 {
+	//if (m_sSessionId.empty()) return;	// ?
 	if (m_timeoutResends <= 0 || m_timeoutSeconds <= 0) return;
 	if (callData == 0 || dataSize == 0) return;
 
@@ -583,6 +584,7 @@ void CgcBaseClient::addSeqInfo(const unsigned char * callData, unsigned int data
 
 bool CgcBaseClient::addSeqInfo(unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign,unsigned int nUserData)
 {
+	//if (m_sSessionId.empty()) return false;	// ?
 	if (m_timeoutResends <= 0 || m_timeoutSeconds <= 0) return false;
 	if (callData == 0 || dataSize == 0) return false;
 
@@ -1022,6 +1024,7 @@ bool CgcBaseClient::isTimeToSendP2PTry(void) const
 
 bool CgcBaseClient::checkSeqTimeout(void)
 {
+	//if (m_sSessionId.empty()) return false;	// ?
 	BoostReadLock rdlock(m_mapSeqInfo.mutex());
 	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
 	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)

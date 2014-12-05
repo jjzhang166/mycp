@@ -217,9 +217,9 @@ private:
 
 #define CDBC_RESULTSET(r) CCDBCResultSet::pointer(new CCDBCResultSet(r))
 
-const int escape_size = 1;
-const std::string escape_in[] = {"&lsquo;"};
-const std::string escape_out[] = {"'"};
+const int escape_size = 2;
+const std::string escape_in[] = {"&lsquo;","&mse0;"};
+const std::string escape_out[] = {"'","\\"};
 
 
 class CMysqlCdbc

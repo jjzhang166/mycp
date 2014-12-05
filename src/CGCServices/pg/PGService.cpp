@@ -186,9 +186,9 @@ private:
 
 #define CDBC_RESULTSET(sink, res, rows) CCDBCResultSet::pointer(new CCDBCResultSet(sink, res, rows))
 
-const int escape_size = 1;
-const std::string escape_in[] = {"&lsquo;"};
-const std::string escape_out[] = {"'"};
+const int escape_size = 2;
+const std::string escape_in[] = {"&lsquo;","&pge0;"};
+const std::string escape_out[] = {"'","\\"};
 
 class CPgCdbc
 	: public cgcCDBCService
