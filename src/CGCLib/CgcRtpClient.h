@@ -50,7 +50,7 @@ private:
 	virtual bool isInvalidate(void) const;
 	virtual size_t sendData(const unsigned char * data, size_t size);
 	virtual size_t sendData(const unsigned char * data, size_t size, unsigned int timestamp);
-	virtual void setRemoteAddr(const tstring & sRemoteAddr);
+	virtual bool setRemoteAddr(const tstring & sRemoteAddr);
 	virtual void setMediaType(unsigned short mediatype);
 
 protected:

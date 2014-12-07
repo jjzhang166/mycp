@@ -96,7 +96,7 @@ namespace cgc
 
 		// other
 		virtual time_t doGetLastSendRecvTime(void) const = 0;
-		virtual void doSetRemoteAddr(const tstring & newv) = 0;
+		virtual bool doSetRemoteAddr(const tstring & newv) = 0;
 		virtual const tstring& doGetLocalIp(void) const = 0;
 		virtual unsigned short doGetLocalPort(void) const = 0;
 		virtual void doSetMediaType(unsigned short newv) = 0;	// for RTP

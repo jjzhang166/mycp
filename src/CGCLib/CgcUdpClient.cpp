@@ -39,7 +39,7 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 {
 	if (m_udpClient.get() != 0) return 0;
 
-	setRemoteAddr(sCgcServerAddr);
+	if (!setRemoteAddr(sCgcServerAddr))  return -1;
 	try
 	{
 		if (m_ipService.get() == 0)
@@ -98,11 +98,11 @@ bool CgcUdpClient::isInvalidate(void) const
 	return m_udpClient.get() == 0 || !m_udpClient->is_start();
 }
 
-void CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
+bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 {
-	if (sRemoteAddr.empty()) return;
+	if (sRemoteAddr.empty()) return false;
 	if (m_ipRemote.address()==sRemoteAddr)
-		return;
+		return true;
 	std::vector<std::string> pList;
 	if (CgcBaseClient::ParseString(sRemoteAddr.c_str(),":",pList)==2)
 	{
@@ -119,7 +119,11 @@ void CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 #endif
 		}
 		if (sIp.empty())
+		{
+			// *
+			return false;
 			sIp = pList[0];
+		}
 		unsigned short nPort = atoi(pList[1].c_str());
 		if (m_ipRemote.getport()!=nPort || m_ipRemote.getip()!=sIp)
 		{
@@ -130,7 +134,9 @@ void CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 				m_udpClient->socket()->connect(m_endpointRemote);
 			//m_endpointRemote = udp::endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
 		}
+		return true;
 	}
+	return false;
 }
 void CgcUdpClient::doSetConfig(int nConfig, unsigned int nInValue)
 {

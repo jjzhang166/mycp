@@ -49,7 +49,7 @@ private:
 	virtual size_t recvData(unsigned char * buffer, size_t size) {return 0;}
 	virtual size_t sendData(const unsigned char * data, size_t size);
 	virtual bool isInvalidate(void) const;
-	virtual void setRemoteAddr(const tstring & sRemoteAddr);
+	virtual bool setRemoteAddr(const tstring & sRemoteAddr);
 
 	virtual void doSetConfig(int nConfig, unsigned int nInValue);
 

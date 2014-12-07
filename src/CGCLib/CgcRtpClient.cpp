@@ -100,9 +100,9 @@ bool CgcRtpClient::isInvalidate(void) const
 //
 //}
 
-void CgcRtpClient::setRemoteAddr(const tstring & sRemoteAddr)
+bool CgcRtpClient::setRemoteAddr(const tstring & sRemoteAddr)
 {
-	if (isInvalidate()) return;
+	if (isInvalidate()) return false;
 	std::vector<std::string> pList;
 	if (CgcBaseClient::ParseString(sRemoteAddr.c_str(),":",pList)==2)
 	{
@@ -115,7 +115,9 @@ void CgcRtpClient::setRemoteAddr(const tstring & sRemoteAddr)
 		//unsigned int nPort = (unsigned int)m_ipRemote.getport();
 		m_pDoRtpHandler->doClearDest();
 		m_pDoRtpHandler->doAddDest(sIp.c_str(), nPort);
+		return true;
 	}
+	return false;
 }
 
 void CgcRtpClient::setMediaType(unsigned short mediatype)

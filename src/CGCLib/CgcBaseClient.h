@@ -77,7 +77,7 @@ protected:
 	virtual size_t sendData(const unsigned char * data, size_t size, unsigned int timestamp) {return 0;}	// for RTP
 	virtual size_t recvData(unsigned char * buffer, size_t size) {return 0;}
 	virtual void parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId);
-	virtual void setRemoteAddr(const tstring & sRemoteAddr) {}
+	virtual bool setRemoteAddr(const tstring & sRemoteAddr) {return true;}
 	virtual void setMediaType(unsigned short mediatype) {}	// for RTP
 
 	/////////////////////////////////////////////////////////////////////////////////
@@ -125,7 +125,7 @@ protected:
 
 	// other
 	virtual time_t doGetLastSendRecvTime(void) const {return m_tSendRecv;}
-	virtual void doSetRemoteAddr(const tstring & newv) {setRemoteAddr(newv);}
+	virtual bool doSetRemoteAddr(const tstring & newv) {return setRemoteAddr(newv);}
 	virtual const tstring& doGetLocalIp(void) const {return m_ipLocal.getip();}
 	virtual unsigned short doGetLocalPort(void) const {return m_ipLocal.getport();}
 	virtual void doSetMediaType(unsigned short newv) {setMediaType(newv);}	// for RTP
