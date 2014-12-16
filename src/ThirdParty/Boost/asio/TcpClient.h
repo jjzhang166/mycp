@@ -3,6 +3,9 @@
 #define __TcpClient_h__
 
 #include <boost/asio.hpp>
+#ifdef USES_OPENSSL
+#include "boost_socket.h"
+#endif
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
@@ -35,7 +38,7 @@ class TcpClient
 {
 public:
 	typedef boost::shared_ptr<TcpClient> pointer;
-	static TcpClient::pointer create(TcpClient_Handler::pointer handler)
+	static TcpClient::pointer create(const TcpClient_Handler::pointer& handler)
 	{
 		return TcpClient::pointer(new TcpClient(handler));
 	}
@@ -43,25 +46,58 @@ public:
 	void setUnusedSize(size_t v = 10) {m_unusedsize = v;}
 	void setMaxBufferSize(size_t v = Max_ReceiveBuffer_ReceiveSize) {m_maxbuffersize = v;}
 
+#ifdef USES_OPENSSL
+	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint,boost::asio::ssl::context* ctx=NULL)
+#else
 	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint)
+#endif
 	{
 		if (m_socket == NULL)
+		{
+#ifdef USES_OPENSSL
+			if (ctx)
+				m_socket = new boost_ssl_socket<tcp::socket>(io_service,*ctx);
+			else
+				m_socket = new boost_socket<tcp::socket>(io_service);
+#else
 			m_socket = new tcp::socket(io_service);
-
+#endif
+		}
 		if (m_proc_data == 0)
 			m_proc_data = new boost::thread(boost::bind(&TcpClient::do_proc_data, this));
 
+#ifdef USES_OPENSSL
+		if (m_socket->is_ssl())
+		{
+			boost::asio::ssl::stream<tcp::socket> * p = m_socket->get_ssl_socket();
+			p->async_handshake(boost::asio::ssl::stream_base::client,boost::bind(&TcpClient::handle_handshake,
+				this,shared_from_this(),boost::asio::placeholders::error));
+		}else
+		{
+			m_socket->get_socket()->async_connect(endpoint,
+				//m_socket.async_connect(endpoint,
+				boost::bind(&TcpClient::connect_handler, this,
+				boost::asio::placeholders::error)
+				);
+		}
+#else
 		m_socket->async_connect(endpoint,
-		//m_socket.async_connect(endpoint,
+			//m_socket.async_connect(endpoint,
 			boost::bind(&TcpClient::connect_handler, this,
 			boost::asio::placeholders::error)
 			);
+#endif
+
 	}
 	void disconnect(void)
 	{
 		if (m_socket)
 		{
+#ifdef USES_OPENSSL
+			boost_socket_base<tcp::socket>* socktetemp = m_socket;
+#else
 			tcp::socket * socktetemp = m_socket;
+#endif
 			m_socket = NULL;
 			socktetemp->close();
 			delete socktetemp;
@@ -78,6 +114,12 @@ public:
 		m_unused.clear();
 		//m_socket.close();
 	}
+#ifdef USES_OPENSSL
+	void handle_handshake(const TcpClient::pointer& pTcpClient,const boost::system::error_code& e)
+	{
+		connect_handler(e);
+	}
+#endif
 	bool is_open(void) const
 	{
 		return m_socket != NULL && m_socket->is_open();
@@ -89,8 +131,12 @@ public:
 		return boost::asio::write(*m_socket, boost::asio::buffer(data, size));
 	}
 
-	//const tcp::socket & socket(void) const {return m_socket;}
+#ifdef USES_OPENSSL
+	boost_socket_base<tcp::socket>* socket(void) {return m_socket;}
+	tcp::socket::lowest_layer_type& lowest_layer(void) {return m_socket->lowest_layer();}
+#else
 	tcp::socket * socket(void) const {return m_socket;}
+#endif
 
 	void proc_Data(void)
 	{
@@ -192,7 +238,7 @@ private:
 	}
 
 public:
-	TcpClient(TcpClient_Handler::pointer handler)
+	TcpClient(const TcpClient_Handler::pointer& handler)
 		: m_socket(0)
 		, m_handler(handler)
 		, m_proc_data(0)
@@ -205,7 +251,11 @@ public:
 		m_handler.reset();
 	}
 private:
+#ifdef USES_OPENSSL
+	boost_socket_base<tcp::socket>* m_socket;
+#else
     tcp::socket * m_socket;
+#endif
 	TcpClient_Handler::pointer m_handler;
 	boost::thread * m_proc_data;
 	CLockList<ReceiveBuffer::pointer> m_datas;

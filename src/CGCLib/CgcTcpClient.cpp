@@ -128,8 +128,14 @@ void CgcTcpClient::OnConnected(const TcpClientPointer& tcpClient)
 	m_bDisconnect = false;
 	if (tcpClient->is_open())
 	{
-		tcp::endpoint local_endpoint = tcpClient->socket()->local_endpoint();
-		tcp::endpoint remote_endpoint = tcpClient->socket()->remote_endpoint();
+#ifdef USES_OPENSSL
+		// ??
+		const tcp::endpoint local_endpoint = tcpClient->socket()->get_socket()->local_endpoint();
+		const tcp::endpoint remote_endpoint = tcpClient->socket()->get_socket()->remote_endpoint();
+#else
+		const tcp::endpoint local_endpoint = tcpClient->socket()->local_endpoint();
+		const tcp::endpoint remote_endpoint = tcpClient->socket()->remote_endpoint();
+#endif
 		m_ipLocal = CCgcAddress(local_endpoint.address().to_string(), local_endpoint.port(), CCgcAddress::ST_TCP);
 		m_ipRemote = CCgcAddress(remote_endpoint.address().to_string(), remote_endpoint.port(), CCgcAddress::ST_TCP);
 	}

@@ -72,6 +72,11 @@ public:
 		//m_datas.clear();
 		//m_unused.clear();
 		//m_socket.close();
+		if (m_socket!=NULL)
+		{
+			delete m_socket;
+			m_socket = NULL;
+		}
 		m_pBuffer.reset();
 #ifdef _DEBUG
 		std::cout << "TcpConnection destructor" << std::endl;

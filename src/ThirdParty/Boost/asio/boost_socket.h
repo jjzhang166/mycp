@@ -35,6 +35,15 @@ public:
 #endif
 			return get_socket()->lowest_layer();
 	}
+    bool is_open(void)
+    {
+#ifdef USES_OPENSSL
+		if(is_ssl()) 
+            return get_ssl_socket()->lowest_layer().is_open();
+        else
+#endif
+            return get_socket()->is_open();
+    }
 
     template <typename MutableBufferSequence>
     std::size_t read_some(const MutableBufferSequence& buffers)
@@ -124,6 +133,20 @@ public:
 #endif
             get_socket()->async_write_some(buffers,handler);
     }
+
+//	//template <typename ConnectHandler>
+//	//BOOST_ASIO_INITFN_RESULT_TYPE(ConnectHandler,
+//	//    void (boost::system::error_code))
+//	template <typename EndpointType, typename ConnectHandler>
+//	void async_connect(const EndpointType& peer_endpoint,BOOST_ASIO_MOVE_ARG(ConnectHandler) handler)
+//	{
+//#ifdef USES_OPENSSL
+//		if(is_ssl())
+//			get_ssl_socket()->async_connect(peer_endpoint,handler);
+//		else
+//#endif
+//			get_socket()->async_connect(peer_endpoint,handler);
+//	}
 public:
     virtual ~boost_socket_base() {}
 };
