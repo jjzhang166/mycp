@@ -36,7 +36,8 @@ public:
 		, m_sCgcpCode(_T(""))
 		, m_sCgcpAddress(_T(""))
 		, m_nCgcpRank(0)
-		, m_nWaitSleep(5)
+		, m_nWaitSleep(3)
+		, m_nRetryCount(0)
 		, m_sDefaultEncoding(_T("GBK"))
 	{}
 	~XmlParseDefault(void)
@@ -61,7 +62,8 @@ public:
 		m_sCgcpCode = pt.get("root.cgcp.code", _T("cgcp0"));
 		m_nCgcpRank = pt.get("root.cgcp.rank", 0);
 		// root.time.*
-		m_nWaitSleep = pt.get("root.time.waitsleep", 0);
+		m_nWaitSleep = pt.get("root.time.waitsleep", 3);
+		m_nRetryCount = pt.get("root.app.retry", 0);
 		// root.encoding
 		m_sDefaultEncoding = pt.get("root.encoding", _T("GBK"));
 
@@ -78,6 +80,7 @@ public:
 	const tstring & getCgcpCode(void) const {return m_sCgcpCode;}
 	int getCgcpRank(void) const {return m_nCgcpRank;}
 	int getWaitSleep(void) const {return m_nWaitSleep;}
+	int getRetryCount(void) const {return m_nRetryCount;}
 	const tstring & getDefaultEncoding(void) const {return m_sDefaultEncoding;}
 
 private:
@@ -86,6 +89,7 @@ private:
 	tstring m_sCgcpCode;	// 本地代码
 	int m_nCgcpRank;			// 本地级别
 	int m_nWaitSleep;			// 等待多少秒才启动
+	int m_nRetryCount;			// 重试多少次（APP类型有效）
 	tstring m_sDefaultEncoding;
 };
 

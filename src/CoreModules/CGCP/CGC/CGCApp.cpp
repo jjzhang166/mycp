@@ -2344,6 +2344,35 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			try
 			{
 				ret = farProc_Init();
+				if (!ret && moduleImpl->getModuleType()==cgc::MODULE_APP)
+				{
+					// CGC_Module_Free
+					FPCGC_Module_Free farProc_Free = 0;
+#ifdef WIN32
+					farProc_Free = (FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
+#else
+					farProc_Free = (FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
+#endif
+					const int nMaxTryCount = m_parseDefault.getRetryCount()>100?100:m_parseDefault.getRetryCount();
+					for (int i=0;i<nMaxTryCount;i++)
+					{
+						m_logModuleImpl.log(LOG_INFO, _T("CGC_Module_Init '%s' retry %d...\n"), moduleItem->getName().c_str(),i+1);
+						if (farProc_Free)
+						{
+							farProc_Free();
+						}
+#ifdef WIN32
+						Sleep(3000);
+#else
+						sleep(3);
+#endif
+						ret = farProc_Init();
+						if (ret || m_bStopedApp)
+						{
+							break;
+						}
+					}
+				}
 			}catch(std::exception const & e)
 			{
 				m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());

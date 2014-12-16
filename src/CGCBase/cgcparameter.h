@@ -49,6 +49,8 @@ public:
 		: cgcValueInfo(v, a), m_name(name){}
 	cgcParameter(const tstring& name, const void* v, ValueAttribute a = ATTRIBUTE_BOTH)
 		: cgcValueInfo(v, a), m_name(name){}
+	cgcParameter(const tstring& name, const char* v, ValueAttribute a = ATTRIBUTE_BOTH)
+		: cgcValueInfo(v, a), m_name(name){}
 	cgcParameter(const tstring& name, const tstring & v, ValueAttribute a = ATTRIBUTE_BOTH)
 		: cgcValueInfo(v, a), m_name(name){}
 	cgcParameter(const tstring& name, cgcObject::pointer v, ValueAttribute a = ATTRIBUTE_BOTH)

@@ -64,6 +64,7 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	}catch (std::exception& e)
 	{
 		std::cerr << e.what() << std::endl;
+		return -2;
 	}
 	return 0;
 }
@@ -89,7 +90,7 @@ size_t CgcUdpClient::sendData(const unsigned char * data, size_t size)
 
 	m_tSendRecv = time(0);
 	m_udpClient->send(data, size);
-	//m_udpClient->write(data, size, m_endpointRemote);
+	//m_udpClient->write(data, size, m_endpointRemote);	// **不需要用这个，因为下面已经用了 m_udpClient->socket()->connect(m_endpointRemote);
 	return 0;
 }
 
@@ -107,15 +108,15 @@ bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 	if (CgcBaseClient::ParseString(sRemoteAddr.c_str(),":",pList)==2)
 	{
 		std::string sIp;
-		for (int i=0;i<10;i++)
+		for (int i=0;i<20;i++)
 		{
 			sIp = CgcBaseClient::GetHostIp(pList[0].c_str(),"");
 			if (!sIp.empty())
 				break;
 #ifdef WIN32
-			Sleep(200);
+			Sleep(100);
 #else
-			usleep(200000);
+			usleep(100000);
 #endif
 		}
 		if (sIp.empty())
@@ -130,10 +131,10 @@ bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 			m_ipRemote.address(sIp,nPort);
 			m_endpointRemote.address(boost::asio::ip::address_v4::from_string(sIp.c_str()));
 			m_endpointRemote.port(nPort);
-			if (m_udpClient.get()!=NULL)
-				m_udpClient->socket()->connect(m_endpointRemote);
 			//m_endpointRemote = udp::endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
 		}
+		if (m_udpClient.get()!=NULL && m_udpClient->socket()!=NULL)
+			m_udpClient->socket()->connect(m_endpointRemote);
 		return true;
 	}
 	return false;
@@ -157,17 +158,11 @@ void CgcUdpClient::OnReceiveData(const UdpSocket & UdpSocket, const UdpEndPoint:
 	if (endpoint->size() <= 0) return;
 
 	m_tSendRecv = time(0);
-	m_endpointRemote = endpoint->endpoint();
-	//if (m_endpointRemote.port()==9100 || m_endpointRemote.port()==9102 || m_endpointRemote.port()==9104)
+	//m_endpointRemote = endpoint->endpoint();
+	//if (m_ipRemote.getport()!=m_endpointRemote.port() || m_ipRemote.getip()!=m_endpointRemote.address().to_string())
 	//{
-	//	int i=0;
+	//	m_ipRemote = CCgcAddress(m_endpointRemote.address().to_string(),m_endpointRemote.port(), CCgcAddress::ST_UDP);
 	//}
-
-	if (m_ipRemote.getport()!=m_endpointRemote.port() || m_ipRemote.getip()!=m_endpointRemote.address().to_string())
-	{
-		m_ipRemote = CCgcAddress(m_endpointRemote.address().to_string(),m_endpointRemote.port(), CCgcAddress::ST_UDP);
-	}
-
 	this->parseData(CCgcData::create(endpoint->buffer(), endpoint->size()),endpoint->getId());
 }
 
