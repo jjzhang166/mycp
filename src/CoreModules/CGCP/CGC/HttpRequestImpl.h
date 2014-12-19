@@ -106,6 +106,9 @@ private:
 
 	virtual tstring getCookie(const tstring & name, const tstring & sDefault = _T("")) const {return m_httpParser->getCookie(name,sDefault);}
 	virtual bool getCookies(std::vector<cgcKeyValue::pointer>& outCookies) const {return m_httpParser->getCookies(outCookies);}
+	cgcAttributes::pointer m_pPageAttributes;
+	virtual cgcAttributes::pointer getPageAttributes(void) const {return m_pPageAttributes;}
+	virtual void setPageAttributes(const cgcAttributes::pointer& pPageAttributes) {m_pPageAttributes = pPageAttributes;}
 
 	// CRequestImpl
 	virtual void setProperty(const tstring & key, const tstring & value, bool clear) {CRequestImpl::setProperty(key, value, clear);}

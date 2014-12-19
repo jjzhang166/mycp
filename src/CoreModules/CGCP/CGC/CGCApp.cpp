@@ -852,6 +852,8 @@ HTTP_STATUSCODE CGCApp::executeInclude(const tstring & url, const cgcHttpRequest
 
 	cgcHttpRequest::pointer requestImpl(new CHttpRequestImpl(((CHttpRequestImpl*)request.get())->getRemote(), phttpParser));
 	((CHttpRequestImpl*)requestImpl.get())->setSession(request->getSession());
+	((CHttpRequestImpl*)requestImpl.get())->setAttributes(request->getAttributes(true));
+	requestImpl->setPageAttributes(request->getPageAttributes());
 	//((CHttpResponseImpl*)responseImpl.get())->setSession(sessionImpl);
 
 	HTTP_STATUSCODE statusCode = STATUS_CODE_500;

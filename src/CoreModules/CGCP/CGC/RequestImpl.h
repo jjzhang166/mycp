@@ -50,6 +50,7 @@ public:
 
 	cgcRemote::pointer getRemote(void) const {return m_cgcRemote;}
 	void setSession(const cgcSession::pointer& session) {m_session = session;}
+	void setAttributes(const cgcAttributes::pointer& attributes) {m_attributes=attributes;}
 	void setContent(const char * pData, size_t nLength) {m_pContentData = pData; m_nContentLength = nLength;}
 
 protected:

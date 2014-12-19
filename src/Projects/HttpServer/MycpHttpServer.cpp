@@ -47,6 +47,7 @@ CMycpHttpServer::CMycpHttpServer(const cgcHttpRequest::pointer & req, cgcHttpRes
 , m_servletName("")
 
 {
+	m_pageParameters = req->getPageAttributes();
 }
 CMycpHttpServer::~CMycpHttpServer(void)
 {
@@ -58,7 +59,8 @@ void CMycpHttpServer::setApplication(cgcApplication::pointer v)
 	assert (v.get() != NULL);
 	theApplication = v;
 
-	m_pageParameters = theApplication->createAttributes();
+	if (m_pageParameters.get()==NULL)
+		m_pageParameters = theApplication->createAttributes();
 	// Initialize Temp Variant
 	m_pageParameters->setProperty(CSP_TEMP_VAR_INDEX, CGC_VALUEINFO((int)0));
 	m_pageParameters->setProperty(CSP_TEMP_VAR_VALUE, CGC_VALUEINFO(""));
@@ -1904,6 +1906,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
 			if (var_value.get() == NULL || var_value->getStr().empty()) return -1;
 
+			request->setPageAttributes(m_pageParameters);
 			HTTP_STATUSCODE statusCode = theServiceManager->executeInclude(var_value->getStr(), request, response);
 			m_pageParameters->delProperty(CSP_TEMP_VAR_RESULT);
 			m_pageParameters->setProperty(CSP_TEMP_VAR_RESULT, CGC_VALUEINFO((int)statusCode));

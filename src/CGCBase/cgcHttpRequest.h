@@ -71,6 +71,8 @@ public:
 
 	virtual tstring getCookie(const tstring & name, const tstring & sDefault = _T("")) const = 0;
 	virtual bool getCookies(std::vector<cgcKeyValue::pointer>& outCookies) const = 0;
+	virtual cgcAttributes::pointer getPageAttributes(void) const = 0;
+	virtual void setPageAttributes(const cgcAttributes::pointer& pPageAttributes) = 0;
 
 };
 
