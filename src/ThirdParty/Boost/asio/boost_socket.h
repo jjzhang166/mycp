@@ -100,17 +100,17 @@ public:
 #endif
             return get_socket()->write_some(buffers);
     }
-
-   template <typename ConstBufferSequence>
-    std::size_t write(const ConstBufferSequence& buffers,boost::system::error_code& ec)
-    {
-#ifdef USES_OPENSSL
-		if(is_ssl())
-            return get_ssl_socket()->write(buffers,ec);
-        else
-#endif
-            return get_socket()->write(buffers,ec);
-    }
+//
+//   template <typename ConstBufferSequence>
+//    std::size_t write(const ConstBufferSequence& buffers,boost::system::error_code& ec)
+//    {
+//#ifdef USES_OPENSSL
+//		if(is_ssl())
+//            return get_ssl_socket()->write(buffers,ec);
+//        else
+//#endif
+//            return get_socket()->write(buffers,ec);
+//    }
 
     template <typename ConstBufferSequence>
     std::size_t write(const ConstBufferSequence& buffers)

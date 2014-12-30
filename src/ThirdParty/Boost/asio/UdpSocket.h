@@ -139,9 +139,9 @@ public:
 private:
 	void start_receive(void)
 	{
+		UdpEndPoint::pointer new_endpoint = UdpEndPoint::create(m_maxbuffersize);
 		if (m_socket)
 		{
-			UdpEndPoint::pointer new_endpoint = UdpEndPoint::create(m_maxbuffersize);
 			//if (!m_unused.front(new_endpoint))
 			//	new_endpoint = UdpEndPoint::create(m_maxbuffersize);
 			m_socket->async_receive_from(boost::asio::buffer(const_cast<unsigned char*>(new_endpoint->buffer()), m_maxbuffersize),
@@ -158,7 +158,13 @@ private:
 		m_endpoints.add(endpoint);
 		//if (m_handler)
 		//	m_handler->OnReceiveData(*this, endpoint, size);
-		start_receive();
+		try
+		{
+			start_receive();
+		}catch(std::exception&)
+		{
+		}catch(...)
+		{}
 	}
 
 	static void do_proc_data(UdpSocket * owner)

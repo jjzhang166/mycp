@@ -56,7 +56,13 @@ public:
 		{
 #ifdef USES_OPENSSL
 			if (ctx)
+			{
+				//ctx->set_password_callback(boost::bind(&TcpClient::getSSLPassword, this));
 				m_socket = new boost_ssl_socket<tcp::socket>(io_service,*ctx);
+				m_socket->get_ssl_socket()->set_verify_mode(boost::asio::ssl::verify_peer);  
+				m_socket->get_ssl_socket()->set_verify_callback(boost::bind(&TcpClient::verify_certificate, this, _1, _2)); 
+				//ctx->set_password_callback(boost::bind(&TcpClient::get_password, this));
+			}
 			else
 				m_socket = new boost_socket<tcp::socket>(io_service);
 #else
@@ -67,19 +73,25 @@ public:
 			m_proc_data = new boost::thread(boost::bind(&TcpClient::do_proc_data, this));
 
 #ifdef USES_OPENSSL
-		if (m_socket->is_ssl())
-		{
-			boost::asio::ssl::stream<tcp::socket> * p = m_socket->get_ssl_socket();
-			p->async_handshake(boost::asio::ssl::stream_base::client,boost::bind(&TcpClient::handle_handshake,
-				this,shared_from_this(),boost::asio::placeholders::error));
-		}else
-		{
-			m_socket->get_socket()->async_connect(endpoint,
-				//m_socket.async_connect(endpoint,
-				boost::bind(&TcpClient::connect_handler, this,
-				boost::asio::placeholders::error)
-				);
-		}
+		m_socket->lowest_layer().async_connect(endpoint,
+			//m_socket.async_connect(endpoint,
+			boost::bind(&TcpClient::connect_handler, this,
+			boost::asio::placeholders::error)
+			);
+
+		//if (m_socket->is_ssl())
+		//{
+		//	boost::asio::ssl::stream<tcp::socket> * p = m_socket->get_ssl_socket();
+		//	p->async_handshake(boost::asio::ssl::stream_base::client,boost::bind(&TcpClient::handle_handshake,
+		//		this,shared_from_this(),boost::asio::placeholders::error));
+		//}else
+		//{
+		//	m_socket->get_socket()->async_connect(endpoint,
+		//		//m_socket.async_connect(endpoint,
+		//		boost::bind(&TcpClient::connect_handler, this,
+		//		boost::asio::placeholders::error)
+		//		);
+		//}
 #else
 		m_socket->async_connect(endpoint,
 			//m_socket.async_connect(endpoint,
@@ -87,7 +99,6 @@ public:
 			boost::asio::placeholders::error)
 			);
 #endif
-
 	}
 	void disconnect(void)
 	{
@@ -115,9 +126,46 @@ public:
 		//m_socket.close();
 	}
 #ifdef USES_OPENSSL
-	void handle_handshake(const TcpClient::pointer& pTcpClient,const boost::system::error_code& e)
+	//void setSSLPassword(const tstring& sPassword) {m_sSSLPassword = sPassword;}
+	//std::string getSSLPassword(void) const {return m_sSSLPassword;}
+
+	bool verify_certificate(bool preverified, boost::asio::ssl::verify_context& ctx)  
+	{  
+		// The verify callback can be used to check whether the certificate that is  
+		// being presented is valid for the peer. For example, RFC 2818 describes  
+		// the steps involved in doing this for HTTPS. Consult the OpenSSL  
+		// documentation for more details. Note that the callback is called once  
+		// for each certificate in the certificate chain, starting from the root  
+		// certificate authority.  
+
+		// In this example we will simply print the certificate's subject name.  
+		char subject_name[256];  
+		X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());  
+		X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);  
+		std::cout << "Verifying " << subject_name << "\n";  
+		return true;
+		return preverified;  
+	} 
+	void handle_handshake(const TcpClient::pointer& pTcpClient,const boost::system::error_code& error)
 	{
-		connect_handler(e);
+		if(!error)
+		{
+			if (m_handler.get() != NULL)
+			{
+				//m_handler->OnConnected(*this);
+				m_handler->OnConnected(shared_from_this());
+			}
+			async_read_some();
+		}else
+		{
+			std::string sError = error.message();
+			m_socket->close();
+			if (m_handler.get() != NULL)
+			{
+				//m_handler->OnConnectError(*this, error);
+				m_handler->OnConnectError(shared_from_this(), error);
+			}
+		}
 	}
 #endif
 	bool is_open(void) const
@@ -128,7 +176,12 @@ public:
 	size_t write(const unsigned char * data, size_t size)
 	{
 		if (m_socket == 0) return 0;
-		return boost::asio::write(*m_socket, boost::asio::buffer(data, size));
+		boost::system::error_code ec;
+#ifdef USES_OPENSSL
+		return m_socket->write_some(boost::asio::buffer(data, size),ec);
+#else
+		return boost::asio::write(*m_socket, boost::asio::buffer(data, size),ec);
+#endif
 	}
 
 #ifdef USES_OPENSSL
@@ -168,8 +221,6 @@ public:
 	}
 
 	void setHandler(TcpClient_Handler::pointer v) {m_handler = v;}
-
-private:
 	void async_read_some(void)
 	{
 		if (m_socket == 0) return;
@@ -184,19 +235,28 @@ private:
 			);
 	}
 
+private:
+
 	void connect_handler(const boost::system::error_code& error)
 	{
 		if (m_socket == 0) return;
 
 		if(!error)
 		{
-			if (m_handler.get() != NULL)
-			{
-				//m_handler->OnConnected(*this);
-				m_handler->OnConnected(shared_from_this());
-			}
-
-			async_read_some();
+#ifdef USES_OPENSSL
+		if (m_socket->is_ssl())
+		{
+			m_socket->get_ssl_socket()->async_handshake(boost::asio::ssl::stream_base::client,boost::bind(&TcpClient::handle_handshake,
+				this,shared_from_this(),boost::asio::placeholders::error));
+			return;
+		}
+#endif
+		if (m_handler.get() != NULL)
+		{
+			//m_handler->OnConnected(*this);
+			m_handler->OnConnected(shared_from_this());
+		}
+		async_read_some();
 		}else
 		{
 			m_socket->close();
@@ -210,6 +270,8 @@ private:
 	void read_some_handler(ReceiveBuffer::pointer newBuffer, const boost::system::error_code& error, std::size_t size)
 	{
 		if (m_socket == 0) return;
+		// ???·µ»Ø2´íÎó£»
+
 		if(!error)
 		{
 			newBuffer->size(size);
@@ -262,6 +324,7 @@ private:
 	CLockList<ReceiveBuffer::pointer> m_unused;
 	size_t m_unusedsize;
 	size_t m_maxbuffersize;
+	//tstring m_sSSLPassword;
 };
 
 #endif // __TcpClient_h__

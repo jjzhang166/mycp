@@ -30,6 +30,14 @@ namespace cgc {
 	extern cgc::cgcSystem::pointer theSystem;
 	extern cgc::cgcServiceManager::pointer theServiceManager;
 
+#define CGC_LOG(X) theApplication->log X
+#define CGC_APP_PARAMETER(N) theApplication->getInitParameter(N)
+#define CGC_APP_VALUE(N, D) theApplication->getInitParameterValue(N, D)
+#define CGC_APP_VALUE2(N, D) theApplication->getInitParameterValue2(N, D)
+
+#define CGC_SYS_PARAMETER(N) theSystem->getInitParameter(N)
+#define CGC_SYS_VALUE(N, D) theSystem->getInitParameterValue(N, D)
+//#define CGC_SYS_VALUE2(N, D) gSystem->getInitParameterValue2(N, D)
 
 } // cgc namespace
 
