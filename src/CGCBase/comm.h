@@ -20,6 +20,7 @@
 #ifndef __comm_head__
 #define __comm_head__
 
+#include "extern.h"
 #include "cgcbase.h"
 #include "cgcCommunications.h"
 

@@ -43,6 +43,8 @@ namespace cgc{
 	// extern "C" void CGC_API CGC_Remote_Close(const cgcSession::pointer& pHandler,unsigned long nRemoteId) {}
 	typedef void (FAR *FPCGC_Remote_Close)(const cgcSession::pointer& pHandler,unsigned long nRemoteId);
 
+	typedef void (FAR *FPCGC_Remote_Change)(const cgcSession::pointer& pHandler,const cgcRemote::pointer& pcgcRemote);
+
 	// extern "C" int CGC_API YourFuncName(const cgcSotpRequest::pointer & request, cgcSotpResponse::pointer response){}
 	typedef int (FAR *FPCGCApi)(const cgcSotpRequest::pointer & request, const cgcSotpResponse::pointer& response);
 

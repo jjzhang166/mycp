@@ -1657,6 +1657,11 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 		if (NULL == remoteSessionImpl.get())
 		{
 			remoteSessionImpl = m_mgrSession.GetSessionImpl(sSessionId);
+			if (remoteSessionImpl.get()!=NULL)
+			{
+				m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
+				((CSessionImpl*)remoteSessionImpl.get())->setDataResponseImpl("",pcgcRemote);
+			}
 		}
 		pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
 		retCode = (pRemoteSessionImpl == NULL) ? -103 : 0;
@@ -1664,6 +1669,17 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 	{
 		// active session
 		sSessionId = pcgcParser->getSid();
+		if (NULL == remoteSessionImpl.get())
+		{
+			remoteSessionImpl = m_mgrSession.GetSessionImpl(sSessionId);
+			if (remoteSessionImpl.get()!=NULL)
+			{
+				m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
+				((CSessionImpl*)remoteSessionImpl.get())->setDataResponseImpl("",pcgcRemote);
+				((CSessionImpl*)remoteSessionImpl.get())->OnRunCGC_Remote_Change(pcgcRemote);
+			}
+		}
+		pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
 		retCode = (pRemoteSessionImpl == NULL) ? -103 : 0;
 	}else
 	{
@@ -1808,8 +1824,17 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		tstring sSessionId = pcgcParser->getSid();
 		if (pRemoteSessionImpl == NULL)
 		{
+			//printf("**** ProcAppProto Session NULL sid=%s\n",sSessionId.c_str());
 			remoteSessionImpl = m_mgrSession.GetSessionImpl(sSessionId);
 			pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
+			//printf("**** ProcAppProto Session NULL sid=%s,session=%d\n",sSessionId.c_str(),(int)pRemoteSessionImpl);
+			if (pRemoteSessionImpl!=NULL)
+			{
+				const cgcRemote::pointer pcgcRemote = pResponseImpl->getCgcRemote();
+				m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
+				pRemoteSessionImpl->setDataResponseImpl("",pcgcRemote);
+				pRemoteSessionImpl->OnRunCGC_Remote_Change(pcgcRemote);
+			}
 		}
 		if (pRemoteSessionImpl == NULL)
 		{
@@ -1876,6 +1901,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		if (pRemoteSessionImpl)
 		{
 			pModuleItem = pRemoteSessionImpl->getModuleItem("",true);	// ?GET DEFAULT
+			//printf("**** ProcAppProto pModuleItem=%d\n",(int)pModuleItem.get());
 		}
 		if (pRemoteSessionImpl == NULL || pModuleItem.get() == NULL)
 		{

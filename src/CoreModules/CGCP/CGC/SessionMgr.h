@@ -120,6 +120,8 @@ public:
 	bool OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote);
 
 	// invoke module CGC_Session_Close()
+	void OnRunCGC_Remote_Change(const cgcRemote::pointer& pcgcRemote);
+	void OnRunCGC_Remote_Change(const CSessionModuleInfo::pointer& pSessionModuleInfo,const cgcRemote::pointer& pcgcRemote);
 	void OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode);
 	void OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSessionModuleInfo,unsigned long nRemoteId,int nErrorCode);
 	void OnRunCGC_Session_Close(void);
@@ -138,7 +140,7 @@ public:
 
 	// cgcResponse
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser);
-	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote);
+	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote);	// sModuleName="": setdefault
 
 	time_t getNewPrevDataThreadTime(void) const {return m_tNewProcPrevThread;}
 	void newPrevDataThread(void);

@@ -148,6 +148,45 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 			pSessionModuleInfo->m_pRemote->invalidate();
 	}
 }
+void CSessionImpl::OnRunCGC_Remote_Change(const cgcRemote::pointer& pcgcRemote)
+{
+	{
+		BoostReadLock rdlock(m_pSessionModuleList.mutex());
+		CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
+		for (;pIter!=m_pSessionModuleList.end(); pIter++)
+		{
+			CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
+			OnRunCGC_Remote_Change(pSessionModuleInfo,pcgcRemote);
+		}
+	}
+}
+
+void CSessionImpl::OnRunCGC_Remote_Change(const CSessionModuleInfo::pointer& pSessionModuleInfo, const cgcRemote::pointer& pcgcRemote)
+{
+	if (pSessionModuleInfo->m_bOpenSessioned)
+	{
+		pSessionModuleInfo->m_bOpenSessioned = false;
+		//printf("**** CGC_Session_Close %s\n",getId().c_str());
+		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+		void * hModule = pModuleItem->getModuleHandle();
+#ifdef WIN32
+		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)GetProcAddress((HMODULE)hModule, "CGC_Remote_Change");
+#else
+		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)dlsym(hModule, "CGC_Remote_Change");
+#endif
+		if (fp)
+		{
+			try
+			{
+				fp(shared_from_this(),pcgcRemote);
+			}catch (std::exception const &)
+			{
+			}catch (...)
+			{}
+		}
+	}
+}
+
 void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSessionModuleInfo,unsigned long nRemoteId,int nErrorCode)
 {
 	if (pSessionModuleInfo->m_pRemoteList.remove(nRemoteId))
@@ -425,7 +464,17 @@ void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemot
 	{
 		//printf("**** setDataResponseImpl remoteid=%d\n",pcgcRemote->getRemoteId());
 		CSessionModuleInfo::pointer pSessionModuleItem;
-		if (m_pSessionModuleList.find(sModuleName,pSessionModuleItem))
+		if (sModuleName.empty())
+		{
+			AUTO_RLOCK(m_pSessionModuleList);
+			CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter = m_pSessionModuleList.begin();
+			if (pIter != m_pSessionModuleList.end())
+			{
+				pSessionModuleItem = pIter->second;
+				pSessionModuleItem->m_pRemote = pcgcRemote;
+				pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true);
+			}
+		}else if (m_pSessionModuleList.find(sModuleName,pSessionModuleItem))
 		{
 			pSessionModuleItem->m_pRemote = pcgcRemote;
 			pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true);

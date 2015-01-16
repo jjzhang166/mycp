@@ -126,9 +126,11 @@ public:
 	virtual void setResAttachName(const tstring & name);
 	virtual void setResAttachInfo(cgc::bigint total, cgc::bigint index);
 	virtual void setResAttachData(const unsigned char * attachData, unsigned int attachSize);
+	virtual void setResAttachData2(unsigned char * attachData, unsigned int attachSize);
 	virtual void setResAttach(const cgcAttachment::pointer& pAttach);
 	virtual bool isResHasAttachInfo(void) const {return m_attach->isHasAttach();}
 	virtual cgcAttachment::pointer getResAttachment(void) const {return m_attach;}
+	virtual unsigned char * getResAttachString(unsigned int & pOutSize);
 
 };
 

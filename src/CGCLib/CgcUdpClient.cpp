@@ -134,7 +134,10 @@ bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 			//m_endpointRemote = udp::endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
 		}
 		if (m_udpClient.get()!=NULL && m_udpClient->socket()!=NULL)
-			m_udpClient->socket()->connect(m_endpointRemote);
+		{
+			boost::system::error_code ec;
+			m_udpClient->socket()->connect(m_endpointRemote,ec);
+		}
 		return true;
 	}
 	return false;

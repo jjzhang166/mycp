@@ -20,6 +20,7 @@
 #ifndef __cdbc_head__
 #define __cdbc_head__
 
+#include "extern.h"
 #include "cgcbase.h"
 #include "cgcCDBCService.h"
 

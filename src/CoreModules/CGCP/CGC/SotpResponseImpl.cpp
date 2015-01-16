@@ -126,7 +126,8 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 	if (m_cgcParser->isResHasAttachInfo())
 	{
 		unsigned int nAttachSize = 0;
-		unsigned char * pAttachData = m_cgcParser->getAttachString(m_cgcParser->getResAttachment(), nAttachSize);
+		unsigned char * pAttachData = m_cgcParser->getResAttachString(nAttachSize);
+		//unsigned char * pAttachData = m_cgcParser->getAttachString(m_cgcParser->getResAttachment(), nAttachSize);
 		if (pAttachData != NULL)
 		{
 			unsigned char * pSendData = new unsigned char[nAttachSize+responseData.size()+1];
@@ -134,7 +135,7 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 			memcpy(pSendData+responseData.size(), pAttachData, nAttachSize);
 			pSendData[nAttachSize+responseData.size()] = '\0';
 
-			// ?
+			// *±ÜÃâÖØ
 			//m_cgcParser->getResAttachment()->clear();
 
 			int ret = -1;

@@ -357,27 +357,43 @@ protected:
 			tstring sKey = inParam->getVector()[0]->getStr();
 			if (sKey.size()>128)
 				sKey = sKey.substr(0,128);
-			const tstring& sInString = inParam->getVector()[1]->getStr();
+
 			bool bConvert2t16 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert2t16 = inParam->getVector()[2]->getBoolean();
-			//printf("**** key=%s\n",sKey.c_str());
-			//printf("**** string=%s\n",sInString.c_str());
 
-			unsigned char * lpszIn = new unsigned char[sInString.size()+8];
-			memset(lpszIn,0,sInString.size()+8);
-			memcpy(lpszIn,sInString.c_str(),sInString.size());
-			unsigned char * lpszOut = new unsigned char[sInString.size()+8];
-			memset(lpszOut,0,sInString.size()+8);
+			size_t nInSize = 0;
+			unsigned char * lpszIn = NULL;
+			if (inParam->getVector()[1]->getType()==cgcValueInfo::TYPE_BUFFER)
+			{
+				if (inParam->getVector()[1]->getBuffer()==NULL || inParam->getVector()[1]->getBufferSize()==0)
+					return false;
+				nInSize = inParam->getVector()[1]->getBufferSize();
+				lpszIn = new unsigned char[nInSize+8];
+				memset(lpszIn,0,nInSize+8);
+				memcpy(lpszIn,inParam->getVector()[1]->getBuffer(),nInSize);
+			}else
+			{
+				const tstring& sInString = inParam->getVector()[1]->getStr();
+				//printf("**** key=%s\n",sKey.c_str());
+				//printf("**** string=%s\n",sInString.c_str());
+				nInSize = sInString.size();
+				lpszIn = new unsigned char[nInSize+8];
+				memset(lpszIn,0,nInSize+8);
+				memcpy(lpszIn,sInString.c_str(),nInSize);
+			}
 
-			DesEncrypt(sKey.c_str(),lpszIn,lpszOut,sInString.size());
-			const size_t nEncLen = ((sInString.size()+7)/8)*8;	// 加密后数据长度；
+			unsigned char * lpszOut = new unsigned char[nInSize+8];
+			memset(lpszOut,0,nInSize+8);
 
-			std::string sOutString;
-			if (bConvert2t16)
-				sOutString = convert_2t16((const unsigned char*)lpszOut,nEncLen);
-			else
-				sOutString = std::string((const char*)lpszOut,nEncLen);
+			DesEncrypt(sKey.c_str(),lpszIn,lpszOut,nInSize);
+			const size_t nEncLen = ((nInSize+7)/8)*8;	// 加密后数据长度；
+
+			//std::string sOutString;
+			//if (bConvert2t16)
+			//	sOutString = convert_2t16(lpszOut,nEncLen);
+			//else
+			//	sOutString = std::string((const char*)lpszOut,nEncLen);
 
 			//{	// test OK
 			//	printf("** 2t16=%s\n",sOutString.c_str());
@@ -393,19 +409,22 @@ protected:
 			//	delete[] lpszIn2;
 			//}
 
-			delete[] lpszOut;
-			delete[] lpszIn;
 			//printf("**** 3des result=%s\n",sOutString.c_str());
 
 			//返回结果
-			if (outParam.get() == NULL)
+			cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
+			if (bConvert2t16)
 			{
-				inParam->totype(cgcValueInfo::TYPE_STRING);
-				inParam->setStr(sOutString);
+				pOutParam->totype(cgcValueInfo::TYPE_STRING);
+				pOutParam->setStr(convert_2t16(lpszOut,nEncLen));
+				delete[] lpszOut;
+				delete[] lpszIn;
 			}else
 			{
-				outParam->totype(cgcValueInfo::TYPE_STRING);
-				outParam->setStr(sOutString);
+				pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
+				pOutParam->reset();
+				pOutParam->setBuffer(lpszOut,nEncLen);
+				delete[] lpszIn;
 			}
 		}else if (function == "des_dec")
 		{
@@ -414,36 +433,83 @@ protected:
 			tstring sKey = inParam->getVector()[0]->getStr();
 			if (sKey.size()>128)
 				sKey = sKey.substr(0,128);
-			const tstring& sInString = inParam->getVector()[1]->getStr();
 			bool bConvert16t2 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert16t2 = inParam->getVector()[2]->getBoolean();
-			unsigned char * lpszIn = new unsigned char[sInString.size()+8];
-			size_t nInLen = sInString.size();
-			if (bConvert16t2)
+			bool bSave2Buffer = false;
+			if (inParam->getVector().size()>=4)
+				bSave2Buffer = inParam->getVector()[3]->getBoolean();
+
+			//const tstring& sInString = inParam->getVector()[1]->getStr();
+			unsigned char * lpszIn = NULL;
+			size_t nInLen = 0;
+			if (inParam->getVector()[1]->getType()==cgcValueInfo::TYPE_BUFFER)
 			{
-				nInLen = convert_16t2((const unsigned char*)sInString.c_str(),nInLen,lpszIn);
+				nInLen = inParam->getVector()[1]->getBufferSize();
+				lpszIn = new unsigned char[nInLen+8];
+				if (bConvert16t2)
+				{
+					nInLen = convert_16t2(inParam->getVector()[1]->getBuffer(),nInLen,lpszIn);
+				}else
+				{
+					memcpy(lpszIn,inParam->getVector()[1]->getBuffer(),nInLen);
+				}
 			}else
 			{
-				memcpy(lpszIn,sInString.c_str(),nInLen);
+				const tstring& sInString = inParam->getVector()[1]->getStr();
+				nInLen = sInString.size();
+				lpszIn = new unsigned char[nInLen+8];
+				if (bConvert16t2)
+				{
+					nInLen = convert_16t2((const unsigned char*)sInString.c_str(),nInLen,lpszIn);
+				}else
+				{
+					memcpy(lpszIn,sInString.c_str(),nInLen);
+				}
 			}
+
+			//const tstring& sInString = inParam->getVector()[1]->getStr();
+			//bool bConvert16t2 = true;
+			//if (inParam->getVector().size()>=3)
+			//	bConvert16t2 = inParam->getVector()[2]->getBoolean();
+			//unsigned char * lpszIn = new unsigned char[sInString.size()+8];
+			//size_t nInLen = sInString.size();
+			//if (bConvert16t2)
+			//{
+			//	nInLen = convert_16t2((const unsigned char*)sInString.c_str(),nInLen,lpszIn);
+			//}else
+			//{
+			//	memcpy(lpszIn,sInString.c_str(),nInLen);
+			//}
 
 			unsigned char * lpszOut = new unsigned char[nInLen+8];
 			memset(lpszOut,0,nInLen+8);
 			DesDecrypt(sKey.c_str(),lpszIn,lpszOut,nInLen);
-			const std::string sOutString((const char*)lpszOut);
-			delete[] lpszOut;
-			delete[] lpszIn;
 
 			//返回结果
-			if (outParam.get() == NULL)
+			cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
+			if (bSave2Buffer)
 			{
-				inParam->setStr(sOutString);
+				pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
+				pOutParam->reset();
+				pOutParam->setBuffer(lpszOut,nInLen);
+				delete[] lpszIn;
 			}else
 			{
-				outParam->totype(cgcValueInfo::TYPE_STRING);
-				outParam->setStr(sOutString);
+				pOutParam->totype(cgcValueInfo::TYPE_STRING);
+				pOutParam->setStr(tstring((const char*)lpszOut));
+				delete[] lpszOut;
+				delete[] lpszIn;
 			}
+
+			//if (outParam.get() == NULL)
+			//{
+			//	inParam->setStr(sOutString);
+			//}else
+			//{
+			//	outParam->totype(cgcValueInfo::TYPE_STRING);
+			//	outParam->setStr(sOutString);
+			//}
 		}else if (function == "url_enc")
 		{
 			if (inParam.get() == NULL) return false;

@@ -20,6 +20,7 @@
 #ifndef __httpapp_head__
 #define __httpapp_head__
 
+#include "extern.h"
 #include "cgcbase.h"
 #include "httpapp.h"
 

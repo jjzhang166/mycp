@@ -122,7 +122,7 @@ void ParseCgcSotp2::FreeHandle(void)
 
 	m_parameterMap.clear();
 
-	m_attach->clear();
+	//m_attach->clear();
 
 	//for_each(m_custerSvrList.begin(), m_custerSvrList.end(), DeletePtr());
 	//m_custerSvrList.clear();
@@ -136,7 +136,10 @@ void ParseCgcSotp2::addParameter(cgcParameter::pointer parameter)
 bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncoding)
 {
 	if (pBuffer == 0) return false;
-
+	if (m_attach.get() !=NULL && m_attach->isHasAttach())
+	{
+		m_attach = cgcAttachment::create();
+	}
 	m_sEncoding = sEncoding;
 	// Get Proto Type.
 	const char * pCgcProto = strstr((const char*)pBuffer, "SOTP/2.0");

@@ -98,14 +98,25 @@ public:
 		m_len = nAttachSize;
 		memcpy(m_data, pAttachData, m_len);
 	}
+	void setAttach2(unsigned char * pAttachData, unsigned int nAttachSize)
+	{
+		clearAttachData();
+		if (pAttachData == NULL || nAttachSize == 0)
+		{
+			return;
+		}
+		m_len = nAttachSize;
+		m_data = pAttachData;
+	}
 	const unsigned char * getAttachData(void) const {return m_data;}
-	/*unsigned char * getAttachData(void)
+	unsigned char * getAttachData(unsigned int& pOutAttachSize)
 	{
 		unsigned char * result = m_data;
+		pOutAttachSize = m_len;
 		m_data = 0;
 		m_len = 0;
 		return result;
-	}*/
+	}
 	unsigned int getAttachSize(void) const {return m_len;}
 
 	void clear(void)

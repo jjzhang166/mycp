@@ -42,6 +42,10 @@ CPPSotp2::CPPSotp2(void)
 // Request
 bool CPPSotp2::doParse(const unsigned char * requestData, size_t size,const char* sEncoding)
 {
+	//if (m_attach.get() && m_attach->isHasAttach())
+	//{
+	//	m_attach = cgcAttachment::create();
+	//}
 	return m_cgcInvoke.parseBuffer(requestData,sEncoding);
 }
 
@@ -208,10 +212,25 @@ void CPPSotp2::setResAttachData(const unsigned char * attachData, unsigned int a
 {
 	m_attach->setAttach(attachData, attachSize);
 }
+void CPPSotp2::setResAttachData2(unsigned char * attachData, unsigned int attachSize)
+{
+	m_attach->setAttach2(attachData, attachSize);
+}
 
 void CPPSotp2::setResAttach(const cgcAttachment::pointer& pAttach)
 {
 	m_attach = pAttach;
 }
+
+unsigned char * CPPSotp2::getResAttachString(unsigned int & pOutSize)
+{
+	unsigned char * result = SotpCallTable2::toAttachString(m_attach, pOutSize);
+	if (result!=NULL)
+	{
+		m_attach = cgcAttachment::create();
+	}
+	return result;
+}
+
 
 } // cgc namespace

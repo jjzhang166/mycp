@@ -54,6 +54,7 @@ namespace cgc{
 			, TYPE_VALUEINFO
 			, TYPE_VECTOR
 			, TYPE_MAP
+			, TYPE_BUFFER
 		};
 
 		enum ValueAttribute
@@ -62,6 +63,11 @@ namespace cgc{
 			, ATTRIBUTE_WRITEONLY
 			, ATTRIBUTE_BOTH
 		};
+		typedef struct cgcBuffer
+		{
+			unsigned int nSize;
+			unsigned char* pBuffer;
+		}CGCBUFFER;
 
 		static ValueType cgcGetValueType(const tstring& string);
 
@@ -85,10 +91,17 @@ namespace cgc{
 		double getFloat(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? 0.0 : u.m_float;}
 
 		void setPointer(const void* v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_pointer = v;}
-		const void* getPointer(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? NULL : u.m_pointer;}
+		const void* getPointer(void) const {return (m_attribute == ATTRIBUTE_WRITEONLY || m_type!=TYPE_POINTER) ? NULL : u.m_pointer;}
 
 		void setStr(const tstring& v) {if (m_attribute != ATTRIBUTE_READONLY) m_str = v;}
 		const tstring& getStr(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? cgcEmptyTString : m_str;}
+
+		void setBuffer(const unsigned char* pBuffer,unsigned int nSize);
+		void setBuffer(unsigned char* pBuffer,unsigned int nSize);
+		void getBuffer(cgcBuffer* pBuffer) const;
+		const unsigned char* getBuffer(void) const {return (m_attribute == ATTRIBUTE_WRITEONLY || m_type!=TYPE_BUFFER) ? NULL : u.m_buffer.pBuffer;}
+		unsigned char* getBuffer(unsigned int& pOutBufferSize);
+		unsigned int getBufferSize(void) const {return (m_attribute == ATTRIBUTE_WRITEONLY || m_type!=TYPE_BUFFER) ? 0 : u.m_buffer.nSize;}
 
 		void setObject(const cgcObject::pointer& v) {if (m_attribute != ATTRIBUTE_READONLY) m_object = v;}
 		cgcObject::pointer getObject(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? cgcNullObject : m_object;}
@@ -142,6 +155,8 @@ namespace cgc{
 		cgcValueInfo::pointer copy(void) const;
 		void totype(ValueType newtype);
 		void reset(void);
+		void clearBuffer(void);
+
 
 	protected:
 		ValueType m_type;
@@ -154,6 +169,7 @@ namespace cgc{
 			bool m_boolean;
 			double m_float;
 			const void* m_pointer;
+			cgcBuffer m_buffer;
 		}u;
 		tstring m_str;
 		cgcObject::pointer m_object;
@@ -274,6 +290,12 @@ namespace cgc{
 		}else if (string == "vector")
 		{
 			return TYPE_VECTOR;
+		}else if (string == "map")
+		{
+			return TYPE_MAP;
+		}else if (string == "buffer")
+		{
+			return TYPE_BUFFER;
 		}
 		return TYPE_STRING;
 	}
@@ -309,6 +331,16 @@ namespace cgc{
 			return m_vector.size() == compare->getVector().size();
 		case TYPE_MAP:
 			return m_map.size() == compare->getMap().size();
+		case TYPE_BUFFER:
+			{
+				//when buf1<buf2, return<0
+				//when buf1=buf2, return=0
+				//when buf1>buf2, return>0
+				if (this->size() == compare->size())
+					return this->empty()?true:(memcmp(u.m_buffer.pBuffer,compare->getBuffer(),this->size())==0?true:false);
+				else
+					return false;
+			}break;
 		default:
 			break;
 		}
@@ -345,6 +377,16 @@ namespace cgc{
 			return m_vector.size() != compare->getVector().size();
 		case TYPE_MAP:
 			return m_map.size() != compare->getMap().size();
+		case TYPE_BUFFER:
+			{
+				//when buf1<buf2, return<0
+				//when buf1=buf2, return=0
+				//when buf1>buf2, return>0
+				if (this->size() == compare->size())
+					return this->empty()?false:(memcmp(u.m_buffer.pBuffer,compare->getBuffer(),this->size())!=0?true:false);
+				else
+					return this->size() != compare->size();
+			}break;
 		default:
 			break;
 		}
@@ -382,6 +424,16 @@ namespace cgc{
 			return m_vector.size() > compare->getVector().size();
 		case TYPE_MAP:
 			return m_map.size() > compare->getMap().size();
+		case TYPE_BUFFER:
+			{
+				//when buf1<buf2, return<0
+				//when buf1=buf2, return=0
+				//when buf1>buf2, return>0
+				if (this->size() == compare->size())
+					return this->empty()?false:(memcmp(u.m_buffer.pBuffer,compare->getBuffer(),this->size())>0?true:false);
+				else
+					return this->size() > compare->size();
+			}break;
 		default:
 			break;
 		}
@@ -419,6 +471,16 @@ namespace cgc{
 			return m_vector.size() >= compare->getVector().size();
 		case TYPE_MAP:
 			return m_map.size() >= compare->getMap().size();
+		case TYPE_BUFFER:
+			{
+				//when buf1<buf2, return<0
+				//when buf1=buf2, return=0
+				//when buf1>buf2, return>0
+				if (this->size() == compare->size())
+					return this->empty()?true:(memcmp(u.m_buffer.pBuffer,compare->getBuffer(),this->size())>=0?true:false);
+				else
+					return this->size() >= compare->size();
+			}break;
 		default:
 			break;
 		}
@@ -456,6 +518,16 @@ namespace cgc{
 			return m_vector.size() < compare->getVector().size();
 		case TYPE_MAP:
 			return m_map.size() < compare->getMap().size();
+		case TYPE_BUFFER:
+			{
+				//when buf1<buf2, return<0
+				//when buf1=buf2, return=0
+				//when buf1>buf2, return>0
+				if (this->size() == compare->size())
+					return this->empty()?false:(memcmp(u.m_buffer.pBuffer,compare->getBuffer(),this->size())<0?true:false);
+				else
+					return this->size() < compare->size();
+			}break;
 		default:
 			break;
 		}
@@ -493,6 +565,16 @@ namespace cgc{
 			return m_vector.size() <= compare->getVector().size();
 		case TYPE_MAP:
 			return m_map.size() <= compare->getMap().size();
+		case TYPE_BUFFER:
+			{
+				//when buf1<buf2, return<0
+				//when buf1=buf2, return=0
+				//when buf1>buf2, return>0
+				if (this->size() == compare->size())
+					return this->empty()?true:(memcmp(u.m_buffer.pBuffer,compare->getBuffer(),this->size())<=0?true:false);
+				else
+					return this->size() <= compare->size();
+			}break;
 		default:
 			break;
 		}
@@ -530,6 +612,8 @@ namespace cgc{
 			return !m_vector.empty() && !compare->getVector().empty();
 		case TYPE_MAP:
 			return !m_map.empty() && !compare->getMap().empty();
+		case TYPE_BUFFER:
+			return !this->empty() && !compare->empty();
 		default:
 			break;
 		}
@@ -567,6 +651,8 @@ namespace cgc{
 			return !m_vector.empty() || !compare->getVector().empty();
 		case TYPE_MAP:
 			return !m_map.empty() || !compare->getMap().empty();
+		case TYPE_BUFFER:
+			return !this->empty() || !compare->empty();
 		default:
 			break;
 		}
@@ -618,6 +704,10 @@ namespace cgc{
 					CLockMap<tstring, cgcValueInfo::pointer>::const_iterator iter;
 					for (iter=v->getMap().begin(); iter!=v->getMap().end(); iter++)
 						m_map.insert(iter->first, iter->second);
+				}break;
+			case TYPE_BUFFER:
+				{
+					this->setBuffer(v->getBuffer(),v->getBufferSize());
 				}break;
 			default:
 				break;
@@ -687,6 +777,8 @@ namespace cgc{
 							iter->second->operator +=(v);
 					}
 				}break;
+			case TYPE_BUFFER:
+				break;
 			default:
 				break;
 			}
@@ -751,6 +843,8 @@ namespace cgc{
 							iter->second->operator -=(v);
 					}
 				}break;
+			case TYPE_BUFFER:
+				break;
 			default:
 				break;
 			}
@@ -819,6 +913,8 @@ namespace cgc{
 							iter->second->operator *=(v);
 					}
 				}break;
+			case TYPE_BUFFER:
+				break;
 			default:
 				break;
 			}
@@ -883,6 +979,8 @@ namespace cgc{
 							iter->second->operator /=(v);
 					}
 				}break;
+			case TYPE_BUFFER:
+				break;
 			default:
 				break;
 			}
@@ -947,6 +1045,8 @@ namespace cgc{
 							iter->second->operator %=(v);
 					}
 				}break;
+			case TYPE_BUFFER:
+				break;
 			default:
 				break;
 			}
@@ -1032,6 +1132,15 @@ namespace cgc{
 				}
 				return result;
 			}break;
+		case TYPE_BUFFER:
+			{
+				std::string result = "";
+				if (u.m_buffer.nSize>0 && u.m_buffer.pBuffer != 0)
+				{
+					result = tstring((const char*)u.m_buffer.pBuffer,u.m_buffer.nSize);
+				}
+				return result;
+			}break;
 		default:
 			break;
 		}
@@ -1064,6 +1173,8 @@ namespace cgc{
 			return "vector";
 		case TYPE_MAP:
 			return "map";
+		case TYPE_BUFFER:
+			return "buffer";
 		default:
 			break;
 		}
@@ -1090,6 +1201,8 @@ namespace cgc{
 			return (int)m_vector.size();
 		case TYPE_MAP:
 			return (int)m_map.size();
+		case TYPE_BUFFER:
+			return (int)u.m_buffer.nSize;
 		default:
 			break;
 		}
@@ -1117,6 +1230,8 @@ namespace cgc{
 			return m_vector.empty();
 		case TYPE_MAP:
 			return m_map.empty();
+		case TYPE_BUFFER:
+			return u.m_buffer.nSize==0 || u.m_buffer.pBuffer==0;
 		default:
 			break;
 		}
@@ -1162,6 +1277,11 @@ namespace cgc{
 		case TYPE_MAP:
 			result = CGC_VALUEINFO(m_map);
 			break;
+		case TYPE_BUFFER:
+			{
+				result = CGC_VALUEINFO(cgcValueInfo::TYPE_BUFFER);
+				result->setBuffer(u.m_buffer.pBuffer,u.m_buffer.nSize);
+			}break;
 		default:
 			break;
 		}
@@ -1254,6 +1374,11 @@ namespace cgc{
 						//}
 					}
 				}break;
+			case TYPE_BUFFER:
+				{
+					const tstring newString = this->toString();
+					this->setBuffer((const unsigned char*)newString.c_str(),newString.size());
+				}break;
 			default:
 				break;
 			}
@@ -1263,6 +1388,7 @@ namespace cgc{
 
 	inline void cgcValueInfo::reset(void)
 	{
+		clearBuffer();
 		memset(&u, 0, sizeof(u));
 		m_str.clear();
 		m_object.reset();
@@ -1270,6 +1396,60 @@ namespace cgc{
 		m_vector.clear();
 		m_map.clear();
 		//m_type = TYPE_STRING;
+	}
+	inline void cgcValueInfo::setBuffer(const unsigned char* pBuffer,unsigned int nSize)
+	{
+		if (m_attribute == ATTRIBUTE_READONLY)
+			return;
+		clearBuffer();
+		if (nSize>0 && pBuffer!=NULL)
+		{
+			u.m_buffer.nSize = nSize;
+			u.m_buffer.pBuffer = new unsigned char[nSize+1];
+			memcpy(u.m_buffer.pBuffer,pBuffer,nSize);
+		}
+	}
+	inline void cgcValueInfo::setBuffer(unsigned char* pBuffer,unsigned int nSize)
+	{
+		if (m_attribute == ATTRIBUTE_READONLY)
+			return;
+		clearBuffer();
+		if (nSize>0 && pBuffer!=NULL)
+		{
+			u.m_buffer.nSize = nSize;
+			u.m_buffer.pBuffer = pBuffer;
+		}
+	}
+	inline void cgcValueInfo::getBuffer(cgcBuffer* pBuffer) const
+	{
+		if (m_attribute != ATTRIBUTE_WRITEONLY && m_type==TYPE_BUFFER && u.m_buffer.pBuffer!=NULL && u.m_buffer.nSize>0)
+		{
+			pBuffer->nSize = u.m_buffer.nSize;
+			pBuffer->pBuffer = new unsigned char[pBuffer->nSize+1];
+			memcpy(pBuffer->pBuffer,u.m_buffer.pBuffer,pBuffer->nSize);
+		}
+	}
+	inline unsigned char* cgcValueInfo::getBuffer(unsigned int& pOutBufferSize)
+	{
+		if (m_attribute != ATTRIBUTE_WRITEONLY && m_type==TYPE_BUFFER && u.m_buffer.pBuffer!=NULL && u.m_buffer.nSize>0)
+		{
+			unsigned char * result = u.m_buffer.pBuffer;
+			pOutBufferSize = u.m_buffer.nSize;
+			u.m_buffer.pBuffer = NULL;
+			u.m_buffer.nSize = 0;
+			return result;
+		}
+		return NULL;
+	}
+
+	inline void cgcValueInfo::clearBuffer(void)
+	{
+		if (m_type==TYPE_BUFFER && u.m_buffer.pBuffer!=NULL)
+		{
+			delete[] u.m_buffer.pBuffer;
+			u.m_buffer.nSize = 0;
+			u.m_buffer.pBuffer = 0;
+		}
 	}
 }
 
