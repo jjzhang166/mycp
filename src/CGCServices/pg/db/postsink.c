@@ -108,6 +108,7 @@ void post_clean(Result* res)
 	return ;
     result = (PGresult*)res->priv;
     PQclear(result);
+	free(res);	// add by hd 2015-01-29
 }
 int post_get_row_number(Result *res)
 {
@@ -126,6 +127,15 @@ int post_get_col_number(Result *res)
     result = (PGresult*)res->priv;
     
     return PQnfields(result);
+}
+char* post_get_affected_rows(Result *res)
+{
+    PGresult *result;
+    if(!res)
+	return 0;
+    result = (PGresult*)res->priv;
+    
+    return PQcmdTuples(result);
 }
 const char* post_fname(Result* res, int n)
 {
@@ -181,6 +191,7 @@ SinkOperations sos = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 };
 #else
 SinkOperations sos = {
@@ -193,6 +204,7 @@ SinkOperations sos = {
     post_clean,
     post_get_row_number,
     post_get_col_number,
+    post_get_affected_rows,
     post_fname,
     post_cmd_state,
 };

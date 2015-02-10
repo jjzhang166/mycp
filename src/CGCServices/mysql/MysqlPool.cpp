@@ -28,7 +28,7 @@ bool CMysqlSink::Connect(void)
 	if (!Init()) return false;
 
 	if (!mysql_real_connect(m_mysql, m_sHost.c_str(), m_sAccount.c_str(),
-		m_sSecure.c_str(), m_sDatabase.c_str(), 0, NULL, 0))
+		m_sSecure.c_str(), m_sDatabase.c_str(), 0, NULL, CLIENT_MULTI_STATEMENTS))
 	{
 		printf("**** mysql_real_connect error.(%s)\n",mysql_error(m_mysql));
 		mysql_close(m_mysql);

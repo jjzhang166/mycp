@@ -55,11 +55,11 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	int size(void) const
+	cgc::bigint size(void) const
 	{
 		return m_rows;
 	}
-	int index(void) const
+	cgc::bigint index(void) const
 	{
 		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
 		return m_currentIndex;
@@ -141,7 +141,7 @@ public:
 		//m_currentIndex = 0;
 	}
 
-	CCDBCResultSet(Sink * sink, Result * resultset, int rows)
+	CCDBCResultSet(Sink * sink, Result * resultset, cgc::bigint rows)
 		: m_sink(sink), m_resultset(resultset), m_rows(rows)
 	{
 		m_cols = result_cn(m_sink, m_resultset);
@@ -155,17 +155,16 @@ protected:
 	cgcValueInfo::pointer getCurrentRecord(void) const
 	{
 		assert (m_resultset != NULL);
-		assert (m_currentIndex >= 0 && m_currentIndex < (int)m_rows);
+		assert (m_currentIndex >= 0 && m_currentIndex < m_rows);
 		//if (m_resultset->isBeforeFirst() || m_resultset->isAfterLast() || m_resultset->isClosed())
 		//	return cgcNullValueInfo;
 
 		std::vector<cgcValueInfo::pointer> record;
 		try
 		{
-
 			for(int i=0; i<m_cols; i++)
 			{
-				tstring s = result_get(m_sink, m_resultset, m_currentIndex, i);
+				const tstring s = result_get(m_sink, m_resultset, m_currentIndex, i);
 				record.push_back(CGC_VALUEINFO(s));
 			}
 		}catch(...)
@@ -179,9 +178,9 @@ protected:
 private:
 	Sink *		m_sink;
 	Result *	m_resultset;
-	int			m_rows;
+	cgc::bigint			m_rows;
 	int			m_cols;
-	int			m_currentIndex;
+	cgc::bigint			m_currentIndex;
 };
 
 #define CDBC_RESULTSET(sink, res, rows) CCDBCResultSet::pointer(new CCDBCResultSet(sink, res, rows))
@@ -331,12 +330,12 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual int execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		int ret = 0;
+		cgc::bigint ret = 0;
 		Sink *sink = NULL;
 		try
 		{
@@ -344,7 +343,7 @@ private:
 			sink = sink_pool_get();
 
 			Result * res = sink_exec (sink, exeSql);
-			int state = result_state (sink, res);
+			const int state = result_state (sink, res);
 			if((state != RES_COMMAND_OK) &&
 				(state != RES_TUPLES_OK)  &&
 				(state != RES_COPY_IN)  &&
@@ -355,7 +354,10 @@ private:
 				CGC_LOG((cgc::LOG_WARNING, "%s\n", exeSql));
 				return -1;
 			}
-			ret = result_rn (sink, res);
+			//ret = result_rn (sink, res);
+			const char * sAffectedRows = result_affected_rows(sink,res);
+			if (sAffectedRows!=NULL)
+				ret = cgc_atoi64(sAffectedRows);
 			result_clean (sink, res);
 			sink_pool_put (sink);
 		}catch(...)
@@ -367,12 +369,12 @@ private:
 		return ret;
 	}
 
-	virtual int select(const char * selectSql, int& outCookie)
+	virtual cgc::bigint select(const char * selectSql, int& outCookie)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		int rows = 0;
+		cgc::bigint rows = 0;
 		Sink *sink = NULL;
 		try
 		{
@@ -380,7 +382,7 @@ private:
 			sink = sink_pool_get();
 
 			Result * res = sink_exec( sink, selectSql);
-			int state = result_state (sink, res);
+			const int state = result_state (sink, res);
 			if((state != RES_COMMAND_OK) &&
 				(state != RES_TUPLES_OK)  &&
 				(state != RES_COPY_IN)    &&
@@ -392,7 +394,7 @@ private:
 				return -1;
 				//return 0;
 			}
-			rows = result_rn(sink, res);
+			rows = (cgc::bigint)result_rn(sink, res);
 			if (rows > 0)
 			{
 				outCookie = (int)res;
@@ -410,19 +412,55 @@ private:
 		}
 		return rows;
 	}
+	virtual cgc::bigint select(const char * selectSql)
+	{
+		if (selectSql == NULL || !isServiceInited()) return -1;
+		if (!open()) return -1;
 
-	virtual int size(int cookie) const
+		cgc::bigint rows = 0;
+		Sink *sink = NULL;
+		try
+		{
+			m_tLastTime = time(0);
+			sink = sink_pool_get();
+
+			Result * res = sink_exec( sink, selectSql);
+			const int state = result_state (sink, res);
+			if((state != RES_COMMAND_OK) &&
+				(state != RES_TUPLES_OK)  &&
+				(state != RES_COPY_IN)    &&
+				(state != RES_COPY_OUT))
+			{
+				result_clean(sink, res);
+				sink_pool_put (sink);
+				CGC_LOG((cgc::LOG_WARNING, "%s\n", selectSql));
+				return -1;
+				//return 0;
+			}
+			rows = (cgc::bigint)result_rn(sink, res);
+			result_clean(sink, res);
+			sink_pool_put (sink);
+		}catch(...)
+		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			return -1;
+		}
+		return rows;
+	}
+
+	virtual cgc::bigint size(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
-	virtual int index(int cookie) const
+	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
 
-	virtual cgcValueInfo::pointer index(int cookie, int moveIndex)
+	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;

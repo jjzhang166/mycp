@@ -130,6 +130,12 @@ int result_cn (Sink *sink, Result *result)
     
     return -1;
 }
+const char* result_affected_rows (Sink *sink, Result *result)
+{
+	if(sink && result && sink->sos && sink->sos->post_get_affected_rows)
+		return sink->sos->post_get_affected_rows(result);
+    return 0;
+}
 const char*  result_fname(Sink *sink, Result *result, int col)
 {
     if (sink && result && sink->sos && sink->sos->fname) {

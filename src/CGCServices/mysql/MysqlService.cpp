@@ -63,16 +63,16 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	int size(void) const
+	cgc::bigint size(void) const
 	{
 		return m_rows;
 	}
-	int index(void) const
+	cgc::bigint index(void) const
 	{
 		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
 		return m_currentIndex;
 	}
-	cgcValueInfo::pointer index(int moveIndex)
+	cgcValueInfo::pointer index(cgc::bigint moveIndex)
 	{
 		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (moveIndex < 0 || (moveIndex+1) > m_rows) return cgcNullValueInfo;
@@ -123,6 +123,7 @@ public:
 				mysql_free_result(m_resultset);
 			}catch(...)
 			{}
+			CMysqlPool::SinkPut(m_pSink);
 			m_resultset = NULL;
 		}
 		m_rows = 0;
@@ -148,8 +149,8 @@ public:
 	//CCDBCResultSet(sql::ResultSet * resultset, sql::Statement * stmt)
 	//	: m_resultset(resultset), m_stmt(stmt)//, m_currentIndex(0)
 	//{}
-	CCDBCResultSet(MYSQL_RES * resultset)
-		: m_resultset(resultset), m_rows(0)
+	CCDBCResultSet(CMysqlSink* pSink,MYSQL_RES * resultset)
+		: m_pSink(pSink),m_resultset(resultset), m_rows(0)
 	{
 		m_rows = mysql_num_rows(m_resultset);
 	}
@@ -162,7 +163,7 @@ protected:
 	cgcValueInfo::pointer getCurrentRecord(void) const
 	{
 		assert (m_resultset != NULL);
-		assert (m_currentIndex >= 0 && m_currentIndex < (int)m_rows);
+		assert (m_currentIndex >= 0 && m_currentIndex < m_rows);
 		//if (m_resultset->isBeforeFirst() || m_resultset->isAfterLast() || m_resultset->isClosed())
 		//	return cgcNullValueInfo;
 
@@ -207,15 +208,16 @@ protected:
 	}
 
 private:
+	CMysqlSink * m_pSink;
 	MYSQL_RES * m_resultset;
-	int			m_rows;
+	cgc::bigint		m_rows;
 	int			m_fields;
 	//sql::ResultSet *	m_resultset;
 	//sql::Statement *	m_stmt;
-	int					m_currentIndex;
+	cgc::bigint		m_currentIndex;
 };
 
-#define CDBC_RESULTSET(r) CCDBCResultSet::pointer(new CCDBCResultSet(r))
+#define CDBC_RESULTSET(s,r) CCDBCResultSet::pointer(new CCDBCResultSet(s,r))
 
 const int escape_size = 2;
 const std::string escape_in[] = {"&lsquo;","&mse0;"};
@@ -402,13 +404,13 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual int execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		CMysqlSink* pSink = NULL;
-		int ret = 0;
+		cgc::bigint ret = 0;
 		try
 		{
 			pSink = m_mysqlPool.SinkGet();
@@ -416,11 +418,20 @@ private:
 			if(mysql_query(pMysql, exeSql))
 			{
 				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", exeSql,mysql_error(pMysql)));
-				m_mysqlPool.SinkPut(pSink);
+				CMysqlPool::SinkPut(pSink);
 				return -1;
 			}
-			ret = (int)mysql_affected_rows(pMysql);
-			m_mysqlPool.SinkPut(pSink);
+			ret = (cgc::bigint)mysql_affected_rows(pMysql);
+			MYSQL_RES * result = 0;
+			do
+			{
+				if ( !(result = mysql_store_result(pMysql)))
+				{
+					break;
+				} 
+				mysql_free_result(result);
+			}while( !mysql_next_result( pMysql ) );
+			CMysqlPool::SinkPut(pSink);
 
 			//if(mysql_query(m_mysql, exeSql))
 			//	return -1;
@@ -429,7 +440,7 @@ private:
 			////resultset = mysql_store_result(m_mysql);
 		}catch(...)
 		{
-			m_mysqlPool.SinkPut(pSink);
+			CMysqlPool::SinkPut(pSink);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}
@@ -445,13 +456,13 @@ private:
 		return ret;
 	}
 
-	virtual int select(const char * selectSql, int& outCookie)
+	virtual cgc::bigint select(const char * selectSql, int& outCookie)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		CMysqlSink * pSink = NULL;
-		int rows = 0;
+		cgc::bigint rows = 0;
 		try
 		{
 			pSink = m_mysqlPool.SinkGet();
@@ -459,12 +470,11 @@ private:
 			if(mysql_query(pMysql, selectSql))
 			{
 				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", selectSql,mysql_error(pMysql)));
-				m_mysqlPool.SinkPut(pSink);
+				CMysqlPool::SinkPut(pSink);
 				return -1;
 			}
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
-			rows = (int)mysql_num_rows(resultset);
-			m_mysqlPool.SinkPut(pSink);
+			rows = (cgc::bigint)mysql_num_rows(resultset);
 
 			//if(mysql_query(m_mysql, selectSql))
 			//	return -1;
@@ -475,15 +485,16 @@ private:
 			if (rows > 0)
 			{
 				outCookie = (int)resultset;
-				m_results.insert(outCookie, CDBC_RESULTSET(resultset));
+				m_results.insert(outCookie, CDBC_RESULTSET(pSink,resultset));
 			}else
 			{
 				mysql_free_result(resultset);
 				resultset = NULL;
+				CMysqlPool::SinkPut(pSink);
 			}
 		}catch(...)
 		{
-			m_mysqlPool.SinkPut(pSink);
+			CMysqlPool::SinkPut(pSink);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
 			return -1;
 		}
@@ -514,19 +525,48 @@ private:
 		//}
 		//return resultset == NULL ? 0 : (int)resultset->rowsCount();
 	}
+	virtual cgc::bigint select(const char * selectSql)
+	{
+		if (selectSql == NULL || !isServiceInited()) return -1;
+		if (!open()) return -1;
 
-	virtual int size(int cookie) const
+		CMysqlSink * pSink = NULL;
+		cgc::bigint rows = 0;
+		try
+		{
+			pSink = m_mysqlPool.SinkGet();
+			MYSQL * pMysql = pSink->GetMYSQL();
+			if(mysql_query(pMysql, selectSql))
+			{
+				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", selectSql,mysql_error(pMysql)));
+				CMysqlPool::SinkPut(pSink);
+				return -1;
+			}
+			MYSQL_RES * resultset = mysql_store_result(pMysql);
+			rows = (cgc::bigint)mysql_num_rows(resultset);
+			CMysqlPool::SinkPut(pSink);
+			mysql_free_result(resultset);
+			resultset = NULL;
+		}catch(...)
+		{
+			CMysqlPool::SinkPut(pSink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			return -1;
+		}
+		return rows;
+	}
+	virtual cgc::bigint size(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
-	virtual int index(int cookie) const
+	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
 
-	virtual cgcValueInfo::pointer index(int cookie, int moveIndex)
+	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;

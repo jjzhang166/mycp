@@ -55,7 +55,7 @@ public:
 	void PoolExit(void);
 
 	CMysqlSink* SinkGet(void);
-	void SinkPut(CMysqlSink* pMysql);
+	static void SinkPut(CMysqlSink* pMysql);
 
 private:
 	CMysqlSink* SinkAdd(void);

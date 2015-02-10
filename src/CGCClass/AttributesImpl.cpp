@@ -254,7 +254,10 @@ StringObjectMapPointer AttributesImpl::getStringAttributes(int attributeName, bo
 		if (newIfNotExist)
 		{
 			result = StringObjectMapPointer(new CObjectMap<tstring>); 
-			m_mapIntStringPointer.insert(attributeName, result);
+			StringObjectMapPointer pTemp;
+			m_mapIntStringPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
 		}
 	}
 
@@ -269,7 +272,11 @@ LongObjectMapPointer AttributesImpl::getLongAttributes(int attributeName, bool n
 		if (newIfNotExist)
 		{
 			result = LongObjectMapPointer(new CObjectMap<int>); 
-			m_mapIntLongPointer.insert(attributeName, result);
+			//m_mapIntLongPointer.insert(attributeName, result);
+			LongObjectMapPointer pTemp;
+			m_mapIntLongPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
 		}
 	}
 
@@ -284,7 +291,11 @@ BigIntObjectMapPointer AttributesImpl::getBigIntAttributes(int attributeName, bo
 		if (newIfNotExist)
 		{
 			result = BigIntObjectMapPointer(new CObjectMap<bigint>); 
-			m_mapIntBigIntPointer.insert(attributeName, result);
+			BigIntObjectMapPointer pTemp;
+			m_mapIntBigIntPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
+			//m_mapIntBigIntPointer.insert(attributeName, result);
 		}
 	}
 
@@ -299,7 +310,11 @@ VoidObjectMapPointer AttributesImpl::getVoidAttributes(int attributeName, bool n
 		if (newIfNotExist)
 		{
 			result = VoidObjectMapPointer(new CObjectMap<void*>); 
-			m_mapIntVoidPointer.insert(attributeName, result);
+			VoidObjectMapPointer pTemp;
+			m_mapIntVoidPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
+			//m_mapIntVoidPointer.insert(attributeName, result);
 		}
 	}
 
@@ -314,7 +329,11 @@ StringObjectMapPointer AttributesImpl::getStringAttributes(const tstring & attri
 		if (newIfNotExist)
 		{
 			result = StringObjectMapPointer(new CObjectMap<tstring>); 
-			m_mapStrStringPointer.insert(attributeName, result);
+			StringObjectMapPointer pTemp;
+			m_mapStrStringPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
+			//m_mapStrStringPointer.insert(attributeName, result);
 		}
 	}
 
@@ -329,7 +348,11 @@ LongObjectMapPointer AttributesImpl::getLongAttributes(const tstring & attribute
 		if (newIfNotExist)
 		{
 			result = LongObjectMapPointer(new CObjectMap<int>); 
-			m_mapStrLongPointer.insert(attributeName, result);
+			LongObjectMapPointer pTemp;
+			m_mapStrLongPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
+			//m_mapStrLongPointer.insert(attributeName, result);
 		}
 	}
 
@@ -344,7 +367,11 @@ VoidObjectMapPointer AttributesImpl::getVoidAttributes(const tstring & attribute
 		if (newIfNotExist)
 		{
 			result = VoidObjectMapPointer(new CObjectMap<void*>); 
-			m_mapStrVoidPointer.insert(attributeName, result);
+			VoidObjectMapPointer pTemp;
+			m_mapStrVoidPointer.insert(attributeName,result,false,&pTemp);
+			if (pTemp.get()!=0)
+				result = pTemp;
+			//m_mapStrVoidPointer.insert(attributeName, result);
 		}
 	}
 

@@ -52,15 +52,15 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	int size(void) const
+	cgc::bigint size(void) const
 	{
 		return m_resltset == NULL ? -1 : m_resltset->rscount;
 	}
-	int index(void) const
+	cgc::bigint index(void) const
 	{
 		return m_currentIndex;
 	}
-	cgcValueInfo::pointer index(int moveIndex)
+	cgcValueInfo::pointer index(cgc::bigint moveIndex)
 	{
 		if (m_resltset == NULL || m_resltset->rscount == 0) return cgcNullValueInfo;
 		if (moveIndex < 0 || (moveIndex+1) > m_resltset->rscount) return cgcNullValueInfo;
@@ -159,7 +159,7 @@ protected:
 
 private:
 	PRESULTSET	m_resltset;
-	int			m_currentIndex;
+	cgc::bigint			m_currentIndex;
 };
 
 #define BODB_RESULTSET(r) CCDBCResultSet::pointer(new CCDBCResultSet(r))
@@ -248,18 +248,18 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual int execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		m_tLastTime = time(0);
-		int ret = m_bodbHandler->execsql(exeSql);
+		cgc::bigint ret = (cgc::bigint)m_bodbHandler->execsql(exeSql);
 		//m_serviceInfo->setInt(ret);
 		return ret;
 	}
 
-	virtual int select(const char * selectSql, int& outCookie)
+	virtual cgc::bigint select(const char * selectSql, int& outCookie)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
@@ -280,21 +280,39 @@ private:
 				resultset = NULL;
 			}
 		}
-		return resultset == NULL ? 0 : resultset->rscount;
+		return resultset == NULL ? 0 : (cgc::bigint)resultset->rscount;
+	}
+	virtual cgc::bigint select(const char * selectSql)
+	{
+		if (selectSql == NULL || !isServiceInited()) return -1;
+		if (!open()) return -1;
+
+		m_tLastTime = time(0);
+		PRESULTSET resultset = 0;
+		m_bodbHandler->execsql(selectSql, &resultset);
+
+		cgc::bigint nRet = 0;
+		if (resultset != NULL)
+		{
+			nRet = (cgc::bigint)resultset->rscount;
+			bodb_free(resultset);
+			resultset = NULL;
+		}
+		return nRet;
 	}
 
-	virtual int size(int cookie) const
+	virtual cgc::bigint size(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
-	virtual int index(int cookie) const
+	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
 
-	virtual cgcValueInfo::pointer index(int cookie, int moveIndex)
+	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;

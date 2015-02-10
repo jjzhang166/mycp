@@ -44,19 +44,20 @@ public:
 	// INSERT, UPDATE, DELETE
 	// >=  0 : OK
 	// == -1 : ERROR
-	virtual int execute(const char * exeSql) = 0;
+	virtual cgc::bigint execute(const char * exeSql) = 0;
 
 	// SELECT
 	// outCookie > 0 : OK
-	virtual int select(const char * selectSql, int& outCookie) = 0;
+	virtual cgc::bigint select(const char * selectSql) {return 0;}
+	virtual cgc::bigint select(const char * selectSql, int& outCookie) = 0;
 
 	// Return ResultSet count
-	virtual int size(int cookie) const = 0;
+	virtual cgc::bigint size(int cookie) const = 0;
 
 	// Return current index.
-	virtual int index(int cookie) const = 0;
+	virtual cgc::bigint index(int cookie) const = 0;
 
-	virtual cgcValueInfo::pointer index(int cookie, int moveIndex) = 0;
+	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex) = 0;
 	virtual cgcValueInfo::pointer first(int cookie) = 0;
 	virtual cgcValueInfo::pointer next(int cookie) = 0;
 	virtual cgcValueInfo::pointer previous(int cookie) = 0;

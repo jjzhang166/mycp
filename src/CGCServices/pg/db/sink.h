@@ -35,6 +35,7 @@ struct _SinkOperations{
     
     int         (*get_row_number) (Result*);
     int         (*get_col_number) (Result*);
+    const char* (*post_get_affected_rows) (Result*);
     const char* (*fname)          (Result*, int);
     int         (*command_state)  (Result*);
     
@@ -112,6 +113,7 @@ extern "C" {
     void         result_clean (Sink*, Result*);
     int          result_rn (Sink*, Result*);
     int          result_cn (Sink*, Result*);
+    const char*  result_affected_rows (Sink*, Result*);
     const char*  result_fname(Sink*, Result*, int);
     int          result_state(Sink*, Result*);
     
