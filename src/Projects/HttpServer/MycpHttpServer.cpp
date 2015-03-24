@@ -1282,7 +1282,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_sql = getStringValueInfo(scriptItem->getName());
 			if (var_sql.get() == NULL) return -1;
 
-			int ret = cdbcService->execute(var_sql->getStr().c_str());
+			const cgc::bigint ret = cdbcService->execute(var_sql->getStr().c_str());
 			if (!scriptItem->getValue().empty())
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1308,7 +1308,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			if (var_sql.get() == NULL) return -1;
 
 			int cdbcCookie = 0;
-			int ret = cdbcService->select(var_sql->getStr().c_str(), cdbcCookie);
+			const cgc::bigint ret = cdbcService->select(var_sql->getStr().c_str(), cdbcCookie);
 			m_pageParameters->delProperty(CSP_TEMP_VAR_RESULT);
 			m_pageParameters->setProperty(CSP_TEMP_VAR_RESULT, CGC_VALUEINFO(ret));
 			m_pageParameters->delProperty(scriptItem->getValue());
@@ -1450,7 +1450,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
-			int size = cdbcService->size(var_cdbccookie->getInt());
+			const cgc::bigint size = cdbcService->size(var_cdbccookie->getInt());
 			if (!scriptItem->getValue().empty())
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1472,7 +1472,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
-			int index = cdbcService->index(var_cdbccookie->getInt());
+			const cgc::bigint index = cdbcService->index(var_cdbccookie->getInt());
 			if (!scriptItem->getValue().empty())
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());

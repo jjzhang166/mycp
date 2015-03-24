@@ -35,6 +35,7 @@ const unsigned long const_CallId_HelloUser	= 0x0001;
 //
 // Define an event handler.
 //
+bool bCallResult = false;
 class MyCgcClientHandler
 	: public CgcClientHandler
 {
@@ -58,7 +59,7 @@ private:
 
 			// response.getResultString() == response.getResultValue()
 			std::cout << _T("[ResultCode]:") << response.getResultValue() << std::endl;
-
+			bCallResult = true;
 			return;
 		}
 	}
@@ -130,6 +131,14 @@ void cgc_start(void)
 
 	// Specify the connection module name.
 	gSotpClientHandler->doSetAppName(appname);
+	// add by hd 2015-03-24
+	gSotpClientHandler->doSetConfig(SOTP_CLIENT_CONFIG_USES_SSL,1);
+	gSotpClientHandler->doSendOpenSession();
+	while(true)
+	{
+		if (!gSotpClientHandler->doGetSessionId().empty())
+			break;
+	}
 }
 
 void cgc_stop(void)
@@ -158,7 +167,8 @@ void cgc_call_hellouser(void)
 	gSotpClientHandler->doSendAppCall(const_CallId_HelloUser, _T("HelloUser"));
 
 	// Wait for HelloUser function event return.
-	//while (1)
+	bCallResult = false;
+	while (!bCallResult)
 #ifdef WIN32
 	Sleep(2000);
 #else

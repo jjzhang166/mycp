@@ -45,6 +45,7 @@
 #include "HttpRequestImpl.h"
 #include "HttpResponseImpl.h"
 #include "ResponseImpl.h"
+#include <ThirdParty/stl/rsa.h>
 
 class CMySessionInfo
 {
@@ -79,6 +80,7 @@ class CGCApp
 	: public cgcSystem
 	, public cgcServiceManager
 	, public cgcCommHandler
+	, public cgcParserCallback
 	, public boost::enable_shared_from_this<CGCApp>
 {
 public:
@@ -115,6 +117,11 @@ private:
 	void LoadAuthsConf(void);
 	void LoadModulesConf(void);
 	void LoadSystemParams(void);
+
+	// cgcParserCallback 
+	virtual tstring onGetSslPrivateKey(void) const {return m_pRsa.GetPrivateKey();}
+	virtual tstring onGetSslPrivatePwd(void) const {return m_pRsa.GetPrivatePwd();}
+	virtual tstring onGetSslPassword(const tstring& sSessionId) const;
 
 	// cgcCommHandler handler
 	virtual int onRemoteAccept(const cgcRemote::pointer& pcgcRemote);
@@ -168,6 +175,8 @@ private:
 	XmlParseWeb m_parseWeb;
 //	XmlParseClusters m_parseClusters;
 //	XmlParseAuths m_parseAuths;
+
+	CRSA m_pRsa;
 
 	XmlParseParams m_systemParams;
 	XmlParseCdbcs m_cdbcs;

@@ -47,7 +47,8 @@ private:
 	boost::mutex::scoped_lock * m_pSendLock;
 	unsigned long m_originalCallId;
 	unsigned long m_originalCallSign;
-
+	tstring m_sSslPublicKey;
+	//tstring m_sSslPassword;
 public:
 	CSotpResponseImpl(cgcRemote::pointer pcgcRemote, cgcParserSotp::pointer pcgcParser, CResponseHandler * pHandler);
 	virtual ~CSotpResponseImpl(void);
@@ -80,6 +81,8 @@ public:
 	void SetEncoding(const tstring & newValue = _T("GBK")) {setEncoding(newValue);}
 	bool IsInvalidate(void) const {return isInvalidate();}
 	virtual int sendResponse(const char * pResponseData, size_t nResponseSize) {return -1;}
+	void SetSslPublicKey(const tstring & newValue) {m_sSslPublicKey = newValue;}
+	//void SetSslPassword(const tstring & newValue) {m_sSslPassword = newValue;}
 
 protected:
 	// for attachment

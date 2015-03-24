@@ -19,6 +19,7 @@
 #include "SotpResponseImpl.h"
 //#include "../../CGCBase/cgcString.h"
 #include "SessionMgr.h"
+#include <ThirdParty/stl/aes.h>
 
 CSotpResponseImpl::CSotpResponseImpl(cgcRemote::pointer pcgcRemote, cgcParserSotp::pointer pcgcParser, CResponseHandler * pHandler)
 : m_cgcRemote(pcgcRemote)
@@ -51,7 +52,37 @@ int CSotpResponseImpl::sendSessionResult(long retCode, const tstring & sSessionI
 	if (m_pResponseHandler)
 		seq = m_pResponseHandler->onGetNextSeq();
 	//m_bResponseSended = true;
-	const tstring responseData = m_cgcParser->getSessionResult(retCode, sSessionId, seq, true);
+
+	tstring sSslPassword;
+	if (m_session.get() != NULL)
+	{
+		CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
+		sSslPassword = pSessionImpl->GetSslPassword();
+	}
+	const tstring responseData = m_cgcParser->getSessionResult(retCode, sSessionId, seq, true, m_sSslPublicKey);
+	if (m_cgcParser->isSslRequest() && !sSslPassword.empty())
+	{
+		unsigned int nAttachSize = 0;
+		unsigned char * pAttachData = m_cgcParser->getResSslString(sSslPassword, nAttachSize);
+		if (pAttachData != NULL)
+		{
+			unsigned char * pSendData = new unsigned char[nAttachSize+responseData.size()+1];
+			memcpy(pSendData, responseData.c_str(), responseData.size());
+			memcpy(pSendData+responseData.size(), pAttachData, nAttachSize);
+			pSendData[nAttachSize+responseData.size()] = '\0';
+
+			int ret = -1;
+			if (m_pResponseHandler != NULL)
+				ret = m_pResponseHandler->onAddSeqInfo(pSendData, nAttachSize+responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
+
+			const size_t sendSize = m_cgcRemote->sendData(pSendData, nAttachSize+responseData.size());
+			delete[] pAttachData;
+			if (ret != 0)
+				delete[] pSendData;
+			return sendSize;
+		}
+	}
+
 	if (m_pResponseHandler)
 		m_pResponseHandler->onAddSeqInfo((const unsigned char *)responseData.c_str(), responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
 
@@ -122,42 +153,104 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 	boost::mutex::scoped_lock * pSendLockTemp = m_pSendLock;
 	m_pSendLock = NULL;
 	m_bResponseSended = true;
-	const std::string responseData = m_cgcParser->getAppCallResult(retCode, seq, bNeedAck);
-	if (m_cgcParser->isResHasAttachInfo())
+
+	tstring sSslPassword;
+	if (m_session.get() != NULL)
 	{
+		CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
+		sSslPassword = pSessionImpl->GetSslPassword();
+	}
+	if (!sSslPassword.empty())
+	{
+		const std::string sAppCallHead = m_cgcParser->getAppCallResultHead(retCode);
+		const std::string sAppCallData = m_cgcParser->getAppCallResultData(seq, bNeedAck);
+
 		unsigned int nAttachSize = 0;
 		unsigned char * pAttachData = m_cgcParser->getResAttachString(nAttachSize);
-		//unsigned char * pAttachData = m_cgcParser->getAttachString(m_cgcParser->getResAttachment(), nAttachSize);
+		int nDataSize = (sAppCallData.size()+nAttachSize+sSslPassword.size()-1);
+		nDataSize -= (nDataSize%sSslPassword.size());
+		nDataSize += sAppCallHead.size();
+		unsigned char * pSendData = new unsigned char[nDataSize+1];
+		memset(pSendData,0,nDataSize+1);
+		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
+		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
 		{
-			unsigned char * pSendData = new unsigned char[nAttachSize+responseData.size()+1];
-			memcpy(pSendData, responseData.c_str(), responseData.size());
-			memcpy(pSendData+responseData.size(), pAttachData, nAttachSize);
-			pSendData[nAttachSize+responseData.size()] = '\0';
-
-			// *±ÜÃâÖØ
-			//m_cgcParser->getResAttachment()->clear();
-
-			int ret = -1;
-			if (bNeedAck && m_pResponseHandler != NULL)
-				ret = m_pResponseHandler->onAddSeqInfo(pSendData, nAttachSize+responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
-
-			size_t sendSize = m_cgcRemote->sendData(pSendData, nAttachSize+responseData.size());
+			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
+		}
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
+		memset(pSendDataTemp,0,nDataSize+20);
+		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
+		const int n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
+		if (aes_cbc_encrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		{
 			if (pSendLockTemp)
 				delete pSendLockTemp;
+			delete[] pSendData;
+			delete[] pSendDataTemp;
 			delete[] pAttachData;
-			if (ret != 0)
-				delete[] pSendData;
-			return sendSize != nAttachSize+responseData.size() ? 0 : 1;
+			return false;
 		}
-	}
+		delete[] pSendData;
+		pSendData = pSendDataTemp;
+		nDataSize += n;
+		pSendData[nDataSize] = '\n';
+		pSendData[nDataSize+1] = '\0';
 
-	if (bNeedAck && m_pResponseHandler != NULL)
-		m_pResponseHandler->onAddSeqInfo((const unsigned char *)responseData.c_str(), responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
-	size_t sendSize = m_cgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.size());
-	if (pSendLockTemp)
-		delete pSendLockTemp;
-	return sendSize;
+		// *±ÜÃâÖØ
+		//m_cgcParser->getResAttachment()->clear();
+
+		int ret = -1;
+		if (bNeedAck && m_pResponseHandler != NULL)
+			ret = m_pResponseHandler->onAddSeqInfo(pSendData, nDataSize, seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
+
+		const size_t sendSize = m_cgcRemote->sendData(pSendData, nDataSize);
+		if (pSendLockTemp)
+			delete pSendLockTemp;
+		delete[] pAttachData;
+		if (ret != 0)
+			delete[] pSendData;
+		return sendSize;
+	}else
+	{
+		const std::string responseData = m_cgcParser->getAppCallResult(retCode, seq, bNeedAck);
+		if (m_cgcParser->isResHasAttachInfo())
+		{
+			unsigned int nAttachSize = 0;
+			unsigned char * pAttachData = m_cgcParser->getResAttachString(nAttachSize);
+			//unsigned char * pAttachData = m_cgcParser->getAttachString(m_cgcParser->getResAttachment(), nAttachSize);
+			if (pAttachData != NULL)
+			{
+				unsigned char * pSendData = new unsigned char[nAttachSize+responseData.size()+1];
+				memcpy(pSendData, responseData.c_str(), responseData.size());
+				memcpy(pSendData+responseData.size(), pAttachData, nAttachSize);
+				pSendData[nAttachSize+responseData.size()] = '\0';
+
+				// *±ÜÃâÖØ
+				//m_cgcParser->getResAttachment()->clear();
+
+				int ret = -1;
+				if (bNeedAck && m_pResponseHandler != NULL)
+					ret = m_pResponseHandler->onAddSeqInfo(pSendData, nAttachSize+responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
+
+				const size_t sendSize = m_cgcRemote->sendData(pSendData, nAttachSize+responseData.size());
+				if (pSendLockTemp)
+					delete pSendLockTemp;
+				delete[] pAttachData;
+				if (ret != 0)
+					delete[] pSendData;
+				//return sendSize != nAttachSize+responseData.size() ? 0 : 1;
+				return sendSize;
+			}
+		}
+
+		if (bNeedAck && m_pResponseHandler != NULL)
+			m_pResponseHandler->onAddSeqInfo((const unsigned char *)responseData.c_str(), responseData.size(), seq, m_cgcParser->getCallid(), m_cgcParser->getSign());
+		const size_t sendSize = m_cgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.size());
+		if (pSendLockTemp)
+			delete pSendLockTemp;
+		return sendSize;
+	}
 }
 int CSotpResponseImpl::sendP2PTry(void)
 {

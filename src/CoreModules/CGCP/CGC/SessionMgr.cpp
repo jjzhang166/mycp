@@ -32,6 +32,7 @@
 #include "dlfcn.h"
 #endif
 #pragma warning(disable:4311 4312)
+#include <ThirdParty/stl/rsa.h>
 
 // CSessionImpl
 CSessionImpl::CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote, const cgcParserBase::pointer& pcgcParser)
@@ -195,7 +196,9 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 		if (getProtocol()&PROTOCOL_HTTP)
 		{
 			//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
-			bool bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
+			// MSIE 6.
+			// MSIE 9.0
+			const bool bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
 			if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
 				nErrorCode == 2)) 		// End of file
 				return;
@@ -396,6 +399,18 @@ const tstring& CSessionImpl::SetSessionId(const cgcParserBase::pointer& pcgcPars
 		m_sUserAgent = pHttpParser->getHeader(Http_UserAgent,"");
 	}
 	return this->getId();
+}
+
+void CSessionImpl::SetSslPublicKey(const tstring& newValue)
+{
+	m_sSslPublicKey = newValue;
+	if (m_sSslPublicKey.empty())
+	{
+		m_sSslPassword.clear();
+	}else if (m_sSslPassword.empty())
+	{
+		m_sSslPassword = GetSaltString(24);	// 24*8=128Bit ×ã¹»ÁË
+	}
 }
 
 void CSessionImpl::invalidate(void)

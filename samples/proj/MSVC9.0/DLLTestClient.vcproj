@@ -68,6 +68,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalOptions="/FORCE:MULTIPLE"
 				OutputFile="../../build/$(ProjectName)d.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\src\build;..\..\..\src\ThirdParty\build;&quot;$(MYCP_ROOT)\src\build&quot;;&quot;($(MYCP_ROOT)\src\ThirdParty\build&quot;;&quot;$(BOOST_ROOT)\stage\lib&quot;"
@@ -150,6 +151,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalOptions="/FORCE:MULTIPLE"
 				OutputFile="../../build/$(ProjectName).exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\src\build;..\..\..\src\ThirdParty\build;&quot;$(MYCP_ROOT)\src\build&quot;;&quot;($(MYCP_ROOT)\src\ThirdParty\build&quot;;&quot;$(BOOST_ROOT)\stage\lib&quot;"

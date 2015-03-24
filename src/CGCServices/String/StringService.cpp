@@ -43,6 +43,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <boost/algorithm/string.hpp>
 //#include <CGCBase/app.h>
 #include <CGCBase/cgcService.h>
+#include "aes.h"
+//#include "pbkdf2.h"
 #include "md5.h"
 #include "Base64.h"
 #include <boost/property_tree/ptree.hpp>
@@ -82,6 +84,15 @@ void DesDecrypt(const char* szKey, unsigned char* lpbySrc, unsigned char* lpbyDe
 	deskey(byKey, DE1);
 	for (int i = 0; i < iLength; i += 8)
 		des(lpbySrc + i, lpbyDest + i);
+	for (int i=0;i<8;i++)
+	{
+		if (lpbyDest[iLength-1-i]==205)
+		{
+			lpbyDest[iLength-1-i] = '\0';
+			continue;
+		}
+		break;
+	}
 }
 //
 ////////////////////////////////////////////////////////////////////////////
@@ -510,6 +521,208 @@ protected:
 			//	outParam->totype(cgcValueInfo::TYPE_STRING);
 			//	outParam->setStr(sOutString);
 			//}
+		}else if (function == "aes_ecb_enc")
+		{
+			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
+			const tstring& userKey = inParam->getVector()[0]->getStr();
+			if (userKey.empty()) return false;
+			const tstring& in = inParam->getVector()[1]->getStr();
+			bool bConvert2t16 = true;
+			if (inParam->getVector().size()>=3)
+				bConvert2t16 = inParam->getVector()[2]->getBoolean();
+			const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
+			unsigned char* out = new unsigned char[nOutLen+1];
+			memset(out,0,nOutLen+1);
+			const int ret = aes_ecb_encrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),(int)in.size(),out);
+			if (ret==0)
+			{
+				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+				if (bConvert2t16)
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_STRING);
+					pOutParam->setStr(convert_2t16(out,nOutLen));
+					delete[] out;
+				}else
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
+					pOutParam->reset();
+					pOutParam->setBuffer(out,nOutLen);
+				}
+				return true;
+			}
+			delete[] out;
+			return false;
+		}else if (function == "aes_ecb_dec")
+		{
+			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
+			const tstring& userKey = inParam->getVector()[0]->getStr();
+			bool bConvert16t2 = true;
+			if (inParam->getVector().size()>=3)
+				bConvert16t2 = inParam->getVector()[2]->getBoolean();
+			unsigned char * lpszIn = NULL;
+			size_t nInLen = 0;
+			if (inParam->getVector()[1]->getType()==cgcValueInfo::TYPE_BUFFER)
+			{
+				nInLen = inParam->getVector()[1]->getBufferSize();
+				lpszIn = new unsigned char[nInLen+8];
+				if (bConvert16t2)
+				{
+					nInLen = convert_16t2(inParam->getVector()[1]->getBuffer(),nInLen,lpszIn);
+				}else
+				{
+					memcpy(lpszIn,inParam->getVector()[1]->getBuffer(),nInLen);
+				}
+			}else
+			{
+				const tstring& sInString = inParam->getVector()[1]->getStr();
+				nInLen = sInString.size();
+				lpszIn = new unsigned char[nInLen+8];
+				if (bConvert16t2)
+				{
+					nInLen = convert_16t2((const unsigned char*)sInString.c_str(),nInLen,lpszIn);
+				}else
+				{
+					memcpy(lpszIn,sInString.c_str(),nInLen);
+				}
+			}
+			bool bSave2Buffer = false;
+			if (inParam->getVector().size()>=4)
+				bSave2Buffer = inParam->getVector()[3]->getBoolean();
+
+			unsigned char* out = new unsigned char[nInLen+1];
+			const int ret = aes_ecb_decrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
+			if (ret==0)
+			{
+				int nOutLen = nInLen;
+				for (int i=0;i<16;i++)
+				{
+					if (nOutLen>0 && out[nOutLen--]==(unsigned char)0)
+					{
+						break;
+					}
+				}
+				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+				if (bSave2Buffer)
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
+					pOutParam->reset();
+					pOutParam->setBuffer(out,nOutLen);
+				}else
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_STRING);
+					pOutParam->setStr(tstring((const char*)out,nOutLen));
+					delete[] out;
+				}
+				delete[] lpszIn;
+				return true;
+			}
+			delete[] lpszIn;
+			delete[] out;
+			return false;
+		}else if (function == "aes_cbc_enc")
+		{
+			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
+			const tstring& userKey = inParam->getVector()[0]->getStr();
+			if (userKey.empty()) return false;
+			const tstring& in = inParam->getVector()[1]->getStr();
+			bool bConvert2t16 = true;
+			if (inParam->getVector().size()>=3)
+				bConvert2t16 = inParam->getVector()[2]->getBoolean();
+			const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
+			unsigned char* out = new unsigned char[nOutLen+1];
+			const int ret = aes_cbc_encrypt((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),in.length(),out);
+			if (ret==0)
+			{
+				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+				if (bConvert2t16)
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_STRING);
+					pOutParam->setStr(convert_2t16(out,nOutLen));
+					delete[] out;
+				}else
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
+					pOutParam->reset();
+					pOutParam->setBuffer(out,nOutLen);
+				}
+				return true;
+			}
+			delete[] out;
+			return false;
+		}else if (function == "aes_cbc_dec")
+		{
+			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
+			const tstring& userKey = inParam->getVector()[0]->getStr();
+			bool bConvert16t2 = true;
+			if (inParam->getVector().size()>=3)
+				bConvert16t2 = inParam->getVector()[2]->getBoolean();
+			unsigned char * lpszIn = NULL;
+			size_t nInLen = 0;
+			if (inParam->getVector()[1]->getType()==cgcValueInfo::TYPE_BUFFER)
+			{
+				nInLen = inParam->getVector()[1]->getBufferSize();
+				lpszIn = new unsigned char[nInLen+8];
+				if (bConvert16t2)
+				{
+					nInLen = convert_16t2(inParam->getVector()[1]->getBuffer(),nInLen,lpszIn);
+				}else
+				{
+					memcpy(lpszIn,inParam->getVector()[1]->getBuffer(),nInLen);
+				}
+			}else
+			{
+				const tstring& sInString = inParam->getVector()[1]->getStr();
+				nInLen = sInString.size();
+				lpszIn = new unsigned char[nInLen+8];
+				if (bConvert16t2)
+				{
+					nInLen = convert_16t2((const unsigned char*)sInString.c_str(),nInLen,lpszIn);
+				}else
+				{
+					memcpy(lpszIn,sInString.c_str(),nInLen);
+				}
+			}
+			bool bSave2Buffer = false;
+			if (inParam->getVector().size()>=4)
+				bSave2Buffer = inParam->getVector()[3]->getBoolean();
+
+			unsigned char* out = new unsigned char[nInLen+1];
+			const int ret = aes_cbc_decrypt((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
+			if (ret==0)
+			{
+				int nOutLen = nInLen;
+				for (int i=0;i<16;i++)
+				{
+					if (nOutLen>0 && out[nOutLen--]==(unsigned char)0)
+					{
+						break;
+					}
+				}
+				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
+				if (bSave2Buffer)
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
+					pOutParam->reset();
+					pOutParam->setBuffer(out,nOutLen);
+				}else
+				{
+					pOutParam->totype(cgcValueInfo::TYPE_STRING);
+					pOutParam->setStr(tstring((const char*)out,nOutLen));
+					delete[] out;
+				}
+				delete[] lpszIn;
+				return true;
+			}
+			delete[] lpszIn;
+			delete[] out;
+			return false;
+			//if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2 || outParam.get()==NULL) return false;
+			//if (outParam->getBufferSize()==0) return false;
+			//unsigned char * out = (unsigned char*)outParam->getBuffer();
+			//const tstring& userKey = inParam->getVector()[0]->getStr();
+			//const tstring& in = inParam->getVector()[1]->getStr();
+			//const int ret = aes_cbc_decrypt((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),in.length(),out);
+			//return ret==0?true:false;
 		}else if (function == "url_enc")
 		{
 			if (inParam.get() == NULL) return false;

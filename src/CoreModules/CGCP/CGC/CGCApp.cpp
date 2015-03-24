@@ -379,6 +379,32 @@ int CGCApp::MyMain(bool bServcie)
 	AppInit(false);
 	AppStart();
 
+	for (int i=0;i<20;i++)
+	{
+		m_pRsa.SetPrivatePwd(GetSaltString());
+		m_pRsa.rsa_generatekey_mem();
+		if (m_pRsa.GetPublicKey().empty() || m_pRsa.GetPrivateKey().empty())
+		{
+			m_pRsa.SetPrivatePwd("");
+			continue;
+		}
+		if (!m_pRsa.rsa_open_private_mem())
+		{
+			m_pRsa.SetPrivatePwd("");
+			continue;
+		}
+		const std::string sFrom("mycp");
+		unsigned char* pTo = NULL;
+		m_pRsa.rsa_private_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
+		if (pTo!=NULL)
+		{
+			delete[] pTo;
+			break;
+		}
+		m_pRsa.SetPrivatePwd("");
+	}
+	if (m_pRsa.GetPrivatePwd().empty())
+		std::cout << "[ERROR]Generate SSL Key error.\n";
 	if (bServcie)
 	{
 		std::cout << "\n********************* App Help *********************\n";
@@ -610,6 +636,17 @@ void CGCApp::LoadSystemParams(void)
 		m_parseWeb.load(xmlFile);
 		m_logModuleImpl.log(LOG_DEBUG, _T("Servlets = %d\n"), m_parseWeb.m_servlets.size());
 	}
+}
+
+tstring CGCApp::onGetSslPassword(const tstring& sSessionId) const
+{
+	cgcSession::pointer sessionImpl = m_mgrSession.GetSessionImpl(sSessionId);
+	if (sessionImpl.get() == NULL)
+	{
+		return "";
+	}
+	CSessionImpl * pSessionImpl = (CSessionImpl*)sessionImpl.get();
+	return pSessionImpl->GetSslPassword();
 }
 
 int CGCApp::onRemoteAccept(const cgcRemote::pointer& pcgcRemote)
@@ -1479,6 +1516,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 	}
 
 	bool parseResult = false;
+	pcgcParser->setParseCallback(this);
 	if (pSessionImpl != NULL && pSessionImpl->isHasPrevData())
 	{
 		// 之前有未处理数据
@@ -1643,6 +1681,7 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 			{
 				retCode = 200;
 				m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\'.%s opened\n"), sSessionId.c_str(),moduleItem->getName().c_str());
+				pRemoteSessionImpl->SetSslPublicKey(pcgcParser->getSslPublicKey());
 			}else
 			{
 				// delete sessionimpl
@@ -1688,7 +1727,13 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 	}
 
 	CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pRemoteSessionImpl);
+	responseImpl.setSession(remoteSessionImpl);
 	responseImpl.SetEncoding(m_parseDefault.getDefaultEncoding());
+	// **暂时不需要返回public key
+	//if (pRemoteSessionImpl!=NULL)
+	//{
+	//	responseImpl.SetSslPublicKey(m_pRsa.GetPublicKey());
+	//}
 	responseImpl.sendSessionResult(retCode, sSessionId);
 
 	if (pcgcParser->isCloseType() && pRemoteSessionImpl != NULL)

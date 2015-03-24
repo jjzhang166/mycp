@@ -84,6 +84,9 @@ private:
 	int m_interval;
 	//tstring m_sAccount;
 	//tstring m_sPasswd;
+	// ssl
+	tstring m_sSslPublicKey;
+	tstring m_sSslPassword;
 
 	cgcAttributes::pointer m_attributes;
 
@@ -137,6 +140,11 @@ public:
 	const tstring& SetSessionId(const cgcParserBase::pointer& pcgcParser);
 	//void SetUserAgent(const tstring& sUserAgent) {m_sUserAgent = sUserAgent;}
 	//const tstring& GetUserAgent(void) const {return m_sUserAgent;}
+	void SetSslPublicKey(const tstring& newValue);
+	const tstring& GetSslPublicKey(void) const {return m_sSslPublicKey;}
+	bool IsSslRequest(void) const {return m_sSslPublicKey.empty()?false:true;}
+	void SetSslPassword(const tstring& newv) {m_sSslPassword = newv;}
+	const tstring& GetSslPassword(void) const {return m_sSslPassword;}
 
 	// cgcResponse
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser);
