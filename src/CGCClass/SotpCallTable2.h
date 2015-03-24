@@ -43,13 +43,18 @@ public:
 	SotpCallTable2(void);
 
 	std::string toAckString(unsigned short seq) const;
-	std::string toSesString(ProtocolType pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck) const;
-	std::string toOpenSesString(unsigned long cid, unsigned short seq, bool bNeedAck) const;
+	std::string toSesString(ProtocolType pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const;
+	std::string toOpenSesString(unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const;
 	std::string toAppCallString(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
+	std::string toAppCallHead(void) const;
+	std::string toAppCallData(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
 	unsigned char * toAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const;
+	unsigned char * toSslDataString(const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const;
 	// result
-	std::string toSessionResult(int prototype, unsigned long cid, long retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck) const;
-	std::string toAppCallResult(unsigned long cid, unsigned long sign, long retCode, unsigned short seq, bool bNeedAck);
+	std::string toSessionResult(int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
+	std::string toAppCallResult(unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck);
+	std::string toAppCallResultHead(int retCode);
+	std::string toAppCallResultData(unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck);
 	// p2p
 	std::string toP2PTry(void) const;
 
@@ -74,6 +79,13 @@ public:
 
 	void setEncryptionType(ModuleItem::EncryptionType newv){m_et = newv;}
 	ModuleItem::EncryptionType getEncryption(void) {return m_et;}
+
+	//void SetSslPrivateKey(const tstring& newv) {m_sSslPrivateKey = newv;}
+	//const tstring& GetSslPrivateKey(void) const {return m_sSslPrivateKey;}
+	//void SetSslPrivatePwd(const tstring& newv) {m_sSslPrivatePwd = newv;}
+	//const tstring& GetSslPrivatePwd(void) const {return m_sSslPrivatePwd;}
+	//void SetSslPassword(const tstring& newv) {m_sSslPassword = newv;}
+	//const tstring& GetSslPassword(void) const {return m_sSslPassword;}
 
 	void setParameter(const cgcParameter::pointer & parameter, bool bSetForce=false);
 	void addParameter(const cgcParameter::pointer & parameter, bool bAddForce=false);
@@ -101,6 +113,10 @@ protected:
 	tstring m_sAccount;
 	tstring m_sPasswd;
 	ModuleItem::EncryptionType m_et;
+	// ssl
+	//tstring m_sSslPrivateKey;
+	//tstring m_sSslPrivatePwd;
+	//tstring m_sSslPassword;
 
 private:
 	unsigned long m_nCurrentCallId;

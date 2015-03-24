@@ -23,6 +23,7 @@
 //#include <boost/lexical_cast.hpp>
 #include "../CGCBase/cgcparameter.h"
 #include "../CGCBase/cgcattachment.h"
+#include "../CGCBase/cgcParserSotp.h"
 #include "ModuleItem.h"
 #include "MethodItem.h"
 //#include "info/ClusterSvr.h"
@@ -77,6 +78,15 @@ public:
 	bool isNeedAck(void) const {return m_bNeedAck;}
 	void setSid(const tstring & newValue) {m_sSid = newValue;}
 	const tstring & getSid(void) const {return m_sSid;}
+	void setSslPublicKey(const tstring & newValue) {m_sSslPublicKey = newValue;}
+	bool isSslRequest(void) const {return m_sSslPublicKey.empty()?false:true;}
+	const tstring & getSslPublicKey(void) const {return m_sSslPublicKey;}
+	//void setSslPrivateKey(const tstring & newValue) {m_sSslPrivateKey = newValue;}
+	//const tstring & getSslPrivateKey(void) const {return m_sSslPrivateKey;}
+	//void setSslPrivatePwd(const tstring & newValue) {m_sSslPrivatePwd = newValue;}
+	//const tstring & getSslPrivatePwd(void) const {return m_sSslPrivatePwd;}
+	//void setSslPassword(const tstring & newValue) {m_sSslPassword = newValue;}
+	const tstring & getSslPassword(void) const {return m_sSslPassword;}
 	void setCallid(unsigned long newValue) {m_nCallId = newValue;}
 	unsigned long getCallid(void) const {return m_nCallId;}
 	void setSign(unsigned long newValue) {m_nSign = newValue;}
@@ -103,9 +113,10 @@ public:
 //	int getClusters(ClusterSvrList & listResult);
 
 	void FreeHandle(void);
-	void addParameter(cgcParameter::pointer parameter);
+	void addParameter(const cgcParameter::pointer& parameter);
 
 public:
+	void setParseCallback(cgc::cgcParserCallback* pCallback) {m_pCallback = pCallback;}
 	bool parseBuffer(const unsigned char * pBuffer,const char* sEncoding="");
 
 protected:
@@ -117,6 +128,7 @@ private:
 	tstring m_sEncoding;
 	cgcParameterMap m_parameterMap;
 	cgcAttachment::pointer m_attach;
+	cgcParserCallback* m_pCallback;
 	//ClusterSvrList m_custerSvrList;
 
 	int m_nCgcProto;		// 1: session, 2: app, 3: cluster 4: p2p
@@ -128,6 +140,11 @@ private:
 	tstring m_sSid;				// session id
 	tstring m_sApp;				// app name
 	tstring m_sApi;				// api name
+	tstring m_sSslPublicKey;
+	//tstring m_sSslPrivateKey;
+	//tstring m_sSslPrivatePwd;
+	tstring m_sSslPassword;			// *
+	unsigned char* m_pSslDecryptData;
 	unsigned long m_nCallId;			// call id
 	unsigned long m_nSign;				// sign
 	bool m_bResulted;

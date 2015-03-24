@@ -39,7 +39,7 @@ private:
 	ParseCgcSotp2 m_cgcInvoke;
 	// Response
 	cgcAttachment::pointer m_attach;
-
+	cgcParserCallback* m_pCallback;
 public:
 	CPPSotp2(void);
 
@@ -53,8 +53,17 @@ public:
 //	virtual bool initParser(void) {return true;}
 //	virtual void exitParser(void) {}
 
+	// ssl
+	//void SetSslPrivateKey(const tstring& newv) {m_cgcInvoke.setSslPrivateKey(newv);}
+	//const tstring& GetSslPrivateKey(void) const {return m_cgcInvoke.getSslPrivateKey();}
+	//void SetSslPrivatePwd(const tstring& newv) {m_cgcInvoke.setSslPrivatePwd(newv);}
+	//const tstring& GetSslPrivatePwd(void) const {return m_cgcInvoke.getSslPrivatePwd();}
+	//void SetSslPassword(const tstring& newv) {m_cgcInvoke.setSslPassword(newv);}
+	const tstring& GetSslPassword(void) const {return m_cgcInvoke.getSslPassword();}
+
 	//////////////////////////////////////////////
 	// Request
+	virtual void setParseCallback(cgcParserCallback* pCallback) {m_pCallback = pCallback;}
 	virtual bool doParse(const unsigned char * requestData, size_t size,const char* sEncoding="");
 
 	virtual bool isSessionProto(void) const {return m_cgcInvoke.isSessionProto();}
@@ -83,6 +92,9 @@ public:
 	virtual unsigned long getCallid(void) const {return m_cgcInvoke.getCallid();}
 	virtual void setSign(unsigned long newValue) {m_cgcInvoke.setSign(newValue);}
 	virtual unsigned long getSign(void) const {return m_cgcInvoke.getSign();}
+	virtual void setSslPublicKey(const tstring & newValue) {m_cgcInvoke.setSslPublicKey(newValue);}
+	virtual const tstring & getSslPublicKey(void) const {return m_cgcInvoke.getSslPublicKey();}
+	virtual bool isSslRequest(void) const {return m_cgcInvoke.isSslRequest();}
 
 	//virtual const tstring & getProtoValue(void) const {return m_cgcInvoke.getProtoValue();}
 	virtual const tstring & getModuleName(void) const {return m_cgcInvoke.getAppName();}
@@ -107,8 +119,10 @@ public:
 	////////////////////////////////////////////////////////
 	// Response
 	virtual void setResEncoding(const tstring & sEncoding) {SotpCallTable2::setEncoding(sEncoding);}
-	virtual std::string getSessionResult(long retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck) const;
-	virtual std::string getAppCallResult(long retCode, unsigned short seq, bool bNeedAck);
+	virtual std::string getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
+	virtual std::string getAppCallResult(int retCode, unsigned short seq, bool bNeedAck);
+	virtual std::string getAppCallResultHead(int retCode);
+	virtual std::string getAppCallResultData(unsigned short seq, bool bNeedAck);
 	virtual std::string getAckResult(unsigned short seq);
 	virtual unsigned char * getAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const {return SotpCallTable2::toAttachString(pAttach, pOutSize);}
 	// P2P
@@ -131,6 +145,9 @@ public:
 	virtual bool isResHasAttachInfo(void) const {return m_attach->isHasAttach();}
 	virtual cgcAttachment::pointer getResAttachment(void) const {return m_attach;}
 	virtual unsigned char * getResAttachString(unsigned int & pOutSize);
+
+	// for ssl
+	virtual unsigned char * getResSslString(const tstring& sSslPassword,unsigned int & pOutSize);
 
 };
 

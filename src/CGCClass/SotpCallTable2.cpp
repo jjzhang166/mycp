@@ -84,7 +84,7 @@ std::string SotpCallTable2::toAckString(unsigned short seq) const
 	//return	std::string((gFormatAckRequest%seq).str());
 }
 
-std::string SotpCallTable2::toSesString(ProtocolType pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck) const
+std::string SotpCallTable2::toSesString(ProtocolType pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const
 {
 	if (sValue.empty()) return _T("");
 	std::string sProtocolType = _T("");
@@ -120,16 +120,29 @@ std::string SotpCallTable2::toSesString(ProtocolType pt, const tstring & sValue,
 		sNeedAck.append(lpszSeq);
 	}
 
-	char lpszBuffer[250];
 	if (pt == PT_Open)
 	{
-		sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
-			_T("%s")
-			_T("Cid: %lu\n")
-			_T("App: %s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str());
-		return lpszBuffer;
+		if (sPublicKey.empty())
+		{
+			char lpszBuffer[250];
+			sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
+				_T("%s")
+				_T("Cid: %lu\n")
+				_T("App: %s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str());
+			return lpszBuffer;
+		}else
+		{
+			char lpszBuffer[10240];
+			sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
+				_T("%s")
+				_T("Cid: %lu\n")
+				_T("App: %s\n")
+				_T("Ssl: %d\n%s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+			return lpszBuffer;
+		}
 	}else
 	{
+		char lpszBuffer[250];
 		sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
 			_T("%s")
 			_T("Cid: %lu\n")
@@ -138,12 +151,12 @@ std::string SotpCallTable2::toSesString(ProtocolType pt, const tstring & sValue,
 	}
 }
 
-std::string SotpCallTable2::toOpenSesString(unsigned long cid, unsigned short seq, bool bNeedAck) const
+std::string SotpCallTable2::toOpenSesString(unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const
 {
 	if (m_sAppName.empty()) return _T("");
 	if (m_sAccount.empty())
 	{
-		return toSesString(PT_Open, m_sAppName, cid, seq, bNeedAck);
+		return toSesString(PT_Open, m_sAppName, cid, seq, bNeedAck, sPublicKey);
 	}else
 	{
 		std::string sNeedAck = _T("");
@@ -168,13 +181,26 @@ std::string SotpCallTable2::toOpenSesString(unsigned long cid, unsigned short se
 		return pResult;
 		*/
 
-		char lpszBuffer[1024];
-		sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
-			_T("%s")
-			_T("Cid: %lu\n")
-			_T("App: %s\n")
-			_T("Ua: %s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
-		return lpszBuffer;
+		if (sPublicKey.empty())
+		{
+			char lpszBuffer[1024];
+			sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
+				_T("%s")
+				_T("Cid: %lu\n")
+				_T("App: %s\n")
+				_T("Ua: %s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
+			return lpszBuffer;
+		}else
+		{
+			char lpszBuffer[10240];
+			sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
+				_T("%s")
+				_T("Cid: %lu\n")
+				_T("App: %s\n")
+				_T("Ua: %s;pwd=%s;enc=%s\n")
+				_T("Ssl: %d\n%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+			return lpszBuffer;
+		}
 	}
 }
 
@@ -221,20 +247,71 @@ std::string SotpCallTable2::toAppCallString(unsigned long cid, unsigned long nCa
 	}
 }
 
+std::string SotpCallTable2::toAppCallHead(void) const
+{
+	if (m_sSessionId.empty())
+		return "CALL SOTP/2.0\n";
+	char lpszBuffer[60];
+	sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
+			_T("Sid: %s\n")),m_sSessionId.c_str());
+	return lpszBuffer;
+}
+
+std::string SotpCallTable2::toAppCallData(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck)
+{
+	if (sCallName.empty()) return _T("");
+
+	std::string sParameters = GetParametersString();
+	m_parameters.clear();
+	std::string sNeedAck = _T("");
+	if (bNeedAck)
+	{
+		sNeedAck = _T("NAck: 1\n");
+		char lpszSeq[16];
+		sprintf(lpszSeq,"Seq: %d\n",seq);
+		sNeedAck.append(lpszSeq);
+	}
+
+	char lpszBuffer[8*1024];
+	// 2.0
+	sprintf(lpszBuffer,(_T("%s")
+		_T("App: %s\n")
+		_T("Ua: %s;pwd=%s;enc=\n")
+		_T("Cid: %lu\n")
+		_T("Sign: %lu\n")
+		_T("Api: %s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+	tstring result(lpszBuffer);
+	result.append(sParameters);
+	return result;
+}
+
 unsigned char * SotpCallTable2::toAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const
 {
 	if (pAttach.get() == NULL || !pAttach->isHasAttach()) return NULL;
-	unsigned int nBufferSize = 50+pAttach->getName().length()+pAttach->getAttachSize();
+	int nBufferSize = 50+pAttach->getName().length()+pAttach->getAttachSize();
 	unsigned char * pResult = new unsigned char[nBufferSize];
 	memset(pResult, 0, nBufferSize);
-	int n = sprintf((char*)pResult, "At: %s;at=%lld;ai=%lld;al=%d\n", pAttach->getName().c_str(), pAttach->getTotal(), pAttach->getIndex(), pAttach->getAttachSize());
+	const int n = sprintf((char*)pResult, "At: %s;at=%lld;ai=%lld;al=%d\n", pAttach->getName().c_str(), pAttach->getTotal(), pAttach->getIndex(), pAttach->getAttachSize());
 	memcpy(pResult+n, pAttach->getAttachData(), pAttach->getAttachSize());
 	pResult[n+pAttach->getAttachSize()] = '\n';
 	pOutSize = n+pAttach->getAttachSize() + 1;
 	return pResult;
 }
+unsigned char * SotpCallTable2::toSslDataString(const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const
+{
+	if (pSslData == NULL || nSize<=0) return NULL;
+	int nBufferSize = nSize+30;
+	unsigned char * pResult = new unsigned char[nBufferSize];
+	memset(pResult, 0, nBufferSize);
+	const int n = sprintf((char*)pResult, "Sd: %d\n", nSize);
+	memcpy(pResult+n, pSslData, nSize);
+	pResult[n+nSize] = '\n';
+	pOutSize = n+nSize + 1;
+	return pResult;
+}
 
-std::string SotpCallTable2::toSessionResult(int prototype, unsigned long cid, long retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck) const
+
+std::string SotpCallTable2::toSessionResult(int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
 {
 	std::string sNeedAck = _T("");
 	if (bNeedAck)
@@ -278,15 +355,27 @@ std::string SotpCallTable2::toSessionResult(int prototype, unsigned long cid, lo
 	//	sValue = sSessionId;
 	//}
 
-	char lpszBuffer[100];
-	sprintf(lpszBuffer,(_T("%s SOTP/2.0 %ld\n")
-		_T("%s")
-		_T("Cid: %lu\n")
-		_T("Sid: %s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str());
-	return lpszBuffer;
+	if (prototype==PT_Open && !sSslPublicKey.empty())
+	{
+		char lpszBuffer[10240];
+		sprintf(lpszBuffer,(_T("%s SOTP/2.0 %d\n")
+			_T("%s")
+			_T("Cid: %lu\n")
+			_T("Sid: %s\n")
+			_T("Ssl: %d\n%s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str(),(int)sSslPublicKey.size(),sSslPublicKey.c_str());
+		return lpszBuffer;
+	}else
+	{
+		char lpszBuffer[100];
+		sprintf(lpszBuffer,(_T("%s SOTP/2.0 %ld\n")
+			_T("%s")
+			_T("Cid: %lu\n")
+			_T("Sid: %s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str());
+		return lpszBuffer;
+	}
 }
 
-std::string SotpCallTable2::toAppCallResult(unsigned long cid, unsigned long sign, long retCode, unsigned short seq, bool bNeedAck)
+std::string SotpCallTable2::toAppCallResult(unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck)
 {
 	std::string sNeedAck = _T("");
 	if (bNeedAck)
@@ -300,7 +389,7 @@ std::string SotpCallTable2::toAppCallResult(unsigned long cid, unsigned long sig
 	const std::string responseValues = GetParametersString();
 	m_parameters.clear();
 	char lpszBuffer[100];
-	sprintf(lpszBuffer,(_T("CALL SOTP/2.0 %ld\n")
+	sprintf(lpszBuffer,(_T("CALL SOTP/2.0 %d\n")
 		_T("%s")
 		_T("Cid: %lu\n")
 		_T("Sign: %lu\n")),retCode,sNeedAck.c_str(),cid,sign);
@@ -308,6 +397,34 @@ std::string SotpCallTable2::toAppCallResult(unsigned long cid, unsigned long sig
 	result.append(responseValues);
 	return result;
 }
+std::string SotpCallTable2::toAppCallResultHead(int retCode)
+{
+	char lpszBuffer[64];
+	sprintf(lpszBuffer,"CALL SOTP/2.0 %d\n",retCode);
+	return lpszBuffer;
+}
+std::string SotpCallTable2::toAppCallResultData(unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck)
+{
+	std::string sNeedAck = _T("");
+	if (bNeedAck)
+	{
+		sNeedAck = _T("NAck: 1\n");
+		char lpszSeq[16];
+		sprintf(lpszSeq,"Seq: %d\n",seq);
+		sNeedAck.append(lpszSeq);
+	}
+
+	const std::string responseValues = GetParametersString();
+	m_parameters.clear();
+	char lpszBuffer[100];
+	sprintf(lpszBuffer,(_T("%s")
+		_T("Cid: %lu\n")
+		_T("Sign: %lu\n")),sNeedAck.c_str(),cid,sign);
+	tstring result(lpszBuffer);
+	result.append(responseValues);
+	return result;
+}
+
 std::string SotpCallTable2::toP2PTry(void) const
 {
 	char lpszBuffer[32];

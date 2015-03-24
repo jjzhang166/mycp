@@ -22,6 +22,8 @@
 
 #include "CGCClass.h"
 #include "ParseCgcSotp2.h"
+#include "../ThirdParty/stl/rsa.h"
+#include "../ThirdParty/stl/aes.h"
 
 #ifdef WIN32
 #include "windows.h"
@@ -57,8 +59,9 @@ std::string str_convert(const char * strSource, int sourceCodepage, int targetCo
 #endif
 
 ParseCgcSotp2::ParseCgcSotp2(void)
-: m_nCgcProto(0), m_nProtoType(0),m_bHasSeq(false),m_seq(0), m_bNeedAck(false)
-, m_sSid(_T("")), m_sApp(_T("")), m_sApi(_T(""))
+: m_pCallback(NULL)
+, m_nCgcProto(0), m_nProtoType(0),m_bHasSeq(false),m_seq(0), m_bNeedAck(false)
+, m_sSid(_T("")), m_sApp(_T("")), m_sApi(_T("")), m_sSslPublicKey(""), m_pSslDecryptData(NULL)
 , m_nCallId(0), m_nSign(0), m_bResulted(false), m_nResultValue(0)
 , m_sAccount(_T("")), m_sPasswd(_T(""))
 , m_et(ModuleItem::ET_NONE)
@@ -114,6 +117,12 @@ void ParseCgcSotp2::FreeHandle(void)
 	m_sApp = _T("");
 	m_sApi = _T("");
 	m_sSid = _T("");
+	m_sSslPublicKey.clear();
+	if (m_pSslDecryptData!=NULL)
+	{
+		delete[] m_pSslDecryptData;
+		m_pSslDecryptData = NULL;
+	}
 	m_nCallId = 0;
 
 	m_bResulted = false;
@@ -127,7 +136,7 @@ void ParseCgcSotp2::FreeHandle(void)
 	//for_each(m_custerSvrList.begin(), m_custerSvrList.end(), DeletePtr());
 	//m_custerSvrList.clear();
 }
-void ParseCgcSotp2::addParameter(cgcParameter::pointer parameter)
+void ParseCgcSotp2::addParameter(const cgcParameter::pointer& parameter)
 {
 	if (parameter.get() == 0) return;
 	m_parameterMap.insert(parameter->getName(), parameter);
@@ -238,7 +247,73 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
 	const short const_r_offset = ((pNextLineFind-1)[0])=='\r'?1:0;
 
 	int leftIndex = 0;
-	if (sotpCompare(pLineBuffer, "Cid: ", leftIndex))
+	if (sotpCompare(pLineBuffer, "Sid: ", leftIndex))
+	{
+		leftIndex += 5;
+//#ifdef _UNICODE
+//		std::string sTemp(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex);
+//		m_sSid = cgcString::Char2W(sTemp);
+//#else
+		m_sSid = std::string(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+//#endif // _UNICODE
+		return pNextLineFind;
+	}else if (sotpCompare(pLineBuffer, "Sd: ", leftIndex))
+	{
+		leftIndex += 4;
+		const std::string sCurLineBuffer(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+		const int nSslSize = atoi(sCurLineBuffer.c_str());
+		const char * pSslEnd = pNextLineFind;
+		if (nSslSize > 0)
+		{
+			try
+			{
+				pSslEnd = pNextLineFind + nSslSize + 1;
+				const unsigned char* pSslData = (const unsigned char*)(pNextLineFind+1);
+				if (isOpenType())
+				{
+					if (m_pCallback==NULL)
+						return pSslEnd;
+					CRSA pRsa;
+					pRsa.SetPrivateKey(m_pCallback->onGetSslPrivateKey());
+					pRsa.SetPrivatePwd(m_pCallback->onGetSslPrivatePwd());
+					if (!pRsa.rsa_open_private_mem())
+						return pSslEnd;
+					if (!pRsa.rsa_open_private_mem())
+						return pSslEnd;
+					unsigned char * pServerSslPwd = NULL;
+					const int ret = pRsa.rsa_private_decrypt(pSslData,nSslSize,&pServerSslPwd);
+					if (ret < 0)
+						return pSslEnd;
+					m_sSslPassword = tstring((const char*)pServerSslPwd,ret);
+					delete[] pServerSslPwd;
+				}else
+				{
+					// 
+					const tstring sSslPassword = m_pCallback->onGetSslPassword(getSid());
+					unsigned char * pSotpData = new unsigned char[nSslSize+1];
+					memset(pSotpData,0,nSslSize+1);
+					pSotpData[0] = '\n';	// **
+					const int ret = aes_cbc_decrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
+					if (ret != 0)
+					{
+						delete[] pSotpData;
+						return pSslEnd;
+					}
+					if (m_pSslDecryptData!=NULL)
+					{
+						delete[] m_pSslDecryptData;
+					}
+					m_pSslDecryptData = pSotpData;
+					return (const char*)m_pSslDecryptData;
+				}
+			}catch(const std::exception&)
+			{
+			}catch(...)
+			{
+			}
+		}
+		return pSslEnd;
+	}else if (sotpCompare(pLineBuffer, "Cid: ", leftIndex))
 	{
 		leftIndex += 5;
 		std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
@@ -443,16 +518,25 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
 		m_sApp = std::string(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
 //#endif // _UNICODE
 		return pNextLineFind;
-	}else if (sotpCompare(pLineBuffer, "Sid: ", leftIndex))
+	}else if (sotpCompare(pLineBuffer, "Ssl: ", leftIndex))
 	{
 		leftIndex += 5;
-//#ifdef _UNICODE
-//		std::string sTemp(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex);
-//		m_sSid = cgcString::Char2W(sTemp);
-//#else
-		m_sSid = std::string(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
-//#endif // _UNICODE
-		return pNextLineFind;
+		const std::string sCurLineBuffer(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
+		const int nSslSize = atoi(sCurLineBuffer.c_str());
+		const char * pSslEnd = pNextLineFind;
+		if (nSslSize > 0)
+		{
+			try
+			{
+				pSslEnd = pNextLineFind + nSslSize + 1;
+				m_sSslPublicKey = tstring((const char *)pNextLineFind+1, nSslSize);
+			}catch(const std::exception&)
+			{
+			}catch(...)
+			{
+			}
+		}
+		return pSslEnd;
 	}else if (sotpCompare(pLineBuffer, "Ua: ", leftIndex))
 	{
 		leftIndex += 4;

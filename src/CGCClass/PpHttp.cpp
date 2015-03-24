@@ -105,14 +105,23 @@ void CPpHttp::write(const char * text, size_t size)
 
 	if (m_bodySize+size > m_bodyBufferSize)
 	{
-		char * bufferTemp = new char[m_bodySize+1];
-		memcpy(bufferTemp, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);
+		char * bufferTemp = NULL;
+		if (m_bodySize>0)
+		{
+			bufferTemp = new char[m_bodySize+1];
+			memcpy(bufferTemp, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);
+		}
 		delete[] m_resultBuffer;
 
-		m_bodyBufferSize += size > INCREASE_BODY_SIZE ? size : INCREASE_BODY_SIZE;
+		m_bodyBufferSize += (size > INCREASE_BODY_SIZE ? size : INCREASE_BODY_SIZE);
 		m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
-		memcpy(m_resultBuffer+MAX_HTTPHEAD_SIZE, bufferTemp, m_bodySize);
-		delete[] bufferTemp;
+		if (m_resultBuffer==NULL) // *
+			m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
+		if (bufferTemp!=NULL)
+		{
+			memcpy(m_resultBuffer+MAX_HTTPHEAD_SIZE, bufferTemp, m_bodySize);
+			delete[] bufferTemp;
+		}
 	}
 	memcpy(m_resultBuffer+MAX_HTTPHEAD_SIZE+m_bodySize, text, size);
 	m_bodySize += size;

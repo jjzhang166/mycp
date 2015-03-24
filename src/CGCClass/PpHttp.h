@@ -181,6 +181,7 @@ protected:
 	virtual void location(const tstring& url);
 
 	virtual const char * getHttpResult(size_t& outSize) const;
+	virtual void setParseCallback(cgcParserCallback* pCallback) {}
 	virtual bool doParse(const unsigned char * requestData, size_t requestSize,const char* sEncoding);
 	void GeServletInfo(void);
 	void GetPropertys(const std::string& sString);
