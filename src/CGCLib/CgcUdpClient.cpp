@@ -142,17 +142,42 @@ bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 	}
 	return false;
 }
-void CgcUdpClient::doSetConfig(int nConfig, unsigned int nInValue)
+bool CgcUdpClient::doSetConfig(int nConfig, unsigned int nInValue)
 {
-	if (nConfig == SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE)
+	if (!CgcBaseClient::doSetConfig(nConfig,nInValue))
+		return false;
+	switch (nConfig)
 	{
-		if (m_udpClient.get()==NULL)
+	case SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE:
 		{
-			m_udpClient = UdpSocket::create(nInValue);
-		}else
-		{
-			m_udpClient->setMaxBufferSize(nInValue);
+			if (m_udpClient.get()==NULL)
+			{
+				m_udpClient = UdpSocket::create(nInValue);
+			}else
+			{
+				m_udpClient->setMaxBufferSize(nInValue);
+			}
 		}
+		break;
+	default:
+		break;
+	}
+	return true;
+}
+void CgcUdpClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
+{
+	switch (nConfig)
+	{
+	case SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE:
+		{
+			*nOutValue = 0;
+		}break;
+	case SOTP_CLIENT_CONFIG_USES_SSL:
+		{
+
+		}break;
+	default:
+		break;
 	}
 }
 

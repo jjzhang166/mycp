@@ -47,7 +47,11 @@ namespace cgc
 	};
 
 	// 
-#define SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE 1
+	enum SOTP_CLIENT_CONFIG_TYPE
+	{
+		SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE	= 1
+		, SOTP_CLIENT_CONFIG_USES_SSL
+	};
 
 	class DoSotpClientHandler
 	{
@@ -59,8 +63,9 @@ namespace cgc
 		virtual const CgcClientHandler * doGetResponseHandler(void) const  = 0;
 		virtual void doSetDisableSotpParser(bool newv) = 0;		// default false
 
-		virtual void doSetConfig(int nConfig, unsigned int nInValue) = 0;
-		virtual void doGetConfig(int nConfig, unsigned int* nOutValue) = 0;
+		virtual bool doSetConfig(int nConfig, unsigned int nInValue) = 0;
+		virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const = 0;
+		virtual void doFreeConfig(int nConfig, unsigned int nInValue) const = 0;
 
 		// session 
 		virtual bool doSendOpenSession(unsigned long * pOutCallId = 0) = 0;

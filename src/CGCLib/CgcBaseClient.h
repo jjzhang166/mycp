@@ -26,6 +26,8 @@
 #include <boost/enable_shared_from_this.hpp>
 #include "CgcClientHandler.h"
 #include "../ThirdParty/stl/lockmap.h"
+#include "../ThirdParty/stl/aes.h"
+#include "../ThirdParty/stl/rsa.h"
 #include "cgcaddress.h"
 #include "dlldefine.h"
 #include "../CGCBase/cgcSeqInfo.h"
@@ -49,6 +51,7 @@ typedef std::pair<unsigned long, void*> ULongPtrPair;
 class CGCLIB_CLASS CgcBaseClient
 	: public SotpCallTable2
 	, public DoSotpClientHandler
+	, public cgcParserCallback
 	, public boost::enable_shared_from_this<CgcBaseClient>
 {
 public:
@@ -81,13 +84,20 @@ protected:
 	virtual void setMediaType(unsigned short mediatype) {}	// for RTP
 
 	/////////////////////////////////////////////////////////////////////////////////
+	// cgcParserCallback 
+	virtual tstring onGetSslPrivateKey(void) const {return m_pRsaSrc.GetPrivateKey();}
+	virtual tstring onGetSslPrivatePwd(void) const {return m_pRsaSrc.GetPrivatePwd();}
+	virtual tstring onGetSslPassword(const tstring& sSessionId) const {return (sSessionId.empty() || getSessionId()==sSessionId)?m_sSslPassword:"";}
+	//virtual tstring onGetSslPassword(const tstring& sSessionId) const {return getSessionId()==sSessionId?m_sSslPassword:"";}
+
 	// DoSotpClientHandler handler
 	virtual void doSetResponseHandler(CgcClientHandler * newValue) {setHandler(newValue);}
 	virtual const CgcClientHandler * doGetResponseHandler(void) const {return getHandler();}
 	virtual void doSetDisableSotpParser(bool newv) {m_bDisableSotpparser = newv;}
 
-	virtual void doSetConfig(int nConfig, unsigned int nInValue){}
-	virtual void doGetConfig(int nConfig, unsigned int* nOutValue){}
+	virtual bool doSetConfig(int nConfig, unsigned int nInValue);
+	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const {}
+	virtual void doFreeConfig(int nConfig, unsigned int nInValue) const {}
 
 	// session
 	virtual bool doSendOpenSession(unsigned long * pOutCallId) {return sendOpenSession(pOutCallId);}
@@ -274,6 +284,11 @@ protected:
 	//unsigned short m_destPort;
 	CCgcAddress m_ipLocal;
 	CCgcAddress m_ipRemote;
+
+	// ssl
+	tstring m_sSslPassword;	// from mycp server
+	CRSA m_pRsaSrc;
+	//CRSA m_pRsaDes;
 
 private:
 	CgcClientHandler * m_pHandler;
