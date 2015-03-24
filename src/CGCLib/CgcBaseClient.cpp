@@ -699,7 +699,7 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 
 		unsigned int nAttachSize = 0;
 		unsigned char * pAttachData = toAttachString(pAttach, nAttachSize);
-		int nDataSize = (sAppCallData.size()+nAttachSize+m_sSslPassword.size());
+		int nDataSize = (sAppCallData.size()+nAttachSize+m_sSslPassword.size()-1);
 		nDataSize -= (nDataSize%m_sSslPassword.size());
 		nDataSize += sAppCallHead.size();
 		unsigned char * pSendData = new unsigned char[nDataSize+1];
