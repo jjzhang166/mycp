@@ -347,6 +347,7 @@ const int ATTRIBUTE_NAME	= 1;
 //	int m_nCapacity;
 //};
 cgcAttributes::pointer theAppAttributes;
+std::string theSSLPasswd;
 
 /////////////////////////////////////////
 // CTcpServer
@@ -374,7 +375,7 @@ private:
 #ifdef USES_OPENSSL
 	boost::asio::ssl::context* m_sslctx;
 	std::string m_sSSLPublicCrtFile;	// public.crt
-	std::string m_sSSLIntermediateFile;	// intermediate.key
+	//std::string m_sSSLIntermediateFile;	// intermediate.key
 	std::string m_sSSLPrivateKeyFile;	// private.key
 #endif
 	IoService::pointer m_ioservice;
@@ -427,29 +428,28 @@ public:
 		sem_destroy(&m_semDoStop);
 #endif // WIN32
 	}
-	//bool verify_certificate(bool preverified,
-	//	boost::asio::ssl::verify_context& ctx)
-	//{
-	//	// The verify callback can be used to check whether the certificate that is
-	//	// being presented is valid for the peer. For example, RFC 2818 describes
-	//	// the steps involved in doing this for HTTPS. Consult the OpenSSL
-	//	// documentation for more details. Note that the callback is called once
-	//	// for each certificate in the certificate chain, starting from the root
-	//	// certificate authority.
+	bool verify_certificate(bool preverified,boost::asio::ssl::verify_context& ctx)
+	{
+		// The verify callback can be used to check whether the certificate that is
+		// being presented is valid for the peer. For example, RFC 2818 describes
+		// the steps involved in doing this for HTTPS. Consult the OpenSSL
+		// documentation for more details. Note that the callback is called once
+		// for each certificate in the certificate chain, starting from the root
+		// certificate authority.
 
-	//	// In this example we will simply print the certificate's subject name.
-	//	char subject_name[256];
-	//	X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
-	//	X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
-	//	std::cout << "Verifying " << subject_name << "\n";
-
-	//	return preverified;
-	//}
-	//std::string get_password(void) const
- //   {
-	//	printf("get_password...\n");
- //       return "abc";
- //   }
+		// In this example we will simply print the certificate's subject name.
+		char subject_name[256];
+		X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+		X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+		//std::cout << "Verifying " << subject_name << "\n";
+		return true;
+		return preverified;
+	}
+	std::string get_password(void) const
+    {
+		//printf("**** get_password...\n");
+        return theSSLPasswd;
+    }
 	unsigned long getId(void) const {return (unsigned long)this;}
 	virtual tstring serviceName(void) const {return _T("TCPSERVER");}
 	virtual bool initService(cgcValueInfo::pointer parameter)
@@ -482,16 +482,16 @@ public:
 			m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
 			//m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::no_sslv2);
 			m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);
-			m_sslctx->set_verify_mode(ssl::verify_none);
+			m_sslctx->set_verify_mode(ssl::verify_none);	// old:ok
 			//m_sslctx->set_verify_mode(ssl::verify_client_once);
 			//m_sslctx->set_verify_mode(ssl::verify_peer);
-			//m_sslctx->set_verify_callback(boost::bind(&CTcpServer::verify_certificate, this, _1, _2));
-			//m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
+			m_sslctx->set_verify_callback(boost::bind(&CTcpServer::verify_certificate, this, _1, _2));
+			m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
 			boost::system::error_code error;
 			// XXX.crt OK
 			//std::string m_sSSLCAFile = theApplication->getAppConfPath()+"/ssl/ca.crt";
 			m_sSSLPublicCrtFile = theApplication->getAppConfPath()+"/ssl/public.crt";
-			m_sSSLIntermediateFile = theApplication->getAppConfPath()+"/ssl/intermediate.crt";
+			//m_sSSLIntermediateFile = theApplication->getAppConfPath()+"/ssl/intermediate.crt";
 			m_sSSLPrivateKeyFile = theApplication->getAppConfPath()+"/ssl/private.key";
 
 			// 不会报no shared cipher错误
@@ -508,9 +508,12 @@ public:
 			m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
 			if (error)
 				CGC_LOG((LOG_ERROR, _T("use_certificate_file(%s),error=%s;%d\n"),m_sSSLPublicCrtFile.c_str(),error.message().c_str(),error.value()));
-			m_sslctx->use_certificate_chain_file(m_sSSLIntermediateFile,error);
+			m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
 			if (error)
-				CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLIntermediateFile.c_str(),error.message().c_str(),error.value()));
+				CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLPublicCrtFile.c_str(),error.message().c_str(),error.value()));
+			//m_sslctx->use_certificate_chain_file(m_sSSLIntermediateFile,error);
+			//if (error)
+			//	CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLIntermediateFile.c_str(),error.message().c_str(),error.value()));
 			// 没有设置use_private_key_file()；就会报"handle_handshake no shared cipher"错误
 			m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
 			if (error)
@@ -726,7 +729,8 @@ protected:
 					//m_sslctx->set_verify_mode(ssl::verify_peer);
 					boost::system::error_code error;
 					m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
-					m_sslctx->use_certificate_chain_file(m_sSSLIntermediateFile,error);
+					m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
+					//m_sslctx->use_certificate_chain_file(m_sSSLIntermediateFile,error);
 					m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
 					m_acceptor->set_ssl_ctx(m_sslctx);
 				}
@@ -913,6 +917,8 @@ protected:
 	}
 };
 
+cgcParameterMap::pointer theAppInitParameters;
+
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
 #ifdef WIN32
@@ -923,6 +929,10 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 		return false;
 	}
 #endif // WIN32
+
+	theAppInitParameters = theApplication->getInitParameters();
+	theSSLPasswd = theAppInitParameters->getParameterValue("ssl-passwd", "");
+	//printf("**** %s\n",theSSLPasswd.c_str());
 
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);
@@ -945,6 +955,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		}
 	}
 
+	theAppInitParameters.reset();
 	theAppAttributes->clearAllAtrributes();
 	theAppAttributes.reset();
 	theApplication->KillAllTimer();
