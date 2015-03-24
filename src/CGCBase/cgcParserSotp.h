@@ -60,6 +60,9 @@ public:
 	virtual unsigned long getCallid(void) const = 0;			// CallId
 	virtual void setSign(unsigned long newValue) = 0;
 	virtual unsigned long getSign(void) const = 0;				// Sign
+	virtual void setSslPublicKey(const tstring & newValue) = 0;
+	virtual const tstring & getSslPublicKey(void) const = 0;
+	virtual bool isSslRequest(void) const = 0;
 
 //	virtual const tstring & getProtoValue(void) const = 0;	// SessionId for SES:protocol
 
@@ -81,8 +84,10 @@ public:
 	//////////////////////////////////////////////////
 	// Response:
 	virtual void setResEncoding(const tstring & sEncoding = _T("GBK")) = 0;
-	virtual std::string getSessionResult(long retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck) const = 0;
-	virtual std::string getAppCallResult(long retCode, unsigned short seq, bool bNeedAck) = 0;
+	virtual std::string getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck,const tstring& sSslPublicKey) const = 0;
+	virtual std::string getAppCallResult(int retCode, unsigned short seq, bool bNeedAck) = 0;
+	virtual std::string getAppCallResultHead(int retCode) = 0;
+	virtual std::string getAppCallResultData(unsigned short seq, bool bNeedAck) = 0;
 	virtual std::string getAckResult(unsigned short seq) = 0;
 	virtual unsigned char * getAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const = 0;
 	// P2P
@@ -105,6 +110,9 @@ public:
 	virtual bool isResHasAttachInfo(void) const = 0;
 	virtual cgcAttachment::pointer getResAttachment(void) const = 0;
 	virtual unsigned char * getResAttachString(unsigned int & pOutSize) = 0;
+
+	// Response ssl
+	virtual unsigned char * getResSslString(const tstring& sSslPassword,unsigned int & pOutSize) = 0;
 
 	//virtual const MyParameterMap & GetResponseParameterMap(void) const {return m_mapParameters;}
 };

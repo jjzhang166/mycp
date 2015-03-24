@@ -25,11 +25,21 @@
 
 namespace cgc {
 
+class cgcParserCallback
+{
+public:
+	virtual tstring onGetSslPrivateKey(void) const = 0;
+	virtual tstring onGetSslPrivatePwd(void) const = 0;
+	virtual tstring onGetSslPassword(const tstring& sSessionId) const = 0;
+};
+
 class cgcParserBase
 	: public cgcServiceInterface
 {
 public:
 	typedef boost::shared_ptr<cgcParserBase> pointer;
+
+	virtual void setParseCallback(cgcParserCallback* pCallback) = 0;
 
 	// UTF8: UTF8->ACP
 	virtual bool doParse(const unsigned char * parseData, size_t parseSize,const char* sEncoding="") = 0;

@@ -151,6 +151,7 @@ namespace cgc{
 		tstring typeString(void) const;
 
 		int size(void) const;
+		int length(void) const;
 		bool empty(void) const;
 		cgcValueInfo::pointer copy(void) const;
 		void totype(ValueType newtype);
@@ -1184,10 +1185,11 @@ namespace cgc{
 	{
 		switch (m_type)
 		{
+		case TYPE_STRING:
+			return (int)m_str.size();
 		case TYPE_INT:
 		case TYPE_BIGINT:
 		//case TYPE_TIME:
-		case TYPE_STRING:
 		case TYPE_BOOLEAN:
 		case TYPE_FLOAT:
 			return 1;
@@ -1207,6 +1209,16 @@ namespace cgc{
 			break;
 		}
 		return -1;
+	}
+	inline int cgcValueInfo::length(void) const
+	{
+		switch (m_type)
+		{
+		case TYPE_STRING:
+			return (int)m_str.length();
+		default:
+			return size();
+		}
 	}
 	inline bool cgcValueInfo::empty(void) const
 	{
@@ -1377,7 +1389,7 @@ namespace cgc{
 			case TYPE_BUFFER:
 				{
 					const tstring newString = this->toString();
-					this->setBuffer((const unsigned char*)newString.c_str(),newString.size());
+					this->setBuffer((const unsigned char*)newString.c_str(),(unsigned int)newString.size());
 				}break;
 			default:
 				break;
