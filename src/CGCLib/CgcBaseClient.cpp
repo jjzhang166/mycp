@@ -39,6 +39,7 @@ typedef boost::format tformat;
 
 CgcBaseClient::CgcBaseClient(const tstring & clientType)
 : m_tSendRecv(0)
+, m_nUserSslInfo(0)
 , m_pHandler(NULL)
 , m_clientState(Init_Client)
 , m_clientType(clientType)
@@ -49,6 +50,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_nActiveWaitSeconds(0),m_nSendP2PTrySeconds(0)
 , m_timeoutSeconds(3), m_timeoutResends(5)
 , m_currentPath(_T(""))
+, theProtoVersion(SOTP_PROTO_VERSION_20)
 
 {
 	m_nDataIndex = 0;
@@ -446,17 +448,112 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 	bool ret = true;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_SOTP_VERSION:
+		{
+			if (nInValue==SOTP_PROTO_VERSION_20 || nInValue==SOTP_PROTO_VERSION_21)
+			{
+				theProtoVersion = (SOTP_PROTO_VERSION)nInValue;
+				return true;
+			}
+			return false;
+		}break;
+	case SOTP_CLIENT_CONFIG_PUBLIC_KEY:
+		{
+			const char* pInString = (const char*)nInValue;
+			if (pInString==NULL)
+				return false;
+			m_pRsaSrc.SetPublicKey(pInString);
+			m_nUserSslInfo = 1;
+		}break;
+	case SOTP_CLIENT_CONFIG_PRIVATE_KEY:
+		{
+			const char* pInString = (const char*)nInValue;
+			if (pInString==NULL)
+				return false;
+			m_pRsaSrc.SetPrivateKey(pInString);
+			m_nUserSslInfo = 1;
+		}break;
+	case SOTP_CLIENT_CONFIG_PUBLIC_FILE:
+		{
+			const char* pInString = (const char*)nInValue;
+			if (pInString==NULL)
+				return false;
+			m_pRsaSrc.SetPublicFile(pInString);
+			m_nUserSslInfo = 2;
+		}break;
+	case SOTP_CLIENT_CONFIG_PRIVATE_FILE:
+		{
+			const char* pInString = (const char*)nInValue;
+			if (pInString==NULL)
+				return false;
+			m_pRsaSrc.SetPrivateFile(pInString);
+			m_nUserSslInfo = 2;
+		}break;
+	case SOTP_CLIENT_CONFIG_PRIVATE_PWD:
+		{
+			const char* pInString = (const char*)nInValue;
+			if (pInString==NULL)
+				return false;
+			m_pRsaSrc.SetPrivatePwd(pInString);
+		}break;
 	case SOTP_CLIENT_CONFIG_USES_SSL:
 		{
 			if (nInValue==1)
 			{
+				if (m_nUserSslInfo==1)
+				{
+					if (m_pRsaSrc.GetPrivatePwd().empty() || m_pRsaSrc.GetPublicKey().empty() || m_pRsaSrc.GetPrivateKey().empty())
+					{
+						m_pRsaSrc.SetPrivatePwd("");
+						return false;
+					}
+					return true;
+					//if (!m_pRsaSrc.rsa_open_public_mem())
+					//{
+					//	m_pRsaSrc.SetPrivatePwd("");
+					//	return false;
+					//}
+					//const std::string sFrom("mycp");
+					//unsigned char* pTo = NULL;
+					//m_pRsaSrc.rsa_public_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
+					//if (pTo!=NULL)
+					//{
+					//	delete[] pTo;
+					//	return true;
+					//}
+					//m_pRsaSrc.SetPrivatePwd("");
+					//return false;
+				}else if (m_nUserSslInfo==2)
+				{
+					if (m_pRsaSrc.GetPrivatePwd().empty() || m_pRsaSrc.GetPublicFile().empty() || m_pRsaSrc.GetPrivateFile().empty())
+					{
+						m_pRsaSrc.SetPrivatePwd("");
+						return false;
+					}
+					return true;
+					//if (!m_pRsaSrc.rsa_open_private_file())
+					//{
+					//	m_pRsaSrc.SetPrivatePwd("");
+					//	return false;
+					//}
+					//const std::string sFrom("mycp");
+					//unsigned char* pTo = NULL;
+					//m_pRsaSrc.rsa_public_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
+					//if (pTo!=NULL)
+					//{
+					//	delete[] pTo;
+					//	return true;
+					//}
+					//m_pRsaSrc.SetPrivatePwd("");
+					//return false;
+				}
 				if (m_pRsaSrc.GetPrivatePwd().empty())
 				{
 					m_pRsaSrc.SetPrivatePwd(GetSaltString());
 				}
 				for (int i=0;i<20;i++)
 				{
-					m_pRsaSrc.rsa_generatekey_mem();
+					m_pRsaSrc.rsa_generatekey_mem(1024);
 					if (m_pRsaSrc.GetPublicKey().empty() || m_pRsaSrc.GetPrivateKey().empty())
 						continue;
 					if (!m_pRsaSrc.rsa_open_public_mem())
@@ -471,10 +568,13 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 					}				
 				}
 				m_pRsaSrc.SetPrivatePwd("");
+				return false;
 			}else
 			{
-				m_pRsaSrc.SetPrivateKey("");
 				m_pRsaSrc.SetPublicKey("");
+				m_pRsaSrc.SetPrivateKey("");
+				m_pRsaSrc.SetPublicFile("");
+				m_pRsaSrc.SetPrivateFile("");
 				m_pRsaSrc.SetPrivatePwd("");
 				m_sSslPassword.clear();
 			}
@@ -498,7 +598,7 @@ bool CgcBaseClient::sendOpenSession(unsigned long * pCallId)
 		*pCallId = cid;
 	const unsigned short seq = getNextSeq();
 	// requestData
-	const std::string requestData = toOpenSesString(cid, seq, true, m_pRsaSrc.GetPublicKey());
+	const std::string requestData = toOpenSesString(theProtoVersion,cid, seq, true, m_pRsaSrc.GetPublicKey());
 	// addSeqInfo
 	addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid);
 	// sendData
@@ -538,7 +638,7 @@ void CgcBaseClient::sendCloseSession(unsigned long * pCallId)
 		*pCallId = cid;
 	const unsigned short seq = getNextSeq();
 	// requestData
-	const std::string requestData = toSesString(SotpCallTable2::PT_Close, m_sSessionId, cid, seq, true,"");
+	const std::string requestData = toSesString(theProtoVersion,SOTP_PROTO_TYPE_CLOSE, m_sSessionId, cid, seq, true,"");
 	// addSeqInfo
 	addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid);
 	// sendData
@@ -560,9 +660,9 @@ void CgcBaseClient::sendActiveSession(unsigned long * pCallId)
 		*pCallId = cid;
 	const unsigned short seq = getNextSeq();
 	// requestData
-	const std::string requestData = toSesString(SotpCallTable2::PT_Active, m_sSessionId, cid, seq, true,"");
+	const std::string requestData = toSesString(theProtoVersion,SOTP_PROTO_TYPE_ACTIVE, m_sSessionId, cid, seq, true,"");
 	// addSeqInfo
-	addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid,0,SotpCallTable2::PT_Active);
+	addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid,0,SOTP_PROTO_TYPE_ACTIVE);
 	// sendData
 	sendData((const unsigned char*)requestData.c_str(), requestData.size());
 }
@@ -570,7 +670,7 @@ void CgcBaseClient::sendP2PTry(unsigned short nTryCount)
 {
 	if (this->isInvalidate()) return;
 	// requestData
-	const std::string requestData = toP2PTry();
+	const std::string requestData = toP2PTry(theProtoVersion);
 	// sendData
 	for (unsigned short i=0; i<nTryCount; i++)
 	{
@@ -694,11 +794,11 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 
 	if (!m_sSslPassword.empty())
 	{
-		const std::string sAppCallHead = toAppCallHead();
-		const std::string sAppCallData = toAppCallData(cid,nCallSign,sCallName,seq,bNeedAck);
+		const std::string sAppCallHead = toAppCallHead(theProtoVersion);
+		const std::string sAppCallData = toAppCallData(theProtoVersion,cid,nCallSign,sCallName,seq,bNeedAck);
 
 		unsigned int nAttachSize = 0;
-		unsigned char * pAttachData = toAttachString(pAttach, nAttachSize);
+		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
 		int nDataSize = (sAppCallData.size()+nAttachSize+m_sSslPassword.size()-1);
 		nDataSize -= (nDataSize%m_sSslPassword.size());
 		nDataSize += sAppCallHead.size();
@@ -713,7 +813,11 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
 		memset(pSendDataTemp,0,nDataSize+20);
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
-		const int n = sprintf((char*)pSendDataTemp+sAppCallHead.size(),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
+		int n = 0;
+		if (theProtoVersion==SOTP_PROTO_VERSION_21)
+			n = sprintf((char*)pSendDataTemp+sAppCallHead.size(),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+		else
+			n = sprintf((char*)pSendDataTemp+sAppCallHead.size(),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
 		if (aes_cbc_encrypt((const unsigned char*)m_sSslPassword.c_str(),(int)m_sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+sAppCallHead.size()+n)!=0)
 		{
 			if (pLockTemp)
@@ -743,12 +847,12 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 		return true;
 	}else
 	{
-		const std::string requestData = toAppCallString(cid,nCallSign,sCallName,seq,bNeedAck);
+		const std::string requestData = toAppCallString(theProtoVersion,cid,nCallSign,sCallName,seq,bNeedAck);
 		// sendData
 		if (pAttach.get() != NULL)
 		{
 			unsigned int nAttachSize = 0;
-			unsigned char * pAttachData = toAttachString(pAttach, nAttachSize);
+			unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
 			if (pAttachData != NULL)
 			{
 				unsigned char * pSendData = new unsigned char[nAttachSize+requestData.size()+1];
@@ -798,13 +902,13 @@ bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned l
 	//const unsigned short seq = getNextSeq();
 	const unsigned short seq = bNeedAck?getNextSeq():0;
 
-	const std::string requestData = toAppCallResult(nCallId,nCallSign,nResult,seq,bNeedAck);
+	const std::string requestData = toAppCallResult(theProtoVersion,nCallId,nCallSign,nResult,seq,bNeedAck);
 
 	// sendData
 	if (pAttach.get() != NULL)
 	{
 		unsigned int nAttachSize = 0;
-		unsigned char * pAttachData = toAttachString(pAttach, nAttachSize);
+		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
 		if (pAttachData != NULL)
 		{
 			unsigned char * pSendData = new unsigned char[nAttachSize+requestData.size()+1];
@@ -979,7 +1083,7 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 			}
 			if (ppSotp.isNeedAck())
 			{
-				const std::string requestData = toAckString(seq);
+				const std::string requestData = toAckString(theProtoVersion,seq);
 				sendData((const unsigned char*)requestData.c_str(), requestData.size());
 			}
 			CReceiveInfo::pointer pReceiveInfo;
@@ -1152,7 +1256,7 @@ bool CgcBaseClient::checkSeqTimeout(void)
 				// OnCidResend
 				if (m_pHandler)
 				{
-					if (pCidInfo->getUserData()==SotpCallTable2::PT_Active)
+					if (pCidInfo->getUserData()==SOTP_PROTO_TYPE_ACTIVE)
 						m_pHandler->OnActiveTimeout();
 					else
 						m_pHandler->OnCidTimeout(pCidInfo->getCid(), pCidInfo->getSign(), false);

@@ -26,6 +26,55 @@ namespace cgc{
 #define CGC_THREAD_STACK_MIN 1024*100	// 100K
 #define CGC_THREAD_STACK_MAX 1024000	// 1M
 
+	enum SOTP_PROTO_VERSION
+	{
+		SOTP_PROTO_VERSION_20	= 20
+		, SOTP_PROTO_VERSION_21	= 21
+	};
+	enum SOTP_PROTO_TYPE
+	{
+		SOTP_PROTO_TYPE_UNKNOWN	= 0
+		, SOTP_PROTO_TYPE_OPEN			// '1'
+		, SOTP_PROTO_TYPE_CLOSE			// '2'
+		, SOTP_PROTO_TYPE_ACTIVE		// '3'
+		, SOTP_PROTO_TYPE_CALL	= 10	// 'A'
+		, SOTP_PROTO_TYPE_ACK			// 'B'
+		, SOTP_PROTO_TYPE_P2P			// 'C'
+	};
+	enum SOTP_PROTO_ITEM_TYPE
+	{
+		SOTP_PROTO_ITEM_TYPE_UNKNOWN		= 0
+		, SOTP_PROTO_ITEM_TYPE_SID				// '1'
+		, SOTP_PROTO_ITEM_TYPE_SSLDATA			// '2'
+		, SOTP_PROTO_ITEM_TYPE_CID				// '3'
+		, SOTP_PROTO_ITEM_TYPE_SEQ				// '4'
+		, SOTP_PROTO_ITEM_TYPE_NACK				// '5'
+		, SOTP_PROTO_ITEM_TYPE_SIGN				// '6'
+		, SOTP_PROTO_ITEM_TYPE_API				// '7'
+		, SOTP_PROTO_ITEM_TYPE_PV				// '8'
+		, SOTP_PROTO_ITEM_TYPE_AT				// '9'
+		, SOTP_PROTO_ITEM_TYPE_APP				// 'A'
+		, SOTP_PROTO_ITEM_TYPE_SSL				// 'B'
+		, SOTP_PROTO_ITEM_TYPE_UA				// 'C'
+	};
+	inline char SotpInt2Char(int nChar)
+	{
+		// '1'=1
+		// 'A'=10
+		if (nChar>=10)
+			return 'A'+(nChar-10);
+		else
+			return '1'+(nChar-1);
+	}
+	inline int SotpChar2Int(char pChar)
+	{
+		// '1'=1
+		// 'A'=10
+		if (pChar>='A')
+			return 10+(pChar-'A');
+		else
+			return 1+(pChar-'1');
+	}
 	// ModuleType
 	typedef enum ModuleType
 	{

@@ -382,7 +382,7 @@ int CGCApp::MyMain(bool bServcie)
 	for (int i=0;i<20;i++)
 	{
 		m_pRsa.SetPrivatePwd(GetSaltString());
-		m_pRsa.rsa_generatekey_mem();
+		m_pRsa.rsa_generatekey_mem(1024);
 		if (m_pRsa.GetPublicKey().empty() || m_pRsa.GetPrivateKey().empty())
 		{
 			m_pRsa.SetPrivatePwd("");

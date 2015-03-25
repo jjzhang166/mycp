@@ -32,31 +32,31 @@ namespace cgc
 class SotpCallTable2
 {
 public:
-	enum ProtocolType
-	{
-		PT_Open		= 1
-		, PT_Close	= 2
-		, PT_Active	= 3
-	};
+	//enum ProtocolType
+	//{
+	//	PT_Open		= 1
+	//	, PT_Close	= 2
+	//	, PT_Active	= 3
+	//};
 
 public:
 	SotpCallTable2(void);
 
-	std::string toAckString(unsigned short seq) const;
-	std::string toSesString(ProtocolType pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const;
-	std::string toOpenSesString(unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const;
-	std::string toAppCallString(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
-	std::string toAppCallHead(void) const;
-	std::string toAppCallData(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
-	unsigned char * toAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const;
-	unsigned char * toSslDataString(const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const;
+	std::string toAckString(SOTP_PROTO_VERSION nVersion,unsigned short seq) const;
+	std::string toSesString(SOTP_PROTO_VERSION nVersion,int pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const;
+	std::string toOpenSesString(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const;
+	std::string toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
+	std::string toAppCallHead(SOTP_PROTO_VERSION nVersion) const;
+	std::string toAppCallData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
+	unsigned char * toAttachString(SOTP_PROTO_VERSION nVersion,const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const;
+	unsigned char * toSslDataString(SOTP_PROTO_VERSION nVersion,const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const;
 	// result
-	std::string toSessionResult(int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
-	std::string toAppCallResult(unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck);
-	std::string toAppCallResultHead(int retCode);
-	std::string toAppCallResultData(unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck);
+	std::string toSessionResult(SOTP_PROTO_VERSION nVersion,int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
+	std::string toAppCallResult(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck);
+	std::string toAppCallResultHead(SOTP_PROTO_VERSION nVersion,int retCode);
+	std::string toAppCallResultData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck);
 	// p2p
-	std::string toP2PTry(void) const;
+	std::string toP2PTry(SOTP_PROTO_VERSION nVersion) const;
 
 public:
 	// ENCODING
@@ -99,7 +99,7 @@ public:
 	unsigned short getNextSeq(void);
 
 protected:
-	std::string GetParametersString(void) const;
+	std::string GetParametersString(SOTP_PROTO_VERSION nVersion) const;
 
 protected:
 	boost::mutex m_mutexCid;

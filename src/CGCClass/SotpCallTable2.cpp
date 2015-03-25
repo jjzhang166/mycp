@@ -73,90 +73,253 @@ SotpCallTable2::SotpCallTable2(void)
 , m_nCurrentSeq(0)
 {}
 
-std::string SotpCallTable2::toAckString(unsigned short seq) const
+std::string SotpCallTable2::toAckString(SOTP_PROTO_VERSION nVersion,unsigned short seq) const
 {
 	char lpszBuffer[60];
-	sprintf(lpszBuffer,(_T("ACK SOTP/2.0\n")
-		_T("Seq: %d\n")),seq);
+	if (nVersion==SOTP_PROTO_VERSION_21)
+		sprintf(lpszBuffer,"B SOTP/2.1\n4%d\n",seq);
+	else
+		sprintf(lpszBuffer,"ACK SOTP/2.0\nSeq: %d\n",seq);
 	return lpszBuffer;
-	//boost::format gFormatAckRequest(_T("ACK SOTP/2.0\n")
-	//	_T("Seq: %d\n"));
-	//return	std::string((gFormatAckRequest%seq).str());
 }
 
-std::string SotpCallTable2::toSesString(ProtocolType pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const
+std::string SotpCallTable2::toSesString(SOTP_PROTO_VERSION nVersion,int pt, const tstring & sValue, unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const
 {
 	if (sValue.empty()) return _T("");
-	std::string sProtocolType = _T("");
-	std::string sNeedAck = _T("");
-	switch (pt)
+	if (nVersion==SOTP_PROTO_VERSION_21)
 	{
-	case PT_Open:
-		sProtocolType = _T("OPEN");
-		break;
-	case PT_Close:
-		sProtocolType = _T("CLOSE");
-		break;
-	case PT_Active:
-		sProtocolType = _T("ACTIVE");
-		break;
-	}
-/*
-	unsigned int nBufferSize = 50+sValue.length();
-	char * pResult = new char[nBufferSize];
-	memset(pResult, 0, nBufferSize);
-	int n = sprintf(pResult, _T("%s SOTP/2.0\n")
-			_T("Cid: %d\n")
-			_T("App: %s\n"), sProtocolType.c_str(), cid, sValue.c_str());
-	pResult[n] = '\0';
-	pOutSize = n;
-	return pResult;
-	*/
-	if (bNeedAck)
-	{
-		sNeedAck = _T("NAck: 1\n");
-		char lpszSeq[16];
-		sprintf(lpszSeq,"Seq: %d\n",seq);
-		sNeedAck.append(lpszSeq);
-	}
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
 
-	if (pt == PT_Open)
+		if (pt == SOTP_PROTO_TYPE_OPEN)
+		{
+			if (sPublicKey.empty())
+			{
+				char lpszBuffer[250];
+				sprintf(lpszBuffer,(_T("%c SOTP/2.1\n")
+					_T("%s")
+					_T("3%lu\n")
+					_T("A%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),cid,sValue.c_str());
+				return lpszBuffer;
+			}else
+			{
+				char lpszBuffer[8*1024];
+				sprintf(lpszBuffer,(_T("%c SOTP/2.1\n")
+					_T("%s")
+					_T("3%lu\n")
+					_T("A%s\n")
+					_T("B%d\n%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),cid,sValue.c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+				return lpszBuffer;
+			}
+		}else
+		{
+			char lpszBuffer[250];
+			sprintf(lpszBuffer,(_T("%c SOTP/2.1\n")
+				_T("%s")
+				_T("3%lu\n")
+				_T("1%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),cid,sValue.c_str());
+			return lpszBuffer;
+		}
+	}else
 	{
-		if (sPublicKey.empty())
+		std::string sProtocolType = _T("");
+		std::string sNeedAck = _T("");
+		switch (pt)
+		{
+		case SOTP_PROTO_TYPE_OPEN:
+			sProtocolType = _T("OPEN");
+			break;
+		case SOTP_PROTO_TYPE_CLOSE:
+			sProtocolType = _T("CLOSE");
+			break;
+		case SOTP_PROTO_TYPE_ACTIVE:
+			sProtocolType = _T("ACTIVE");
+			break;
+		}
+		/*
+		unsigned int nBufferSize = 50+sValue.length();
+		char * pResult = new char[nBufferSize];
+		memset(pResult, 0, nBufferSize);
+		int n = sprintf(pResult, _T("%s SOTP/2.0\n")
+		_T("Cid: %d\n")
+		_T("App: %s\n"), sProtocolType.c_str(), cid, sValue.c_str());
+		pResult[n] = '\0';
+		pOutSize = n;
+		return pResult;
+		*/
+		if (bNeedAck)
+		{
+			sNeedAck = _T("NAck: 1\n");
+			char lpszSeq[16];
+			sprintf(lpszSeq,"Seq: %d\n",seq);
+			sNeedAck.append(lpszSeq);
+		}
+
+		if (pt == SOTP_PROTO_TYPE_OPEN)
+		{
+			if (sPublicKey.empty())
+			{
+				char lpszBuffer[250];
+				sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
+					_T("%s")
+					_T("Cid: %lu\n")
+					_T("App: %s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str());
+				return lpszBuffer;
+			}else
+			{
+				char lpszBuffer[10240];
+				sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
+					_T("%s")
+					_T("Cid: %lu\n")
+					_T("App: %s\n")
+					_T("Ssl: %d\n%s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+				return lpszBuffer;
+			}
+		}else
 		{
 			char lpszBuffer[250];
 			sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
 				_T("%s")
 				_T("Cid: %lu\n")
-				_T("App: %s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str());
-			return lpszBuffer;
-		}else
-		{
-			char lpszBuffer[10240];
-			sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
-				_T("%s")
-				_T("Cid: %lu\n")
-				_T("App: %s\n")
-				_T("Ssl: %d\n%s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+				_T("Sid: %s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str());
 			return lpszBuffer;
 		}
-	}else
-	{
-		char lpszBuffer[250];
-		sprintf(lpszBuffer,(_T("%s SOTP/2.0\n")
-			_T("%s")
-			_T("Cid: %lu\n")
-			_T("Sid: %s\n")),sProtocolType.c_str(),sNeedAck.c_str(),cid,sValue.c_str());
-		return lpszBuffer;
 	}
 }
 
-std::string SotpCallTable2::toOpenSesString(unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const
+std::string SotpCallTable2::toOpenSesString(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned short seq, bool bNeedAck, const tstring& sPublicKey) const
 {
 	if (m_sAppName.empty()) return _T("");
 	if (m_sAccount.empty())
 	{
-		return toSesString(PT_Open, m_sAppName, cid, seq, bNeedAck, sPublicKey);
+		return toSesString(nVersion,SOTP_PROTO_TYPE_OPEN, m_sAppName, cid, seq, bNeedAck, sPublicKey);
+	}else
+	{
+		if (nVersion==SOTP_PROTO_VERSION_21)
+		{
+			std::string sNeedAck;
+			if (bNeedAck)
+			{
+				char lpszSeq[20];
+				sprintf(lpszSeq,"51\n4%d\n",seq);
+				sNeedAck = lpszSeq;
+			}
+
+			if (sPublicKey.empty())
+			{
+				char lpszBuffer[1024];
+				sprintf(lpszBuffer,(_T("1 SOTP/2.1\n")
+					_T("%s")
+					_T("3%lu\n")
+					_T("A%s\n")
+					_T("C%s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
+				return lpszBuffer;
+			}else
+			{
+				char lpszBuffer[8*1024];
+				sprintf(lpszBuffer,(_T("1 SOTP/2.1\n")
+					_T("%s")
+					_T("3%lu\n")
+					_T("A%s\n")
+					_T("C%s;pwd=%s;enc=%s\n")
+					_T("B%d\n%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+				return lpszBuffer;
+			}
+		}else
+		{
+			std::string sNeedAck = _T("");
+			if (bNeedAck)
+			{
+				sNeedAck = _T("NAck: 1\n");
+				char lpszSeq[16];
+				sprintf(lpszSeq,"Seq: %d\n",seq);
+				sNeedAck.append(lpszSeq);
+			}
+
+			/*
+			unsigned int nBufferSize = 50+m_sAppName.length()+m_sAccount.length()+m_sPasswd.length();
+			char * pResult = new char[nBufferSize];
+			memset(pResult, 0, nBufferSize);
+			int n = sprintf(pResult, _T("OPEN SOTP/2.0\n")
+			_T("Cid: %d\n")
+			_T("App: %s\n")
+			_T("Ua: %s;pwd=%s;enc=%s\n"), cid, m_sAppName.c_str(), m_sAccount.c_str(), m_sPasswd.c_str(), ModuleItem::getEncryption(m_et).c_str());
+			pResult[n] = '\0';
+			pOutSize = n;
+			return pResult;
+			*/
+
+			if (sPublicKey.empty())
+			{
+				char lpszBuffer[1024];
+				sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
+					_T("%s")
+					_T("Cid: %lu\n")
+					_T("App: %s\n")
+					_T("Ua: %s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
+				return lpszBuffer;
+			}else
+			{
+				char lpszBuffer[10240];
+				sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
+					_T("%s")
+					_T("Cid: %lu\n")
+					_T("App: %s\n")
+					_T("Ua: %s;pwd=%s;enc=%s\n")
+					_T("Ssl: %d\n%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+				return lpszBuffer;
+			}
+		}
+	}
+}
+
+std::string SotpCallTable2::toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck)
+{
+	if (sCallName.empty()) return _T("");
+
+	const std::string sParameters = GetParametersString(nVersion);
+	m_parameters.clear();
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
+
+		char lpszBuffer[1024];
+		if (m_sSessionId.empty())
+		{
+			// 2.0
+			sprintf(lpszBuffer,(_T("A SOTP/2.1\n")
+				_T("%s")
+				_T("A%s\n")
+				_T("C%s;pwd=%s;enc=\n")
+				_T("3%lu\n")
+				_T("6%lu\n")
+				_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+			tstring result(lpszBuffer);
+			result.append(sParameters);
+			return result;
+		}else
+		{
+			sprintf(lpszBuffer,(_T("A SOTP/2.1\n")
+				_T("%s")
+				_T("1%s\n")
+				_T("3%lu\n")
+				_T("6%lu\n")
+				_T("7%s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
+			tstring result(lpszBuffer);
+			result.append(sParameters);
+			return result;
+		}
 	}else
 	{
 		std::string sNeedAck = _T("");
@@ -168,63 +331,95 @@ std::string SotpCallTable2::toOpenSesString(unsigned long cid, unsigned short se
 			sNeedAck.append(lpszSeq);
 		}
 
-		/*
-		unsigned int nBufferSize = 50+m_sAppName.length()+m_sAccount.length()+m_sPasswd.length();
-		char * pResult = new char[nBufferSize];
-		memset(pResult, 0, nBufferSize);
-		int n = sprintf(pResult, _T("OPEN SOTP/2.0\n")
-			_T("Cid: %d\n")
-			_T("App: %s\n")
-			_T("Ua: %s;pwd=%s;enc=%s\n"), cid, m_sAppName.c_str(), m_sAccount.c_str(), m_sPasswd.c_str(), ModuleItem::getEncryption(m_et).c_str());
-		pResult[n] = '\0';
-		pOutSize = n;
-		return pResult;
-		*/
-
-		if (sPublicKey.empty())
+		char lpszBuffer[1024];
+		if (m_sSessionId.empty())
 		{
-			char lpszBuffer[1024];
-			sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
+			// 2.0
+			sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
 				_T("%s")
-				_T("Cid: %lu\n")
 				_T("App: %s\n")
-				_T("Ua: %s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
-			return lpszBuffer;
+				_T("Ua: %s;pwd=%s;enc=\n")
+				_T("Cid: %lu\n")
+				_T("Sign: %lu\n")
+				_T("Api: %s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+			tstring result(lpszBuffer);
+			result.append(sParameters);
+			return result;
 		}else
 		{
-			char lpszBuffer[10240];
-			sprintf(lpszBuffer,(_T("OPEN SOTP/2.0\n")
+			sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
 				_T("%s")
+				_T("Sid: %s\n")
 				_T("Cid: %lu\n")
-				_T("App: %s\n")
-				_T("Ua: %s;pwd=%s;enc=%s\n")
-				_T("Ssl: %d\n%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
-			return lpszBuffer;
+				_T("Sign: %lu\n")
+				_T("Api: %s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
+			tstring result(lpszBuffer);
+			result.append(sParameters);
+			return result;
 		}
 	}
 }
 
-std::string SotpCallTable2::toAppCallString(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck)
+std::string SotpCallTable2::toAppCallHead(SOTP_PROTO_VERSION nVersion) const
+{
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		if (m_sSessionId.empty())
+			return "A SOTP/2.1\n";
+		char lpszBuffer[60];
+		sprintf(lpszBuffer,"A SOTP/2.1\n1%s\n",m_sSessionId.c_str());
+		return lpszBuffer;
+	}else
+	{
+		if (m_sSessionId.empty())
+			return "CALL SOTP/2.0\n";
+		char lpszBuffer[60];
+		sprintf(lpszBuffer,"CALL SOTP/2.0\nSid: %s\n",m_sSessionId.c_str());
+		return lpszBuffer;
+	}
+}
+
+std::string SotpCallTable2::toAppCallData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck)
 {
 	if (sCallName.empty()) return _T("");
 
-	std::string sParameters = GetParametersString();
+	const std::string sParameters = GetParametersString(nVersion);
 	m_parameters.clear();
-	std::string sNeedAck = _T("");
-	if (bNeedAck)
+	if (nVersion==SOTP_PROTO_VERSION_21)
 	{
-		sNeedAck = _T("NAck: 1\n");
-		char lpszSeq[16];
-		sprintf(lpszSeq,"Seq: %d\n",seq);
-		sNeedAck.append(lpszSeq);
-	}
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
 
-	char lpszBuffer[8*1024];
-	if (m_sSessionId.empty())
-	{
+		char lpszBuffer[1024];
 		// 2.0
-		sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
-			_T("%s")
+		sprintf(lpszBuffer,(_T("%s")
+			_T("A%s\n")
+			_T("C%s;pwd=%s;enc=\n")
+			_T("3%lu\n")
+			_T("6%lu\n")
+			_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+		tstring result(lpszBuffer);
+		result.append(sParameters);
+		return result;
+	}else
+	{
+		std::string sNeedAck = _T("");
+		if (bNeedAck)
+		{
+			sNeedAck = _T("NAck: 1\n");
+			char lpszSeq[16];
+			sprintf(lpszSeq,"Seq: %d\n",seq);
+			sNeedAck.append(lpszSeq);
+		}
+
+		char lpszBuffer[1024];
+		// 2.0
+		sprintf(lpszBuffer,(_T("%s")
 			_T("App: %s\n")
 			_T("Ua: %s;pwd=%s;enc=\n")
 			_T("Cid: %lu\n")
@@ -233,77 +428,36 @@ std::string SotpCallTable2::toAppCallString(unsigned long cid, unsigned long nCa
 		tstring result(lpszBuffer);
 		result.append(sParameters);
 		return result;
-	}else
-	{
-		sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
-			_T("%s")
-			_T("Sid: %s\n")
-			_T("Cid: %lu\n")
-			_T("Sign: %lu\n")
-			_T("Api: %s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
-		tstring result(lpszBuffer);
-		result.append(sParameters);
-		return result;
 	}
 }
 
-std::string SotpCallTable2::toAppCallHead(void) const
-{
-	if (m_sSessionId.empty())
-		return "CALL SOTP/2.0\n";
-	char lpszBuffer[60];
-	sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
-			_T("Sid: %s\n")),m_sSessionId.c_str());
-	return lpszBuffer;
-}
-
-std::string SotpCallTable2::toAppCallData(unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck)
-{
-	if (sCallName.empty()) return _T("");
-
-	std::string sParameters = GetParametersString();
-	m_parameters.clear();
-	std::string sNeedAck = _T("");
-	if (bNeedAck)
-	{
-		sNeedAck = _T("NAck: 1\n");
-		char lpszSeq[16];
-		sprintf(lpszSeq,"Seq: %d\n",seq);
-		sNeedAck.append(lpszSeq);
-	}
-
-	char lpszBuffer[8*1024];
-	// 2.0
-	sprintf(lpszBuffer,(_T("%s")
-		_T("App: %s\n")
-		_T("Ua: %s;pwd=%s;enc=\n")
-		_T("Cid: %lu\n")
-		_T("Sign: %lu\n")
-		_T("Api: %s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
-	tstring result(lpszBuffer);
-	result.append(sParameters);
-	return result;
-}
-
-unsigned char * SotpCallTable2::toAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const
+unsigned char * SotpCallTable2::toAttachString(SOTP_PROTO_VERSION nVersion,const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const
 {
 	if (pAttach.get() == NULL || !pAttach->isHasAttach()) return NULL;
 	int nBufferSize = 50+pAttach->getName().length()+pAttach->getAttachSize();
 	unsigned char * pResult = new unsigned char[nBufferSize];
 	memset(pResult, 0, nBufferSize);
-	const int n = sprintf((char*)pResult, "At: %s;at=%lld;ai=%lld;al=%d\n", pAttach->getName().c_str(), pAttach->getTotal(), pAttach->getIndex(), pAttach->getAttachSize());
+	int n = 0;
+	if (nVersion==SOTP_PROTO_VERSION_21)
+		n = sprintf((char*)pResult, "9%s;at=%lld;ai=%lld;al=%d\n", pAttach->getName().c_str(), pAttach->getTotal(), pAttach->getIndex(), pAttach->getAttachSize());
+	else
+		n = sprintf((char*)pResult, "At: %s;at=%lld;ai=%lld;al=%d\n", pAttach->getName().c_str(), pAttach->getTotal(), pAttach->getIndex(), pAttach->getAttachSize());
 	memcpy(pResult+n, pAttach->getAttachData(), pAttach->getAttachSize());
 	pResult[n+pAttach->getAttachSize()] = '\n';
 	pOutSize = n+pAttach->getAttachSize() + 1;
 	return pResult;
 }
-unsigned char * SotpCallTable2::toSslDataString(const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const
+unsigned char * SotpCallTable2::toSslDataString(SOTP_PROTO_VERSION nVersion,const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const
 {
 	if (pSslData == NULL || nSize<=0) return NULL;
 	int nBufferSize = nSize+30;
 	unsigned char * pResult = new unsigned char[nBufferSize];
 	memset(pResult, 0, nBufferSize);
-	const int n = sprintf((char*)pResult, "Sd: %d\n", nSize);
+	int n  = 0;
+	if (nVersion==SOTP_PROTO_VERSION_21)
+		n = sprintf((char*)pResult, "2%d\n", nSize);
+	else
+		n = sprintf((char*)pResult, "Sd: %d\n", nSize);
 	memcpy(pResult+n, pSslData, nSize);
 	pResult[n+nSize] = '\n';
 	pOutSize = n+nSize + 1;
@@ -311,124 +465,215 @@ unsigned char * SotpCallTable2::toSslDataString(const unsigned char * pSslData, 
 }
 
 
-std::string SotpCallTable2::toSessionResult(int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
+std::string SotpCallTable2::toSessionResult(SOTP_PROTO_VERSION nVersion,int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
 {
-	std::string sNeedAck = _T("");
-	if (bNeedAck)
+	if (nVersion==SOTP_PROTO_VERSION_21)
 	{
-		sNeedAck = _T("NAck: 1\n");
-		char lpszSeq[16];
-		sprintf(lpszSeq,"Seq: %d\n",seq);
-		sNeedAck.append(lpszSeq);
-	}
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
 
-	std::string sType = _T("");
-	switch (prototype)
-	{
-	case PT_Open:
-		sType = _T("OPEN");
-		break;
-	case PT_Close:
-		sType = _T("CLOSE");
-		break;
-	case PT_Active:
-		sType = _T("ACTIVE");
-		break;
-	case 10:
-		sType = _T("OPEN");	// 用于临时打开SESSION
-		break;
-	default:
-		sType = _T("UNKNOWN");
-		break;
-	}
+		//std::string sType = _T("");
+		//switch (prototype)
+		//{
+		//case SOTP_PROTO_TYPE_OPEN:
+		//	sType = _T("OPEN");
+		//	break;
+		//case SOTP_PROTO_TYPE_CLOSE:
+		//	sType = _T("CLOSE");
+		//	break;
+		//case SOTP_PROTO_TYPE_ACTIVE:
+		//	sType = _T("ACTIVE");
+		//	break;
+		//case 10:
+		//	sType = _T("OPEN");	// 用于临时打开SESSION
+		//	break;
+		//default:
+		//	sType = _T("UNKNOWN");
+		//	break;
+		//}
+		if (prototype==SOTP_PROTO_TYPE_CALL)
+			prototype=SOTP_PROTO_TYPE_OPEN;
 
-	//tstring sValue;
-//	if (m_sEncoding.compare(_T("UTF-8")) == 0)
-//	{
-//#ifdef WIN32
-//		sValue = sSessionId;
-//#else
-//		cgcString::GB2312ToUTF_8(sValue, sSessionId.c_str(), sSessionId.length());
-//#endif
-//	}else
-	//{
-	//	sValue = sSessionId;
-	//}
-
-	if (prototype==PT_Open && !sSslPublicKey.empty())
-	{
-		char lpszBuffer[10240];
-		sprintf(lpszBuffer,(_T("%s SOTP/2.0 %d\n")
-			_T("%s")
-			_T("Cid: %lu\n")
-			_T("Sid: %s\n")
-			_T("Ssl: %d\n%s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str(),(int)sSslPublicKey.size(),sSslPublicKey.c_str());
-		return lpszBuffer;
+		if (prototype==SOTP_PROTO_TYPE_OPEN && !sSslPublicKey.empty())
+		{
+			char lpszBuffer[8*1024];
+			sprintf(lpszBuffer,(_T("%c SOTP/2.1 %d\n")
+				_T("1%s\n")
+				_T("%s")
+				_T("3%lu\n")
+				_T("B%d\n%s\n")),SotpInt2Char(prototype),retCode,sSessionId.c_str(),sNeedAck.c_str(),cid,(int)sSslPublicKey.size(),sSslPublicKey.c_str());
+			return lpszBuffer;
+		}else
+		{
+			char lpszBuffer[100];
+			sprintf(lpszBuffer,(_T("%c SOTP/2.1 %d\n")
+				_T("1%s\n")
+				_T("%s")
+				_T("3%lu\n")),SotpInt2Char(prototype),retCode,sSessionId.c_str(),sNeedAck.c_str(),cid);
+			return lpszBuffer;
+		}
 	}else
 	{
+		std::string sNeedAck = _T("");
+		if (bNeedAck)
+		{
+			sNeedAck = _T("NAck: 1\n");
+			char lpszSeq[16];
+			sprintf(lpszSeq,"Seq: %d\n",seq);
+			sNeedAck.append(lpszSeq);
+		}
+
+		std::string sType = _T("");
+		switch (prototype)
+		{
+		case SOTP_PROTO_TYPE_OPEN:
+			sType = _T("OPEN");
+			break;
+		case SOTP_PROTO_TYPE_CLOSE:
+			sType = _T("CLOSE");
+			break;
+		case SOTP_PROTO_TYPE_ACTIVE:
+			sType = _T("ACTIVE");
+			break;
+		case 10:
+			sType = _T("OPEN");	// 用于临时打开SESSION
+			break;
+		default:
+			sType = _T("UNKNOWN");
+			break;
+		}
+
+		if (prototype==SOTP_PROTO_TYPE_OPEN && !sSslPublicKey.empty())
+		{
+			char lpszBuffer[10240];
+			sprintf(lpszBuffer,(_T("%s SOTP/2.0 %d\n")
+				_T("%s")
+				_T("Cid: %lu\n")
+				_T("Sid: %s\n")
+				_T("Ssl: %d\n%s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str(),(int)sSslPublicKey.size(),sSslPublicKey.c_str());
+			return lpszBuffer;
+		}else
+		{
+			char lpszBuffer[100];
+			sprintf(lpszBuffer,(_T("%s SOTP/2.0 %ld\n")
+				_T("%s")
+				_T("Cid: %lu\n")
+				_T("Sid: %s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str());
+			return lpszBuffer;
+		}
+	}
+}
+
+std::string SotpCallTable2::toAppCallResult(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck)
+{
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
+
+		const std::string responseValues = GetParametersString(nVersion);
+		m_parameters.clear();
 		char lpszBuffer[100];
-		sprintf(lpszBuffer,(_T("%s SOTP/2.0 %ld\n")
+		sprintf(lpszBuffer,(_T("A SOTP/2.1 %d\n")
+			_T("%s")
+			_T("3%lu\n")
+			_T("6%lu\n")),retCode,sNeedAck.c_str(),cid,sign);
+		tstring result(lpszBuffer);
+		result.append(responseValues);
+		return result;
+	}else
+	{
+		std::string sNeedAck = _T("");
+		if (bNeedAck)
+		{
+			sNeedAck = _T("NAck: 1\n");
+			char lpszSeq[16];
+			sprintf(lpszSeq,"Seq: %d\n",seq);
+			sNeedAck.append(lpszSeq);
+		}
+
+		const std::string responseValues = GetParametersString(nVersion);
+		m_parameters.clear();
+		char lpszBuffer[100];
+		sprintf(lpszBuffer,(_T("CALL SOTP/2.0 %d\n")
 			_T("%s")
 			_T("Cid: %lu\n")
-			_T("Sid: %s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str());
-		return lpszBuffer;
+			_T("Sign: %lu\n")),retCode,sNeedAck.c_str(),cid,sign);
+		tstring result(lpszBuffer);
+		result.append(responseValues);
+		return result;
 	}
 }
-
-std::string SotpCallTable2::toAppCallResult(unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck)
-{
-	std::string sNeedAck = _T("");
-	if (bNeedAck)
-	{
-		sNeedAck = _T("NAck: 1\n");
-		char lpszSeq[16];
-		sprintf(lpszSeq,"Seq: %d\n",seq);
-		sNeedAck.append(lpszSeq);
-	}
-
-	const std::string responseValues = GetParametersString();
-	m_parameters.clear();
-	char lpszBuffer[100];
-	sprintf(lpszBuffer,(_T("CALL SOTP/2.0 %d\n")
-		_T("%s")
-		_T("Cid: %lu\n")
-		_T("Sign: %lu\n")),retCode,sNeedAck.c_str(),cid,sign);
-	tstring result(lpszBuffer);
-	result.append(responseValues);
-	return result;
-}
-std::string SotpCallTable2::toAppCallResultHead(int retCode)
-{
-	char lpszBuffer[64];
-	sprintf(lpszBuffer,"CALL SOTP/2.0 %d\n",retCode);
-	return lpszBuffer;
-}
-std::string SotpCallTable2::toAppCallResultData(unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck)
-{
-	std::string sNeedAck = _T("");
-	if (bNeedAck)
-	{
-		sNeedAck = _T("NAck: 1\n");
-		char lpszSeq[16];
-		sprintf(lpszSeq,"Seq: %d\n",seq);
-		sNeedAck.append(lpszSeq);
-	}
-
-	const std::string responseValues = GetParametersString();
-	m_parameters.clear();
-	char lpszBuffer[100];
-	sprintf(lpszBuffer,(_T("%s")
-		_T("Cid: %lu\n")
-		_T("Sign: %lu\n")),sNeedAck.c_str(),cid,sign);
-	tstring result(lpszBuffer);
-	result.append(responseValues);
-	return result;
-}
-
-std::string SotpCallTable2::toP2PTry(void) const
+std::string SotpCallTable2::toAppCallResultHead(SOTP_PROTO_VERSION nVersion,int retCode)
 {
 	char lpszBuffer[32];
-	sprintf(lpszBuffer,(_T("P2P SOTP/2.0\n")));
+	if (nVersion==SOTP_PROTO_VERSION_21)
+		sprintf(lpszBuffer,"A SOTP/2.1 %d\n",retCode);
+	else
+		sprintf(lpszBuffer,"CALL SOTP/2.0 %d\n",retCode);
+	return lpszBuffer;
+}
+std::string SotpCallTable2::toAppCallResultData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck)
+{
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
+
+		const std::string responseValues = GetParametersString(nVersion);
+		m_parameters.clear();
+		char lpszBuffer[100];
+		sprintf(lpszBuffer,(_T("%s")
+			_T("3%lu\n")
+			_T("6%lu\n")),sNeedAck.c_str(),cid,sign);
+		tstring result(lpszBuffer);
+		result.append(responseValues);
+		return result;
+	}else
+	{
+		std::string sNeedAck = _T("");
+		if (bNeedAck)
+		{
+			sNeedAck = _T("NAck: 1\n");
+			char lpszSeq[16];
+			sprintf(lpszSeq,"Seq: %d\n",seq);
+			sNeedAck.append(lpszSeq);
+		}
+
+		const std::string responseValues = GetParametersString(nVersion);
+		m_parameters.clear();
+		char lpszBuffer[100];
+		sprintf(lpszBuffer,(_T("%s")
+			_T("Cid: %lu\n")
+			_T("Sign: %lu\n")),sNeedAck.c_str(),cid,sign);
+		tstring result(lpszBuffer);
+		result.append(responseValues);
+		return result;
+	}
+}
+
+std::string SotpCallTable2::toP2PTry(SOTP_PROTO_VERSION nVersion) const
+{
+	char lpszBuffer[32];
+	if (nVersion==SOTP_PROTO_VERSION_21)
+		sprintf(lpszBuffer,(_T("C SOTP/2.1\n")));
+	else
+		sprintf(lpszBuffer,(_T("P2P SOTP/2.0\n")));
 	return lpszBuffer;
 }
 
@@ -472,7 +717,7 @@ unsigned short SotpCallTable2::getNextSeq(void)
 	return ++m_nCurrentSeq;
 }
 
-std::string SotpCallTable2::GetParametersString(void) const
+std::string SotpCallTable2::GetParametersString(SOTP_PROTO_VERSION nVersion) const
 {
 	//boost::format fRV(_T("Pv: %s;pt=%s;pl=%d\n%s\n"));
 	char lpszBuffer[1024];
@@ -507,7 +752,10 @@ std::string SotpCallTable2::GetParametersString(void) const
 			paramValueLength = targetLen-1;
 		}
 #endif // _UNICODE
-		sprintf(lpszBuffer,"Pv: %s;pt=%s;pl=%d\n",paramName.c_str(),paramType.c_str(),paramValueLength);
+		if (nVersion==SOTP_PROTO_VERSION_21)
+			sprintf(lpszBuffer,"8%s;pt=%s;pl=%d\n",paramName.c_str(),paramType.c_str(),paramValueLength);
+		else
+			sprintf(lpszBuffer,"Pv: %s;pt=%s;pl=%d\n",paramName.c_str(),paramType.c_str(),paramValueLength);
 		tstring sParam(lpszBuffer);
 		sParam.append(paramValue);
 		sParam.append("\n");

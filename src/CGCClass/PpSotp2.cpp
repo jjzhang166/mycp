@@ -123,7 +123,7 @@ double CPPSotp2::getRecvParameterValue(const tstring & sParamName, double fDefau
 // Response
 std::string CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
 {
-	return toSessionResult(getProtoType(), getCallid(), retCode, sSessionId, seq, bNeedAck, sSslPublicKey);
+	return toSessionResult(getSotpVersion(),getProtoType(), getCallid(), retCode, sSessionId, seq, bNeedAck, sSslPublicKey);
 //	std::string sNeedAck = _T("");
 //	if (bNeedAck)
 //	{
@@ -174,7 +174,7 @@ std::string CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, 
 
 std::string CPPSotp2::getAppCallResult(int retCode, unsigned short seq, bool bNeedAck)
 {
-	return toAppCallResult(getCallid(), getSign(), retCode, seq, bNeedAck);
+	return toAppCallResult(this->getSotpVersion(),getCallid(), getSign(), retCode, seq, bNeedAck);
 //	std::string sNeedAck = _T("");
 //	if (bNeedAck)
 //	{
@@ -195,16 +195,16 @@ std::string CPPSotp2::getAppCallResult(int retCode, unsigned short seq, bool bNe
 }
 std::string CPPSotp2::getAppCallResultHead(int retCode)
 {
-	return toAppCallResultHead(retCode);
+	return toAppCallResultHead(this->getSotpVersion(),retCode);
 }
 std::string CPPSotp2::getAppCallResultData(unsigned short seq, bool bNeedAck)
 {
-	return toAppCallResultData(getCallid(), getSign(), seq, bNeedAck);
+	return toAppCallResultData(this->getSotpVersion(),getCallid(), getSign(), seq, bNeedAck);
 }
 
 std::string CPPSotp2::getAckResult(unsigned short seq)
 {
-	return toAckString(seq);
+	return toAckString(this->getSotpVersion(),seq);
 	//boost::format gFormatResponse(_T("ACK SOTP/2.0\n")
 	//	_T("Seq: %d\n"));
 	//return std::string((gFormatResponse%seq).str());
@@ -236,7 +236,7 @@ void CPPSotp2::setResAttach(const cgcAttachment::pointer& pAttach)
 
 unsigned char * CPPSotp2::getResAttachString(unsigned int & pOutSize)
 {
-	unsigned char * result = SotpCallTable2::toAttachString(m_attach, pOutSize);
+	unsigned char * result = SotpCallTable2::toAttachString(this->getSotpVersion(),m_attach, pOutSize);
 	if (result!=NULL)
 	{
 		m_attach = cgcAttachment::create();
@@ -246,7 +246,7 @@ unsigned char * CPPSotp2::getResAttachString(unsigned int & pOutSize)
 
 unsigned char * CPPSotp2::getResSslString(const tstring& sSslPassword,unsigned int & pOutSize)
 {
-	if (getProtoType()==PT_Open && isSslRequest() && !sSslPassword.empty())
+	if (getProtoType()==SOTP_PROTO_TYPE_OPEN && isSslRequest() && !sSslPassword.empty())
 	{
 		CRSA pRsa;
 		pRsa.SetPublicKey(getSslPublicKey());
@@ -256,7 +256,7 @@ unsigned char * CPPSotp2::getResSslString(const tstring& sSslPassword,unsigned i
 		const int nLen = pRsa.rsa_public_encrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),&pSslData);
 		if (nLen<0)
 			return NULL;
-		unsigned char* result = toSslDataString(pSslData,nLen,pOutSize);
+		unsigned char* result = toSslDataString(this->getSotpVersion(),pSslData,nLen,pOutSize);
 		delete[] pSslData;
 		return result;
 	}

@@ -288,6 +288,7 @@ protected:
 	// ssl
 	tstring m_sSslPassword;	// from mycp server
 	CRSA m_pRsaSrc;
+	int m_nUserSslInfo;		// 1=mem; 2=file
 	//CRSA m_pRsaDes;
 
 private:
@@ -345,6 +346,7 @@ private:
 	ULongPtrMap m_mapCidPtr;
 
 	tstring m_currentPath;
+	SOTP_PROTO_VERSION theProtoVersion;
 
 };
 

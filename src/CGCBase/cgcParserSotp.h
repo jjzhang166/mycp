@@ -34,6 +34,7 @@ public:
 	typedef boost::shared_ptr<cgcParserSotp> pointer;
 
 	// protocol
+	virtual SOTP_PROTO_VERSION getSotpVersion(void) const = 0;
 	virtual bool isSessionProto(void) const = 0;
 	virtual bool isAppProto(void) const = 0;
 	virtual bool isAckProto(void) const = 0;
@@ -44,12 +45,12 @@ public:
 	virtual bool isCloseType(void) const = 0;
 	virtual bool isActiveType(void) const = 0;
 	virtual bool isCallType(void) const = 0;
-	virtual bool isQueryType(void) const = 0;
+	//virtual bool isQueryType(void) const = 0;
 	virtual int getProtoType(void) const = 0;
 
 	virtual bool isResulted(void) const = 0;
 //	virtual const tstring & getResultString(void) const = 0;
-	virtual long getResultValue(void) const = 0;
+	virtual int getResultValue(void) const = 0;
 
 	virtual bool isNeedAck(void) const = 0;
 	virtual bool hasSeq(void) const = 0;
@@ -89,7 +90,7 @@ public:
 	virtual std::string getAppCallResultHead(int retCode) = 0;
 	virtual std::string getAppCallResultData(unsigned short seq, bool bNeedAck) = 0;
 	virtual std::string getAckResult(unsigned short seq) = 0;
-	virtual unsigned char * getAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const = 0;
+	virtual unsigned char * getAttachString(const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const = 0;
 	// P2P
 	virtual std::string getP2PTry(void) const = 0;
 

@@ -38,11 +38,14 @@ public:
 	virtual ~ParseCgcSotp2(void);
 
 public:
-	bool isSessionProto(void) const {return m_nCgcProto==1;}
-	bool isAppProto(void) const {return m_nCgcProto==2;}
-	void setAppProto(void) {m_nCgcProto=2;}
-	bool isAckProto(void) const {return m_nCgcProto==3;}
-	bool isP2PProto(void) const {return m_nCgcProto==4;}
+	// 21=SOTP/2.1
+	// 20=SOTP/2.0
+	SOTP_PROTO_VERSION getSotpVersion(void) const {return m_nSotpVersion;}
+	bool isSessionProto(void) const {return m_nProtoType<=SOTP_PROTO_TYPE_ACTIVE;}
+	bool isAppProto(void) const {return m_nProtoType==SOTP_PROTO_TYPE_CALL;}
+	void setAppProto(void) {m_nProtoType=SOTP_PROTO_TYPE_CALL;}
+	bool isAckProto(void) const {return m_nProtoType==SOTP_PROTO_TYPE_ACK;}
+	bool isP2PProto(void) const {return m_nProtoType==SOTP_PROTO_TYPE_P2P;}
 	//bool isClusterProto(void) const {return m_nCgcProto==3;}
 	int getProtoType(void) const {return m_nProtoType;}
 
@@ -55,17 +58,17 @@ public:
 	//void setProtoValue(const tstring & newv) {m_sProtoValue = newv;}
 	//const tstring & getProtoValue(void) const {return m_sProtoValue;}
 
-	bool isOpenType(void) const {return m_nProtoType==1;}
-	bool isCloseType(void) const {return m_nProtoType==2;}
-	bool isActiveType(void) const {return m_nProtoType==3;}
-	void setCallType(void) {m_nProtoType = 10;}
-	bool isCallType(void) const {return m_nProtoType==10;}
-	bool isQueryType(void) const {return m_nProtoType==20;}
-	bool isVerifyType(void) const {return m_nProtoType==21;}
+	bool isOpenType(void) const {return m_nProtoType==SOTP_PROTO_TYPE_OPEN;}
+	bool isCloseType(void) const {return m_nProtoType==SOTP_PROTO_TYPE_CLOSE;}
+	bool isActiveType(void) const {return m_nProtoType==SOTP_PROTO_TYPE_ACTIVE;}
+	void setCallType(void) {m_nProtoType = SOTP_PROTO_TYPE_CALL;}
+	bool isCallType(void) const {return m_nProtoType==SOTP_PROTO_TYPE_CALL;}
+	//bool isQueryType(void) const {return m_nProtoType==20;}
+	//bool isVerifyType(void) const {return m_nProtoType==21;}
 
 	bool isResulted(void) const {return m_bResulted;}
 //	const tstring & getResultString(void) const {return m_sResultValue;}
-	long getResultValue(void) const {return m_nResultValue;}
+	int getResultValue(void) const {return m_nResultValue;}
 
 	void setAccount(const tstring & newv) {m_sAccount = newv;}
 	const tstring & getAccount(void) const {return m_sAccount;}
@@ -131,8 +134,9 @@ private:
 	cgcParserCallback* m_pCallback;
 	//ClusterSvrList m_custerSvrList;
 
-	int m_nCgcProto;		// 1: session, 2: app, 3: cluster 4: p2p
-	int m_nProtoType;		// 1:open, 2:close, 3:active, 10:call, 20:query, 21:verify
+	SOTP_PROTO_VERSION m_nSotpVersion;
+	//int m_nCgcProto;		// 1: session, 2: app, 3: cluster 4: p2p
+	SOTP_PROTO_TYPE m_nProtoType;		// 1:open, 2:close, 3:active, 10:call, 20:query, 21:verify
 	//tstring m_sProtoValue;
 	bool m_bHasSeq;
 	unsigned short m_seq;
@@ -149,7 +153,7 @@ private:
 	unsigned long m_nSign;				// sign
 	bool m_bResulted;
 //	tstring m_sResultValue;
-	long m_nResultValue;
+	int m_nResultValue;
 
 	tstring m_sAccount;		// for open session, query cluster
 	tstring m_sPasswd;

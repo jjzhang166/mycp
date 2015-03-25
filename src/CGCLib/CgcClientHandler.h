@@ -50,7 +50,13 @@ namespace cgc
 	enum SOTP_CLIENT_CONFIG_TYPE
 	{
 		SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE	= 1
-		, SOTP_CLIENT_CONFIG_USES_SSL
+		, SOTP_CLIENT_CONFIG_USES_SSL						// 0/1 (write only)
+		, SOTP_CLIENT_CONFIG_PUBLIC_KEY						// const char* (write only)
+		, SOTP_CLIENT_CONFIG_PRIVATE_KEY					// const char* (write only)
+		, SOTP_CLIENT_CONFIG_PUBLIC_FILE					// const char* (write only)
+		, SOTP_CLIENT_CONFIG_PRIVATE_FILE					// const char* (write only)
+		, SOTP_CLIENT_CONFIG_PRIVATE_PWD					// const char* (write only)
+		, SOTP_CLIENT_CONFIG_SOTP_VERSION			= 10	// 20,21 default 20
 	};
 
 	class DoSotpClientHandler

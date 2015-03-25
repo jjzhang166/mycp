@@ -66,6 +66,7 @@ public:
 	virtual void setParseCallback(cgcParserCallback* pCallback) {m_pCallback = pCallback;}
 	virtual bool doParse(const unsigned char * requestData, size_t size,const char* sEncoding="");
 
+	virtual SOTP_PROTO_VERSION getSotpVersion(void) const {return m_cgcInvoke.getSotpVersion();}
 	virtual bool isSessionProto(void) const {return m_cgcInvoke.isSessionProto();}
 	virtual bool isAppProto(void) const {return m_cgcInvoke.isAppProto();}
 	virtual bool isAckProto(void) const {return m_cgcInvoke.isAckProto();}
@@ -76,12 +77,12 @@ public:
 	virtual bool isCloseType(void) const {return m_cgcInvoke.isCloseType();}
 	virtual bool isActiveType(void) const {return m_cgcInvoke.isActiveType();}
 	virtual bool isCallType(void) const {return m_cgcInvoke.isCallType();}
-	virtual bool isQueryType(void) const {return m_cgcInvoke.isQueryType();}
+	//virtual bool isQueryType(void) const {return m_cgcInvoke.isQueryType();}
 	virtual int getProtoType(void) const {return m_cgcInvoke.getProtoType();}
 
 	virtual bool isResulted(void) const {return m_cgcInvoke.isResulted();}
 //	virtual const tstring & getResultString(void) const {return m_cgcInvoke.getResultString();}
-	virtual long getResultValue(void) const {return m_cgcInvoke.getResultValue();}
+	virtual int getResultValue(void) const {return m_cgcInvoke.getResultValue();}
 
 	virtual unsigned short getSeq(void) const {return m_cgcInvoke.getSeq();}
 	virtual bool hasSeq(void) const {return m_cgcInvoke.hasSeq();}
@@ -124,9 +125,9 @@ public:
 	virtual std::string getAppCallResultHead(int retCode);
 	virtual std::string getAppCallResultData(unsigned short seq, bool bNeedAck);
 	virtual std::string getAckResult(unsigned short seq);
-	virtual unsigned char * getAttachString(cgcAttachment::pointer pAttach, unsigned int & pOutSize) const {return SotpCallTable2::toAttachString(pAttach, pOutSize);}
+	virtual unsigned char * getAttachString(const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const {return SotpCallTable2::toAttachString(getSotpVersion(),pAttach, pOutSize);}
 	// P2P
-	virtual std::string getP2PTry(void) const {return SotpCallTable2::toP2PTry();}
+	virtual std::string getP2PTry(void) const {return SotpCallTable2::toP2PTry(this->getSotpVersion());}
 
 	// Parameters
 	virtual void setResParameter(const cgcParameter::pointer& parameter, bool bSetForce) {SotpCallTable2::setParameter(parameter,bSetForce);}

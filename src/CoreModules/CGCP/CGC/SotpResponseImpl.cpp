@@ -181,7 +181,11 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
 		memset(pSendDataTemp,0,nDataSize+20);
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
-		const int n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
+		int n = 0;
+		if (m_cgcParser->getSotpVersion()==SOTP_PROTO_VERSION_21)
+			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+		else
+			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
 		if (aes_cbc_encrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
 		{
 			if (pSendLockTemp)

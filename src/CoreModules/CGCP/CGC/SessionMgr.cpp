@@ -67,9 +67,9 @@ CSessionImpl::CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemot
 	{
 		static unsigned short the_sid_index=0;
 		the_sid_index++;
-		char lpBuf[20];
-		memset(lpBuf, 0, sizeof(lpBuf));
-		sprintf(lpBuf, "%08X%02X%02X",m_tCreationTime,rand()%0xFF,the_sid_index%0xFF);
+		char lpBuf[18];
+		memset(lpBuf, 0, 18);
+		sprintf(lpBuf, "%08X%02X%02X",(int)m_tCreationTime,the_sid_index%0xFF,m_pcgcRemote->getRemoteId()%0xFF);
 		m_sSessionId = lpBuf;
 	}
 

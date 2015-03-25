@@ -132,12 +132,18 @@ void cgc_start(void)
 	// Specify the connection module name.
 	gSotpClientHandler->doSetAppName(appname);
 	// add by hd 2015-03-24
+	gSotpClientHandler->doSetConfig(SOTP_CLIENT_CONFIG_SOTP_VERSION,SOTP_PROTO_VERSION_21);
 	gSotpClientHandler->doSetConfig(SOTP_CLIENT_CONFIG_USES_SSL,1);
 	gSotpClientHandler->doSendOpenSession();
 	while(true)
 	{
 		if (!gSotpClientHandler->doGetSessionId().empty())
 			break;
+#ifdef WIN32
+		Sleep(1000);
+#else
+		sleep(1);
+#endif
 	}
 }
 
