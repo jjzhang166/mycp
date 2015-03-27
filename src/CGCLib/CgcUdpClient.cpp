@@ -166,6 +166,7 @@ bool CgcUdpClient::doSetConfig(int nConfig, unsigned int nInValue)
 }
 void CgcUdpClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 {
+	CgcBaseClient::doGetConfig(nConfig,nOutValue);
 	switch (nConfig)
 	{
 	case SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE:

@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.59])
-AC_INIT(CGCP, 1.0.6, akee.yang@gmail.com)
+AC_INIT(CGCP, 2.0.0, akee.yang@gmail.com)
 AC_CONFIG_SRCDIR(CGCP/CGCP.cpp)
-AM_INIT_AUTOMAKE(CGCP, 1.0.6)
+AM_INIT_AUTOMAKE(CGCP, 2.0.0)
 
 # Checks for programs.
 AC_PROG_CXX

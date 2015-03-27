@@ -72,6 +72,28 @@ public:
 	static int ParseString(const char * lpszString, const char * lpszInterval, std::vector<std::string> & pOut);
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
 
+	class CIndexInfo
+	{
+	public:
+		typedef boost::shared_ptr<CIndexInfo> pointer;
+		//std::string m_sSessionId;
+		std::string m_sSslPassword;
+
+		static CIndexInfo::pointer create(void)
+		{
+			return CIndexInfo::pointer(new CIndexInfo());
+		}
+		//static CIndexInfo::pointer create(const std::string& sSessionId,const std::string& sSslPassword)
+		//{
+		//	return CIndexInfo::pointer(new CIndexInfo(sSessionId, sSslPassword));
+		//}
+		//CIndexInfo(const std::string& sSessionId,const std::string& sSslPassword)
+		//	: m_sSessionId(sSessionId), m_sSslPassword(sSslPassword)
+		//{}
+		CIndexInfo(void)
+		{}
+	};
+
 protected:
 	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort) = 0;
 	virtual void stopClient(void) = 0;
@@ -87,8 +109,8 @@ protected:
 	// cgcParserCallback 
 	virtual tstring onGetSslPrivateKey(void) const {return m_pRsaSrc.GetPrivateKey();}
 	virtual tstring onGetSslPrivatePwd(void) const {return m_pRsaSrc.GetPrivatePwd();}
-	virtual tstring onGetSslPassword(const tstring& sSessionId) const {return (sSessionId.empty() || getSessionId()==sSessionId)?m_sSslPassword:"";}
-	//virtual tstring onGetSslPassword(const tstring& sSessionId) const {return getSessionId()==sSessionId?m_sSslPassword:"";}
+	virtual tstring onGetSslPassword(const tstring& sSessionId) const;
+	//virtual tstring onGetSslPassword(const tstring& sSessionId) const {return (sSessionId.empty() || getSessionId()==sSessionId)?m_sSslPassword:"";}
 
 	// DoSotpClientHandler handler
 	virtual void doSetResponseHandler(CgcClientHandler * newValue) {setHandler(newValue);}
@@ -96,11 +118,11 @@ protected:
 	virtual void doSetDisableSotpParser(bool newv) {m_bDisableSotpparser = newv;}
 
 	virtual bool doSetConfig(int nConfig, unsigned int nInValue);
-	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const {}
-	virtual void doFreeConfig(int nConfig, unsigned int nInValue) const {}
+	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const;
+	virtual void doFreeConfig(int nConfig, unsigned int nInValue) const;
 
 	// session
-	virtual bool doSendOpenSession(unsigned long * pOutCallId) {return sendOpenSession(pOutCallId);}
+	virtual bool doSendOpenSession(short nMaxWaitSecons,unsigned long * pOutCallId) {return sendOpenSession(nMaxWaitSecons,pOutCallId);}
 	virtual void doSendCloseSession(unsigned long * pOutCallId) {sendCloseSession(pOutCallId);}
 	virtual bool doIsSessionOpened(void) const {return isSessionOpened();}
 	virtual const tstring & doGetSessionId(void) const {return getSessionId();}
@@ -210,7 +232,7 @@ public:
 
 	//
 	// Send open session request.
-	bool sendOpenSession(unsigned long * pCallId = 0);
+	bool sendOpenSession(short nMaxWaitSecons,unsigned long * pCallId = 0);
 	//
 	// from sendOpenSession(...)
 //	const tstring & getAppName(void) const {return m_sAppName;}
@@ -289,8 +311,8 @@ protected:
 	tstring m_sSslPassword;	// from mycp server
 	CRSA m_pRsaSrc;
 	int m_nUserSslInfo;		// 1=mem; 2=file
-	//CRSA m_pRsaDes;
-
+	CIndexInfo::pointer m_pCurrentIndexInfo;
+	CLockMap<unsigned int,CIndexInfo::pointer> m_pIndexInfoList;
 private:
 	CgcClientHandler * m_pHandler;
 //	unsigned int m_clientState;

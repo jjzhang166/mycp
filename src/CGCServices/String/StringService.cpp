@@ -530,7 +530,8 @@ protected:
 			bool bConvert2t16 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert2t16 = inParam->getVector()[2]->getBoolean();
-			const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
+			const int nOutLen = ((in.size()+15)/16)*16;
+			//const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
 			unsigned char* out = new unsigned char[nOutLen+1];
 			memset(out,0,nOutLen+1);
 			const int ret = aes_ecb_encrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),(int)in.size(),out);
@@ -585,22 +586,31 @@ protected:
 					memcpy(lpszIn,sInString.c_str(),nInLen);
 				}
 			}
+			if (nInLen==0 || (nInLen%16)!=0) return false;
 			bool bSave2Buffer = false;
 			if (inParam->getVector().size()>=4)
 				bSave2Buffer = inParam->getVector()[3]->getBoolean();
 
 			unsigned char* out = new unsigned char[nInLen+1];
+			out[nInLen] = '\0';
 			const int ret = aes_ecb_decrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
 			if (ret==0)
 			{
 				int nOutLen = nInLen;
 				for (int i=0;i<16;i++)
 				{
-					if (nOutLen>0 && out[nOutLen--]==(unsigned char)0)
-					{
+					if (out[nInLen-i-1]!=(unsigned char)0)
 						break;
-					}
+					else if (nOutLen>0)
+						nOutLen--;
 				}
+				//for (int i=0;i<16;i++)
+				//{
+				//	if (nOutLen>0 && out[nOutLen--]==(unsigned char)0)
+				//	{
+				//		break;
+				//	}
+				//}
 				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
 				if (bSave2Buffer)
 				{
@@ -628,9 +638,10 @@ protected:
 			bool bConvert2t16 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert2t16 = inParam->getVector()[2]->getBoolean();
-			const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
+			const int nOutLen = ((in.size()+15)/16)*16;
+			//const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
 			unsigned char* out = new unsigned char[nOutLen+1];
-			const int ret = aes_cbc_encrypt((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),in.length(),out);
+			const int ret = aes_cbc_encrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),in.length(),out);
 			if (ret==0)
 			{
 				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
@@ -682,22 +693,30 @@ protected:
 					memcpy(lpszIn,sInString.c_str(),nInLen);
 				}
 			}
+			if (nInLen==0 || (nInLen%16)!=0) return false;
 			bool bSave2Buffer = false;
 			if (inParam->getVector().size()>=4)
 				bSave2Buffer = inParam->getVector()[3]->getBoolean();
 
 			unsigned char* out = new unsigned char[nInLen+1];
-			const int ret = aes_cbc_decrypt((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
+			const int ret = aes_cbc_decrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
 			if (ret==0)
 			{
 				int nOutLen = nInLen;
 				for (int i=0;i<16;i++)
 				{
-					if (nOutLen>0 && out[nOutLen--]==(unsigned char)0)
-					{
+					if (out[nInLen-i-1]!=(unsigned char)0)
 						break;
-					}
+					else if (nOutLen>0)
+						nOutLen--;
 				}
+				//for (int i=0;i<16;i++)
+				//{
+				//	if (nOutLen>0 && out[nOutLen--]==(unsigned char)0)
+				//	{
+				//		break;
+				//	}
+				//}
 				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
 				if (bSave2Buffer)
 				{

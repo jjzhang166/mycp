@@ -165,28 +165,28 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 		const std::string sAppCallHead = m_cgcParser->getAppCallResultHead(retCode);
 		const std::string sAppCallData = m_cgcParser->getAppCallResultData(seq, bNeedAck);
 
+		// AES_BLOCK_SIZE
+
 		unsigned int nAttachSize = 0;
 		unsigned char * pAttachData = m_cgcParser->getResAttachString(nAttachSize);
-		int nDataSize = (sAppCallData.size()+nAttachSize+sSslPassword.size()-1);
-		nDataSize -= (nDataSize%sSslPassword.size());
+		int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
+		const int nSslSize = nDataSize;
 		nDataSize += sAppCallHead.size();
 		unsigned char * pSendData = new unsigned char[nDataSize+1];
-		memset(pSendData,0,nDataSize+1);
 		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
 		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
 		{
 			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
 		}
-		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
-		memset(pSendDataTemp,0,nDataSize+20);
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+24];
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
 		int n = 0;
 		if (m_cgcParser->getSotpVersion()==SOTP_PROTO_VERSION_21)
 			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
 		else
 			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
-		if (aes_cbc_encrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
 		{
 			if (pSendLockTemp)
 				delete pSendLockTemp;
@@ -199,7 +199,17 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 		pSendData = pSendDataTemp;
 		nDataSize += n;
 		pSendData[nDataSize] = '\n';
-		pSendData[nDataSize+1] = '\0';
+		nDataSize += 1;
+
+		//unsigned char * pSotpData = new unsigned char[nSslSize+20];
+		//memset(pSotpData,0,nSslSize+20);
+		////pSotpData[0] = '\n';	// **
+		////pSotpData[nSslSize+1] = '\0';		// **
+		//aes_cbc_decrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendDataTemp+(sAppCallHead.size()+n),nSslSize,pSotpData);	// nSslSize+16，也不行，前期会乱码
+		////for (int i=-25;i<18;i++)
+		////	printf("****b %d=%d [%c]\n",i,pSotpData[nSslSize+i],pSotpData[nSslSize+i]);	// 打印的数据是对的；
+		//printf("****\n%s\n****\n",pSotpData);
+		//delete[] pSotpData;
 
 		// *避免重
 		//m_cgcParser->getResAttachment()->clear();

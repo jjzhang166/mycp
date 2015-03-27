@@ -1,17 +1,11 @@
 #ifndef __RSA_H__
 #define __RSA_H__
 
-//#include <stdio.h>  
-//#include <stdlib.h>  
-  
 #include <openssl/rsa.h>  
 #include<openssl/pem.h>  
 #include<openssl/err.h>  
 #include <openssl/bio.h>  
-//#include <fstream>  
-//#include <iostream>  
 #include <string>  
-//using namespace std;  
 #ifdef WIN32
 #pragma comment(lib, "libeay32.lib")  
 #pragma comment(lib, "ssleay32.lib")  
@@ -171,7 +165,8 @@ public:
 			OpenSSL_add_all_algorithms();
 			m_pPublicBIO = BIO_new( BIO_s_mem() );
 			BIO_puts( m_pPublicBIO, m_sPublicKey.c_str() );  
-			m_pPublicRSA = PEM_read_bio_RSAPublicKey( m_pPublicBIO, NULL, NULL, NULL);  
+			m_pPublicRSA = PEM_read_bio_RSAPublicKey( m_pPublicBIO, NULL, NULL, NULL);
+			//m_pPublicRSA = PEM_read_bio_PUBKEY(m_pPublicBIO, NULL, NULL, NULL);
 			if (m_pPublicRSA==NULL)
 			{
 				BIO_free_all( m_pPublicBIO );  
@@ -197,8 +192,9 @@ public:
 		if (m_pPublicRSA == NULL)
 			return -1;
 		const int nLen = RSA_size(m_pPublicRSA);  
-		unsigned char *pEncode = new unsigned char[nLen + 1];  
-		const int ret = RSA_public_encrypt(flen,fdata,pEncode,m_pPublicRSA,RSA_PKCS1_PADDING);
+		unsigned char *pEncode = new unsigned char[nLen + 1];
+		memset(pEncode,0,nLen + 1);
+		const int ret = RSA_public_encrypt(flen,fdata,pEncode,m_pPublicRSA,RSA_PKCS1_PADDING);	// RSA_NO_PADDING(error)
 		if (ret >= 0)
 		{  
 			pEncode[ret] = '\0';

@@ -379,32 +379,34 @@ int CGCApp::MyMain(bool bServcie)
 	AppInit(false);
 	AppStart();
 
-	for (int i=0;i<20;i++)
-	{
-		m_pRsa.SetPrivatePwd(GetSaltString());
-		m_pRsa.rsa_generatekey_mem(1024);
-		if (m_pRsa.GetPublicKey().empty() || m_pRsa.GetPrivateKey().empty())
-		{
-			m_pRsa.SetPrivatePwd("");
-			continue;
-		}
-		if (!m_pRsa.rsa_open_private_mem())
-		{
-			m_pRsa.SetPrivatePwd("");
-			continue;
-		}
-		const std::string sFrom("mycp");
-		unsigned char* pTo = NULL;
-		m_pRsa.rsa_private_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
-		if (pTo!=NULL)
-		{
-			delete[] pTo;
-			break;
-		}
-		m_pRsa.SetPrivatePwd("");
-	}
-	if (m_pRsa.GetPrivatePwd().empty())
-		std::cout << "[ERROR]Generate SSL Key error.\n";
+	//for (int i=0;i<20;i++)
+	//{
+	//	m_pRsa.SetPrivatePwd(GetSaltString());
+	//	m_pRsa.rsa_generatekey_mem(1024);
+	//	if (m_pRsa.GetPublicKey().empty() || m_pRsa.GetPrivateKey().empty())
+	//	{
+	//		m_pRsa.SetPrivatePwd("");
+	//		continue;
+	//	}
+	//	if (!m_pRsa.rsa_open_private_mem())
+	//	{
+	//		m_pRsa.SetPrivatePwd("");
+	//		continue;
+	//	}
+	//	const std::string sFrom("mycp");
+	//	unsigned char* pTo = NULL;
+	//	m_pRsa.rsa_private_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
+	//	if (pTo!=NULL)
+	//	{
+	//		delete[] pTo;
+	//		m_pRsa.rsa_close_private();
+	//		break;
+	//	}
+	//	m_pRsa.rsa_close_private();
+	//	m_pRsa.SetPrivatePwd("");
+	//}
+	//if (m_pRsa.GetPrivatePwd().empty())
+	//	std::cout << "[ERROR]Generate SSL Key error.\n";
 	if (bServcie)
 	{
 		std::cout << "\n********************* App Help *********************\n";

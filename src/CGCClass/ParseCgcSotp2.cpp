@@ -265,7 +265,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
 				{
 					try
 					{
-						pSslEnd = pNextLineFind + nSslSize + 1;
+						pSslEnd = pNextLineFind + (nSslSize + 1);
 						const unsigned char* pSslData = (const unsigned char*)(pNextLineFind+1);
 						if (isOpenType())
 						{
@@ -288,10 +288,12 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
 						{
 							// 
 							const tstring sSslPassword = m_pCallback->onGetSslPassword(getSid());
-							unsigned char * pSotpData = new unsigned char[nSslSize+1];
-							memset(pSotpData,0,nSslSize+1);
+							if (sSslPassword.empty())
+								return pSslEnd;
+							unsigned char * pSotpData = new unsigned char[nSslSize+2];
 							pSotpData[0] = '\n';	// **
-							const int ret = aes_cbc_decrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
+							pSotpData[nSslSize+1] = '\0';		// **
+							const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
 							if (ret != 0)
 							{
 								delete[] pSotpData;
@@ -604,10 +606,12 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
 					{
 						// 
 						const tstring sSslPassword = m_pCallback->onGetSslPassword(getSid());
-						unsigned char * pSotpData = new unsigned char[nSslSize+1];
-						memset(pSotpData,0,nSslSize+1);
+						if (sSslPassword.empty())
+							return pSslEnd;
+						unsigned char * pSotpData = new unsigned char[nSslSize+2];
 						pSotpData[0] = '\n';	// **
-						const int ret = aes_cbc_decrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
+						pSotpData[nSslSize+1] = '\0';		// **
+						const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
 						if (ret != 0)
 						{
 							delete[] pSotpData;

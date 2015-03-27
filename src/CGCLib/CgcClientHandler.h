@@ -50,13 +50,15 @@ namespace cgc
 	enum SOTP_CLIENT_CONFIG_TYPE
 	{
 		SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE	= 1
-		, SOTP_CLIENT_CONFIG_USES_SSL						// 0/1 (write only)
-		, SOTP_CLIENT_CONFIG_PUBLIC_KEY						// const char* (write only)
-		, SOTP_CLIENT_CONFIG_PRIVATE_KEY					// const char* (write only)
-		, SOTP_CLIENT_CONFIG_PUBLIC_FILE					// const char* (write only)
-		, SOTP_CLIENT_CONFIG_PRIVATE_FILE					// const char* (write only)
-		, SOTP_CLIENT_CONFIG_PRIVATE_PWD					// const char* (write only)
+		, SOTP_CLIENT_CONFIG_USES_SSL						// 0/1 (set only)
+		, SOTP_CLIENT_CONFIG_PUBLIC_KEY						// const char* (set only)
+		, SOTP_CLIENT_CONFIG_PRIVATE_KEY					// const char* (set only)
+		, SOTP_CLIENT_CONFIG_PUBLIC_FILE					// const char* (set only)
+		, SOTP_CLIENT_CONFIG_PRIVATE_FILE					// const char* (set only)
+		, SOTP_CLIENT_CONFIG_PRIVATE_PWD					// const char* (set only)
+		, SOTP_CLIENT_CONFIG_HAS_SSL_PASSWORD				// 0/1 (get only)
 		, SOTP_CLIENT_CONFIG_SOTP_VERSION			= 10	// 20,21 default 20
+		, SOTP_CLIENT_CONFIG_CURRENT_INDEX					// for sid and ssl pwd,...
 	};
 
 	class DoSotpClientHandler
@@ -74,7 +76,7 @@ namespace cgc
 		virtual void doFreeConfig(int nConfig, unsigned int nInValue) const = 0;
 
 		// session 
-		virtual bool doSendOpenSession(unsigned long * pOutCallId = 0) = 0;
+		virtual bool doSendOpenSession(short nMaxWaitSecons=3,unsigned long * pOutCallId = 0) = 0;
 		virtual void doSendCloseSession(unsigned long * pOutCallId = 0) = 0;
 		virtual bool doIsSessionOpened(void) const = 0;
 		virtual const tstring & doGetSessionId(void) const = 0;

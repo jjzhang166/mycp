@@ -142,7 +142,7 @@ std::string SotpCallTable2::toSesString(SOTP_PROTO_VERSION nVersion,int pt, cons
 			break;
 		}
 		/*
-		unsigned int nBufferSize = 50+sValue.length();
+		unsigned int nBufferSize = 50+sValue.size();
 		char * pResult = new char[nBufferSize];
 		memset(pResult, 0, nBufferSize);
 		int n = sprintf(pResult, _T("%s SOTP/2.0\n")
@@ -242,7 +242,7 @@ std::string SotpCallTable2::toOpenSesString(SOTP_PROTO_VERSION nVersion,unsigned
 			}
 
 			/*
-			unsigned int nBufferSize = 50+m_sAppName.length()+m_sAccount.length()+m_sPasswd.length();
+			unsigned int nBufferSize = 50+m_sAppName.size()+m_sAccount.size()+m_sPasswd.size();
 			char * pResult = new char[nBufferSize];
 			memset(pResult, 0, nBufferSize);
 			int n = sprintf(pResult, _T("OPEN SOTP/2.0\n")
@@ -434,7 +434,7 @@ std::string SotpCallTable2::toAppCallData(SOTP_PROTO_VERSION nVersion,unsigned l
 unsigned char * SotpCallTable2::toAttachString(SOTP_PROTO_VERSION nVersion,const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const
 {
 	if (pAttach.get() == NULL || !pAttach->isHasAttach()) return NULL;
-	int nBufferSize = 50+pAttach->getName().length()+pAttach->getAttachSize();
+	int nBufferSize = 50+pAttach->getName().size()+pAttach->getAttachSize();
 	unsigned char * pResult = new unsigned char[nBufferSize];
 	memset(pResult, 0, nBufferSize);
 	int n = 0;
@@ -742,11 +742,11 @@ std::string SotpCallTable2::GetParametersString(SOTP_PROTO_VERSION nVersion) con
 #endif
 
 		// 2.0
-		size_t paramValueLength = paramValue.length();
+		size_t paramValueLength = paramValue.size();
 #ifdef _UNICODE
 		const wchar_t * pTemp = paramValue.c_str();
 		size_t targetLen = 0;
-		errno_t err = wcsrtombs_s(&targetLen, NULL, 0, &pTemp, paramValue.length(), NULL);
+		errno_t err = wcsrtombs_s(&targetLen, NULL, 0, &pTemp, paramValue.size(), NULL);
 		if (err == 0 && targetLen > 0)
 		{
 			paramValueLength = targetLen-1;

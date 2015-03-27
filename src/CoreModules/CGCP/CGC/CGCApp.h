@@ -119,8 +119,10 @@ private:
 	void LoadSystemParams(void);
 
 	// cgcParserCallback 
-	virtual tstring onGetSslPrivateKey(void) const {return m_pRsa.GetPrivateKey();}
-	virtual tstring onGetSslPrivatePwd(void) const {return m_pRsa.GetPrivatePwd();}
+	virtual tstring onGetSslPrivateKey(void) const {return "";}
+	virtual tstring onGetSslPrivatePwd(void) const {return "";}
+	//virtual tstring onGetSslPrivateKey(void) const {return m_pRsa.GetPrivateKey();}
+	//virtual tstring onGetSslPrivatePwd(void) const {return m_pRsa.GetPrivatePwd();}
 	virtual tstring onGetSslPassword(const tstring& sSessionId) const;
 
 	// cgcCommHandler handler
@@ -176,7 +178,7 @@ private:
 //	XmlParseClusters m_parseClusters;
 //	XmlParseAuths m_parseAuths;
 
-	CRSA m_pRsa;
+	//CRSA m_pRsa;
 
 	XmlParseParams m_systemParams;
 	XmlParseCdbcs m_cdbcs;

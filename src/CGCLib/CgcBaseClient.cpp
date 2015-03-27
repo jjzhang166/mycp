@@ -443,11 +443,26 @@ int CgcBaseClient::sendVerifyClusterSvr(unsigned long * pCallId)
 	return 0;
 }
 
+tstring CgcBaseClient::onGetSslPassword(const tstring& sSessionId) const
+{
+	return m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+}
+
 bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 {
 	bool ret = true;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_CURRENT_INDEX:
+		{
+			CIndexInfo::pointer pIndexInfo;
+			if (!m_pIndexInfoList.find(nInValue,pIndexInfo))
+			{
+				pIndexInfo = CIndexInfo::create();
+				m_pIndexInfoList.insert(nInValue,pIndexInfo);
+			}
+			m_pCurrentIndexInfo = pIndexInfo;
+		}break;
 	case SOTP_CLIENT_CONFIG_SOTP_VERSION:
 		{
 			if (nInValue==SOTP_PROTO_VERSION_20 || nInValue==SOTP_PROTO_VERSION_21)
@@ -463,7 +478,8 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 			if (pInString==NULL)
 				return false;
 			m_pRsaSrc.SetPublicKey(pInString);
-			m_nUserSslInfo = 1;
+			if (!m_pRsaSrc.GetPublicKey().empty())
+				m_nUserSslInfo = 1;
 		}break;
 	case SOTP_CLIENT_CONFIG_PRIVATE_KEY:
 		{
@@ -471,7 +487,8 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 			if (pInString==NULL)
 				return false;
 			m_pRsaSrc.SetPrivateKey(pInString);
-			m_nUserSslInfo = 1;
+			if (!m_pRsaSrc.GetPrivateKey().empty())
+				m_nUserSslInfo = 1;
 		}break;
 	case SOTP_CLIENT_CONFIG_PUBLIC_FILE:
 		{
@@ -479,7 +496,8 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 			if (pInString==NULL)
 				return false;
 			m_pRsaSrc.SetPublicFile(pInString);
-			m_nUserSslInfo = 2;
+			if (!m_pRsaSrc.GetPublicFile().empty())
+				m_nUserSslInfo = 2;
 		}break;
 	case SOTP_CLIENT_CONFIG_PRIVATE_FILE:
 		{
@@ -487,7 +505,8 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 			if (pInString==NULL)
 				return false;
 			m_pRsaSrc.SetPrivateFile(pInString);
-			m_nUserSslInfo = 2;
+			if (m_pRsaSrc.GetPrivateFile().empty())
+				m_nUserSslInfo = 2;
 		}break;
 	case SOTP_CLIENT_CONFIG_PRIVATE_PWD:
 		{
@@ -564,9 +583,12 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 					if (pTo!=NULL)
 					{
 						delete[] pTo;
+						m_pRsaSrc.rsa_close_public();
 						return true;
 					}				
+					m_pRsaSrc.rsa_close_public();
 				}
+				m_pRsaSrc.rsa_close_public();
 				m_pRsaSrc.SetPrivatePwd("");
 				return false;
 			}else
@@ -577,6 +599,8 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 				m_pRsaSrc.SetPrivateFile("");
 				m_pRsaSrc.SetPrivatePwd("");
 				m_sSslPassword.clear();
+				if (m_pCurrentIndexInfo.get()!=NULL)
+					m_pCurrentIndexInfo->m_sSslPassword.clear();
 			}
 		}break;
 	default:
@@ -585,12 +609,40 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 	return ret;
 }
 
-bool CgcBaseClient::sendOpenSession(unsigned long * pCallId)
+void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
+{
+	switch (nConfig)
+	{
+	case SOTP_CLIENT_CONFIG_HAS_SSL_PASSWORD:
+		if (nOutValue!=NULL)
+		{
+			const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+			*nOutValue = sSslPassword.empty()?0:1;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+void CgcBaseClient::doFreeConfig(int nConfig, unsigned int nInValue) const
+{
+
+}
+
+bool CgcBaseClient::sendOpenSession(short nMaxWaitSecons,unsigned long * pCallId)
 {
 	if (this->isInvalidate()) return false;
 
 	// is already opened
-	if (!m_sSessionId.empty()) return true;
+	if (!m_sSessionId.empty())
+	{
+		if (!this->m_sSslPassword.empty() || (m_pRsaSrc.GetPublicKey().empty() && m_pRsaSrc.GetPublicFile().empty()))
+		{
+			return true;
+		}
+		// ** need open session for request ssl pwd
+	}
 
 	// cid
 	const unsigned long cid = getNextCallId();
@@ -605,7 +657,7 @@ bool CgcBaseClient::sendOpenSession(unsigned long * pCallId)
 	try
 	{
 		sendData((const unsigned char*)requestData.c_str(), requestData.size());
-		for (int i=0;i<30; i++)	// 3S
+		for (int i=0;i<(nMaxWaitSecons*10); i++)	// 3S
 		{
 			if (!m_sSessionId.empty())
 				break;
@@ -644,7 +696,10 @@ void CgcBaseClient::sendCloseSession(unsigned long * pCallId)
 	// sendData
 	sendData((const unsigned char*)requestData.c_str(), requestData.size());
 	// ?
-	m_sSessionId = _T("");
+	m_sSessionId = "";
+	m_sSslPassword = "";
+	m_pIndexInfoList.clear();
+	m_pCurrentIndexInfo.reset();
 }
 
 void CgcBaseClient::sendActiveSession(unsigned long * pCallId)
@@ -675,7 +730,7 @@ void CgcBaseClient::sendP2PTry(unsigned short nTryCount)
 	for (unsigned short i=0; i<nTryCount; i++)
 	{
 		sendData((const unsigned char*)requestData.c_str(), requestData.size());
-		if (nTryCount>1)
+		if (nTryCount>=1)
 #ifdef WIN32
 			Sleep(1);
 #else
@@ -792,18 +847,17 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 	//const unsigned short seq = getNextSeq();
 	const unsigned short seq = bNeedAck?getNextSeq():0;
 
-	if (!m_sSslPassword.empty())
+	const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+	if (!sSslPassword.empty())
 	{
 		const std::string sAppCallHead = toAppCallHead(theProtoVersion);
 		const std::string sAppCallData = toAppCallData(theProtoVersion,cid,nCallSign,sCallName,seq,bNeedAck);
 
 		unsigned int nAttachSize = 0;
 		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
-		int nDataSize = (sAppCallData.size()+nAttachSize+m_sSslPassword.size()-1);
-		nDataSize -= (nDataSize%m_sSslPassword.size());
+		int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
 		nDataSize += sAppCallHead.size();
 		unsigned char * pSendData = new unsigned char[nDataSize+1];
-		memset(pSendData,0,nDataSize+1);
 		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
 		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
@@ -811,14 +865,13 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
 		}
 		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
-		memset(pSendDataTemp,0,nDataSize+20);
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
 		int n = 0;
 		if (theProtoVersion==SOTP_PROTO_VERSION_21)
-			n = sprintf((char*)pSendDataTemp+sAppCallHead.size(),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
 		else
-			n = sprintf((char*)pSendDataTemp+sAppCallHead.size(),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
-		if (aes_cbc_encrypt((const unsigned char*)m_sSslPassword.c_str(),(int)m_sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+sAppCallHead.size()+n)!=0)
+			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
 		{
 			if (pLockTemp)
 				delete pLockTemp;
@@ -831,13 +884,11 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 		pSendData = pSendDataTemp;
 		nDataSize += n;
 		pSendData[nDataSize] = '\n';
-		pSendData[nDataSize+1] = '\0';
+		nDataSize += 1;
 
-		// addSeqInfo
 		bool ret = false;
 		if (bNeedAck)
 			ret = addSeqInfo(pSendData, nDataSize, seq, cid, nCallSign);
-
 		if (pLockTemp)
 			delete pLockTemp;
 		sendData(pSendData, nDataSize);
@@ -902,46 +953,98 @@ bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned l
 	//const unsigned short seq = getNextSeq();
 	const unsigned short seq = bNeedAck?getNextSeq():0;
 
-	const std::string requestData = toAppCallResult(theProtoVersion,nCallId,nCallSign,nResult,seq,bNeedAck);
-
-	// sendData
-	if (pAttach.get() != NULL)
+	const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+	if (!sSslPassword.empty())
 	{
+		//const std::string requestData = toAppCallResult(theProtoVersion,nCallId,nCallSign,nResult,seq,bNeedAck);
+		const std::string sAppCallHead = toAppCallResultHead(theProtoVersion,nResult);
+		const std::string sAppCallData = toAppCallResultData(theProtoVersion,nCallId,nCallSign,seq,bNeedAck);
+
 		unsigned int nAttachSize = 0;
 		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
+		int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
+		nDataSize += sAppCallHead.size();
+		unsigned char * pSendData = new unsigned char[nDataSize+1];
+		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
+		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
 		{
-			unsigned char * pSendData = new unsigned char[nAttachSize+requestData.size()+1];
-			memcpy(pSendData, requestData.c_str(), requestData.size());
-			memcpy(pSendData+requestData.size(), pAttachData, nAttachSize);
-			pSendData[nAttachSize+requestData.size()] = '\0';
-
-			// addSeqInfo
-			bool ret = false;
-			if (bNeedAck)
-				ret = addSeqInfo(pSendData, nAttachSize+requestData.size(), seq, nCallId, nCallSign);
-
+			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
+		}
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
+		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
+		int n = 0;
+		if (theProtoVersion==SOTP_PROTO_VERSION_21)
+			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+		else
+			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		{
 			if (pLockTemp)
 				delete pLockTemp;
-			sendData(pSendData, nAttachSize+requestData.size());
+			delete[] pSendData;
+			delete[] pSendDataTemp;
 			delete[] pAttachData;
-			if (!ret)
-				delete[] pSendData;
-			//return sendSize != nAttachSize+requestData.size() ? 0 : 1;
-			return true;
+			return false;
 		}
-	}
+		delete[] pSendData;
+		pSendData = pSendDataTemp;
+		nDataSize += n;
+		pSendData[nDataSize] = '\n';
+		nDataSize += 1;
 
-	// addSeqInfo
-	if (bNeedAck)
+		bool ret = false;
+		if (bNeedAck)
+			ret = addSeqInfo(pSendData, nDataSize, seq, nCallId, nCallSign);
+		if (pLockTemp)
+			delete pLockTemp;
+		sendData(pSendData, nDataSize);
+		delete[] pAttachData;
+		if (!ret)
+			delete[] pSendData;
+		return true;
+	}else
 	{
-		addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, nCallId, nCallSign);
-	}
-	if (pLockTemp)
-		delete pLockTemp;
+		const std::string requestData = toAppCallResult(theProtoVersion,nCallId,nCallSign,nResult,seq,bNeedAck);
+		// sendData
+		if (pAttach.get() != NULL)
+		{
+			unsigned int nAttachSize = 0;
+			unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
+			if (pAttachData != NULL)
+			{
+				unsigned char * pSendData = new unsigned char[nAttachSize+requestData.size()+1];
+				memcpy(pSendData, requestData.c_str(), requestData.size());
+				memcpy(pSendData+requestData.size(), pAttachData, nAttachSize);
+				pSendData[nAttachSize+requestData.size()] = '\0';
 
-	sendData((const unsigned char*)requestData.c_str(), requestData.size());
-	return true;
+				// addSeqInfo
+				bool ret = false;
+				if (bNeedAck)
+					ret = addSeqInfo(pSendData, nAttachSize+requestData.size(), seq, nCallId, nCallSign);
+
+				if (pLockTemp)
+					delete pLockTemp;
+				sendData(pSendData, nAttachSize+requestData.size());
+				delete[] pAttachData;
+				if (!ret)
+					delete[] pSendData;
+				//return sendSize != nAttachSize+requestData.size() ? 0 : 1;
+				return true;
+			}
+		}
+
+		// addSeqInfo
+		if (bNeedAck)
+		{
+			addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, nCallId, nCallSign);
+		}
+		if (pLockTemp)
+			delete pLockTemp;
+
+		sendData((const unsigned char*)requestData.c_str(), requestData.size());
+		return true;
+	}
 }
 
 void * CgcBaseClient::SetCidData(unsigned long cid, void * pData)
@@ -1083,7 +1186,7 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 			}
 			if (ppSotp.isNeedAck())
 			{
-				const std::string requestData = toAckString(theProtoVersion,seq);
+				const std::string requestData = toAckString(ppSotp.getSotpVersion(),seq);
 				sendData((const unsigned char*)requestData.c_str(), requestData.size());
 			}
 			CReceiveInfo::pointer pReceiveInfo;
@@ -1142,9 +1245,14 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 				// session protocol
 				if (ppSotp.isOpenType())
 				{
-					m_sSessionId = ppSotp.getSid();
+					if (!ppSotp.getSid().empty())
+						m_sSessionId = ppSotp.getSid();
 					m_sSslPassword = ppSotp.GetSslPassword();
-
+					if (m_pCurrentIndexInfo.get()!=NULL)
+					{
+						//m_pCurrentIndexInfo->m_sSessionId = m_sSessionId;
+						m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword;
+					}
 					//
 					// save client info
 					this->SaveClientInfo();
@@ -1170,6 +1278,33 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 
 //			nResultValue = parseResponse.getResultValue();
 			nResultValue = ppSotp.getResultValue();
+		}else if (ppSotp.isOpenType() && ppSotp.isSslRequest())	// && !m_pRsaSrc.GetPublicKey().empty())
+		{
+			// 对方请求open session，需要返回
+			if (m_sSslPassword.empty())
+				m_sSslPassword = GetSaltString(24);
+			if (m_pCurrentIndexInfo.get()!=NULL)
+			{
+				m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword;
+			}
+			const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+			const unsigned short seq = getNextSeq();
+			const tstring responseData = ppSotp.getSessionResult(0, ppSotp.getSid(), seq, true, "");	// m_sSslPublicKey
+			unsigned int nAttachSize = 0;
+			unsigned char * pAttachData = ppSotp.getResSslString(sSslPassword, nAttachSize);
+			if (pAttachData != NULL)
+			{
+				unsigned char * pSendData = new unsigned char[nAttachSize+responseData.size()+1];
+				memcpy(pSendData, responseData.c_str(), responseData.size());
+				memcpy(pSendData+responseData.size(), pAttachData, nAttachSize);
+				pSendData[nAttachSize+responseData.size()] = '\0';
+
+				const bool ret = addSeqInfo(pSendData, nAttachSize+responseData.size(),seq,0,0);
+				sendData((const unsigned char*)pSendData, nAttachSize+responseData.size());
+				delete[] pAttachData;
+				if (!ret)
+					delete[] pSendData;
+			}
 		}
 
 		if (nResultValue == -103)
