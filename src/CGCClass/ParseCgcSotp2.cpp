@@ -143,6 +143,13 @@ void ParseCgcSotp2::addParameter(const cgcParameter::pointer& parameter)
 	m_parameterMap.insert(parameter->getName(), parameter);
 }
 
+//inline bool IsVersion21(const unsigned char* pBuffer)
+//{
+//	return memcmp(pBuffer+1," SOTP/2.1",9)==0;
+//	//return memcmp(pBuffer+1,"21",2)==0;
+//	//return pBuffer[1]=='2'&& pBuffer[2]=='1';
+//}
+
 bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncoding)
 {
 	if (pBuffer == 0) return false;
@@ -152,13 +159,14 @@ bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncod
 	}
 	m_sEncoding = sEncoding;
 	// Get Proto Type.
-	char * pCgcProto = (char*)strstr((const char*)pBuffer, "SOTP/2.1");
-	if (pCgcProto != NULL)
+	const char * pCgcProto = NULL;
+	if (memcmp(pBuffer+1," SOTP/2.1",9)==0)
 	{
 		m_nSotpVersion = SOTP_PROTO_VERSION_21;
+		pCgcProto = (const char*)(pBuffer + 2);
 	}else
 	{
-		pCgcProto = (char*)strstr((const char*)pBuffer, "SOTP/2.0");
+		pCgcProto = strstr((const char*)pBuffer, "SOTP/2.0");
 		if (pCgcProto == NULL)
 			return false;
 		m_nSotpVersion = SOTP_PROTO_VERSION_20;

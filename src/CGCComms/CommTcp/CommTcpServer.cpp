@@ -349,6 +349,14 @@ const int ATTRIBUTE_NAME	= 1;
 cgcAttributes::pointer theAppAttributes;
 std::string theSSLPasswd;
 
+bool FileIsExist(const char* pFile)
+{
+	FILE * f = fopen(pFile,"r");
+	if (f==NULL)
+		return false;
+	fclose(f);
+	return true;
+}
 /////////////////////////////////////////
 // CTcpServer
 class CTcpServer
@@ -375,7 +383,7 @@ private:
 #ifdef USES_OPENSSL
 	boost::asio::ssl::context* m_sslctx;
 	std::string m_sSSLPublicCrtFile;	// public.crt
-	//std::string m_sSSLIntermediateFile;	// intermediate.key
+	std::string m_sSSLServerChainFile;	// server-chain.key
 	std::string m_sSSLPrivateKeyFile;	// private.key
 #endif
 	IoService::pointer m_ioservice;
@@ -428,23 +436,23 @@ public:
 		sem_destroy(&m_semDoStop);
 #endif // WIN32
 	}
-	bool verify_certificate(bool preverified,boost::asio::ssl::verify_context& ctx)
-	{
-		// The verify callback can be used to check whether the certificate that is
-		// being presented is valid for the peer. For example, RFC 2818 describes
-		// the steps involved in doing this for HTTPS. Consult the OpenSSL
-		// documentation for more details. Note that the callback is called once
-		// for each certificate in the certificate chain, starting from the root
-		// certificate authority.
+	//bool verify_certificate(bool preverified,boost::asio::ssl::verify_context& ctx)
+	//{
+	//	// The verify callback can be used to check whether the certificate that is
+	//	// being presented is valid for the peer. For example, RFC 2818 describes
+	//	// the steps involved in doing this for HTTPS. Consult the OpenSSL
+	//	// documentation for more details. Note that the callback is called once
+	//	// for each certificate in the certificate chain, starting from the root
+	//	// certificate authority.
 
-		// In this example we will simply print the certificate's subject name.
-		char subject_name[256];
-		X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
-		X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
-		//std::cout << "Verifying " << subject_name << "\n";
-		return true;
-		return preverified;
-	}
+	//	// In this example we will simply print the certificate's subject name.
+	//	char subject_name[256];
+	//	X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+	//	X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+	//	//std::cout << "Verifying " << subject_name << "\n";
+	//	return true;
+	//	return preverified;
+	//}
 	std::string get_password(void) const
     {
 		//printf("**** get_password...\n");
@@ -469,6 +477,7 @@ public:
 				return false;
 		}
 
+		//  handle_handshake session id context uninitialized,336433429
 		if (m_ioservice.get() == NULL)
 			m_ioservice = IoService::create();
 		if (m_acceptor.get()==NULL)
@@ -481,18 +490,26 @@ public:
 			namespace ssl = boost::asio::ssl;
 			m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
 			//m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::no_sslv2);
-			m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);
-			m_sslctx->set_verify_mode(ssl::verify_none);	// old:ok
-			//m_sslctx->set_verify_mode(ssl::verify_client_once);
-			//m_sslctx->set_verify_mode(ssl::verify_peer);
-			m_sslctx->set_verify_callback(boost::bind(&CTcpServer::verify_certificate, this, _1, _2));
-			m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
+			m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);	// verify_none
+			m_sslctx->set_verify_mode(ssl::verify_none);	// verify_none old:ok
+			m_sslctx->set_verify_depth(10);
+			//m_sslctx->set_verify_callback(boost::bind(&CTcpServer::verify_certificate, this, _1, _2));
+			if (!theSSLPasswd.empty())
+				m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
 			boost::system::error_code error;
 			// XXX.crt OK
 			//std::string m_sSSLCAFile = theApplication->getAppConfPath()+"/ssl/ca.crt";
 			m_sSSLPublicCrtFile = theApplication->getAppConfPath()+"/ssl/public.crt";
-			//m_sSSLIntermediateFile = theApplication->getAppConfPath()+"/ssl/intermediate.crt";
+			if (!FileIsExist(m_sSSLPublicCrtFile.c_str()))
+				m_sSSLPublicCrtFile.clear();
+			m_sSSLServerChainFile = theApplication->getAppConfPath()+"/ssl/server-chain.crt";
+			if (!FileIsExist(m_sSSLServerChainFile.c_str()))
+				m_sSSLServerChainFile.clear();
+			else if (!m_sSSLPublicCrtFile.empty())
+				m_sSSLServerChainFile = m_sSSLPublicCrtFile;
 			m_sSSLPrivateKeyFile = theApplication->getAppConfPath()+"/ssl/private.key";
+			if (!FileIsExist(m_sSSLPrivateKeyFile.c_str()))
+				m_sSSLPrivateKeyFile.clear();
 
 			// 不会报no shared cipher错误
 			//EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
@@ -505,20 +522,27 @@ public:
 			//m_sslctx->load_verify_file(m_sSSLCAFile,error);
 			//if (error)
 			//	CGC_LOG((LOG_ERROR, _T("load_verify_file(%s),error=%s;%d\n"),m_sSSLCAFile.c_str(),error.message().c_str(),error.value()));
-			m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
-			if (error)
-				CGC_LOG((LOG_ERROR, _T("use_certificate_file(%s),error=%s;%d\n"),m_sSSLPublicCrtFile.c_str(),error.message().c_str(),error.value()));
-			m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
-			if (error)
-				CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLPublicCrtFile.c_str(),error.message().c_str(),error.value()));
-			//m_sslctx->use_certificate_chain_file(m_sSSLIntermediateFile,error);
-			//if (error)
-			//	CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLIntermediateFile.c_str(),error.message().c_str(),error.value()));
-			// 没有设置use_private_key_file()；就会报"handle_handshake no shared cipher"错误
-			m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
-			if (error)
-				CGC_LOG((LOG_ERROR, _T("use_private_key_file(%s),error=%s;%d\n"),m_sSSLPrivateKeyFile.c_str(),error.message().c_str(),error.value()));
-			//m_sslctx->set_verify_depth(1);
+			if (!m_sSSLPublicCrtFile.empty())
+			{
+				m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
+				if (error)
+					CGC_LOG((LOG_ERROR, _T("use_certificate_file(%s),error=%s;%d\n"),m_sSSLPublicCrtFile.c_str(),error.message().c_str(),error.value()));
+			}
+			if (!m_sSSLServerChainFile.empty())
+			{
+				m_sslctx->use_certificate_chain_file(m_sSSLServerChainFile,error);
+				if (error)
+					CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLServerChainFile.c_str(),error.message().c_str(),error.value()));
+			}
+			if (!m_sSSLPrivateKeyFile.empty())
+			{
+				// 没有设置use_private_key_file()；就会报"handle_handshake no shared cipher"错误
+				m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
+				if (error)
+					CGC_LOG((LOG_ERROR, _T("use_private_key_file(%s),error=%s;%d\n"),m_sSSLPrivateKeyFile.c_str(),error.message().c_str(),error.value()));
+			}
+			m_sslctx->add_verify_path(theApplication->getAppConfPath()+"/ssl",error);
+			//m_sslctx->set_default_verify_paths(error);	// 有问题
 			//m_sslctx->load_verify_file("/eb/www.entboost.com/www.entboost.com.crt",ignored_error);
 			//printf("** load_verify_file,error=%s;%d\n",ignored_error.message().c_str(),ignored_error.value());
 			//m_sslctx->add_verify_path("/eb/www.entboost.com",ignored_error);
@@ -726,12 +750,18 @@ protected:
 					m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
 					m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);
 					m_sslctx->set_verify_mode(ssl::verify_none);
-					//m_sslctx->set_verify_mode(ssl::verify_peer);
+					m_sslctx->set_verify_depth(10);
+					if (!theSSLPasswd.empty())
+						m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
 					boost::system::error_code error;
-					m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
+					if (!m_sSSLPublicCrtFile.empty())
+						m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
 					m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
-					//m_sslctx->use_certificate_chain_file(m_sSSLIntermediateFile,error);
-					m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
+					if (!m_sSSLServerChainFile.empty())
+						m_sslctx->use_certificate_chain_file(m_sSSLServerChainFile,error);
+					if (!m_sSSLPrivateKeyFile.empty())
+						m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
+					m_sslctx->add_verify_path(theApplication->getAppConfPath()+"/ssl",error);
 					m_acceptor->set_ssl_ctx(m_sslctx);
 				}
 #endif
