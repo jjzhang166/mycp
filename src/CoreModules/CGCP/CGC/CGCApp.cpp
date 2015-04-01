@@ -1869,7 +1869,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		const tstring & sCallName = pcgcParser->getFunctionName();
 		tstring methodName(sCallName);
 		tstring sSessionId = pcgcParser->getSid();
-		if (pRemoteSessionImpl == NULL)
+		if (pRemoteSessionImpl == NULL && !sSessionId.empty())
 		{
 			//printf("**** ProcAppProto Session NULL sid=%s\n",sSessionId.c_str());
 			remoteSessionImpl = m_mgrSession.GetSessionImpl(sSessionId);
@@ -1881,9 +1881,12 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 				m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
 				pRemoteSessionImpl->setDataResponseImpl("",pcgcRemote);
 				pRemoteSessionImpl->OnRunCGC_Remote_Change(pcgcRemote);
+			}else
+			{
+				retCode = -103;
 			}
 		}
-		if (pRemoteSessionImpl == NULL)
+		if (retCode==0 && pRemoteSessionImpl == NULL)
 		{
 			unsigned long remoteId = 0;
 			cgcRemote::pointer pcgcRemote = pResponseImpl->getCgcRemote();
@@ -1910,7 +1913,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			//
 			// 客户端没有OPEN SESSION, sSessionId=APPNAME.
 			// 临时打开SESSION
-			if (pRemoteSessionImpl == 0)
+			if (retCode==0 && pRemoteSessionImpl == 0)
 			{
 				tstring sAppModuleName = pcgcParser->getModuleName();
 				ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(sAppModuleName);
