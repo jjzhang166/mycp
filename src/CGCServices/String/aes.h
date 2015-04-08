@@ -21,8 +21,6 @@ inline int aes_ecb_encrypt_full(const unsigned char *userKey,int klen,const unsi
 		return ret;
 	for (int i=0;i<ilen; i+=16)
 		AES_ecb_encrypt(in+i,out+i,&key,AES_ENCRYPT);
-	//if ((ilen%16)>0)
-	//	memset(out+()
 	return 0;
 }
 inline int aes_ecb_encrypt(const unsigned char *userKey,int klen,const unsigned char* in,unsigned char* out)
@@ -76,7 +74,7 @@ inline int aes_cbc_encrypt_full(const unsigned char *userKey,int klen,const unsi
 	unsigned char   iv[AES_BLOCK_SIZE * 4];
 	memset(iv,0,sizeof(iv));
 	for (int i=0;i<length; i+=16)
-		AES_cbc_encrypt(in+i,out+i,16,&key,iv,AES_ENCRYPT);
+		AES_cbc_encrypt(in+i,out+i,((length-i)>=16)?16:(length%16),&key,iv,AES_ENCRYPT);
 	return 0;
 }
 inline int aes_cbc_encrypt(const unsigned char *userKey,int klen,const unsigned char* in,int length,unsigned char* out)

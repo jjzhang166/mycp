@@ -200,6 +200,7 @@ protected:
 
 	virtual cgcAttributes::pointer getAttributes(bool create);
 	virtual cgcAttributes::pointer getAttributes(void) const {return m_attributes;}
+	//cgcSession::pointer cgc_shared_from_this(void);
 	virtual cgcResponse::pointer getLastResponse(const tstring& moduleName) const;
 	virtual cgcResponse::pointer getHoldResponse(unsigned long nRemoteId);
 };

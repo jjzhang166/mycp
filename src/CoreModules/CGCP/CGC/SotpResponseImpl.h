@@ -50,7 +50,7 @@ private:
 	tstring m_sSslPublicKey;
 	//tstring m_sSslPassword;
 public:
-	CSotpResponseImpl(cgcRemote::pointer pcgcRemote, cgcParserSotp::pointer pcgcParser, CResponseHandler * pHandler);
+	CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler);
 	virtual ~CSotpResponseImpl(void);
 	
 	void SetResponseHandler(CResponseHandler * pHandler) {m_pResponseHandler = pHandler;}

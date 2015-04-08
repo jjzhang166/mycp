@@ -21,7 +21,7 @@
 #include "SessionMgr.h"
 #include <ThirdParty/stl/aes.h>
 
-CSotpResponseImpl::CSotpResponseImpl(cgcRemote::pointer pcgcRemote, cgcParserSotp::pointer pcgcParser, CResponseHandler * pHandler)
+CSotpResponseImpl::CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler)
 : m_cgcRemote(pcgcRemote)
 , m_cgcParser(pcgcParser)
 , m_pResponseHandler(pHandler)

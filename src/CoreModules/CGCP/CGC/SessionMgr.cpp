@@ -431,22 +431,33 @@ cgcAttributes::pointer CSessionImpl::getAttributes(bool create)
 	return m_attributes;
 }
 
+//cgcSession::pointer CSessionImpl::cgc_shared_from_this(void)
+//{
+//	return shared_from_this();
+//}
+
 cgcResponse::pointer CSessionImpl::getLastResponse(const tstring& moduleName) const
 {
 	CSessionModuleInfo::pointer pSessionModuleItem;
 	if (!moduleName.empty() && m_pSessionModuleList.find(moduleName,pSessionModuleItem))
 	{
 		if (m_pcgcRemote->getProtocol() == PROTOCOL_SOTP)
-			return cgcSotpResponse::pointer(new CSotpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this));
-		else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
+		{
+			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this);
+			pSotpResponseImpl->setSession(const_cast<CSessionImpl*>(this)->shared_from_this());
+			return cgcSotpResponse::pointer(pSotpResponseImpl);
+		}else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
 			return cgcResponse::pointer(new CHttpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
 		else
 			return cgcResponse::pointer(new CResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
 	}else
 	{
 		if (m_pcgcRemote->getProtocol() == PROTOCOL_SOTP)
-			return cgcSotpResponse::pointer(new CSotpResponseImpl(m_pcgcRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this));
-		else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
+		{
+			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(m_pcgcRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this);
+			pSotpResponseImpl->setSession(const_cast<CSessionImpl*>(this)->shared_from_this());
+			return cgcSotpResponse::pointer(pSotpResponseImpl);
+		}else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
 			return cgcNullResponse;//cgcResponse::pointer(new CHttpResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
 		else
 			return cgcResponse::pointer(new CResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
