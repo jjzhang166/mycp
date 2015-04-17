@@ -677,6 +677,32 @@ std::string SotpCallTable2::toP2PTry(SOTP_PROTO_VERSION nVersion) const
 	return lpszBuffer;
 }
 
+unsigned char* SotpCallTable2::toRtpCommand(const tagSotpRtpCommand& pRtpCommand, unsigned char* pSendBuffer, size_t& pOutSize)
+{
+	if (pSendBuffer==NULL)
+		pSendBuffer = new unsigned char[64];	// SOTP_RTP_COMMAND_SIZE=25
+	pOutSize = sprintf((char*)pSendBuffer,"4 SOTP/2.1\nD");
+	memcpy(pSendBuffer+pOutSize,&pRtpCommand,SOTP_RTP_COMMAND_SIZE);
+	pOutSize += (SOTP_RTP_COMMAND_SIZE+1);
+	pSendBuffer[pOutSize-1] = '\n';
+	return pSendBuffer;
+}
+unsigned char* SotpCallTable2::toRtpData(const tagSotpRtpDataHead& pRtpDataHead, const cgcAttachment::pointer& pAttachment, unsigned char* pSendBuffer, size_t& pOutSize)
+{
+	if (pSendBuffer==NULL)
+	{
+		const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+pAttachment->getAttachSize();
+		pSendBuffer = new unsigned char[nSizeTemp];
+	}
+	pOutSize = sprintf((char*)pSendBuffer,"4 SOTP/2.1\nE");
+	memcpy(pSendBuffer+pOutSize,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
+	pOutSize += (SOTP_RTP_DATA_HEAD_SIZE);
+	memcpy(pSendBuffer+pOutSize,(const void*)(const unsigned char *)pAttachment->getAttachData(),pAttachment->getAttachSize());
+	pOutSize += (pAttachment->getAttachSize()+1);
+	pSendBuffer[pOutSize-1] = '\n';
+	return pSendBuffer;
+}
+
 void SotpCallTable2::setParameter(const cgcParameter::pointer & parameter, bool bSetForce)
 {
 	if (parameter.get() != NULL)

@@ -28,6 +28,7 @@
 //#include "ACELib/inc/SockServer.h"
 
 #include <CGCClass/AttributesImpl.h>
+#include <CGCClass/SotpRtpSession.h>
 //#include "AttributesImpl.h"
 #include "XmlParseDefault.h"
 #include "XmlParseModules.h"
@@ -179,6 +180,7 @@ private:
 //	XmlParseAuths m_parseAuths;
 
 	//CRSA m_pRsa;
+	CSotpRtpSession m_pRtpSession;
 
 	XmlParseParams m_systemParams;
 	XmlParseCdbcs m_cdbcs;

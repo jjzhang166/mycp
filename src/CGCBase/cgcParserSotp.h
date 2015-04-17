@@ -27,6 +27,38 @@
 
 namespace cgc {
 
+struct tagSotpRtpDataRequest
+{
+	unsigned short		m_nSeq;
+	unsigned short		m_nCount;
+};
+struct tagSotpRtpCommand
+{
+	cgc::uint8			m_nCommand;
+	cgc::bigint			m_nRoomId;
+	cgc::bigint			m_nSrcId;
+	union
+	{
+		cgc::bigint				m_nDestId;
+		tagSotpRtpDataRequest	m_nDataRequest;	// for SOTP_RTP_COMMAND_DATA_REQUEST
+	}u;
+};
+#define SOTP_RTP_COMMAND_SIZE 25	// 1+3*8=25
+struct tagSotpRtpDataHead
+{
+	cgc::uint8			m_nDataType;
+	cgc::bigint			m_nRoomId;
+	cgc::bigint			m_nSrcId;
+	unsigned short		m_nSeq;
+	cgc::uint8			m_nNAKType;		// 1:real nak(for audio) 2:not real nak(for video)
+	unsigned int		m_nTimestamp;
+	unsigned short		m_nTotleLength;
+	unsigned short		m_nOffset;
+	unsigned short		m_nUnitLength;
+};
+#define SOTP_RTP_DATA_HEAD_SIZE 30
+//#define SOTP_RTP_DATA_MAX_UNIT_SIZE 1200*6
+
 class cgcParserSotp
 	: public cgcParserBase
 {
@@ -64,6 +96,11 @@ public:
 	virtual void setSslPublicKey(const tstring & newValue) = 0;
 	virtual const tstring & getSslPublicKey(void) const = 0;
 	virtual bool isSslRequest(void) const = 0;
+	
+	virtual bool isRtpCommand(void) const = 0;
+	virtual bool isRtpData(void) const = 0;
+	virtual const tagSotpRtpCommand& getRtpCommand(void) const = 0;
+	virtual const tagSotpRtpDataHead& getRtpDataHead(void) const = 0;
 
 //	virtual const tstring & getProtoValue(void) const = 0;	// SessionId for SES:protocol
 
@@ -80,7 +117,7 @@ public:
 	virtual const cgcParameterMap & getRecvParameters(void) const = 0;
 	// Request attachment
 	virtual bool isRecvHasAttachInfo(void) const = 0;
-	virtual cgcAttachment::pointer getRecvAttachment(void) const = 0;
+	virtual const cgcAttachment::pointer& getRecvAttachment(void) const = 0;
 
 	//////////////////////////////////////////////////
 	// Response:
@@ -109,7 +146,7 @@ public:
 	virtual void setResAttachData2(unsigned char * attachData, unsigned int attachSize)=0;
 	virtual void setResAttach(const cgcAttachment::pointer& pAttach)=0;
 	virtual bool isResHasAttachInfo(void) const = 0;
-	virtual cgcAttachment::pointer getResAttachment(void) const = 0;
+	virtual const cgcAttachment::pointer& getResAttachment(void) const = 0;
 	virtual unsigned char * getResAttachString(unsigned int & pOutSize) = 0;
 
 	// Response ssl

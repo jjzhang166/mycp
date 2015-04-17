@@ -67,6 +67,8 @@ ParseCgcSotp2::ParseCgcSotp2(void)
 , m_sAccount(_T("")), m_sPasswd(_T(""))
 , m_et(ModuleItem::ET_NONE)
 {
+	m_bRtpCommand = false;
+	m_bRtpData = false;
 	m_attach = cgcAttachment::create();
 }
 ParseCgcSotp2::~ParseCgcSotp2(void)
@@ -131,6 +133,10 @@ void ParseCgcSotp2::FreeHandle(void)
 	m_nResultValue = 0;
 
 	m_parameterMap.clear();
+	m_bRtpCommand = false;
+	m_bRtpData = false;
+	memset(&m_pSotpRtpCommand,0,SOTP_RTP_COMMAND_SIZE);
+	memset(&m_pSotpRtpDataHead,0,SOTP_RTP_DATA_HEAD_SIZE);
 
 	//m_attach->clear();
 
@@ -150,7 +156,7 @@ void ParseCgcSotp2::addParameter(const cgcParameter::pointer& parameter)
 //	//return pBuffer[1]=='2'&& pBuffer[2]=='1';
 //}
 
-bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncoding)
+bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,size_t nBufferSize,const char* sEncoding)
 {
 	if (pBuffer == 0) return false;
 	if (m_attach.get() !=NULL && m_attach->isHasAttach())
@@ -174,7 +180,7 @@ bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncod
 
 	if (m_nSotpVersion==SOTP_PROTO_VERSION_21)
 	{
-		// OPEN='1' CLOSE='2' ACTIVE='3' CALL='4' ACK='5' P2P='6'
+		// OPEN='1' CLOSE='2' ACTIVE='3' RTP='4' CALL='A' ACK='B' P2P='B'
 		const int nProtoType = SotpChar2Int(pBuffer[0]);
 		if (nProtoType<SOTP_PROTO_TYPE_OPEN || nProtoType>SOTP_PROTO_TYPE_P2P)
 			return false;
@@ -240,14 +246,14 @@ bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,const char* sEncod
 	pNextLineFind = strstr(pNextLineFind, "\n");
 	while (pNextLineFind != NULL && pNextLineFind[0] == '\n')
 	{
-		pNextLineFind = parseOneLine(pNextLineFind+1);
+		pNextLineFind = parseOneLine(pNextLineFind+1,nBufferSize-((const unsigned char*)pNextLineFind-pBuffer));
 	}
 	return m_nProtoType >= SOTP_PROTO_TYPE_OPEN;
 	//return m_nCgcProto > 0;
 }
 
 	// 把SOTP协议，改到2.0版本
-const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
+const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBufferSize)
 {
 	if (pLineBuffer == NULL) return NULL;
 
@@ -260,6 +266,33 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer)
 		const int nSotpItemType = SotpChar2Int(pLineBuffer[0]);
 		switch (nSotpItemType)
 		{
+		case SOTP_PROTO_ITEM_TYPE_RTP_COMMAND:
+			{
+				if (!isRTPProto()) return NULL;
+				memcpy(&m_pSotpRtpCommand,pLineBuffer+1,SOTP_RTP_COMMAND_SIZE);
+				pNextLineFind = pLineBuffer+(1+SOTP_RTP_COMMAND_SIZE);
+				m_bRtpCommand = true;
+			}break;
+		case SOTP_PROTO_ITEM_TYPE_RTP_DATA:
+			{
+				if (!isRTPProto()) return NULL;
+				memcpy(&m_pSotpRtpDataHead,pLineBuffer+1,SOTP_RTP_DATA_HEAD_SIZE);
+				if (m_pSotpRtpDataHead.m_nOffset>=m_pSotpRtpDataHead.m_nTotleLength ||
+					(m_pSotpRtpDataHead.m_nUnitLength+SOTP_RTP_DATA_HEAD_SIZE+2)>(nBufferSize))
+					return NULL;
+				try
+				{
+					m_attach->setTotal(m_pSotpRtpDataHead.m_nTotleLength);
+					m_attach->setIndex(m_pSotpRtpDataHead.m_nOffset);
+					m_attach->setAttach((const unsigned char *)pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE),m_pSotpRtpDataHead.m_nUnitLength);
+				}catch(const std::exception&)
+				{
+				}catch(...)
+				{
+				}
+				pNextLineFind = pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE+m_pSotpRtpDataHead.m_nUnitLength);
+				m_bRtpData = true;
+			}break;
 		case SOTP_PROTO_ITEM_TYPE_SID:
 			{
 				m_sSid = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);

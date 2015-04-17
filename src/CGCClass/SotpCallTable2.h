@@ -24,6 +24,7 @@
 #include <boost/thread/mutex.hpp>
 #include "../CGCBase/cgcparameter.h"
 #include "../CGCBase/cgcattachment.h"
+#include <CGCBase/cgcParserSotp.h>
 #include "ModuleItem.h"
 
 namespace cgc
@@ -57,6 +58,9 @@ public:
 	std::string toAppCallResultData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck);
 	// p2p
 	std::string toP2PTry(SOTP_PROTO_VERSION nVersion) const;
+	// rtp
+	static unsigned char* toRtpCommand(const tagSotpRtpCommand& pRtpCommand, unsigned char* pSendBuffer, size_t& pOutSize);
+	static unsigned char* toRtpData(const tagSotpRtpDataHead& pRtpDataHead, const cgcAttachment::pointer& pAttachment, unsigned char* pSendBuffer, size_t& pOutSize);
 
 public:
 	// ENCODING

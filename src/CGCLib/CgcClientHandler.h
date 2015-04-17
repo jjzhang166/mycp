@@ -88,8 +88,23 @@ namespace cgc
 		virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
 		virtual void doSendP2PTry(unsigned short nTryCount=3) = 0;
 
+		// sotp rtp
+		virtual void doSetRtpSourceId(cgc::bigint nSrcId) = 0;
+		virtual cgc::bigint doGetRtpSourceId(void) const = 0;
+		virtual bool doRegisterSource(cgc::bigint nRoomId) = 0;
+		virtual void doUnRegisterSource(cgc::bigint nRoomId) = 0;
+		virtual bool doIsRegisterSource(cgc::bigint nRoomId) const = 0;
+		virtual void doUnRegisterAllSource(void) = 0;
+		virtual bool doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) = 0;
+		virtual void doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) = 0;
+		virtual void doUnRegisterAllSink(cgc::bigint nRoomId) = 0;
+		virtual void doUnRegisterAllSink(void) = 0;
+		virtual bool doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const = 0;
+		// nNAKType: 1:for audio(or screen) 2:for video
+		virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,unsigned short nSize,unsigned int nTimestamp=0,cgc::uint8 nDataType=0,cgc::uint8 nNAKType=0) = 0;
+
 		// thread
-		virtual void doSetCIDTResends(unsigned int timeoutResends=2, unsigned int timeoutSeconds=4) = 0;
+		virtual void doSetCIDTResends(unsigned short timeoutResends=2, unsigned short timeoutSeconds=4) = 0;
 		virtual void doStartRecvThreads(unsigned short nRecvThreads = 2) = 0;
 		virtual void doStartActiveThread(unsigned short nActiveWaitSeconds = 30,unsigned short nSendP2PTrySeconds=0) = 0;
 
@@ -110,11 +125,12 @@ namespace cgc
 		// other
 		virtual time_t doGetLastSendRecvTime(void) const = 0;
 		virtual bool doSetRemoteAddr(const tstring & newv) = 0;
+		virtual tstring doGetRemoteAddr(void) const = 0;
 		virtual const tstring& doGetLocalIp(void) const = 0;
 		virtual unsigned short doGetLocalPort(void) const = 0;
-		virtual void doSetMediaType(unsigned short newv) = 0;	// for RTP
+		virtual void doSetMediaType(unsigned short newv) = 0;	// ?for RTP
 		virtual size_t doSendData(const unsigned char * data, size_t size) = 0;
-		virtual size_t doSendData(const unsigned char * data, size_t size, unsigned int timestamp) = 0;	// for RTP
+		virtual size_t doSendData(const unsigned char * data, size_t size, unsigned int timestamp) = 0;	// ?for RTP
 	};
 
 	//

@@ -31,6 +31,7 @@
 #include "cgcaddress.h"
 #include "dlldefine.h"
 #include "../CGCBase/cgcSeqInfo.h"
+#include "../CGCClass/SotpRtpSession.h"
 
 namespace cgc
 {
@@ -136,8 +137,26 @@ protected:
 		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach);}
 	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
 
+	// sotp rtp
+	CSotpRtpSession m_pRtpSession;
+	cgc::bigint m_nSrcId;
+	cgcRemote::pointer m_pOwnerRemote;
+	virtual void doSetRtpSourceId(cgc::bigint nSrcId) {m_nSrcId = nSrcId;}
+	virtual cgc::bigint doGetRtpSourceId(void) const {return m_nSrcId;}
+	virtual bool doRegisterSource(cgc::bigint nRoomId);
+	virtual void doUnRegisterSource(cgc::bigint nRoomId);
+	virtual bool doIsRegisterSource(cgc::bigint nRoomId) const;
+	virtual void doUnRegisterAllSource(void);
+	virtual bool doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId);
+	virtual void doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId);
+	virtual void doUnRegisterAllSink(cgc::bigint nRoomId);
+	virtual void doUnRegisterAllSink(void);
+	virtual bool doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const;
+	// nNAKType: 1:for audio(screen) 2:for video
+	virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,unsigned short nSize,unsigned int nTimestamp=0,cgc::uint8 nDataType=0,cgc::uint8 nNAKType=1);
+
 	// threads
-	virtual void doSetCIDTResends(unsigned int timeoutResends, unsigned int timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}
+	virtual void doSetCIDTResends(unsigned short timeoutResends, unsigned short timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}
 	virtual void doStartRecvThreads(unsigned short nRecvThreads) {StartRecvThreads(nRecvThreads);}
 	virtual void doStartActiveThread(unsigned short nActiveWaitSeconds,unsigned short nSendP2PTrySeconds) {StartActiveThread(nActiveWaitSeconds,nSendP2PTrySeconds);}
 
@@ -158,6 +177,7 @@ protected:
 	// other
 	virtual time_t doGetLastSendRecvTime(void) const {return m_tSendRecv;}
 	virtual bool doSetRemoteAddr(const tstring & newv) {return setRemoteAddr(newv);}
+	virtual tstring doGetRemoteAddr(void) const {return m_ipRemote.address();}
 	virtual const tstring& doGetLocalIp(void) const {return m_ipLocal.getip();}
 	virtual unsigned short doGetLocalPort(void) const {return m_ipLocal.getport();}
 	virtual void doSetMediaType(unsigned short newv) {setMediaType(newv);}	// for RTP
@@ -191,7 +211,7 @@ public:
 
 	//
 	// callid timeout resends, set '0' do not resend
-	void setCIDTResends(unsigned int timeoutResends=2, unsigned int timeoutSeconds=4);
+	void setCIDTResends(unsigned short timeoutResends=2, unsigned short timeoutSeconds=4);
 
 	//
 	// Start the cws client.
@@ -201,6 +221,7 @@ public:
 	//int StartClient(const tstring & sCwssHostName, u_short nCwssPort=8089, int nRecvThreads=2, int nActiveWaitSeconds=60);
 	int StartClient(const tstring & sCgcServerAddr, unsigned int bindPort);
 
+	void StartCIDTimeout(void);
 	// nRecvThreads: 0 <= nRecvThreads <= 20
 	void StartRecvThreads(unsigned short nRecvThreads = 2);
 	void StopRecvThreads(void);
@@ -246,6 +267,9 @@ public:
 	void sendActiveSession(unsigned long * pCallId = 0);
 	void sendP2PTry(unsigned short nTryCount);
 
+	void RtpCheckRegisterSink(void);
+	void ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc);
+
 	//
 	// Send app call request.
 	//   return 0: send succeeded.
@@ -273,8 +297,8 @@ public:
 protected:
 	//
 	// static thread
-	static void do_proc_CgcClient(CgcBaseClient * udpclient);
-	static void do_proc_activesession(CgcBaseClient::pointer udpclient);
+	//static void do_proc_CgcClient(CgcBaseClient * udpclient);
+	static void do_proc_activesession(const CgcBaseClient::pointer& udpclient);
 	static void do_proc_cid_timeout(CgcBaseClient * udpclient);
 
 	//
@@ -323,7 +347,7 @@ private:
 	boost::mutex m_sendMutex;
 	boost::mutex m_recvMutex;
 	boost::mutex::scoped_lock * m_pSendLock;
-	BoostThreadList m_listBoostThread;
+	//BoostThreadList m_listBoostThread;
 	boost::thread * m_threadActiveSes;
 	boost::thread * m_threadCIDTimeout;
 	unsigned short m_nActiveWaitSeconds;					// 

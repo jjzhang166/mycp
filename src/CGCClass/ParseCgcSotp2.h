@@ -31,6 +31,9 @@
 #include "dlldefine.h"
 using namespace cgc;
 
+
+
+
 class CGCCLASS_CLASS ParseCgcSotp2
 {
 public:
@@ -46,6 +49,7 @@ public:
 	void setAppProto(void) {m_nProtoType=SOTP_PROTO_TYPE_CALL;}
 	bool isAckProto(void) const {return m_nProtoType==SOTP_PROTO_TYPE_ACK;}
 	bool isP2PProto(void) const {return m_nProtoType==SOTP_PROTO_TYPE_P2P;}
+	bool isRTPProto(void) const {return m_nProtoType==SOTP_PROTO_TYPE_RTP;}
 	//bool isClusterProto(void) const {return m_nCgcProto==3;}
 	int getProtoType(void) const {return m_nProtoType;}
 
@@ -63,6 +67,7 @@ public:
 	bool isActiveType(void) const {return m_nProtoType==SOTP_PROTO_TYPE_ACTIVE;}
 	void setCallType(void) {m_nProtoType = SOTP_PROTO_TYPE_CALL;}
 	bool isCallType(void) const {return m_nProtoType==SOTP_PROTO_TYPE_CALL;}
+
 	//bool isQueryType(void) const {return m_nProtoType==20;}
 	//bool isVerifyType(void) const {return m_nProtoType==21;}
 
@@ -95,6 +100,11 @@ public:
 	void setSign(unsigned long newValue) {m_nSign = newValue;}
 	unsigned long getSign(void) const {return m_nSign;}
 
+	bool isRtpCommand(void) const {return m_bRtpCommand;}
+	bool isRtpData(void) const {return m_bRtpData;}
+	const tagSotpRtpCommand& getRtpCommand(void) const {return m_pSotpRtpCommand;}
+	const tagSotpRtpDataHead& getRtpDataHead(void) const {return m_pSotpRtpDataHead;}
+
 	//
 	// parameter
 	size_t getParameterCount(void) const {return this->m_parameterMap.size();}
@@ -107,7 +117,7 @@ public:
 	bool getParameterValue(const tstring & paramName, bool defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
 	double getParameterValue(const tstring & paramName, double defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
 
-	cgcAttachment::pointer getAttachInfo(void) const {return m_attach;}
+	const cgcAttachment::pointer& getAttachInfo(void) const {return m_attach;}
 
 	//
 	// cluster
@@ -120,17 +130,21 @@ public:
 
 public:
 	void setParseCallback(cgc::cgcParserCallback* pCallback) {m_pCallback = pCallback;}
-	bool parseBuffer(const unsigned char * pBuffer,const char* sEncoding="");
+	bool parseBuffer(const unsigned char * pBuffer,size_t size,const char* sEncoding="");
 
 protected:
 	// 把SOTP协议，改到2.0版本
-	const char * parseOneLine(const char * pLineBuffer);
+	const char * parseOneLine(const char * pLineBuffer,size_t nBufferSize);
 	bool sotpCompare(const char * pBuffer, const char * pCompare, int & leftIndex);
 
 private:
 	tstring m_sEncoding;
 	cgcParameterMap m_parameterMap;
 	cgcAttachment::pointer m_attach;
+	bool m_bRtpCommand;
+	bool m_bRtpData;
+	tagSotpRtpCommand m_pSotpRtpCommand;
+	tagSotpRtpDataHead m_pSotpRtpDataHead;
 	cgcParserCallback* m_pCallback;
 	//ClusterSvrList m_custerSvrList;
 

@@ -71,6 +71,7 @@ CGCApp::CGCApp(const tstring & sPath)
 , m_licenseModuleCount(1)
 , m_fpGetLogService(NULL), m_fpResetLogService(NULL), m_fpParserSotpService(NULL), m_fpParserHttpService(NULL)
 , /*m_fpHttpStruct(NULL), */m_fpHttpServer(NULL), m_sHttpServerName("")
+, m_pRtpSession(true)
 
 {
 //#ifdef WIN32
@@ -1503,6 +1504,20 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 	}
 
 	cgcParserSotp::pointer pcgcParser = CGC_PARSERSOTPSERVICE_DEF(parserService);
+	pcgcParser->setParseCallback(this);
+	const bool parseResult = pcgcParser->doParse(recvData, dataSize);
+	if (pcgcParser->getProtoType()==SOTP_PROTO_TYPE_RTP)
+	{
+		if (pcgcParser->isRtpCommand())
+		{
+			m_pRtpSession.doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false);
+		}else if (pcgcParser->isRtpData())
+		{
+			m_pRtpSession.doRtpData(pcgcParser->getRtpDataHead(),pcgcParser->getRecvAttachment(),pcgcRemote);
+		}
+		return 1;
+	}
+
 	cgcSession::pointer sessionImpl = m_mgrSession.GetSessionImplByRemote(pcgcRemote->getRemoteId());
 	cgcSotpRequest::pointer requestImpl(new CSotpRequestImpl(pcgcRemote, pcgcParser));
 
@@ -1517,17 +1532,17 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		pSessionImpl->setDataResponseImpl("",pcgcRemote);
 	}
 
-	bool parseResult = false;
-	pcgcParser->setParseCallback(this);
-	if (pSessionImpl != NULL && pSessionImpl->isHasPrevData())
-	{
-		// 之前有未处理数据
-		const std::string & sRecvData = pSessionImpl->addPrevData((const char*)recvData);
-		parseResult = pcgcParser->doParse((const unsigned char*)sRecvData.c_str(), sRecvData.size());
-	}else
-	{
-		parseResult = pcgcParser->doParse(recvData, dataSize);
-	}
+	//bool parseResult = false;
+	//pcgcParser->setParseCallback(this);
+	//if (pSessionImpl != NULL && pSessionImpl->isHasPrevData())
+	//{
+	//	// 之前有未处理数据
+	//	const std::string & sRecvData = pSessionImpl->addPrevData((const char*)recvData);
+	//	parseResult = pcgcParser->doParse((const unsigned char*)sRecvData.c_str(), sRecvData.size());
+	//}else
+	//{
+	//	parseResult = pcgcParser->doParse(recvData, dataSize);
+	//}
 
 	//printf("**** doParse ok=%d\n",parseResult?1:0);
 

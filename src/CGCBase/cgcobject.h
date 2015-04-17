@@ -31,6 +31,7 @@ namespace cgc{
 	typedef long long			bigint;
 #define cgc_atoi64(a) atoll(a)
 #endif
+typedef unsigned char			uint8;
 
 class cgcObject
 {

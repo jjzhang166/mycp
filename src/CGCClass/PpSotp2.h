@@ -97,6 +97,11 @@ public:
 	virtual const tstring & getSslPublicKey(void) const {return m_cgcInvoke.getSslPublicKey();}
 	virtual bool isSslRequest(void) const {return m_cgcInvoke.isSslRequest();}
 
+	virtual bool isRtpCommand(void) const {return m_cgcInvoke.isRtpCommand();}
+	virtual bool isRtpData(void) const {return m_cgcInvoke.isRtpData();}
+	virtual const tagSotpRtpCommand& getRtpCommand(void) const {return m_cgcInvoke.getRtpCommand();}
+	virtual const tagSotpRtpDataHead& getRtpDataHead(void) const {return m_cgcInvoke.getRtpDataHead();}
+
 	//virtual const tstring & getProtoValue(void) const {return m_cgcInvoke.getProtoValue();}
 	virtual const tstring & getModuleName(void) const {return m_cgcInvoke.getAppName();}
 	virtual const tstring & getFunctionName(void) const {return m_cgcInvoke.getApiName();}
@@ -115,7 +120,7 @@ public:
 	virtual std::size_t getRecvParameterCount(void) const {return m_cgcInvoke.getParameterCount();}
 	virtual const cgcParameterMap & getRecvParameters(void) const {return m_cgcInvoke.getParameters();}
 	virtual bool isRecvHasAttachInfo(void) const {return m_cgcInvoke.getAttachInfo()->isHasAttach();}
-	virtual cgcAttachment::pointer getRecvAttachment(void) const {return m_cgcInvoke.getAttachInfo();}
+	virtual const cgcAttachment::pointer& getRecvAttachment(void) const {return m_cgcInvoke.getAttachInfo();}
 
 	////////////////////////////////////////////////////////
 	// Response
@@ -144,7 +149,7 @@ public:
 	virtual void setResAttachData2(unsigned char * attachData, unsigned int attachSize);
 	virtual void setResAttach(const cgcAttachment::pointer& pAttach);
 	virtual bool isResHasAttachInfo(void) const {return m_attach->isHasAttach();}
-	virtual cgcAttachment::pointer getResAttachment(void) const {return m_attach;}
+	virtual const cgcAttachment::pointer& getResAttachment(void) const {return m_attach;}
 	virtual unsigned char * getResAttachString(unsigned int & pOutSize);
 
 	// for ssl

@@ -20,6 +20,7 @@
 #pragma warning(disable:4267 4819 4996)
 #endif // WIN32
 
+#include "../CGCBase/cgcdef.h"
 #include "CgcBaseClient.h"
 #include <fstream>
 #include <boost/format.hpp>
@@ -34,6 +35,50 @@ typedef boost::wformat tformat;
 #else
 typedef boost::format tformat;
 #endif // _UNICODE
+
+class CcgcBaseRemote
+	: public cgcRemote
+{
+private:
+	DoSotpClientHandler::pointer m_handler;
+
+public:
+	// ???
+	CcgcBaseRemote(const DoSotpClientHandler::pointer& handler)
+	{
+		assert (m_handler.get() != NULL);
+	}
+	virtual ~CcgcBaseRemote(void){}
+
+private:
+	virtual int getProtocol(void) const {return 0;}
+	virtual int getServerPort(void) const {return 0;}
+	virtual unsigned long getCommId(void) const {return 0;}
+	virtual unsigned long getRemoteId(void) const {return 0;}
+	virtual unsigned long getIpAddress(void) const {return 0;}
+	virtual tstring getScheme(void) const {return _T("BASE");}
+	tstring m_sRemoteAddr;
+	virtual const tstring & getRemoteAddr(void) const {return m_sRemoteAddr;}
+	//boost::mutex m_sendMutex;
+	virtual int sendData(const unsigned char * data, size_t size)
+	{
+		if (m_handler.get()==NULL || data == NULL || isInvalidate()) return -1;
+		try
+		{
+			m_handler->doSendData(data,size);
+		}catch (std::exception& e)
+		{
+			std::cerr << e.what() << std::endl;
+			return -2;
+		}catch(...)
+		{
+			return -2;
+		}
+		return 0;
+	}
+	virtual void invalidate(bool bClose) {m_handler.reset();}
+	virtual bool isInvalidate(void) const {return m_handler.get() == 0;}
+};
 
 //CXmlParse theXmlParse;
 
@@ -51,6 +96,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_timeoutSeconds(3), m_timeoutResends(5)
 , m_currentPath(_T(""))
 , theProtoVersion(SOTP_PROTO_VERSION_20)
+, m_pRtpSession(false)
 
 {
 	m_nDataIndex = 0;
@@ -111,39 +157,40 @@ std::string CgcBaseClient::GetHostIp(const char * lpszHostName,const char* lpszD
 	}
 }
 
-void CgcBaseClient::do_proc_CgcClient(CgcBaseClient * cgcClient)
-{
-	if (NULL == cgcClient) return;
-	const size_t constMaxSize = 1024*50;
-	unsigned char* buffer = new unsigned char [constMaxSize];
+//void CgcBaseClient::do_proc_CgcClient(CgcBaseClient * cgcClient)
+//{
+//	if (NULL == cgcClient) return;
+//	const size_t constMaxSize = 1024*50;
+//	unsigned char* buffer = new unsigned char [constMaxSize];
+//
+//	while (!cgcClient->isClientState(CgcBaseClient::Stop_Client))
+////	while (!cgcClient->isInvalidate())
+//	{
+//		memset(buffer, 0, constMaxSize);
+//		try
+//		{
+//			cgcClient->RecvData(buffer, constMaxSize);
+//		}catch(const std::exception &)
+//		{
+//			//int i=0;
+//		}catch(...)
+//		{
+//			//int i=0;
+//		}
+//#ifdef WIN32
+//		Sleep(5);
+//#else
+//		usleep(5000);
+//#endif
+//	}
+//	delete[] buffer;
+//}
 
-	while (!cgcClient->isClientState(CgcBaseClient::Stop_Client))
-//	while (!cgcClient->isInvalidate())
-	{
-		memset(buffer, 0, constMaxSize);
-		try
-		{
-			cgcClient->RecvData(buffer, constMaxSize);
-		}catch(const std::exception &)
-		{
-			//int i=0;
-		}catch(...)
-		{
-			//int i=0;
-		}
-#ifdef WIN32
-		Sleep(5);
-#else
-		usleep(5000);
-#endif
-	}
-	delete[] buffer;
-}
-
-void CgcBaseClient::do_proc_activesession(CgcBaseClient::pointer cgcClient)
+void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClient)
 {
 	BOOST_ASSERT (cgcClient.get() != NULL);
 
+	unsigned int index = 0;
 	while (!cgcClient->isInvalidate())
 	{
 #ifdef WIN32
@@ -151,6 +198,9 @@ void CgcBaseClient::do_proc_activesession(CgcBaseClient::pointer cgcClient)
 #else
 		sleep(1);
 #endif
+		if (((++index)%2)==0)	// 二秒检查一次；
+			cgcClient->RtpCheckRegisterSink();
+
 		//if (!cgcClient->isTimeToActiveSes()) continue;
 		//if (cgcClient->getSessionId().empty()) continue;	// 未打开，或者已经关闭SESSION
 		try
@@ -261,7 +311,7 @@ bool CgcBaseClient::setClientPath(const tstring & sClientPath)
 	return true;
 }
 
-void CgcBaseClient::setCIDTResends(unsigned int timeoutResends, unsigned int timeoutSeconds)
+void CgcBaseClient::setCIDTResends(unsigned short timeoutResends, unsigned short timeoutSeconds)
 {
 	this->m_timeoutResends = timeoutResends;
 	this->m_timeoutSeconds = timeoutSeconds;
@@ -291,7 +341,12 @@ int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bind
 	if (ret != 0)
 		return ret;
 
-	//
+	m_clientState = Start_Client;
+	return 0;
+}
+
+void CgcBaseClient::StartCIDTimeout(void)
+{
 	// start the CID timeout process thread
 	if (m_threadCIDTimeout == NULL)
 	{
@@ -299,34 +354,32 @@ int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bind
 		attrs.set_stack_size(10240);	// 10K
 		m_threadCIDTimeout = new boost::thread(attrs,boost::bind(do_proc_cid_timeout, this));
 	}
-
-	m_clientState = Start_Client;
-	return 0;
 }
-
 void CgcBaseClient::StartRecvThreads(unsigned short nRecvThreads)
 {
-	nRecvThreads = nRecvThreads > 20 ? 20 : nRecvThreads;
-	unsigned short i=0;
-	for (i=0; i<nRecvThreads; i++)
-	{
-		boost::thread_attributes attrs;
-		attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-		boost::thread * recvThread = new boost::thread(attrs,boost::bind(do_proc_CgcClient, this));
-		m_listBoostThread.push_back(recvThread);
-	}
+	return;	//****
+	//nRecvThreads = nRecvThreads > 20 ? 20 : nRecvThreads;
+	//unsigned short i=0;
+	//for (i=0; i<nRecvThreads; i++)
+	//{
+	//	boost::thread_attributes attrs;
+	//	attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+	//	boost::thread * recvThread = new boost::thread(attrs,boost::bind(do_proc_CgcClient, this));
+	//	m_listBoostThread.push_back(recvThread);
+	//}
 }
 
 void CgcBaseClient::StopRecvThreads(void)
 {
-	BoostThreadListCIter pIter;
-	for (pIter=m_listBoostThread.begin(); pIter!=m_listBoostThread.end(); pIter++)
-	{
-		boost::thread * recvThread = *pIter;
-		recvThread->join();	// 如果该线程在外面操作界面消息，会导致退出挂死
-		delete recvThread;
-	}
-	m_listBoostThread.clear();
+	return;
+	//BoostThreadListCIter pIter;
+	//for (pIter=m_listBoostThread.begin(); pIter!=m_listBoostThread.end(); pIter++)
+	//{
+	//	boost::thread * recvThread = *pIter;
+	//	recvThread->join();	// 如果该线程在外面操作界面消息，会导致退出挂死
+	//	delete recvThread;
+	//}
+	//m_listBoostThread.clear();
 }
 
 void CgcBaseClient::StartActiveThread(unsigned short nActiveWaitSeconds,unsigned short nSendP2PTrySeconds)
@@ -418,6 +471,7 @@ void CgcBaseClient::StopClient(bool exitClient)
 		}
 	}
 
+	m_pOwnerRemote.reset();
 	// clear m_mapCidInfo
 	m_ipLocal.reset();
 	m_ipRemote.reset();
@@ -739,11 +793,160 @@ void CgcBaseClient::sendP2PTry(unsigned short nTryCount)
 	}
 }
 
+//static void MySinkExpireCallback(void* pUserData,void* pRtpRoom,void* pRtpSourc)
+//{
+//	CgcBaseClient* pCGCBaseClient = (CgcBaseClient*)pUserData;
+//	CSotpRtpRoom* pSotpRtpRoom = (CSotpRtpRoom*)pRtpRoom;
+//	CSotpRtpSource* pSotpRtpSourc = (CSotpRtpSource*)pRtpSourc;
+//
+//	((DoSotpClientHandler*)pCGCBaseClient)->doRegisterSource(pSotpRtpRoom->GetRoomId());
+//	pCGCBaseClient->ReRegisterSink(pSotpRtpRoom,pSotpRtpSourc);
+//}
+void CgcBaseClient::RtpCheckRegisterSink(void)
+{
+	//m_pRtpSession.CheckRegisterSinkLive(8,MySinkExpireCallback,this);
+	m_pRtpSession.CheckRegisterSinkLive(8,m_pOwnerRemote);
+}
+void CgcBaseClient::ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc)
+{
+	//pSotpRtpSourc->r
+}
+
+
+bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId)
+{
+	if (m_pOwnerRemote.get()==NULL)
+	{
+		m_pOwnerRemote = cgcRemote::pointer(new CcgcBaseRemote(shared_from_this()));
+	}
+	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SOURCE;
+	pRtpCommand.m_nRoomId = nRoomId;
+	pRtpCommand.m_nSrcId = doGetRtpSourceId();
+	if (!m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true))
+		return false;
+
+	// ???
+	//doRtpCommand 同时加一个参数 sendRtpCommand
+	return true;
+}
+void CgcBaseClient::doUnRegisterSource(cgc::bigint nRoomId)
+{
+	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_UNREGISTER_SOURCE;
+	pRtpCommand.m_nRoomId = nRoomId;
+	pRtpCommand.m_nSrcId = doGetRtpSourceId();
+	m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
+}
+bool CgcBaseClient::doIsRegisterSource(cgc::bigint nRoomId) const
+{
+	return m_pRtpSession.IsRegisterSource(nRoomId,doGetRtpSourceId());
+}
+void CgcBaseClient::doUnRegisterAllSource(void)
+{
+	std::vector<cgc::bigint> pRoomIdList;
+	m_pRtpSession.GetRoomIdList(pRoomIdList);
+	for (size_t i=0;i<pRoomIdList.size();i++)
+	{
+		doUnRegisterSource(pRoomIdList[i]);
+	}
+	pRoomIdList.clear();
+}
+
+bool CgcBaseClient::doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
+{
+	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SINK;
+	pRtpCommand.m_nRoomId = nRoomId;
+	pRtpCommand.m_nSrcId = doGetRtpSourceId();
+	pRtpCommand.u.m_nDestId = nDestId;
+	return m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
+}
+void CgcBaseClient::doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
+{
+	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_UNREGISTER_SINK;
+	pRtpCommand.m_nRoomId = nRoomId;
+	pRtpCommand.m_nSrcId = doGetRtpSourceId();
+	pRtpCommand.u.m_nDestId = nDestId;
+	m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
+}
+void CgcBaseClient::doUnRegisterAllSink(cgc::bigint nRoomId)
+{
+	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_UNREGISTER_ALLSINK;
+	pRtpCommand.m_nRoomId = nRoomId;
+	pRtpCommand.m_nSrcId = doGetRtpSourceId();
+	m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
+}
+void CgcBaseClient::doUnRegisterAllSink(void)
+{
+	std::vector<cgc::bigint> pRoomIdList;
+	m_pRtpSession.GetRoomIdList(pRoomIdList);
+	for (size_t i=0;i<pRoomIdList.size();i++)
+	{
+		doUnRegisterAllSink(pRoomIdList[i]);
+	}
+	pRoomIdList.clear();
+}
+bool CgcBaseClient::doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const
+{
+	return m_pRtpSession.IsRegisterSink(nRoomId,doGetRtpSourceId(),nDestId);
+}
+
+#define MAX_PAYLOAD_LENGTH               1100	//1200
+bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,unsigned short nSize,unsigned int nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType)
+{
+	CSotpRtpRoom::pointer pRtpRoom = m_pRtpSession.GetRtpRoom(nRoomId,false);
+	if (pRtpRoom.get()==NULL)
+		return false;
+	CSotpRtpSource::pointer pRtpSource = pRtpRoom->GetRtpSource(doGetRtpSourceId());
+	if (pRtpSource.get()==NULL)
+		return false;
+	// ??要判断是否有人接收数据
+	//if (pRtpSource->
+
+	const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+MAX_PAYLOAD_LENGTH;
+	unsigned char* pSendBuffer = new unsigned char[nSizeTemp];
+
+	tagSotpRtpDataHead pRtpDataHead;
+	pRtpDataHead.m_nDataType = nDataType;
+	pRtpDataHead.m_nRoomId= nRoomId;
+	pRtpDataHead.m_nSrcId = this->doGetRtpSourceId();
+	pRtpDataHead.m_nTimestamp = nTimestamp;
+	pRtpDataHead.m_nNAKType = nNAKType;
+	pRtpDataHead.m_nTotleLength = nSize;
+	const int nCount = (nSize+MAX_PAYLOAD_LENGTH-1)/MAX_PAYLOAD_LENGTH;
+	for (int i=0; i<nCount; i++)
+	{
+		const short nUnitLength = (i+1)==nCount?(nCount%MAX_PAYLOAD_LENGTH):MAX_PAYLOAD_LENGTH;
+		const unsigned short nSeq = pRtpSource->GetNextSeq();
+		pRtpDataHead.m_nSeq = nSeq;
+		pRtpDataHead.m_nOffset = i*MAX_PAYLOAD_LENGTH;
+		pRtpDataHead.m_nUnitLength = nUnitLength;
+		cgcAttachment::pointer pAttachment = cgcAttachment::create();
+		pAttachment->setAttach(pData+pRtpDataHead.m_nOffset,nUnitLength);
+
+		// *
+		pRtpSource->UpdateReliableQueue(nSeq,pRtpDataHead,pAttachment);
+
+		// send rtp data
+		size_t nSendSize = 0;
+		toRtpData(pRtpDataHead,pAttachment,pSendBuffer,nSendSize);
+		sendData(pSendBuffer,nSendSize);
+	}
+	delete[] pSendBuffer;
+	return true;
+}
+
+
 void CgcBaseClient::addSeqInfo(const unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign,unsigned int nUserData)
 {
 	//if (m_sSessionId.empty()) return;	// ?
 	if (m_timeoutResends <= 0 || m_timeoutSeconds <= 0) return;
 	if (callData == 0 || dataSize == 0) return;
+
+	StartCIDTimeout();
 
 	cgcSeqInfo::pointer pSeqInfo;
 	if (m_mapSeqInfo.find(seq, pSeqInfo))
@@ -786,6 +989,8 @@ bool CgcBaseClient::addSeqInfo(unsigned char * callData, unsigned int dataSize, 
 	//if (m_sSessionId.empty()) return false;	// ?
 	if (m_timeoutResends <= 0 || m_timeoutSeconds <= 0) return false;
 	if (callData == 0 || dataSize == 0) return false;
+
+	StartCIDTimeout();
 
 	cgcSeqInfo::pointer pSeqInfo;
 	if (m_mapSeqInfo.find(seq, pSeqInfo))
@@ -1176,6 +1381,19 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 	if (ppSotp.doParse(recvData->data(), recvData->size(),doGetEncoding().c_str()))
 	{
 		if (ppSotp.isP2PProto()) return;
+
+		if (ppSotp.getProtoType()==SOTP_PROTO_TYPE_RTP)
+		{
+			if (ppSotp.isRtpCommand())
+			{
+				m_pRtpSession.doRtpCommand(ppSotp.getRtpCommand(),m_pOwnerRemote,false);
+			}else if (ppSotp.isRtpData())
+			{
+				m_pRtpSession.doRtpData(ppSotp.getRtpDataHead(),ppSotp.getRecvAttachment(),m_pOwnerRemote);
+			}
+			return;
+		}
+
 		if (ppSotp.hasSeq())
 		{
 			const short seq = ppSotp.getSeq();

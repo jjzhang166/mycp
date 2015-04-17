@@ -49,7 +49,7 @@ bool CPPSotp2::doParse(const unsigned char * requestData, size_t size,const char
 	//	m_attach = cgcAttachment::create();
 	//}
 	m_cgcInvoke.setParseCallback(this->m_pCallback);
-	return m_cgcInvoke.parseBuffer(requestData,sEncoding);
+	return m_cgcInvoke.parseBuffer(requestData,size,sEncoding);
 }
 
 /*
