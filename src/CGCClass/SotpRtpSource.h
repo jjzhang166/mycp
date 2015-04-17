@@ -21,15 +21,15 @@
 #define __SotpRtpSource_h__
 
 #include <boost/thread.hpp>
-#include <CGCBase/cgcobject.h>
+#include <CGCBase/cgcrtpobject.h>
 #include <CGCBase/cgcattachment.h>
-#include <CGCBase/cgcParserSotp.h>
 #include <CGCBase/cgcCommunications.h>
 
 namespace cgc
 {
 #define RELIABLE_QUEUE_SIZE 256
 #define MAX_RESEND_COUNT 5			// old=10 大概一秒左右数据量 70
+typedef void (* HSotpRtpFrameCallback)(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, void* nUserData);
 
 struct compare_seq
 {
@@ -175,10 +175,10 @@ public:
 	void SetRemote(const cgcRemote::pointer& v) {m_pRemote = v;}
 	const cgcRemote::pointer& GetRemote(void) const {return m_pRemote;}
 
-	void AddSinkSend(cgc::bigint nToId);
-	void DelSinkSend(cgc::bigint nToId);
-	bool IsSinkSend(cgc::bigint nToId) const;
-	const CLockMap<cgc::bigint,bool>& GetSinkSendList(void) const {return m_pSinkSendList;}
+	//void AddSinkSend(cgc::bigint nToId);
+	//void DelSinkSend(cgc::bigint nToId);
+	//bool IsSinkSend(cgc::bigint nToId) const;
+	//const CLockMap<cgc::bigint,bool>& GetSinkSendList(void) const {return m_pSinkSendList;}
 	// register sink
 	void AddSinkRecv(cgc::bigint nDestId);
 	void DelSinkRecv(cgc::bigint nDestId);
@@ -186,8 +186,10 @@ public:
 	const CLockMap<cgc::bigint,bool>& GetSinkRecvList(void) const {return m_pSinkRecvList;}
 	void ClearSinkRecv(bool bLock);
 
-	void CaculateMissedPackets(unsigned short nSeq,unsigned char nNAKType,const cgcRemote::pointer& pcgcRemote);
-	void UpdateReliableQueue(unsigned short nSeq,const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
+	void CaculateMissedPackets(unsigned short nSeq,cgc::uint8 nNAKType,const cgcRemote::pointer& pcgcRemote);
+	void UpdateReliableQueue(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
+	void PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
+	void GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData);
 	void SendReliableMsg(unsigned short nStartSeq,unsigned short nEndSeq,const cgcRemote::pointer& pcgcRemote);
 	void SendRegisterSink(const cgcRemote::pointer& pcgcRemote);
 
@@ -206,11 +208,17 @@ private:
 	CLockMap<cgc::bigint,bool> m_pSinkSendList;
 	CLockMap<cgc::bigint,bool> m_pSinkRecvList;
 
+	cgc::uint32  m_nLastFrameTimestamp;
+	int m_nWaitForFrameSeq;
+	bool m_bWaitforNextKeyVideo;
+	cgc::uint16 m_nLostData;
+	CLockMap<cgc::uint32,CSotpRtpFrame::pointer> m_pReceiveFrames;	// ts->
+
 	boost::mutex m_pRelialeMutex;
 	CSotpRtpReliableMsg*   m_pReliableQueue[RELIABLE_QUEUE_SIZE];
 	CLostSeqInfo theLostSeqInfo1;
 	CLostSeqInfo theLostSeqInfo2;
-	int lastSequenceOfRecvpacket_;
+	int m_nLastPacketSeq;
 
 	unsigned short m_nCurrentSeq;
 };

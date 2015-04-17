@@ -140,6 +140,7 @@ protected:
 	// sotp rtp
 	CSotpRtpSession m_pRtpSession;
 	cgc::bigint m_nSrcId;
+	cgc::uint32 m_nRtpCbUserData;
 	cgcRemote::pointer m_pOwnerRemote;
 	virtual void doSetRtpSourceId(cgc::bigint nSrcId) {m_nSrcId = nSrcId;}
 	virtual cgc::bigint doGetRtpSourceId(void) const {return m_nSrcId;}
@@ -152,8 +153,8 @@ protected:
 	virtual void doUnRegisterAllSink(cgc::bigint nRoomId);
 	virtual void doUnRegisterAllSink(void);
 	virtual bool doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const;
-	// nNAKType: 1:for audio(screen) 2:for video
-	virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,unsigned short nSize,unsigned int nTimestamp=0,cgc::uint8 nDataType=0,cgc::uint8 nNAKType=1);
+	boost::mutex m_pSendRtpMutex;
+	virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint16 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType);
 
 	// threads
 	virtual void doSetCIDTResends(unsigned short timeoutResends, unsigned short timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}
@@ -269,6 +270,7 @@ public:
 
 	void RtpCheckRegisterSink(void);
 	void ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc);
+	void OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount);
 
 	//
 	// Send app call request.

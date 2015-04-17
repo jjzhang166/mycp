@@ -32,6 +32,8 @@ namespace cgc
 class CSotpRtpSession
 {
 public:
+	void SetCallback(HSotpRtpFrameCallback pCallback) {m_pCallback = pCallback;}
+	void SetCbUserData(void* nUserData) {m_nCbUserData = nUserData;}
 	bool doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote,bool bSendRtpCommand);
 	void UnRegisterAllRoomSink(cgc::bigint nSrcId);
 	bool doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment, const cgcRemote::pointer& pcgcRemote);
@@ -50,6 +52,8 @@ public:
 	virtual ~CSotpRtpSession(void);
 private:
 	bool m_bServerMode;
+	HSotpRtpFrameCallback m_pCallback;
+	void* m_nCbUserData;
 	CLockMap<cgc::bigint,CSotpRtpRoom::pointer> m_pRoomList;
 };
 

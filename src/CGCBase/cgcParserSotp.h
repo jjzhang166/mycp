@@ -24,40 +24,9 @@
 #include "cgcparameter.h"
 #include "cgcattachment.h"
 #include "cgcParserBase.h"
+#include "cgcrtpobject.h"
 
 namespace cgc {
-
-struct tagSotpRtpDataRequest
-{
-	unsigned short		m_nSeq;
-	unsigned short		m_nCount;
-};
-struct tagSotpRtpCommand
-{
-	cgc::uint8			m_nCommand;
-	cgc::bigint			m_nRoomId;
-	cgc::bigint			m_nSrcId;
-	union
-	{
-		cgc::bigint				m_nDestId;
-		tagSotpRtpDataRequest	m_nDataRequest;	// for SOTP_RTP_COMMAND_DATA_REQUEST
-	}u;
-};
-#define SOTP_RTP_COMMAND_SIZE 25	// 1+3*8=25
-struct tagSotpRtpDataHead
-{
-	cgc::uint8			m_nDataType;
-	cgc::bigint			m_nRoomId;
-	cgc::bigint			m_nSrcId;
-	unsigned short		m_nSeq;
-	cgc::uint8			m_nNAKType;		// 1:real nak(for audio) 2:not real nak(for video)
-	unsigned int		m_nTimestamp;
-	unsigned short		m_nTotleLength;
-	unsigned short		m_nOffset;
-	unsigned short		m_nUnitLength;
-};
-#define SOTP_RTP_DATA_HEAD_SIZE 30
-//#define SOTP_RTP_DATA_MAX_UNIT_SIZE 1200*6
 
 class cgcParserSotp
 	: public cgcParserBase

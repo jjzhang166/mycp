@@ -68,14 +68,14 @@ bool CSotpRtpRoom::RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId)
 	if (!m_pSourceList.find(nSrcId,pRtpSrcSource))
 		return false;
 
-	if (m_bServerMode)
-	{
-		CSotpRtpSource::pointer pRtpDestSource;
-		if (!m_pSourceList.find(nDestId,pRtpDestSource))
-			return false;
-		pRtpSrcSource->AddSinkRecv(nDestId);
-		pRtpDestSource->AddSinkSend(nSrcId);
-	}else
+	//if (m_bServerMode)
+	//{
+	//	CSotpRtpSource::pointer pRtpDestSource;
+	//	if (!m_pSourceList.find(nDestId,pRtpDestSource))
+	//		return false;
+	//	pRtpSrcSource->AddSinkRecv(nDestId);
+	//	pRtpDestSource->AddSinkSend(nSrcId);
+	//}else
 	{
 		pRtpSrcSource->AddSinkRecv(nDestId);
 	}
@@ -87,9 +87,9 @@ void CSotpRtpRoom::UnRegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId)
 	if (m_pSourceList.find(nSrcId,pRtpSrcSource))
 		pRtpSrcSource->DelSinkRecv(nDestId);
 
-	CSotpRtpSource::pointer pRtpDestSource;
-	if (m_pSourceList.find(nDestId,pRtpDestSource))
-		pRtpDestSource->DelSinkSend(nSrcId);
+	//CSotpRtpSource::pointer pRtpDestSource;
+	//if (m_pSourceList.find(nDestId,pRtpDestSource))
+	//	pRtpDestSource->DelSinkSend(nSrcId);
 }
 void CSotpRtpRoom::UnRegisterAllSink(cgc::bigint nSrcId)
 {
@@ -102,17 +102,18 @@ void CSotpRtpRoom::UnRegisterAllSink(cgc::bigint nSrcId)
 void CSotpRtpRoom::UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource)
 {
 	{
-		const CLockMap<cgc::bigint,bool>& pList = pRtpSrcSource->GetSinkRecvList();
-		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(pList.mutex()));
-		CLockMap<cgc::bigint,bool>::const_iterator pIter = pList.begin();
-		for (; pIter!=pList.end(); pIter++)
-		{
-			const cgc::bigint nDestId = pIter->first;
-			CSotpRtpSource::pointer pRtpDestSource;
-			if (m_pSourceList.find(nDestId,pRtpDestSource))
-				pRtpDestSource->DelSinkSend(pRtpSrcSource->GetSrcId());
-		}
-		pRtpSrcSource->ClearSinkRecv(false);
+		//const CLockMap<cgc::bigint,bool>& pList = pRtpSrcSource->GetSinkRecvList();
+		//BoostReadLock rdlock(const_cast<boost::shared_mutex&>(pList.mutex()));
+		//CLockMap<cgc::bigint,bool>::const_iterator pIter = pList.begin();
+		//for (; pIter!=pList.end(); pIter++)
+		//{
+		//	const cgc::bigint nDestId = pIter->first;
+		//	CSotpRtpSource::pointer pRtpDestSource;
+		//	if (m_pSourceList.find(nDestId,pRtpDestSource))
+		//		pRtpDestSource->DelSinkSend(pRtpSrcSource->GetSrcId());
+		//}
+		//pRtpSrcSource->ClearSinkRecv(false);
+		pRtpSrcSource->ClearSinkRecv(true);
 	}
 }
 
@@ -127,6 +128,36 @@ bool CSotpRtpRoom::IsRegisterSource(cgc::bigint nSrcId) const
 	return m_pSourceList.exist(nSrcId);
 }
 
+void CSotpRtpRoom::BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment) const
+{
+	{
+		unsigned char * pSendBuffer = NULL;
+		size_t nSendSize = 0;
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_pSourceList.mutex()));
+		CLockMap<cgc::bigint,CSotpRtpSource::pointer>::const_iterator pIter = m_pSourceList.begin();
+		for (; pIter!=m_pSourceList.end(); pIter++)
+		{
+			const cgc::bigint nSrcId = pIter->first;
+			if (nSrcId==pRtpDataHead.m_nSrcId)
+				continue;
+			CSotpRtpSource::pointer pRtpDestSource = pIter->second;
+			if (!pRtpDestSource->IsSinkRecv(pRtpDataHead.m_nSrcId))
+				continue;
+			const cgcRemote::pointer& pcgcRemote = pRtpDestSource->GetRemote();
+			if (pcgcRemote.get()!=NULL)
+			{
+				if (pSendBuffer==NULL)
+				{
+					pSendBuffer = new unsigned char[20+SOTP_RTP_DATA_HEAD_SIZE+pAttackment->getAttachSize()];
+					SotpCallTable2::toRtpData(pRtpDataHead,pAttackment,pSendBuffer,nSendSize);
+				}
+				pcgcRemote->sendData(pSendBuffer, nSendSize);
+			}
+		}
+		if (pSendBuffer!=NULL)
+			delete[] pSendBuffer;
+	}
+}
 void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond)
 {
 	std::vector<cgc::bigint> pRemoveList;

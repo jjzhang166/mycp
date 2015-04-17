@@ -69,6 +69,22 @@ namespace cgc{
 		, SOTP_RTP_COMMAND_UNREGISTER_ALLSINK
 		, SOTP_RTP_COMMAND_DATA_REQUEST
 	};
+	enum SOTP_RTP_DATA_TYPE
+	{
+		SOTP_RTP_NAK_DATA_AUDIO			= 0
+		, SOTP_RTP_NAK_DATA_VIEDO
+		, SOTP_RTP_NAK_DATA_VIEDO_I			// **Key Frame Video
+		, SOTP_RTP_NAK_DATA_SCREEN
+		, SOTP_RTP_NAK_DATA_MOUSE
+		, SOTP_RTP_NAK_DATA_OTHER
+	};
+	// net ack type
+	enum SOTP_RTP_NAK_TYPE
+	{
+		SOTP_RTP_NAK_NONE				= 0
+		, SOTP_RTP_NAK_REQUEST_1			// audio etc.
+		, SOTP_RTP_NAK_REQUEST_2			// video etc.
+	};
 	inline char SotpInt2Char(int nChar)
 	{
 		// '1'=1

@@ -29,6 +29,7 @@ namespace cgc
 
 CSotpRtpSession::CSotpRtpSession(bool bServerMode)
 : m_bServerMode(bServerMode)
+, m_pCallback(NULL), m_nCbUserData(0)
 
 {
 }
@@ -153,37 +154,16 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 		return false;
 
 	// 
-	pRtpSrcSource->CaculateMissedPackets(pRtpDataHead.m_nSeq,pRtpDataHead.m_nNAKType,pcgcRemote);
-	pRtpSrcSource->UpdateReliableQueue(pRtpDataHead.m_nSeq,pRtpDataHead,pAttackment);
-
+	pRtpSrcSource->CaculateMissedPackets(pRtpDataHead.m_nSeq,pRtpDataHead.m_nDataType,pcgcRemote);
+	if (this->m_bServerMode)
 	{
-		unsigned char * pSendBuffer = NULL;
-		size_t nSendSize = 0;
-		const CLockMap<cgc::bigint,bool>& pList = pRtpSrcSource->GetSinkSendList();
-		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(pList.mutex()));
-		CLockMap<cgc::bigint,bool>::const_iterator pIter = pList.begin();
-		for (; pIter!=pList.end(); pIter++)
-		{
-			const cgc::bigint nDestId = pIter->first;
-			CSotpRtpSource::pointer pRtpDestSource = pRtpRoom->GetRtpSource(nDestId);
-			if (pRtpDestSource.get()==NULL)
-				continue;
-			if (pRtpDestSource->IsSinkRecv(pRtpDataHead.m_nSrcId))
-			{
-				const cgcRemote::pointer& pcgcRemote = pRtpDestSource->GetRemote();
-				if (pcgcRemote.get()!=NULL)
-				{
-					if (pSendBuffer==NULL)
-					{
-						pSendBuffer = new unsigned char[20+SOTP_RTP_DATA_HEAD_SIZE+pAttackment->getAttachSize()];
-						SotpCallTable2::toRtpData(pRtpDataHead,pAttackment,pSendBuffer,nSendSize);
-					}
-					pcgcRemote->sendData(pSendBuffer, nSendSize);
-				}
-			}
-		}
-		if (pSendBuffer!=NULL)
-			delete[] pSendBuffer;
+		// save as wait for SOTP_RTP_COMMAND_DATA_REQUEST msg
+		pRtpSrcSource->UpdateReliableQueue(pRtpDataHead,pAttackment);
+		pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
+	}else
+	{
+		pRtpSrcSource->PushRtpData(pRtpDataHead,pAttackment);
+		pRtpSrcSource->GetWholeFrame(m_pCallback,m_nCbUserData);
 	}
 
 	return true;

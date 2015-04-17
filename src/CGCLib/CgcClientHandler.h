@@ -36,6 +36,7 @@ namespace cgc
 	{
 	public:
 		virtual void OnCgcResponse(const cgcParserSotp & response)=0;
+		virtual void OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, cgc::uint32 nUserData){}
 		virtual void OnCgcResponse(const CCgcData::pointer& recvData){}	// disable CGCParser or parser Error
 
 		virtual void OnActiveTimeout(void) {}
@@ -59,6 +60,7 @@ namespace cgc
 		, SOTP_CLIENT_CONFIG_HAS_SSL_PASSWORD				// 0/1 (get only)
 		, SOTP_CLIENT_CONFIG_SOTP_VERSION			= 10	// 20,21 default 20
 		, SOTP_CLIENT_CONFIG_CURRENT_INDEX					// for sid and ssl pwd,...
+		, SOTP_CLIENT_CONFIG_RTP_CB_USERDATA				// for OnRtpFrame
 	};
 
 	class DoSotpClientHandler
@@ -100,8 +102,7 @@ namespace cgc
 		virtual void doUnRegisterAllSink(cgc::bigint nRoomId) = 0;
 		virtual void doUnRegisterAllSink(void) = 0;
 		virtual bool doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const = 0;
-		// nNAKType: 1:for audio(or screen) 2:for video
-		virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,unsigned short nSize,unsigned int nTimestamp=0,cgc::uint8 nDataType=0,cgc::uint8 nNAKType=0) = 0;
+		virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint16 nSize,cgc::uint32 nTimestamp=0,cgc::uint8 nDataType=SOTP_RTP_NAK_DATA_AUDIO,cgc::uint8 nNAKType=SOTP_RTP_NAK_REQUEST_1) = 0;
 
 		// thread
 		virtual void doSetCIDTResends(unsigned short timeoutResends=2, unsigned short timeoutSeconds=4) = 0;

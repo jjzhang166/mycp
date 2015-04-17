@@ -48,6 +48,7 @@ public:
 
 	CSotpRtpSource::pointer GetRtpSource(cgc::bigint nSrcId) const;
 	bool IsRegisterSource(cgc::bigint nSrcId) const;
+	void BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment) const;
 	void CheckRegisterSourceLive(time_t tNow,short nExpireSecond);
 	void CheckRegisterSinkLive(time_t tNow,short nExpireSecond,const cgcRemote::pointer& pcgcRemote);
 

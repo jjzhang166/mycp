@@ -82,6 +82,16 @@ private:
 
 //CXmlParse theXmlParse;
 
+static void MySotpRtpFrameCallback(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, void* nUserData)
+{
+	CgcBaseClient * pBaseClient = (CgcBaseClient*)nUserData;
+	if (pBaseClient!=0)
+	{
+		pBaseClient->OnRtpFrame(nSrcId, pRtpFrame, nLostCount);
+	}
+}
+
+
 CgcBaseClient::CgcBaseClient(const tstring & clientType)
 : m_tSendRecv(0)
 , m_nUserSslInfo(0)
@@ -100,14 +110,17 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 
 {
 	m_nDataIndex = 0;
+	m_pRtpSession.SetCbUserData((void*)this);
+	m_pRtpSession.SetCallback(MySotpRtpFrameCallback);
+
 	//memset(&m_pReceiveCidMasks,-1,sizeof(m_pReceiveCidMasks));
 }
 
 CgcBaseClient::~CgcBaseClient(void)
 {
+	m_pRtpSession.SetCbUserData(0);
 	StopClient(true);
 
-	//
 	// clear client info
 	ClearClientInfo();
 }
@@ -507,6 +520,10 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 	bool ret = true;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_RTP_CB_USERDATA:
+		{
+			m_nRtpCbUserData = nInValue;
+		}break;
 	case SOTP_CLIENT_CONFIG_CURRENT_INDEX:
 		{
 			CIndexInfo::pointer pIndexInfo;
@@ -667,6 +684,10 @@ void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 {
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_RTP_CB_USERDATA:
+		{
+			*nOutValue = m_nRtpCbUserData;
+		}break;
 	case SOTP_CLIENT_CONFIG_HAS_SSL_PASSWORD:
 		if (nOutValue!=NULL)
 		{
@@ -812,6 +833,11 @@ void CgcBaseClient::ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pS
 	//pSotpRtpSourc->r
 }
 
+void CgcBaseClient::OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount)
+{
+	if (m_pHandler)
+		m_pHandler->OnRtpFrame(nSrcId, pRtpFrame, nLostCount, m_nRtpCbUserData);
+}
 
 bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId)
 {
@@ -894,8 +920,7 @@ bool CgcBaseClient::doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) c
 	return m_pRtpSession.IsRegisterSink(nRoomId,doGetRtpSourceId(),nDestId);
 }
 
-#define MAX_PAYLOAD_LENGTH               1100	//1200
-bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,unsigned short nSize,unsigned int nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType)
+bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint16 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType)
 {
 	CSotpRtpRoom::pointer pRtpRoom = m_pRtpSession.GetRtpRoom(nRoomId,false);
 	if (pRtpRoom.get()==NULL)
@@ -906,29 +931,29 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	// ??要判断是否有人接收数据
 	//if (pRtpSource->
 
-	const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+MAX_PAYLOAD_LENGTH;
+	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
+	const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+SOTP_RTP_MAX_PAYLOAD_LENGTH;
 	unsigned char* pSendBuffer = new unsigned char[nSizeTemp];
 
 	tagSotpRtpDataHead pRtpDataHead;
-	pRtpDataHead.m_nDataType = nDataType;
 	pRtpDataHead.m_nRoomId= nRoomId;
 	pRtpDataHead.m_nSrcId = this->doGetRtpSourceId();
 	pRtpDataHead.m_nTimestamp = nTimestamp;
 	pRtpDataHead.m_nNAKType = nNAKType;
+	pRtpDataHead.m_nDataType = nDataType;
 	pRtpDataHead.m_nTotleLength = nSize;
-	const int nCount = (nSize+MAX_PAYLOAD_LENGTH-1)/MAX_PAYLOAD_LENGTH;
-	for (int i=0; i<nCount; i++)
+	pRtpDataHead.m_nUnitLength = SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	for (cgc::uint16 i=0; i<nCount; i++)
 	{
-		const short nUnitLength = (i+1)==nCount?(nCount%MAX_PAYLOAD_LENGTH):MAX_PAYLOAD_LENGTH;
-		const unsigned short nSeq = pRtpSource->GetNextSeq();
-		pRtpDataHead.m_nSeq = nSeq;
-		pRtpDataHead.m_nOffset = i*MAX_PAYLOAD_LENGTH;
-		pRtpDataHead.m_nUnitLength = nUnitLength;
+		const short nDataSize = (i+1)==nCount?(nCount%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
+		pRtpDataHead.m_nSeq = pRtpSource->GetNextSeq();
+		pRtpDataHead.m_nIndex = (cgc::uint8)i;
 		cgcAttachment::pointer pAttachment = cgcAttachment::create();
-		pAttachment->setAttach(pData+pRtpDataHead.m_nOffset,nUnitLength);
+		pAttachment->setAttach(pData+(pRtpDataHead.m_nIndex*SOTP_RTP_MAX_PAYLOAD_LENGTH),nDataSize);
 
 		// *
-		pRtpSource->UpdateReliableQueue(nSeq,pRtpDataHead,pAttachment);
+		pRtpSource->UpdateReliableQueue(pRtpDataHead,pAttachment);
 
 		// send rtp data
 		size_t nSendSize = 0;

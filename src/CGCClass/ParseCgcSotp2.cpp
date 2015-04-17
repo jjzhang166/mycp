@@ -277,14 +277,16 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			{
 				if (!isRTPProto()) return NULL;
 				memcpy(&m_pSotpRtpDataHead,pLineBuffer+1,SOTP_RTP_DATA_HEAD_SIZE);
-				if (m_pSotpRtpDataHead.m_nOffset>=m_pSotpRtpDataHead.m_nTotleLength ||
-					(m_pSotpRtpDataHead.m_nUnitLength+SOTP_RTP_DATA_HEAD_SIZE+2)>(nBufferSize))
+				const cgc::uint16 nDataOffset = m_pSotpRtpDataHead.m_nUnitLength*m_pSotpRtpDataHead.m_nIndex;
+				const cgc::uint16 nDataLength = (m_pSotpRtpDataHead.m_nTotleLength-nDataOffset)>=m_pSotpRtpDataHead.m_nUnitLength?m_pSotpRtpDataHead.m_nUnitLength:(m_pSotpRtpDataHead.m_nTotleLength-nDataOffset);
+				if (nDataOffset>=m_pSotpRtpDataHead.m_nTotleLength ||
+					(nDataLength+SOTP_RTP_DATA_HEAD_SIZE+2)>(nBufferSize))
 					return NULL;
 				try
 				{
 					m_attach->setTotal(m_pSotpRtpDataHead.m_nTotleLength);
-					m_attach->setIndex(m_pSotpRtpDataHead.m_nOffset);
-					m_attach->setAttach((const unsigned char *)pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE),m_pSotpRtpDataHead.m_nUnitLength);
+					m_attach->setIndex(nDataOffset);
+					m_attach->setAttach((const unsigned char *)pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE),nDataLength);
 				}catch(const std::exception&)
 				{
 				}catch(...)
