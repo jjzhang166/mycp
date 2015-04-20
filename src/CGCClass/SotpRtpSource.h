@@ -21,9 +21,9 @@
 #define __SotpRtpSource_h__
 
 #include <boost/thread.hpp>
-#include <CGCBase/cgcrtpobject.h>
-#include <CGCBase/cgcattachment.h>
-#include <CGCBase/cgcCommunications.h>
+#include "../CGCBase/cgcrtpobject.h"
+#include "../CGCBase/cgcattachment.h"
+#include "../CGCBase/cgcCommunications.h"
 
 namespace cgc
 {

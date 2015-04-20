@@ -20,7 +20,7 @@
 #ifndef __SotpRtpRoom_h__
 #define __SotpRtpRoom_h__
 
-#include <ThirdParty/stl/lockmap.h>
+#include "../ThirdParty/stl/lockmap.h"
 #include "SotpRtpSource.h"
 
 namespace cgc

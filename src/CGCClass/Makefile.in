@@ -74,7 +74,8 @@ libCGCClass_a_LIBADD =
 am__objects_1 = MethodItem.$(OBJEXT) ModuleItem.$(OBJEXT) \
 	Base64.$(OBJEXT) AttributesImpl.$(OBJEXT) \
 	ParseCgcSotp2.$(OBJEXT) SotpCallTable2.$(OBJEXT) \
-	PpSotp2.$(OBJEXT) PpHttp.$(OBJEXT)
+	PpSotp2.$(OBJEXT) PpHttp.$(OBJEXT) SotpRtpSession.$(OBJEXT) \
+	SotpRtpRoom.$(OBJEXT) SotpRtpSource.$(OBJEXT)
 am_libCGCClass_a_OBJECTS = $(am__objects_1)
 libCGCClass_a_OBJECTS = $(am_libCGCClass_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -184,12 +185,14 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LIBRARIES = libCGCClass.a
 THESOURCES = MethodItem.cpp ModuleItem.cpp Base64.cpp AttributesImpl.cpp \
-        ParseCgcSotp2.cpp SotpCallTable2.cpp PpSotp2.cpp PpHttp.cpp
+        ParseCgcSotp2.cpp SotpCallTable2.cpp PpSotp2.cpp PpHttp.cpp \
+	SotpRtpSession.cpp SotpRtpRoom.cpp SotpRtpSource.cpp
 
 libCGCClass_a_SOURCES = $(THESOURCES)
 libCGCClass_a_HEADERS = CGCClass.h cgcclassinclude.h clustersvr.h dlldefine.h \
 	IpFormat.h md5.h MethodItem.h ModuleItem.h ParseCgcSotp2.h PpSotp2.h \
-	SotpCallTable2.h AttributesImpl.h Base64.h PpHttp.h XmlParseUpload.h tchar.h
+	SotpCallTable2.h AttributesImpl.h Base64.h PpHttp.h XmlParseUpload.h \
+	tchar.h SotpRtpSession.h SotpRtpRoom.h SotpRtpSource.h
 
 AM_CFLAGS = -fPIC -Wall
 AM_CXXFLAGS = -fPIC -Wall
@@ -279,6 +282,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/PpHttp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/PpSotp2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SotpCallTable2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SotpRtpRoom.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SotpRtpSession.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SotpRtpSource.Po@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

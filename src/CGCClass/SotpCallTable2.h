@@ -24,7 +24,7 @@
 #include <boost/thread/mutex.hpp>
 #include "../CGCBase/cgcparameter.h"
 #include "../CGCBase/cgcattachment.h"
-#include <CGCBase/cgcParserSotp.h>
+#include "../CGCBase/cgcrtpobject.h"
 #include "ModuleItem.h"
 
 namespace cgc

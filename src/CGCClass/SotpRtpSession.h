@@ -20,8 +20,8 @@
 #ifndef __SotpRtpSession_h__
 #define __SotpRtpSession_h__
 
-#include <CGCBase/cgcParserSotp.h>
-#include <ThirdParty/stl/lockmap.h>
+#include "../CGCBase/cgcrtpobject.h"
+#include "../ThirdParty/stl/lockmap.h"
 #include "SotpRtpRoom.h"
 //#include "SotpRtpSink.h"
 

@@ -133,7 +133,10 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 	if (getProtocol()&PROTOCOL_HTTP)
 	{
 		//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
-		bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
+		// MSIE 6.
+		// MSIE 9.0
+		bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
+		//bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
 	}
 
 	BoostReadLock rdlock(m_pSessionModuleList.mutex());
@@ -196,12 +199,17 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 		if (getProtocol()&PROTOCOL_HTTP)
 		{
 			//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
+			if ((nErrorCode == 104 ||		// Connection reset by peer
+				nErrorCode == 2) && 		// End of file
+				m_sUserAgent.find("MSIE ") >= 0)
+				return;
+
 			// MSIE 6.
 			// MSIE 9.0
-			const bool bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
-			if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
-				nErrorCode == 2)) 		// End of file
-				return;
+			//const bool bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
+			//if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
+			//	nErrorCode == 2)) 		// End of file
+			//	return;
 		}
 		//printf("**** OnRunCGC_Remote_Close remove modulete_remoteid=%d\n",nRemoteId);
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
@@ -352,20 +360,33 @@ void CSessionImpl::onRemoteClose(unsigned long remoteId,int nErrorCode)
 		//	cgcHttpResponse::pointer pResponse = cgcHttpResponse::pointer(new CHttpResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
 		//	pResponse->sendResponse(STATUS_CODE_200);
 		//}
-		bool bIsHttpIe6 = false;
-		if (getProtocol()&PROTOCOL_HTTP)
+		if ((nErrorCode == 104 ||		// Connection reset by peer
+			nErrorCode == 2) && 		// End of file
+			(getProtocol()&PROTOCOL_HTTP)==PROTOCOL_HTTP &&	m_sUserAgent.find("MSIE ") >= 0)
 		{
-			//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
-			bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
-		}
-		if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
-			nErrorCode == 2)) 		// End of file
-		{
-			// ***
+			// **
 		}else
 		{
 			m_pcgcRemote->invalidate();	// Çå³ýconnection
 		}
+
+		//bool bIsHttpIe6 = false;
+		//if (getProtocol()&PROTOCOL_HTTP)
+		//{
+		//	//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
+		//	// MSIE 6.
+		//	// MSIE 9.0
+		//	bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
+		//	//bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
+		//}
+		//if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
+		//	nErrorCode == 2)) 		// End of file
+		//{
+		//	// ***
+		//}else
+		//{
+		//	m_pcgcRemote->invalidate();	// Çå³ýconnection
+		//}
 	}else if (m_pcgcRemote.get() != NULL && !m_pcgcRemote->isInvalidate())
 	{
 		bNotRemoteConnected = false;

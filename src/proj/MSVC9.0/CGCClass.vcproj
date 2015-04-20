@@ -228,6 +228,34 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="rtp"
+			>
+			<File
+				RelativePath="..\..\CGCClass\SotpRtpRoom.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\CGCClass\SotpRtpRoom.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\CGCClass\SotpRtpSession.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\CGCClass\SotpRtpSession.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\CGCClass\SotpRtpSource.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\CGCClass\SotpRtpSource.h"
+				>
+			</File>
+		</Filter>
 	</Files>
 	<Globals>
 	</Globals>
