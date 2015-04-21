@@ -194,6 +194,7 @@ private:
 	int m_nDoCommEventCount;
 
 	CLockListPtr<CCommEventData*> m_listMgr;
+	CCommEventDataPool m_pCommEventDataPool;
 	int m_nCurrentThread;
 	int m_nNullEventDataCount;
 	int m_nFindEventDataCount;
@@ -202,6 +203,7 @@ public:
 	CUdpServer(int nIndex)
 		: m_nIndex(nIndex),m_commPort(0), /*m_capacity(1), */m_protocol(0)
 		, m_nDoCommEventCount(0)
+		, m_pCommEventDataPool(Max_UdpSocket_ReceiveSize,30,50)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 
 	{
@@ -276,6 +278,7 @@ public:
 
 		m_socket.stop();
 		m_listMgr.clear();
+		m_pCommEventDataPool.Clear();
 		m_mapCgcRemote.clear();
 		m_ioservice.reset();
 		m_bServiceInited = false;
@@ -382,7 +385,8 @@ private:
 		default:
 			break;
 		}
-		delete pCommEventData;
+		m_pCommEventDataPool.Set(pCommEventData);
+		//delete pCommEventData;
 	}
 
 	// CRemoteHandler
@@ -422,7 +426,9 @@ private:
 				((CcgcRemote*)pCgcRemote.get())->SetRemote(endpoint);
 			}
 
-			CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
+			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
+			CCommEventData * pEventData = m_pCommEventDataPool.Get();
+			pEventData->setCommEventType(CCommEventData::CET_Recv);
 			pEventData->setRemote(pCgcRemote);
 			pEventData->setRecvData(endpoint->buffer(), endpoint->size());
 			m_listMgr.add(pEventData);

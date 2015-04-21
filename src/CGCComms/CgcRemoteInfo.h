@@ -41,10 +41,11 @@ private:
 	unsigned long m_remoteId;
 	unsigned char * m_recvData;
 	unsigned int m_recvSize;
+	unsigned int m_bufferSize;
 	int m_nErrorCode;
 	std::string m_sCodeMessage;
 public:
-//	void setCommEventType(CommEventType newv) {m_cet = newv;}
+	void setCommEventType(CommEventType newv) {m_cet = newv;}
 	CommEventType getCommEventType(void) const {return m_cet;}
 
 	//void setRemote(void * newv) {m_remote = newv;}
@@ -55,30 +56,58 @@ public:
 	void setRemoteId(unsigned long newv) {m_remoteId = newv;}
 	unsigned long getRemoteId(void) const {return m_remoteId;}
 
+	unsigned int getBufferSize(void) const {return m_bufferSize;}
+	void setBufferSize(unsigned int bufferSize)
+	{
+		if (bufferSize == 0)
+			return;
+		if (m_bufferSize<bufferSize)
+		{
+			clearData(true);
+			m_bufferSize = bufferSize;
+			m_recvData = new unsigned char[m_bufferSize];
+			if (m_recvData==NULL)
+			{
+				m_bufferSize = 0;
+				return;
+			}
+		}
+		m_recvData[0] = '\0';
+	}
 	void setRecvData(const unsigned char * recvData, unsigned int recvSize)
 	{
 		if (recvData == 0 || recvSize == 0)
 			return;
-		clearData();
 
+		if (m_bufferSize<=recvSize)
+		{
+			setBufferSize(recvSize+1);
+		}
 		m_recvSize = recvSize;
-		m_recvData = new unsigned char[m_recvSize+1];
 		memcpy(m_recvData, recvData, m_recvSize);
 		m_recvData[m_recvSize] = '\0';
 	}
 	const unsigned char * getRecvData(void) const {return m_recvData;}
 	unsigned int getRecvSize(void) const {return m_recvSize;}
+	void SetErrorCode(int nErrorCode) {m_nErrorCode = nErrorCode;}
 	int GetErrorCode(void) const {return m_nErrorCode;}
 	void SetCodeMessage(const std::string& sMessage) {m_sCodeMessage=sMessage;}
 	const std::string& GetCodeMessage(void) const {return m_sCodeMessage;}
 
-	void clearData(void)
+	void clearData(bool bDelete)
 	{
 		m_recvSize = 0;
-		if (m_recvData)
+		if (m_recvData != NULL)
 		{
-			delete[] m_recvData;
-			m_recvData = 0;
+			if (bDelete)
+			{
+				delete m_recvData;
+				m_recvData = NULL;
+				m_bufferSize = 0;
+			}else
+			{
+				m_recvData[0] = '\0';
+			}
 		}
 	}
 
@@ -88,14 +117,80 @@ public:
 		//, m_remote(0)
 		, m_remoteId(0)
 		, m_recvData(0)
-		, m_recvSize(0)
+		, m_recvSize(0), m_bufferSize(0)
 		, m_nErrorCode(nErrorCode)
 	{
 	}
 	virtual ~CCommEventData(void)
 	{
-		clearData();
+		//clearData();
+		if (m_recvData != NULL)
+		{
+			delete[] m_recvData;
+			m_recvData = 0;
+		}
 	}
+};
+
+class CCommEventDataPool
+{
+public:
+	CCommEventData* Get(void)
+	{
+		CCommEventData * pResult = m_pPool.front();
+		if (pResult==NULL)
+		{
+			pResult = New();
+		}
+		return pResult;
+	}
+	void Set(CCommEventData* pMsg)
+	{
+		if (pMsg!=NULL)
+		{
+			if (m_pPool.size()<m_nMaxPoolSize)
+			{
+				m_pPool.add(pMsg);
+			}else
+			{
+				delete pMsg;
+			}
+		}
+	}
+
+	void Clear(void)
+	{
+		m_pPool.clear();
+	}
+	
+	CCommEventDataPool(cgc::uint16 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
+		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
+	{
+		for (cgc::uint16 i=0;i<nInitPoolSize; i++)
+		{
+			m_pPool.add(New());
+		}
+	}
+	//CCommEventDataPool(void)
+	//	: m_nBufferSize(1024), m_nInitPoolSize(0), m_nMaxPoolSize(0)
+	//{}
+	virtual ~CCommEventDataPool(void)
+	{
+		m_pPool.clear();
+	}
+
+protected:
+	CCommEventData* New(void) const
+	{
+		CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
+		pEventData->setBufferSize(m_nBufferSize);
+		return pEventData;
+	}
+private:
+	CLockListPtr<CCommEventData*> m_pPool;
+	cgc::uint16 m_nBufferSize;
+	cgc::uint16 m_nInitPoolSize;
+	cgc::uint16 m_nMaxPoolSize;
 };
 
 #endif // __CgcRemoteInfo_h__

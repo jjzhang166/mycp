@@ -392,6 +392,7 @@ private:
 
 	// 
 	CLockListPtr<CCommEventData*> m_listMgr;
+	CCommEventDataPool m_pCommEventDataPool;
 	int m_nCurrentThread;
 	int m_nNullEventDataCount;
 	int m_nFindEventDataCount;
@@ -408,6 +409,7 @@ private:
 public:
 	CTcpServer(int nIndex)
 		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0)
+		, m_pCommEventDataPool(Max_ReceiveBuffer_ReceiveSize,30,50)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 #ifdef USES_OPENSSL
 		, m_sslctx(NULL)
@@ -607,6 +609,7 @@ public:
 #endif
 		m_acceptor.reset();
 		m_listMgr.clear();
+		m_pCommEventDataPool.Clear();
 		m_mapCgcRemote.clear();
 		m_ioservice.reset();
 		m_bServiceInited = false;
@@ -770,7 +773,8 @@ protected:
 		default:
 			break;
 		}
-		delete pCommEventData;
+		m_pCommEventDataPool.Set(pCommEventData);
+		//delete pCommEventData;
 	}
 
 	// CRemoteHandler
@@ -807,7 +811,9 @@ protected:
 				printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
 				((CcgcRemote*)pCgcRemote.get())->UpdateConnection(pRemote);
 			}
-			CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
+			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
+			CCommEventData * pEventData = m_pCommEventDataPool.Get();
+			pEventData->setCommEventType(CCommEventData::CET_Recv);
 			pEventData->setRemote(pCgcRemote);
 			pEventData->setRemoteId(pCgcRemote->getRemoteId());
 			if (m_protocol & (int)PROTOCOL_HSOTP)
@@ -889,7 +895,9 @@ protected:
 				}
 				m_mapCgcRemote.insert(nRemoteId, pCgcRemote);
 			}
-			CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Accept);
+			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Accept);
+			CCommEventData * pEventData = m_pCommEventDataPool.Get();
+			pEventData->setCommEventType(CCommEventData::CET_Accept);
 			pEventData->setRemote(pCgcRemote);
 			pEventData->setRemoteId(pCgcRemote->getRemoteId());
 			m_listMgr.add(pEventData);
@@ -906,7 +914,10 @@ protected:
 			cgcRemote::pointer pCgcRemote;
 			if (m_mapCgcRemote.find(nRemoteId, pCgcRemote, true))
 			{
-				CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Close,nErrorCode);
+				//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Close,nErrorCode);
+				CCommEventData * pEventData = m_pCommEventDataPool.Get();
+				pEventData->setCommEventType(CCommEventData::CET_Close);
+				pEventData->SetErrorCode(nErrorCode);
 				pEventData->setRemote(pCgcRemote);
 				pEventData->setRemoteId(pCgcRemote->getRemoteId());
 				m_listMgr.add(pEventData);

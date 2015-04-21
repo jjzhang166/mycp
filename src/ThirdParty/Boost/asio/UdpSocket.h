@@ -30,18 +30,13 @@ public:
 	static UdpSocket::pointer create(size_t nBufferSize=8*1024) {return UdpSocket::pointer(new UdpSocket(nBufferSize));}
 
 	void setMaxBufferSize(size_t v = 8*1024) {m_maxbuffersize = v;}
-	//void setUnusedSize(size_t v = 10, bool build = true)
-	//{
-	//	m_unusedsize = v;
-	//	if (build)
-	//	{
-	//		for (size_t i=0; i<m_unusedsize; i++)
-	//		{
-	//			UdpEndPoint::pointer new_endpoint = UdpEndPoint::create(m_maxbuffersize);
-	//			m_unused.add(new_endpoint);
-	//		}
-	//	}
-	//}
+	void setPoolSize(size_t nInitPoolSize = 20, size_t nMaxPoolSize = 30)
+	{
+		m_nInitPoolSize = nInitPoolSize;
+		m_nMaxPoolSize = nMaxPoolSize;
+		while (m_pool.size()<m_nInitPoolSize)
+			m_pool.add(UdpEndPoint::create(m_maxbuffersize));
+	}
 
 	// udpPort == 0; ¶¯Ì¬
 	void start(boost::asio::io_service & ioservice, unsigned short udpPort, UdpSocket_Handler::pointer handler)
@@ -80,7 +75,7 @@ public:
 		}
 
 		m_endpoints.clear();
-		//m_unused.clear();
+		m_pool.clear();
 		m_handler.reset();
 	}
 	bool is_start(void) const {return m_socket != NULL;}
@@ -128,22 +123,23 @@ public:
 				{}
 			}
 
-			//if (m_unused.size() < m_unusedsize)
-			//{
-			//	endpoint->init();
-			//	m_unused.add(endpoint);
-			//}
+			if (m_pool.size()<m_nMaxPoolSize)
+			{
+				endpoint->init();
+				m_pool.add(endpoint);
+			}
 		}
 	}
 
 private:
 	void start_receive(void)
 	{
-		UdpEndPoint::pointer new_endpoint = UdpEndPoint::create(m_maxbuffersize);
 		if (m_socket)
 		{
-			//if (!m_unused.front(new_endpoint))
-			//	new_endpoint = UdpEndPoint::create(m_maxbuffersize);
+			//UdpEndPoint::pointer new_endpoint = UdpEndPoint::create(m_maxbuffersize);
+			UdpEndPoint::pointer new_endpoint;
+			if (!m_pool.front(new_endpoint))
+				new_endpoint = UdpEndPoint::create(m_maxbuffersize);
 			m_socket->async_receive_from(boost::asio::buffer(const_cast<unsigned char*>(new_endpoint->buffer()), m_maxbuffersize),
 				new_endpoint->endpoint(),
 				boost::bind(&UdpSocket::receive_handler, this, new_endpoint,
@@ -175,7 +171,7 @@ private:
 public:
 	UdpSocket(size_t nBufferSize=Max_UdpSocket_ReceiveSize)
 		: m_socket(NULL)
-		, m_proc_data(0), m_unusedsize(10), m_maxbuffersize(nBufferSize)
+		, m_proc_data(0),m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(30)
 	{
 	}
 	virtual ~UdpSocket(void)
@@ -188,9 +184,10 @@ private:
 	udp::endpoint m_endpointlocal;
 	boost::thread * m_proc_data;
 	CLockList<UdpEndPoint::pointer> m_endpoints;
-	//CLockList<UdpEndPoint::pointer> m_unused;
-	size_t m_unusedsize;
 	size_t m_maxbuffersize;
+	size_t m_nInitPoolSize;
+	size_t m_nMaxPoolSize;
+	CLockList<UdpEndPoint::pointer> m_pool;
 };
 
 #endif // __UdpSocket_h__
