@@ -43,8 +43,8 @@ private:
 	DoSotpClientHandler::pointer m_handler;
 
 public:
-	// ???
 	CcgcBaseRemote(const DoSotpClientHandler::pointer& handler)
+		: m_handler(handler)
 	{
 		assert (m_handler.get() != NULL);
 	}
@@ -946,7 +946,7 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
 	for (cgc::uint16 i=0; i<nCount; i++)
 	{
-		const short nDataSize = (i+1)==nCount?(nCount%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
+		const short nDataSize = (i+1)==nCount?(nSize%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
 		pRtpDataHead.m_nSeq = pRtpSource->GetNextSeq();
 		pRtpDataHead.m_nIndex = (cgc::uint8)i;
 		cgcAttachment::pointer pAttachment = cgcAttachment::create();
@@ -956,9 +956,12 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 		pRtpSource->UpdateReliableQueue(pRtpDataHead,pAttachment);
 
 		// send rtp data
-		size_t nSendSize = 0;
-		toRtpData(pRtpDataHead,pAttachment,pSendBuffer,nSendSize);
-		sendData(pSendBuffer,nSendSize);
+		//if (i%5>0)	// test
+		{
+			size_t nSendSize = 0;
+			toRtpData(pRtpDataHead,pAttachment,pSendBuffer,nSendSize);
+			sendData(pSendBuffer,nSendSize);
+		}
 	}
 	delete[] pSendBuffer;
 	return true;

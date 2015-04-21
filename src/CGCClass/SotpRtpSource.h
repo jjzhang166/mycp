@@ -51,19 +51,22 @@ public:
 	void clear(void) {m_lostSeq.clear();}
 	bool recv(unsigned short seq, unsigned short lastseq, unsigned short & pOutSendSeq, int & pOutSendCount, bool bSend)
 	{
-		std::list<unsigned short>::iterator pIter;
-		for (pIter=m_lostSeq.begin(); pIter!=m_lostSeq.end(); ++pIter)
 		{
-			unsigned short pLostSeqId = *pIter;
-			if (pLostSeqId == seq)
+			boost::mutex::scoped_lock lock(m_pMutex);
+			std::list<unsigned short>::iterator pIter;
+			for (pIter=m_lostSeq.begin(); pIter!=m_lostSeq.end(); ++pIter)
 			{
-				// 已经收到数据，删除掉
-				m_lostSeq.erase(pIter);
-				break;
+				unsigned short pLostSeqId = *pIter;
+				if (pLostSeqId == seq)
+				{
+					// 已经收到数据，删除掉
+					m_lostSeq.erase(pIter);
+					break;
+				}
 			}
+			if (!bSend)
+				return false;
 		}
-		if (!bSend)
-			return false;
 		return send(lastseq, pOutSendSeq, pOutSendCount);
 	}
 
@@ -73,6 +76,7 @@ public:
 		{
 			lost(seq+i);
 		}
+		boost::mutex::scoped_lock lock(m_pMutex);
 		m_lostSeq.sort(compare_seq());
 		while (m_lostSeq.size() >= MAX_RESEND_COUNT*4)
 			m_lostSeq.pop_front();
@@ -80,6 +84,7 @@ public:
 
 	bool send(unsigned short lastSeq, unsigned short & pOutSendSeq, int & pOutSendCount)
 	{
+		boost::mutex::scoped_lock lock(m_pMutex);
 		std::list<unsigned short>::iterator pIter;
 		pIter = m_lostSeq.begin();
 		if (pIter == m_lostSeq.end())
@@ -93,6 +98,7 @@ public:
 			else if (lastSeq - sendSeq > m_offset2)
 			{
 				m_lostSeq.pop_front();				// 过期数据不处理
+				lock.unlock();
 				return send(lastSeq, pOutSendSeq, pOutSendCount);
 			}
 		}
@@ -127,6 +133,7 @@ public:
 protected:
 	void lost(unsigned short seq)
 	{
+		boost::mutex::scoped_lock lock(m_pMutex);
 		std::list<unsigned short>::iterator pIter;
 		for (pIter=m_lostSeq.begin(); pIter!=m_lostSeq.end(); ++pIter)
 		{
@@ -138,6 +145,7 @@ protected:
 		m_lostSeq.push_back(seq);
 	}
 private:
+	boost::mutex m_pMutex;
 	std::list<unsigned short>	m_lostSeq;
 	int m_offset1;
 	int m_offset2;
@@ -186,7 +194,7 @@ public:
 	const CLockMap<cgc::bigint,bool>& GetSinkRecvList(void) const {return m_pSinkRecvList;}
 	void ClearSinkRecv(bool bLock);
 
-	void CaculateMissedPackets(unsigned short nSeq,cgc::uint8 nNAKType,const cgcRemote::pointer& pcgcRemote);
+	void CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote);
 	void UpdateReliableQueue(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
 	void PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
 	void GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData);

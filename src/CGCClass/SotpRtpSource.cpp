@@ -105,8 +105,10 @@ void CSotpRtpSource::ClearSinkRecv(bool bLock)
 	m_pSinkRecvList.clear(bLock);
 }
 
-void CSotpRtpSource::CaculateMissedPackets(unsigned short nSeq,cgc::uint8 nNAKType,const cgcRemote::pointer& pcgcRemote)
+void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote)
 {
+	const cgc::uint16 nSeq = pRtpDataHead.m_nSeq;
+	const cgc::uint8 nNAKType = pRtpDataHead.m_nNAKType;
 	if (nNAKType==SOTP_RTP_NAK_REQUEST_2)
 	{
 		unsigned short sendSeq = 0;
@@ -142,21 +144,24 @@ void CSotpRtpSource::CaculateMissedPackets(unsigned short nSeq,cgc::uint8 nNAKTy
 	else if (intervalseqs>0)
 		intervalseqs--;
 
+	// **效果好很多，就不知流量如何；
+	const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
+	//const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
 	int n=0;
 	if (nSeq>expectSeq && (nSeq-expectSeq) < 0x7F00)	// 正常大小SEQ，缺少前面SEQ
 	{
-		n = ((nSeq-expectSeq) > MAX_RESEND_COUNT) ? MAX_RESEND_COUNT : (nSeq-expectSeq);
+		n = ((nSeq-expectSeq) > nMaxResendCount) ? nMaxResendCount : (nSeq-expectSeq);
 		m_nLastPacketSeq = nSeq;
 
 		if (nNAKType==SOTP_RTP_NAK_REQUEST_2)
 		{
-			if (intervalseqs >= MAX_RESEND_COUNT)
+			if (intervalseqs >= nMaxResendCount)
 			{
 				theLostSeqInfo1.clear();
 				theLostSeqInfo2.clear();
 				//theLostSeqInfo3.clear();
 				intervalseqs = 0;	// 过期数据重发也无用,用于网络特别差时减少流量
-				//intervalseqs = MAX_RESEND_COUNT;	// 过期数据重发也无用,用于网络特别差时减少流量
+				//intervalseqs = nMaxResendCount;	// 过期数据重发也无用,用于网络特别差时减少流量
 			}
 			if (intervalseqs>0)
 			{
@@ -170,22 +175,22 @@ void CSotpRtpSource::CaculateMissedPackets(unsigned short nSeq,cgc::uint8 nNAKTy
 	//else if (expectSeq > nSeq && (intervalseqs > 200))
 	{
 		const int diff = nSeq + (65535 - expectSeq);
-		n = (diff > MAX_RESEND_COUNT) ? MAX_RESEND_COUNT : diff;
+		n = (diff > nMaxResendCount) ? nMaxResendCount : diff;
 		m_nLastPacketSeq = nSeq;
 
 		if (nNAKType==SOTP_RTP_NAK_REQUEST_2)
 		{
 			// 先发送65535前面
 			int diff1 = 65535 - expectSeq;
-			if (diff1 > MAX_RESEND_COUNT)
-				diff1 = MAX_RESEND_COUNT;
+			if (diff1 > nMaxResendCount)
+				diff1 = nMaxResendCount;
 			theLostSeqInfo1.lost(65535-diff1, diff1+1);
 			theLostSeqInfo2.lost(65535-diff1, diff1+1);
 			//theLostSeqInfo3.lost(65535-diff1, diff1+1);
 
 			// 发送65535后,0开始数据
 			const int diff2 = nSeq>0?(nSeq-1):0;
-			if (diff2 >= MAX_RESEND_COUNT)
+			if (diff2 >= nMaxResendCount)
 			{
 				theLostSeqInfo1.clear();
 				theLostSeqInfo2.clear();
@@ -198,8 +203,8 @@ void CSotpRtpSource::CaculateMissedPackets(unsigned short nSeq,cgc::uint8 nNAKTy
 				//theLostSeqInfo3.lost(nSeq-diff2, diff2);
 			}
 
-			//if (intervalseqs > MAX_RESEND_COUNT)
-			//	intervalseqs = MAX_RESEND_COUNT;	// 过期数据重发也无用,用于网络特别差时减少流量
+			//if (intervalseqs > nMaxResendCount)
+			//	intervalseqs = nMaxResendCount;	// 过期数据重发也无用,用于网络特别差时减少流量
 
 			//theLostSeqInfo1.lost(seq-intervalseqs, intervalseqs);
 			//theLostSeqInfo2.lost(seq-intervalseqs, intervalseqs);
@@ -224,17 +229,6 @@ void CSotpRtpSource::sendNAKRequest(unsigned short nSeq, unsigned short nCount,c
 	size_t nSendSize = 0;
 	unsigned char lpszBuffer[64];	// SOTP_RTP_COMMAND_SIZE=25
 	SotpCallTable2::toRtpCommand(pCommand,lpszBuffer,nSendSize);
-	//char lpszBuffer[64];	// SOTP_RTP_COMMAND_SIZE=25
-	//int nSendSize = sprintf(lpszBuffer,"4 SOTP/2.1\nD");
-	//tagSotpRtpCommand pCommand;
-	//pCommand.m_nCommand = SOTP_RTP_COMMAND_DATA_REQUEST;
-	//pCommand.m_nRoomId = this->GetRoomId();
-	//pCommand.m_nSrcId = this->GetSrcId();
-	//pCommand.u.m_nDataRequest.m_nSeq = nSeq;
-	//pCommand.u.m_nDataRequest.m_nCount = nCount;
-	//memcpy(lpszBuffer+nSendSize,&pCommand,SOTP_RTP_COMMAND_SIZE);
-	//nSendSize += (SOTP_RTP_COMMAND_SIZE+1);
-	//lpszBuffer[nSendSize-1] = '\n';
 	pcgcRemote->sendData((const unsigned char*)lpszBuffer,nSendSize);
 }
 void CSotpRtpSource::UpdateReliableQueue(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment)
@@ -253,9 +247,12 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	if (pRtpDataHead.m_nIndex>=SOTP_RTP_MAX_PACKETS_PER_FRAME) return;
 	const cgc::uint32 ts = pRtpDataHead.m_nTimestamp;
 	// the packet expire time.
-	if (ts < m_nLastFrameTimestamp && (m_nLastFrameTimestamp-ts) < 0xFFFF)	// 前面过期数据
+	if (ts<m_nLastFrameTimestamp && (m_nLastFrameTimestamp-ts) < 0xFFFF)		// 前面过期数据
 	{
 		return;
+	}else if (ts>m_nLastFrameTimestamp && (ts-m_nLastFrameTimestamp)>20*1000)	// 20S，中间停止后，后面继续
+	{
+		m_nLastPacketSeq = -1;
 	}
 
 	CSotpRtpFrame::pointer pFrame;
@@ -271,7 +268,7 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 		memcpy(&pFrame->m_pRtpHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
 		pFrame->m_nFirstSeq = pRtpDataHead.m_nSeq-pRtpDataHead.m_nIndex;	// *seq重头开始也正常
 		pFrame->m_nPacketNumber = (pRtpDataHead.m_nTotleLength+pRtpDataHead.m_nUnitLength-1)/pRtpDataHead.m_nUnitLength;
-		if (pRtpDataHead.m_nTotleLength>20*1024 || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIEDO_I||pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIEDO)
+		if (pRtpDataHead.m_nTotleLength>20*1024 || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)
 			pFrame->m_nExpireTime = timeGetTime()+1800;
 		else
 			pFrame->m_nExpireTime = timeGetTime()+800;
@@ -323,17 +320,16 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 	for (; pIter!=m_pReceiveFrames.end(); pIter++)
 	{
 		const CSotpRtpFrame::pointer pFrame = pIter->second;
-		if ((m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq) &&
-			IsWholeFrame(pFrame))
+		if (IsWholeFrame(pFrame) && (m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq))
 		{
 			// OK
 			m_pReceiveFrames.erase(pIter);
 			m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
 			m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
-			if (m_bWaitforNextKeyVideo && pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIEDO_I)
+			if (m_bWaitforNextKeyVideo && pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I)
 				m_bWaitforNextKeyVideo = false;
 
-			if (!m_bWaitforNextKeyVideo || pFrame->m_pRtpHead.m_nDataType != SOTP_RTP_NAK_DATA_VIEDO)
+			if (!m_bWaitforNextKeyVideo || pFrame->m_pRtpHead.m_nDataType != SOTP_RTP_NAK_DATA_VIDEO)
 			{
 				//callback the frame.
 				const cgc::uint16 nLostDataTemp = m_nLostData;
@@ -362,7 +358,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 			{
 				m_nLostData++;
 			}
-			m_bWaitforNextKeyVideo = (pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIEDO_I||pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIEDO)?true:false;
+			m_bWaitforNextKeyVideo = (pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I||pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)?true:false;
 			break;
 		}else if ((nCount++)>=3)
 		{

@@ -90,6 +90,12 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 				return false;
 			if (!pRtpRoom->RegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId))
 				return false;
+			if (!this->m_bServerMode)
+			{
+				CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(pRtpCommand.u.m_nDestId,pcgcRemote);
+				if (pRtpSource.get()==NULL)
+					return false;
+			}
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_SINK:
 		{
@@ -97,6 +103,10 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			if (pRtpRoom.get()==NULL)
 				return false;
 			pRtpRoom->UnRegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId);
+			if (!this->m_bServerMode)
+			{
+				pRtpRoom->UnRegisterSource(pRtpCommand.u.m_nDestId);
+			}
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_ALLSINK:
 		{
@@ -154,7 +164,7 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 		return false;
 
 	// 
-	pRtpSrcSource->CaculateMissedPackets(pRtpDataHead.m_nSeq,pRtpDataHead.m_nDataType,pcgcRemote);
+	pRtpSrcSource->CaculateMissedPackets(pRtpDataHead,pcgcRemote);
 	if (this->m_bServerMode)
 	{
 		// save as wait for SOTP_RTP_COMMAND_DATA_REQUEST msg

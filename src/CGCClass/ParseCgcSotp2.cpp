@@ -258,8 +258,8 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 	if (pLineBuffer == NULL) return NULL;
 
 	const char * pNextLineFind = strstr(pLineBuffer, "\n");
-	if (pNextLineFind == NULL) return NULL;
-	const short const_r_offset = ((pNextLineFind-1)[0])=='\r'?1:0;
+	//if (pNextLineFind == NULL) return NULL;
+	const short const_r_offset = (pNextLineFind!=0&&((pNextLineFind-1)[0])=='\r')?1:0;
 
 	if (m_nSotpVersion==SOTP_PROTO_VERSION_21)
 	{
@@ -292,15 +292,17 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				}catch(...)
 				{
 				}
-				pNextLineFind = pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE+m_pSotpRtpDataHead.m_nUnitLength);
+				pNextLineFind = pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE+nDataLength);
 				m_bRtpData = true;
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_SID:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				m_sSid = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_SSLDATA:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sCurLineBuffer(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				const int nSslSize = atoi(sCurLineBuffer.c_str());
 				const char * pSslEnd = pNextLineFind;
@@ -359,6 +361,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_CID:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				try
 				{
@@ -370,6 +373,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_SEQ:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				try
 				{
@@ -382,6 +386,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_NACK:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				try
 				{
@@ -393,6 +398,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_SIGN:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				try
 				{
@@ -404,10 +410,12 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_API:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				m_sApi = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_PV:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sCurLineBuffer(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				// Get Parameter Name.
 				std::string::size_type nFindPT = sCurLineBuffer.find(";pt=");
@@ -461,6 +469,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_AT:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sCurLineBuffer(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 
 				// Get Attach Name.
@@ -541,10 +550,12 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_APP:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				m_sApp = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_SSL:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sCurLineBuffer(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				const int nSslSize = atoi(sCurLineBuffer.c_str());
 				const char * pSslEnd = pNextLineFind;
@@ -564,6 +575,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_UA:
 			{
+				if (pNextLineFind == NULL) return NULL;
 				const std::string sCurLineBuffer(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 
 				// Get Account.
@@ -605,6 +617,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 		}
 	}else
 	{
+		if (pNextLineFind == NULL) return NULL;
 		int leftIndex = 0;
 		if (sotpCompare(pLineBuffer, "Sid: ", leftIndex))
 		{

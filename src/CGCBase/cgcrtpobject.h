@@ -41,7 +41,8 @@ struct tagSotpRtpCommand
 		tagSotpRtpDataRequest	m_nDataRequest;	// for SOTP_RTP_COMMAND_DATA_REQUEST
 	}u;
 };
-#define SOTP_RTP_COMMAND_SIZE 25	// 1+3*8=25
+#define SOTP_RTP_COMMAND_SIZE sizeof(tagSotpRtpCommand)
+//#define SOTP_RTP_COMMAND_SIZE 25	// 1+3*8=25
 struct tagSotpRtpDataHead
 {
 	cgc::bigint		m_nRoomId;
@@ -54,7 +55,8 @@ struct tagSotpRtpDataHead
 	cgc::uint16		m_nUnitLength;
 	cgc::uint8		m_nIndex;
 };
-#define SOTP_RTP_DATA_HEAD_SIZE 29
+#define SOTP_RTP_DATA_HEAD_SIZE sizeof(tagSotpRtpDataHead)
+//#define SOTP_RTP_DATA_HEAD_SIZE 29
 //#define SOTP_RTP_DATA_MAX_UNIT_SIZE 1200*6
 
 #define SOTP_RTP_MAX_PACKETS_PER_FRAME	64
