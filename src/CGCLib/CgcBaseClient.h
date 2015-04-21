@@ -138,6 +138,8 @@ protected:
 	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
 
 	// sotp rtp
+	CSotpRtpMsgPool m_pRtpBufferPool;
+	CSotpRtpMsgPool m_pRtpMsgPool;
 	CSotpRtpSession m_pRtpSession;
 	cgc::bigint m_nSrcId;
 	cgc::uint32 m_nRtpCbUserData;

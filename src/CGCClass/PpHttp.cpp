@@ -828,7 +828,8 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 
 		pOutHeader = true;
 		const tstring param(httpRequest, findSearch-httpRequest);
-		tstring value(findSearch+2, findSearchEnd-findSearch-2);
+		const short nOffset = findSearch[1]==' '?2:1;	// 带空格2，不带空格1
+		tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
 		if (param != Http_ContentDisposition)
 			m_pReqHeaders.setProperty(param, CGC_VALUEINFO(value));
 		//printf("IsComplete: %s: %s\n",param.c_str(),value.c_str());

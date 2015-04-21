@@ -168,7 +168,8 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 	if (this->m_bServerMode)
 	{
 		// save as wait for SOTP_RTP_COMMAND_DATA_REQUEST msg
-		pRtpSrcSource->UpdateReliableQueue(pRtpDataHead,pAttackment);
+		CSotpRtpReliableMsg * pRtpMsgIn = new CSotpRtpReliableMsg(pRtpDataHead,pAttackment);
+		pRtpSrcSource->UpdateReliableQueue(pRtpMsgIn);
 		pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
 	}else
 	{

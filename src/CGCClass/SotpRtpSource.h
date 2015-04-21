@@ -21,6 +21,7 @@
 #define __SotpRtpSource_h__
 
 #include <boost/thread.hpp>
+#include "../ThirdParty/stl/locklist.h"
 #include "../CGCBase/cgcrtpobject.h"
 #include "../CGCBase/cgcattachment.h"
 #include "../CGCBase/cgcCommunications.h"
@@ -167,6 +168,65 @@ public:
 	}
 };
 
+class CSotpRtpMsgPool
+{
+public:
+	CSotpRtpReliableMsg* Get(void)
+	{
+		CSotpRtpReliableMsg * pResult = m_pPool.front();
+		if (pResult==NULL)
+		{
+			pResult = New();
+		}
+		return pResult;
+	}
+	void Set(CSotpRtpReliableMsg* pMsg)
+	{
+		if (pMsg!=NULL)
+		{
+			if (m_pPool.size()<m_nMaxPoolSize)
+			{
+				m_pPool.add(pMsg);
+			}else
+			{
+				delete pMsg;
+			}
+		}
+	}
+	
+	CSotpRtpMsgPool(cgc::uint16 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
+		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
+	{
+		for (cgc::uint16 i=0;i<nInitPoolSize; i++)
+		{
+			m_pPool.add(New());
+		}
+	}
+	//CSotpRtpMsgPool(void)
+	//	: m_nBufferSize(1024), m_nInitPoolSize(0), m_nMaxPoolSize(0)
+	//{}
+	virtual ~CSotpRtpMsgPool(void)
+	{
+		m_pPool.clear();
+	}
+
+protected:
+	CSotpRtpReliableMsg* New(void) const
+	{
+		tagSotpRtpDataHead pRtpDataHead;
+		memset(&pRtpDataHead,0,sizeof(pRtpDataHead));
+		cgcAttachment::pointer pAttachment = cgcAttachment::create();
+		pAttachment->setAttach2(new unsigned char[m_nBufferSize],m_nBufferSize);
+		return new CSotpRtpReliableMsg(pRtpDataHead,pAttachment);
+	}
+
+private:
+	CLockListPtr<CSotpRtpReliableMsg*> m_pPool;
+	cgc::uint16 m_nBufferSize;
+	cgc::uint16 m_nInitPoolSize;
+	cgc::uint16 m_nMaxPoolSize;
+};
+
 class CSotpRtpSource
 {
 public:
@@ -195,7 +255,7 @@ public:
 	void ClearSinkRecv(bool bLock);
 
 	void CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote);
-	void UpdateReliableQueue(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
+	void UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut = NULL);
 	void PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
 	void GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData);
 	void SendReliableMsg(unsigned short nStartSeq,unsigned short nEndSeq,const cgcRemote::pointer& pcgcRemote);

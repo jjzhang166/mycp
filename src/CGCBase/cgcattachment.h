@@ -42,7 +42,8 @@ protected:
 	bigint m_index;
 	unsigned int m_len;
 	unsigned char * m_data;
-
+private:
+	unsigned int m_bufferSize;
 public:
 	typedef boost::shared_ptr<cgcAttachment> pointer;
 	static cgcAttachment::pointer create(void)
@@ -55,7 +56,7 @@ public:
 		, m_total(0)
 		, m_index(0)
 		, m_len(0)
-		, m_data(0)
+		, m_data(0), m_bufferSize(0)
 	{
 	}
 	virtual ~cgcAttachment(void)
@@ -83,17 +84,18 @@ public:
 			clearAttachData();
 			return;
 		}
-		if (m_len < nAttachSize)
+		if (m_bufferSize < nAttachSize)
 		{
 			clearAttachData();
-			m_data = new unsigned char[nAttachSize+1];
+			m_bufferSize = nAttachSize+1;
+			m_data = new unsigned char[m_bufferSize];
 			if (m_data==NULL)
 			{
 				// memory error
 				clearAttachData();
 				return;
 			}
-			memset(m_data, 0, nAttachSize+1);
+			memset(m_data, 0, m_bufferSize);
 		}
 		m_len = nAttachSize;
 		memcpy(m_data, pAttachData, m_len);
@@ -106,6 +108,7 @@ public:
 			return;
 		}
 		m_len = nAttachSize;
+		m_bufferSize = nAttachSize;
 		m_data = pAttachData;
 	}
 	const unsigned char * getAttachData(void) const {return m_data;}
@@ -114,10 +117,12 @@ public:
 		unsigned char * result = m_data;
 		pOutAttachSize = m_len;
 		m_data = 0;
+		m_bufferSize = 0;
 		m_len = 0;
 		return result;
 	}
 	unsigned int getAttachSize(void) const {return m_len;}
+	unsigned int getBufferSize(void) const {return m_bufferSize;}
 
 	void clear(void)
 	{
@@ -130,6 +135,7 @@ protected:
 	void clearAttachData(void)
 	{
 		m_len = 0;
+		m_bufferSize = 0;
 		if (m_data)
 		{
 			delete[] m_data;
@@ -137,6 +143,7 @@ protected:
 		}
 	}
 };
+const cgcAttachment::pointer NullcgcAttachment;
 
 }
 

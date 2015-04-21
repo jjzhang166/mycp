@@ -106,7 +106,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_timeoutSeconds(3), m_timeoutResends(5)
 , m_currentPath(_T(""))
 , theProtoVersion(SOTP_PROTO_VERSION_20)
-, m_pRtpSession(false)
+, m_pRtpBufferPool(2*1024,3,5), m_pRtpMsgPool(2*1024,20,30), m_pRtpSession(false)
 
 {
 	m_nDataIndex = 0;
@@ -849,12 +849,7 @@ bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId)
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SOURCE;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
-	if (!m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true))
-		return false;
-
-	// ???
-	//doRtpCommand 同时加一个参数 sendRtpCommand
-	return true;
+	return m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
 }
 void CgcBaseClient::doUnRegisterSource(cgc::bigint nRoomId)
 {
@@ -928,42 +923,46 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	CSotpRtpSource::pointer pRtpSource = pRtpRoom->GetRtpSource(doGetRtpSourceId());
 	if (pRtpSource.get()==NULL)
 		return false;
-	// ??要判断是否有人接收数据
+	// ?要判断是否有人接收数据
 	//if (pRtpSource->
 
-	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
-	const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+SOTP_RTP_MAX_PAYLOAD_LENGTH;
-	unsigned char* pSendBuffer = new unsigned char[nSizeTemp];
+	CSotpRtpReliableMsg* pBufferMsg = m_pRtpBufferPool.Get();
+	//const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	//unsigned char* pSendBuffer = new unsigned char[nSizeTemp];
 
-	tagSotpRtpDataHead pRtpDataHead;
-	pRtpDataHead.m_nRoomId= nRoomId;
-	pRtpDataHead.m_nSrcId = this->doGetRtpSourceId();
-	pRtpDataHead.m_nTimestamp = nTimestamp;
-	pRtpDataHead.m_nNAKType = nNAKType;
-	pRtpDataHead.m_nDataType = nDataType;
-	pRtpDataHead.m_nTotleLength = nSize;
-	pRtpDataHead.m_nUnitLength = SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
 	const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
 	for (cgc::uint16 i=0; i<nCount; i++)
 	{
-		const short nDataSize = (i+1)==nCount?(nSize%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
-		pRtpDataHead.m_nSeq = pRtpSource->GetNextSeq();
-		pRtpDataHead.m_nIndex = (cgc::uint8)i;
-		cgcAttachment::pointer pAttachment = cgcAttachment::create();
-		pAttachment->setAttach(pData+(pRtpDataHead.m_nIndex*SOTP_RTP_MAX_PAYLOAD_LENGTH),nDataSize);
+		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();
+		pRtpMsgIn->m_pRtpDataHead.m_nRoomId= nRoomId;
+		pRtpMsgIn->m_pRtpDataHead.m_nSrcId = this->doGetRtpSourceId();
+		pRtpMsgIn->m_pRtpDataHead.m_nTimestamp = nTimestamp;
+		pRtpMsgIn->m_pRtpDataHead.m_nNAKType = nNAKType;
+		pRtpMsgIn->m_pRtpDataHead.m_nDataType = nDataType;
+		pRtpMsgIn->m_pRtpDataHead.m_nTotleLength = nSize;
+		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = SOTP_RTP_MAX_PAYLOAD_LENGTH;
+		pRtpMsgIn->m_pRtpDataHead.m_nSeq = pRtpSource->GetNextSeq();
+		pRtpMsgIn->m_pRtpDataHead.m_nIndex = (cgc::uint8)i;
+		const cgc::uint16 nDataSize = (i+1)==nCount?(nSize%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
+		pRtpMsgIn->m_pAttachment->setAttach(pData+(pRtpMsgIn->m_pRtpDataHead.m_nIndex*SOTP_RTP_MAX_PAYLOAD_LENGTH),nDataSize);
 
 		// *
-		pRtpSource->UpdateReliableQueue(pRtpDataHead,pAttachment);
+		CSotpRtpReliableMsg * pRtpMsgOut = NULL;
+		pRtpSource->UpdateReliableQueue(pRtpMsgIn, &pRtpMsgOut);
+		m_pRtpMsgPool.Set(pRtpMsgOut);
 
 		// send rtp data
 		//if (i%5>0)	// test
 		{
 			size_t nSendSize = 0;
-			toRtpData(pRtpDataHead,pAttachment,pSendBuffer,nSendSize);
-			sendData(pSendBuffer,nSendSize);
+			toRtpData(pRtpMsgIn->m_pRtpDataHead,pRtpMsgIn->m_pAttachment,(unsigned char*)pBufferMsg->m_pAttachment->getAttachData(),nSendSize);
+			//toRtpData(pRtpMsgIn->m_pRtpDataHead,pRtpMsgIn->m_pAttachment,pSendBuffer,nSendSize);
+			sendData(pBufferMsg->m_pAttachment->getAttachData(),nSendSize);
 		}
 	}
-	delete[] pSendBuffer;
+	m_pRtpBufferPool.Set(pBufferMsg);
+	//delete[] pSendBuffer;
 	return true;
 }
 

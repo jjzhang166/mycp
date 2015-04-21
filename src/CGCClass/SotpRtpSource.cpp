@@ -54,11 +54,6 @@ CSotpRtpSource::CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId)
 {
 	m_tLastTime = time(0);
 	memset(m_pReliableQueue,0,sizeof(m_pReliableQueue));
-	//const cgcAttachment::pointer NullcgcAttachment;
-	//for(int i=0; i< RELIABLE_QUEUE_SIZE; ++i)
-	//{
-	//	m_pReliableQueue[i] = NullcgcAttachment;
-	//}
 }
 CSotpRtpSource::~CSotpRtpSource(void)
 {
@@ -231,16 +226,19 @@ void CSotpRtpSource::sendNAKRequest(unsigned short nSeq, unsigned short nCount,c
 	SotpCallTable2::toRtpCommand(pCommand,lpszBuffer,nSendSize);
 	pcgcRemote->sendData((const unsigned char*)lpszBuffer,nSendSize);
 }
-void CSotpRtpSource::UpdateReliableQueue(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment)
+void CSotpRtpSource::UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut)
 {
-	const unsigned short nSeq = pRtpDataHead.m_nSeq;
+	const unsigned short nSeq = pRtpMsgIn->m_pRtpDataHead.m_nSeq;
 	const int i = nSeq%RELIABLE_QUEUE_SIZE;
 	boost::mutex::scoped_lock lock(m_pRelialeMutex);
 	if (m_pReliableQueue[i] != 0)
 	{
-		delete m_pReliableQueue[i];
+		if (pRtpMsgOut==NULL)
+			delete m_pReliableQueue[i];
+		else
+			*pRtpMsgOut = m_pReliableQueue[i];
 	}
-	m_pReliableQueue[i] = new CSotpRtpReliableMsg(pRtpDataHead,pAttackment);
+	m_pReliableQueue[i] = pRtpMsgIn;
 }
 void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment)
 {
