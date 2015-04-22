@@ -76,6 +76,28 @@ private:
 	tstring m_sUserAgent;
 	time_t m_tRequestTime;
 };
+class CNotKeepAliveRemote
+{
+public:
+	typedef boost::shared_ptr<CNotKeepAliveRemote> pointer;
+	static CNotKeepAliveRemote::pointer create(const cgcRemote::pointer& pcgcRemote)
+	{
+		return CNotKeepAliveRemote::pointer(new CNotKeepAliveRemote(pcgcRemote));
+	}
+	bool IsExpireTime(time_t tNow, int nExpireSecond=2) const {return tNow-m_tRequestTime>nExpireSecond;}
+	CNotKeepAliveRemote(const cgcRemote::pointer& pcgcRemote)
+		: m_pcgcRemote(pcgcRemote)
+	{
+		m_tRequestTime = time(0);
+	}
+	virtual ~CNotKeepAliveRemote(void)
+	{
+		m_pcgcRemote->invalidate(true);
+	}
+private:
+	cgcRemote::pointer m_pcgcRemote;
+	time_t m_tRequestTime;
+};
 
 class CGCApp
 	: public cgcSystem
@@ -100,6 +122,7 @@ public:
 
 	bool isInited(void) const {return m_bInitedApp;}
 	bool isExitLog(void) const {return m_bExitLog;}
+	void ProcNotKeepAliveRmote(void);
 	bool ProcLastAccessedTime(void);
 	bool ProcDataResend(void) {return this->m_mgrSession.ProcDataResend();}
 
@@ -218,6 +241,7 @@ private:
 	CLockMap<unsigned long, cgcMultiPart::pointer> m_mapMultiParts;		// remoteid->
 	CLockMap<void*, cgcApplication::pointer> m_mapOpenModules;			//
 	//CLockMap<tstring,CMySessionInfo::pointer> m_pMySessionInfoList;		// mysessionid-> (后期考虑保存到硬盘)
+	CLockList<CNotKeepAliveRemote::pointer> m_pNotKeepAliveRemoteList;
 };
 
 #endif // _CGCApp_HEAD_VER_1_0_0_0__INCLUDED_

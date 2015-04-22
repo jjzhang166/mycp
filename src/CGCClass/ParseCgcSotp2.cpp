@@ -277,8 +277,8 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			{
 				if (!isRTPProto()) return NULL;
 				memcpy(&m_pSotpRtpDataHead,pLineBuffer+1,SOTP_RTP_DATA_HEAD_SIZE);
-				const cgc::uint16 nDataOffset = m_pSotpRtpDataHead.m_nUnitLength*m_pSotpRtpDataHead.m_nIndex;
-				const cgc::uint16 nDataLength = (m_pSotpRtpDataHead.m_nTotleLength-nDataOffset)>=m_pSotpRtpDataHead.m_nUnitLength?m_pSotpRtpDataHead.m_nUnitLength:(m_pSotpRtpDataHead.m_nTotleLength-nDataOffset);
+				const cgc::uint32 nDataOffset = ((cgc::uint32)m_pSotpRtpDataHead.m_nIndex)*m_pSotpRtpDataHead.m_nUnitLength;
+				const cgc::uint32 nDataLength = (m_pSotpRtpDataHead.m_nTotleLength-nDataOffset)>=m_pSotpRtpDataHead.m_nUnitLength?m_pSotpRtpDataHead.m_nUnitLength:(m_pSotpRtpDataHead.m_nTotleLength-nDataOffset);
 				if (nDataOffset>=m_pSotpRtpDataHead.m_nTotleLength ||
 					(nDataLength+SOTP_RTP_DATA_HEAD_SIZE+2)>(nBufferSize))
 					return NULL;

@@ -50,8 +50,8 @@ public:
 
 	//void setRemote(void * newv) {m_remote = newv;}
 	//const void * getRemote(void) const {return m_remote;}
-	void setRemote(cgcRemote::pointer newv) {m_remote = newv;}
-	cgcRemote::pointer getRemote(void) const {return m_remote;}
+	void setRemote(const cgcRemote::pointer& newv) {m_remote = newv;}
+	const cgcRemote::pointer& getRemote(void) const {return m_remote;}
 
 	void setRemoteId(unsigned long newv) {m_remoteId = newv;}
 	unsigned long getRemoteId(void) const {return m_remoteId;}

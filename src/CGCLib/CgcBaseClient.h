@@ -156,7 +156,7 @@ protected:
 	virtual void doUnRegisterAllSink(void);
 	virtual bool doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const;
 	boost::mutex m_pSendRtpMutex;
-	virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint16 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType);
+	virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint32 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType);
 
 	// threads
 	virtual void doSetCIDTResends(unsigned short timeoutResends, unsigned short timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}

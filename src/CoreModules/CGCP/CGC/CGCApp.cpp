@@ -145,13 +145,15 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 	while (pCGCApp->isInited())
 	{
 #ifdef WIN32
-		Sleep(2000);
+		Sleep(1000);
 #else
-		sleep(2);
+		sleep(1);
 #endif
-		if ((++theIndex%10) != 0) continue;	// 10*2=20秒处理一次
 		try
 		{
+			pCGCApp->ProcNotKeepAliveRmote();
+			if ((++theIndex%20) != 0) continue;	// 10*2=20秒处理一次
+
 			// 如果没有超时SESSION，再继续等待
 			while(pCGCApp->ProcLastAccessedTime())
 			{
@@ -161,6 +163,7 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 #else
 				sleep(1);
 #endif
+				pCGCApp->ProcNotKeepAliveRmote();
 			}
 		}catch(std::exception const &)
 		{
@@ -169,6 +172,20 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 	}
 }
 
+void CGCApp::ProcNotKeepAliveRmote(void)
+{
+	// 检查没有keep-alive连接；
+	const time_t tNow = time(0);
+	CNotKeepAliveRemote::pointer pNotKeepAliveRemote;
+	while (m_pNotKeepAliveRemoteList.front(pNotKeepAliveRemote))
+	{
+		if (!pNotKeepAliveRemote->IsExpireTime(tNow, 2))
+		{
+			m_pNotKeepAliveRemoteList.pushfront(pNotKeepAliveRemote); 
+			break;
+		}
+	}
+}
 bool CGCApp::ProcLastAccessedTime(void)
 {
 	std::string sCloseSid;
@@ -306,6 +323,7 @@ void CGCApp::AppStop(void)
 
 	m_cdbcServices.clear();
 	FreeLibrarys();
+	m_pNotKeepAliveRemoteList.clear();
 	m_parseModules.FreeHandle();
 //	m_parseClusters.FreeHandle();
 //	m_parseAuths.m_mapAuths.clear();
@@ -1480,15 +1498,16 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	//if (statusCode == STATUS_CODE_413)
 	if (!requestImpl->isKeepAlive())
 	{
-#ifdef WIN32
-		Sleep(50);
-#else
-		usleep(50000);
-#endif
-		//  断开客户端连接，避免继续上传文件
-		//printf("******* Connection close:\n");
-		//onRemoteClose(pcgcRemote->getRemoteId(),0);
-		pcgcRemote->invalidate(true);
+		m_pNotKeepAliveRemoteList.add(CNotKeepAliveRemote::create(pcgcRemote));
+//#ifdef WIN32
+//		Sleep(50);
+//#else
+//		usleep(50000);
+//#endif
+//		//  断开客户端连接，避免继续上传文件
+//		//printf("******* Connection close:\n");
+//		//onRemoteClose(pcgcRemote->getRemoteId(),0);
+//		pcgcRemote->invalidate(true);
 	}
 	return statusCode;
 }

@@ -53,7 +53,7 @@ public:
 	bool recv(unsigned short seq, unsigned short lastseq, unsigned short & pOutSendSeq, int & pOutSendCount, bool bSend)
 	{
 		{
-			boost::mutex::scoped_lock lock(m_pMutex);
+			//boost::mutex::scoped_lock lock(m_pMutex);
 			std::list<unsigned short>::iterator pIter;
 			for (pIter=m_lostSeq.begin(); pIter!=m_lostSeq.end(); ++pIter)
 			{
@@ -77,7 +77,7 @@ public:
 		{
 			lost(seq+i);
 		}
-		boost::mutex::scoped_lock lock(m_pMutex);
+		//boost::mutex::scoped_lock lock(m_pMutex);
 		m_lostSeq.sort(compare_seq());
 		while (m_lostSeq.size() >= MAX_RESEND_COUNT*4)
 			m_lostSeq.pop_front();
@@ -85,7 +85,7 @@ public:
 
 	bool send(unsigned short lastSeq, unsigned short & pOutSendSeq, int & pOutSendCount)
 	{
-		boost::mutex::scoped_lock lock(m_pMutex);
+		//boost::mutex::scoped_lock lock(m_pMutex);
 		std::list<unsigned short>::iterator pIter;
 		pIter = m_lostSeq.begin();
 		if (pIter == m_lostSeq.end())
@@ -99,7 +99,7 @@ public:
 			else if (lastSeq - sendSeq > m_offset2)
 			{
 				m_lostSeq.pop_front();				// 过期数据不处理
-				lock.unlock();
+				//lock.unlock();
 				return send(lastSeq, pOutSendSeq, pOutSendCount);
 			}
 		}
@@ -134,7 +134,7 @@ public:
 protected:
 	void lost(unsigned short seq)
 	{
-		boost::mutex::scoped_lock lock(m_pMutex);
+		//boost::mutex::scoped_lock lock(m_pMutex);
 		std::list<unsigned short>::iterator pIter;
 		for (pIter=m_lostSeq.begin(); pIter!=m_lostSeq.end(); ++pIter)
 		{
@@ -146,7 +146,7 @@ protected:
 		m_lostSeq.push_back(seq);
 	}
 private:
-	boost::mutex m_pMutex;
+	//boost::mutex m_pMutex;
 	std::list<unsigned short>	m_lostSeq;
 	int m_offset1;
 	int m_offset2;
@@ -227,6 +227,7 @@ private:
 	cgc::uint16 m_nMaxPoolSize;
 };
 
+#define USES_FILE_LOG
 class CSotpRtpSource
 {
 public:
@@ -254,6 +255,7 @@ public:
 	const CLockMap<cgc::bigint,bool>& GetSinkRecvList(void) const {return m_pSinkRecvList;}
 	void ClearSinkRecv(bool bLock);
 
+	boost::mutex m_pCaculateMissedPacketsMutex;
 	void CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote);
 	void UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut = NULL);
 	void PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
@@ -287,8 +289,10 @@ private:
 	CLostSeqInfo theLostSeqInfo1;
 	CLostSeqInfo theLostSeqInfo2;
 	int m_nLastPacketSeq;
-
-	unsigned short m_nCurrentSeq;
+	cgc::uint16 m_nCurrentSeq;
+#ifdef USES_FILE_LOG
+	FILE * m_flog;
+#endif
 };
 const CSotpRtpSource::pointer NullSotpRtpSource;
 

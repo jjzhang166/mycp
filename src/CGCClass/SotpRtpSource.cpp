@@ -50,13 +50,22 @@ CSotpRtpSource::CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId)
 , theLostSeqInfo1(1,6), theLostSeqInfo2(7,25)//, theLostSeqInfo3(13,20)
 , m_nLastPacketSeq(-1)
 , m_nCurrentSeq(0)
-
+#ifdef USES_FILE_LOG
+, m_flog(NULL)
+#endif
 {
 	m_tLastTime = time(0);
 	memset(m_pReliableQueue,0,sizeof(m_pReliableQueue));
 }
 CSotpRtpSource::~CSotpRtpSource(void)
 {
+#ifdef USES_FILE_LOG
+	if (m_flog!=NULL)
+	{
+		fclose(m_flog);
+		m_flog = 0;
+	}
+#endif
 	{
 		boost::mutex::scoped_lock lock(m_pRelialeMutex);
 		for(int i=0; i< RELIABLE_QUEUE_SIZE; ++i)
@@ -102,6 +111,7 @@ void CSotpRtpSource::ClearSinkRecv(bool bLock)
 
 void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote)
 {
+	boost::mutex::scoped_lock lock(m_pCaculateMissedPacketsMutex);
 	const cgc::uint16 nSeq = pRtpDataHead.m_nSeq;
 	const cgc::uint8 nNAKType = pRtpDataHead.m_nNAKType;
 	if (nNAKType==SOTP_RTP_NAK_REQUEST_2)
@@ -126,6 +136,19 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 		//}
 	}
 
+#ifdef USES_FILE_LOG
+	char lpszBuffer[260];
+	sprintf(lpszBuffer,"f:\\%lld-%d.txt",this->GetSrcId(),pRtpDataHead.m_nTimestamp);
+	if (m_flog==NULL)
+		m_flog = fopen(lpszBuffer,"w+");
+	
+	if (m_flog!=NULL)
+	{
+		sprintf(lpszBuffer,"ts=%d: recv seq=%d,last seq=%d\n",pRtpDataHead.m_nTimestamp,pRtpDataHead.m_nSeq,m_nLastPacketSeq);
+		fwrite(lpszBuffer,1,strlen(lpszBuffer),m_flog);
+	}
+#endif
+
 	const unsigned short expectSeq = m_nLastPacketSeq + 1;
 	if (nSeq == expectSeq || m_nLastPacketSeq==-1) {
 		m_nLastPacketSeq = nSeq;
@@ -142,7 +165,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	// **效果好很多，就不知流量如何；
 	const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
 	//const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
-	int n=0;
+	int n = 0;
 	if (nSeq>expectSeq && (nSeq-expectSeq) < 0x7F00)	// 正常大小SEQ，缺少前面SEQ
 	{
 		n = ((nSeq-expectSeq) > nMaxResendCount) ? nMaxResendCount : (nSeq-expectSeq);
@@ -207,6 +230,18 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 		}
 	}
 
+#ifdef USES_FILE_LOG
+	if (m_flog!=NULL)
+	{
+		sprintf(lpszBuffer,"ts=%d: expect seq=%d,last seq=%d,n=%d\n",pRtpDataHead.m_nTimestamp,expectSeq,m_nLastPacketSeq,n);
+		fwrite(lpszBuffer,1,strlen(lpszBuffer),m_flog);
+	}
+#endif
+	//if (nSeq==174)
+	//{
+	//	int i=0;
+	//}
+
 	if (nNAKType==SOTP_RTP_NAK_REQUEST_1 && n>0)	// *音频 感觉网络差时,音频效果好一些
 	{
 		sendNAKRequest(nSeq, n,pcgcRemote);
@@ -266,10 +301,12 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 		memcpy(&pFrame->m_pRtpHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
 		pFrame->m_nFirstSeq = pRtpDataHead.m_nSeq-pRtpDataHead.m_nIndex;	// *seq重头开始也正常
 		pFrame->m_nPacketNumber = (pRtpDataHead.m_nTotleLength+pRtpDataHead.m_nUnitLength-1)/pRtpDataHead.m_nUnitLength;
-		if (pRtpDataHead.m_nTotleLength>20*1024 || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)
-			pFrame->m_nExpireTime = timeGetTime()+1800;
-		else
-			pFrame->m_nExpireTime = timeGetTime()+800;
+		// ??? pFrame->m_nExpireTime = timeGetTime() + (pFrame->m_nPacketNumber/10)*1000 + 800;
+
+		//if (pRtpDataHead.m_nTotleLength>20*1024 || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)
+		//	pFrame->m_nExpireTime = timeGetTime()+1800;
+		//else
+		//	pFrame->m_nExpireTime = timeGetTime()+800;
 		CSotpRtpFrame::pointer pFromTemp;
 		m_pReceiveFrames.insert(ts,pFrame,false,&pFromTemp);
 		if (pFromTemp!=NULL)
@@ -288,8 +325,8 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	//fill frame data.
 	if (pFrame->m_nFilled[pRtpDataHead.m_nIndex] != 1)
 	{
-		const cgc::uint16 nDataOffset = pRtpDataHead.m_nIndex*pRtpDataHead.m_nUnitLength;
-		const cgc::uint16 nDataLength = (pRtpDataHead.m_nTotleLength-nDataOffset)>=pRtpDataHead.m_nUnitLength?pRtpDataHead.m_nUnitLength:(pRtpDataHead.m_nTotleLength-nDataOffset);
+		const cgc::uint32 nDataOffset = ((cgc::uint32)pRtpDataHead.m_nIndex)*pRtpDataHead.m_nUnitLength;
+		const cgc::uint32 nDataLength = (pRtpDataHead.m_nTotleLength-nDataOffset)>=pRtpDataHead.m_nUnitLength?pRtpDataHead.m_nUnitLength:(pRtpDataHead.m_nTotleLength-nDataOffset);
 		if (nDataLength==pAttackment->getAttachSize())
 		{
 			pFrame->m_nFilled[pRtpDataHead.m_nIndex] = 1;
