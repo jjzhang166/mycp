@@ -106,7 +106,7 @@ namespace cgc
 
 		// thread
 		virtual void doSetCIDTResends(unsigned short timeoutResends=2, unsigned short timeoutSeconds=4) = 0;
-		virtual void doStartRecvThreads(unsigned short nRecvThreads = 2) = 0;
+		//virtual void doStartRecvThreads(unsigned short nRecvThreads = 2) = 0; // ** not use
 		virtual void doStartActiveThread(unsigned short nActiveWaitSeconds = 30,unsigned short nSendP2PTrySeconds=0) = 0;
 
 		// parameter

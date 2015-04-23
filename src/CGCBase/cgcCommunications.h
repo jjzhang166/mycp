@@ -47,6 +47,7 @@ public:
 	virtual void invalidate(bool bClose=false) = 0;
 	virtual bool isInvalidate(void) const = 0;
 };
+const cgcRemote::pointer NullcgcRemote;
 
 // cgcCommHandler
 class cgcCommHandler

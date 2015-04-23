@@ -39,7 +39,7 @@ public:
 	bool doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment, const cgcRemote::pointer& pcgcRemote);
 
 	void CheckRegisterSourceLive(short nExpireSecond);	// for server
-	void CheckRegisterSinkLive(short nExpireSecond, const cgcRemote::pointer& pcgcRemote);	// for client
+	void CheckRegisterSinkLive(short nExpireSecond, cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
 
 	void GetRoomIdList(std::vector<cgc::bigint>& pOutRoomIdList) const;
 	bool IsRegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId) const;
@@ -47,6 +47,8 @@ public:
 
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew);
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId) const;
+
+	void ClearAll(void);
 
 	CSotpRtpSession(bool bServerMode);
 	virtual ~CSotpRtpSession(void);

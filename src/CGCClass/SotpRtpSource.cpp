@@ -55,13 +55,13 @@ CSotpRtpSource::CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId)
 , m_flog(NULL)
 #endif
 {
-	printf("**** CSotpRtpSource() srdid=%lld\n",m_nSrcId);
+	//printf("**** CSotpRtpSource() srdid=%lld\n",m_nSrcId);
 	m_tLastTime = time(0);
 	memset(m_pReliableQueue,0,sizeof(m_pReliableQueue));
 }
 CSotpRtpSource::~CSotpRtpSource(void)
 {
-	printf("**** ~CSotpRtpSource() srdid=%lld\n",m_nSrcId);
+	//printf("**** ~CSotpRtpSource() srdid=%lld\n",m_nSrcId);
 
 #ifdef USES_FILE_LOG
 	if (m_flog!=NULL)

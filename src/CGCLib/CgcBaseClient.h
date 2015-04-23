@@ -160,7 +160,7 @@ protected:
 
 	// threads
 	virtual void doSetCIDTResends(unsigned short timeoutResends, unsigned short timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}
-	virtual void doStartRecvThreads(unsigned short nRecvThreads) {StartRecvThreads(nRecvThreads);}
+	//virtual void doStartRecvThreads(unsigned short nRecvThreads) {/*StartRecvThreads(nRecvThreads)*/;}
 	virtual void doStartActiveThread(unsigned short nActiveWaitSeconds,unsigned short nSendP2PTrySeconds) {StartActiveThread(nActiveWaitSeconds,nSendP2PTrySeconds);}
 
 	// parameter
@@ -226,8 +226,8 @@ public:
 
 	void StartCIDTimeout(void);
 	// nRecvThreads: 0 <= nRecvThreads <= 20
-	void StartRecvThreads(unsigned short nRecvThreads = 2);
-	void StopRecvThreads(void);
+	//void StartRecvThreads(unsigned short nRecvThreads = 2);
+	//void StopRecvThreads(void);
 
 	void StartActiveThread(unsigned short nActiveWaitSeconds = 30,unsigned short nSendP2PTrySeconds=20);
 	void StopActiveThread(void);
@@ -271,7 +271,7 @@ public:
 	void sendP2PTry(unsigned short nTryCount);
 
 	void RtpCheckRegisterSink(void);
-	void ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc);
+	//void ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc);
 	void OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount);
 
 	//

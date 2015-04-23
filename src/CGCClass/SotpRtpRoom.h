@@ -50,7 +50,9 @@ public:
 	bool IsRegisterSource(cgc::bigint nSrcId) const;
 	void BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment) const;
 	void CheckRegisterSourceLive(time_t tNow,short nExpireSecond);
-	void CheckRegisterSinkLive(time_t tNow,short nExpireSecond,const cgcRemote::pointer& pcgcRemote);
+	void CheckRegisterSinkLive(time_t tNow,short nExpireSecond,cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
+
+	void ClearAll(void);
 
 	CSotpRtpRoom(bool bServerMode, cgc::bigint nRoomId);
 	virtual ~CSotpRtpRoom(void);

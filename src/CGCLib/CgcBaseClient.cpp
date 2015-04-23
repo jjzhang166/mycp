@@ -206,18 +206,13 @@ void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClien
 	unsigned int index = 0;
 	while (!cgcClient->isInvalidate())
 	{
-#ifdef WIN32
-		Sleep(1000);
-#else
-		sleep(1);
-#endif
-		if (((++index)%2)==0)	// 二秒检查一次；
-			cgcClient->RtpCheckRegisterSink();
-
-		//if (!cgcClient->isTimeToActiveSes()) continue;
-		//if (cgcClient->getSessionId().empty()) continue;	// 未打开，或者已经关闭SESSION
 		try
 		{
+			if (((++index)%4)==0)	// 4秒检查一次；
+				cgcClient->RtpCheckRegisterSink();
+
+			//if (!cgcClient->isTimeToActiveSes()) continue;
+			//if (cgcClient->getSessionId().empty()) continue;	// 未打开，或者已经关闭SESSION
 			if (cgcClient->isTimeToActiveSes() && !cgcClient->getSessionId().empty())
 				cgcClient->sendActiveSession();
 			if (cgcClient->isTimeToSendP2PTry())	// 一般发完sendActiveSession，不需要再发sendP2PTry
@@ -227,6 +222,11 @@ void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClien
 		}catch(...)
 		{
 		}
+#ifdef WIN32
+		Sleep(1000);
+#else
+		sleep(1);
+#endif
 	}
 }
 
@@ -368,32 +368,32 @@ void CgcBaseClient::StartCIDTimeout(void)
 		m_threadCIDTimeout = new boost::thread(attrs,boost::bind(do_proc_cid_timeout, this));
 	}
 }
-void CgcBaseClient::StartRecvThreads(unsigned short nRecvThreads)
-{
-	return;	//****
-	//nRecvThreads = nRecvThreads > 20 ? 20 : nRecvThreads;
-	//unsigned short i=0;
-	//for (i=0; i<nRecvThreads; i++)
-	//{
-	//	boost::thread_attributes attrs;
-	//	attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-	//	boost::thread * recvThread = new boost::thread(attrs,boost::bind(do_proc_CgcClient, this));
-	//	m_listBoostThread.push_back(recvThread);
-	//}
-}
+//void CgcBaseClient::StartRecvThreads(unsigned short nRecvThreads)
+//{
+//	return;	//****
+//	//nRecvThreads = nRecvThreads > 20 ? 20 : nRecvThreads;
+//	//unsigned short i=0;
+//	//for (i=0; i<nRecvThreads; i++)
+//	//{
+//	//	boost::thread_attributes attrs;
+//	//	attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+//	//	boost::thread * recvThread = new boost::thread(attrs,boost::bind(do_proc_CgcClient, this));
+//	//	m_listBoostThread.push_back(recvThread);
+//	//}
+//}
 
-void CgcBaseClient::StopRecvThreads(void)
-{
-	return;
-	//BoostThreadListCIter pIter;
-	//for (pIter=m_listBoostThread.begin(); pIter!=m_listBoostThread.end(); pIter++)
-	//{
-	//	boost::thread * recvThread = *pIter;
-	//	recvThread->join();	// 如果该线程在外面操作界面消息，会导致退出挂死
-	//	delete recvThread;
-	//}
-	//m_listBoostThread.clear();
-}
+//void CgcBaseClient::StopRecvThreads(void)
+//{
+//	return;
+//	//BoostThreadListCIter pIter;
+//	//for (pIter=m_listBoostThread.begin(); pIter!=m_listBoostThread.end(); pIter++)
+//	//{
+//	//	boost::thread * recvThread = *pIter;
+//	//	recvThread->join();	// 如果该线程在外面操作界面消息，会导致退出挂死
+//	//	delete recvThread;
+//	//}
+//	//m_listBoostThread.clear();
+//}
 
 void CgcBaseClient::StartActiveThread(unsigned short nActiveWaitSeconds,unsigned short nSendP2PTrySeconds)
 {
@@ -456,8 +456,8 @@ void CgcBaseClient::StopClient(bool exitClient)
 	{
 	}
 
-	// clear m_listBoostThread
-	StopRecvThreads();
+	//// clear m_listBoostThread
+	//StopRecvThreads();
 
 	// stop the active session thread
 	StopActiveThread();
@@ -484,6 +484,7 @@ void CgcBaseClient::StopClient(bool exitClient)
 		}
 	}
 
+	m_pRtpSession.ClearAll();
 	m_pOwnerRemote.reset();
 	// clear m_mapCidInfo
 	m_ipLocal.reset();
@@ -825,13 +826,14 @@ void CgcBaseClient::sendP2PTry(unsigned short nTryCount)
 //}
 void CgcBaseClient::RtpCheckRegisterSink(void)
 {
-	//m_pRtpSession.CheckRegisterSinkLive(8,MySinkExpireCallback,this);
-	m_pRtpSession.CheckRegisterSinkLive(8,m_pOwnerRemote);
+	if (m_nActiveWaitSeconds == 0 || m_nSrcId == 0 || m_pOwnerRemote.get()==NULL)
+		return;
+	m_pRtpSession.CheckRegisterSinkLive(m_nActiveWaitSeconds, m_nSrcId, m_pOwnerRemote);
 }
-void CgcBaseClient::ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc)
-{
-	//pSotpRtpSourc->r
-}
+//void CgcBaseClient::ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc)
+//{
+//	//pSotpRtpSourc->r
+//}
 
 void CgcBaseClient::OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount)
 {

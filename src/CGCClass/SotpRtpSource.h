@@ -291,7 +291,7 @@ private:
 	cgc::bigint m_nSrcId;
 	time_t m_tLastTime;
 	cgcRemote::pointer m_pRemote;
-	CLockMap<cgc::bigint,bool> m_pSinkSendList;
+	//CLockMap<cgc::bigint,bool> m_pSinkSendList;
 	CLockMap<cgc::bigint,bool> m_pSinkRecvList;
 
 	cgc::uint32  m_nLastFrameTimestamp;

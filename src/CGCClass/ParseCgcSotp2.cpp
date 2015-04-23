@@ -255,7 +255,7 @@ bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,size_t nBufferSize
 	// 把SOTP协议，改到2.0版本
 const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBufferSize)
 {
-	if (pLineBuffer == NULL) return NULL;
+	if (pLineBuffer == NULL || nBufferSize<=1) return NULL;
 
 	const char * pNextLineFind = strstr(pLineBuffer, "\n");
 	//if (pNextLineFind == NULL) return NULL;

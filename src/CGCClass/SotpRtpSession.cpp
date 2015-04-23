@@ -35,6 +35,11 @@ CSotpRtpSession::CSotpRtpSession(bool bServerMode)
 }
 CSotpRtpSession::~CSotpRtpSession(void)
 {
+	ClearAll();
+}
+void CSotpRtpSession::ClearAll(void)
+{
+	m_pRoomList.clear();
 }
 
 CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew)
@@ -78,6 +83,10 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
+			if (!this->m_bServerMode)
+			{
+				pRtpRoom->UnRegisterAllSink(pRtpCommand.m_nSrcId);
+			}
 			if (!pRtpRoom->UnRegisterSource(pRtpCommand.m_nSrcId))
 				return false;
 			if (pRtpRoom->IsEmpty())
@@ -90,12 +99,12 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 				return false;
 			if (!pRtpRoom->RegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId))
 				return false;
-			if (!this->m_bServerMode)
-			{
-				CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(pRtpCommand.u.m_nDestId,pcgcRemote);
-				if (pRtpSource.get()==NULL)
-					return false;
-			}
+			//if (!this->m_bServerMode)
+			//{
+			//	CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(pRtpCommand.u.m_nDestId,pcgcRemote);
+			//	if (pRtpSource.get()==NULL)
+			//		return false;
+			//}
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_SINK:
 		{
@@ -103,10 +112,10 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			if (pRtpRoom.get()==NULL)
 				return false;
 			pRtpRoom->UnRegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId);
-			if (!this->m_bServerMode)
-			{
-				pRtpRoom->UnRegisterSource(pRtpCommand.u.m_nDestId);
-			}
+			//if (!this->m_bServerMode)
+			//{
+			//	pRtpRoom->UnRegisterSource(pRtpCommand.u.m_nDestId);
+			//}
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_ALLSINK:
 		{
@@ -203,7 +212,7 @@ void CSotpRtpSession::CheckRegisterSourceLive(short nExpireSecond)
 	}
 }
 
-void CSotpRtpSession::CheckRegisterSinkLive(short nExpireSecond, const cgcRemote::pointer& pcgcRemote)
+void CSotpRtpSession::CheckRegisterSinkLive(short nExpireSecond, cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote)
 {
 	if (!m_bServerMode)
 	{
@@ -213,7 +222,7 @@ void CSotpRtpSession::CheckRegisterSinkLive(short nExpireSecond, const cgcRemote
 		for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 		{
 			CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
-			pRtpRoom->CheckRegisterSinkLive(tNow, nExpireSecond, pcgcRemote);
+			pRtpRoom->CheckRegisterSinkLive(tNow, nExpireSecond, nSrcId, pcgcRemote);
 		}
 	}
 }

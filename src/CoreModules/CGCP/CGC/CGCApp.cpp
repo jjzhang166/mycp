@@ -310,6 +310,7 @@ void CGCApp::AppStop(void)
 	m_bStopedApp = true;
 	m_parsePortApps.clear();
 	
+	m_pRtpSession.ClearAll();
 	m_mgrSession.invalidates(true);
 	FreeLibModules(MODULE_COMM);
 	FreeLibModules(MODULE_APP);		// ***ÏÈÍ£Ö¹APPÓ¦ÓÃ
@@ -1537,10 +1538,12 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		if (pcgcParser->isRtpCommand())
 		{
 			//tagSotpRtpCommand pRtpCommand = pcgcParser->getRtpCommand();
-			//printf("**** command=%d,roomi=%lld,srcid=%lld,size=%d\n",pRtpCommand.m_nCommand,pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId,SOTP_RTP_COMMAND_SIZE);
+			//printf("**** command=%d,roomid=%lld,srcid=%lld,size=%d\n",pRtpCommand.m_nCommand,pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId,SOTP_RTP_COMMAND_SIZE);
 			m_pRtpSession.doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false);
 		}else if (pcgcParser->isRtpData())
 		{
+			//tagSotpRtpDataHead pRtpDataHead = pcgcParser->getRtpDataHead();
+			////printf("**** data-head : roomid=%lld,srcid=%lld,size=%d\n",pRtpDataHead.m_nRoomId,pRtpDataHead.m_nSrcId,SOTP_RTP_DATA_HEAD_SIZE);
 			m_pRtpSession.doRtpData(pcgcParser->getRtpDataHead(),pcgcParser->getRecvAttachment(),pcgcRemote);
 		}
 		return 1;
@@ -2331,8 +2334,10 @@ void CGCApp::FreeLibrarys(void)
 		pModuleImpl->StopModule();
 	}
 
+	//printf("**** Module Size = %d\n", m_parseModules.m_modules.size());
 	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	//m_logModuleImpl.log(LOG_INFO, _T("Module Size = %d\n"), m_parseModules.m_modules.size());
 	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
 	{
 		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
@@ -2341,16 +2346,26 @@ void CGCApp::FreeLibrarys(void)
 			continue;
 
 		void * hModule = moduleItem->getModuleHandle();
-		printf("**** FreeLibrarys name=%s,moule=0x%x\n",moduleItem->getName().c_str(),hModule);
+		printf("**** Free Module(0x%x) %02d -> %s\n", hModule, i+1, moduleItem->getName().c_str());
+		//m_logModuleImpl.log(LOG_INFO, _T("Free Module %02d : name=%s, module=0x%x\n"), i+1, moduleItem->getName().c_str(),hModule);
 		if (hModule!=NULL)
 		{
+			try
+			{
 #ifdef WIN32
-			FreeLibrary((HMODULE)hModule);
+				FreeLibrary((HMODULE)hModule);
 #else
-			dlclose (hModule);
+				dlclose (hModule);
 #endif
+			}catch(std::exception const & e)
+			{
+				printf("**** name=%s, exception. 0x%x(%s)\n", moduleItem->getName().c_str(), GetLastError(), e.what());
+			}catch(...){
+				printf("**** name=%s, exception. 0x%x\n", moduleItem->getName().c_str(), GetLastError());
+			}
 		}
 	}
+
 	// ** delete temp file
 	//CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
 	for (iterApp=m_mapOpenModules.begin(); iterApp!=m_mapOpenModules.end(); iterApp++)
