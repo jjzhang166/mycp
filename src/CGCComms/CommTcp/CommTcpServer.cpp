@@ -409,7 +409,7 @@ private:
 public:
 	CTcpServer(int nIndex)
 		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0)
-		, m_pCommEventDataPool(Max_ReceiveBuffer_ReceiveSize,30,50)
+		, m_pCommEventDataPool(Max_ReceiveBuffer_ReceiveSize,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 #ifdef USES_OPENSSL
 		, m_sslctx(NULL)
@@ -654,7 +654,14 @@ protected:
 		}
 
 		CCommEventData * pCommEventData = m_listMgr.front();
-		if (pCommEventData == NULL) return;
+		if (pCommEventData == NULL)
+		{
+			if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID+1)
+			{
+				m_pCommEventDataPool.Idle();
+			}
+			return;
+		}
 
 		switch (pCommEventData->getCommEventType())
 		{

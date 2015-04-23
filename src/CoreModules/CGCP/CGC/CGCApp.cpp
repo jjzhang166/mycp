@@ -151,6 +151,7 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 #endif
 		try
 		{
+
 			pCGCApp->ProcNotKeepAliveRmote();
 			if ((++theIndex%20) != 0) continue;	// 10*2=20秒处理一次
 
@@ -194,6 +195,12 @@ bool CGCApp::ProcLastAccessedTime(void)
 	{
 		m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sCloseSid.c_str());
 		return true;
+	}
+
+	static unsigned int nIndex = 0;
+	if ((nIndex++)%3==2)	// 3*20=60秒处理一次；
+	{
+		m_pRtpSession.CheckRegisterSourceLive(59);
 	}
 	return false;
 	//// 检查mysessioninfo
@@ -1529,6 +1536,8 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 	{
 		if (pcgcParser->isRtpCommand())
 		{
+			//tagSotpRtpCommand pRtpCommand = pcgcParser->getRtpCommand();
+			//printf("**** command=%d,roomi=%lld,srcid=%lld,size=%d\n",pRtpCommand.m_nCommand,pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId,SOTP_RTP_COMMAND_SIZE);
 			m_pRtpSession.doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false);
 		}else if (pcgcParser->isRtpData())
 		{
@@ -2332,7 +2341,8 @@ void CGCApp::FreeLibrarys(void)
 			continue;
 
 		void * hModule = moduleItem->getModuleHandle();
-		if (hModule)
+		printf("**** FreeLibrarys name=%s,moule=0x%x\n",moduleItem->getName().c_str(),hModule);
+		if (hModule!=NULL)
 		{
 #ifdef WIN32
 			FreeLibrary((HMODULE)hModule);

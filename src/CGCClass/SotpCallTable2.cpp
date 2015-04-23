@@ -560,7 +560,7 @@ std::string SotpCallTable2::toSessionResult(SOTP_PROTO_VERSION nVersion,int prot
 		}else
 		{
 			char lpszBuffer[100];
-			sprintf(lpszBuffer,(_T("%s SOTP/2.0 %ld\n")
+			sprintf(lpszBuffer,(_T("%s SOTP/2.0 %d\n")
 				_T("%s")
 				_T("Cid: %lu\n")
 				_T("Sid: %s\n")),sType.c_str(),retCode,sNeedAck.c_str(),cid,sSessionId.c_str());

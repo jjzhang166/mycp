@@ -99,11 +99,18 @@ public:
 
 	void proc_Data(void)
 	{
+		unsigned short nIdleCount = 0;
 		while (m_socket != 0)
 		{
 			UdpEndPoint::pointer endpoint;
 			if (!m_endpoints.front(endpoint))
 			{
+				if ((nIdleCount++)>500*2) // 2S
+				{
+					nIdleCount = 0;
+					if (m_pool.size()>m_nInitPoolSize)
+						m_pool.front(endpoint);
+				}
 #ifdef WIN32
 				Sleep(2);
 #else
@@ -111,6 +118,7 @@ public:
 #endif
 				continue;
 			}
+			nIdleCount = 0;
 
 			if (m_handler.get() != NULL)
 			{
@@ -171,7 +179,7 @@ private:
 public:
 	UdpSocket(size_t nBufferSize=Max_UdpSocket_ReceiveSize)
 		: m_socket(NULL)
-		, m_proc_data(0),m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(30)
+		, m_proc_data(0),m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(50)
 	{
 	}
 	virtual ~UdpSocket(void)

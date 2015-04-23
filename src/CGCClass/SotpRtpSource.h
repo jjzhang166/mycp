@@ -227,7 +227,23 @@ private:
 	cgc::uint16 m_nMaxPoolSize;
 };
 
-#define USES_FILE_LOG
+class CLastExpectInfo
+{
+public:
+	int m_nExpectSeq;
+	cgc::uint16 m_nCount;
+	void Init(int nExpectSeq = -1)
+	{
+		m_nExpectSeq = nExpectSeq;
+		m_nCount = 0;
+	}
+	CLastExpectInfo(void)
+		: m_nExpectSeq(-1)
+		, m_nCount(0)
+	{}
+};
+
+//#define USES_FILE_LOG
 class CSotpRtpSource
 {
 public:
@@ -289,6 +305,9 @@ private:
 	CLostSeqInfo theLostSeqInfo1;
 	CLostSeqInfo theLostSeqInfo2;
 	int m_nLastPacketSeq;
+	//int m_nLastExpectSeq;	// 临时记录上一个缺失数据包，下一个包到来进会自动判断，如果不对直接请求；一次数据补偿
+	CLastExpectInfo m_pLastExpect1;
+	CLastExpectInfo m_pLastExpect2;
 	cgc::uint16 m_nCurrentSeq;
 #ifdef USES_FILE_LOG
 	FILE * m_flog;

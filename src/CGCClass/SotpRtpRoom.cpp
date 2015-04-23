@@ -31,9 +31,11 @@ CSotpRtpRoom::CSotpRtpRoom(bool bServerMode,cgc::bigint nRoomId)
 : m_bServerMode(bServerMode), m_nRoomId(nRoomId)
 
 {
+	printf("**** CSotpRtpRoom() roomid=%lld\n",m_nRoomId);
 }
 CSotpRtpRoom::~CSotpRtpRoom(void)
 {
+	printf("**** ~CSotpRtpRoom() roomid=%lld\n",m_nRoomId);
 }
 
 CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote)

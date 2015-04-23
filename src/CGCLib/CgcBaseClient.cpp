@@ -937,16 +937,16 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 		if ((i%50)==49)
 		{
 #ifdef WIN32
-			Sleep(100);
+			Sleep(500);
 #else
-			usleep(100000);
+			usleep(500000);
 #endif
 		}else if ((i%9)==8)
 		{
 #ifdef WIN32
-			Sleep(10);
+			Sleep(35);
 #else
-			usleep(10000);
+			usleep(35000);
 #endif
 		}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();

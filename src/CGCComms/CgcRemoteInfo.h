@@ -142,6 +142,7 @@ public:
 		{
 			pResult = New();
 		}
+		m_tIdle = 0;
 		return pResult;
 	}
 	void Set(CCommEventData* pMsg)
@@ -157,6 +158,22 @@ public:
 			}
 		}
 	}
+	void Idle(void)
+	{
+		const time_t tNow = time(0);
+		if (m_tIdle==0)
+			m_tIdle = tNow;
+		else if (tNow-m_tIdle>=2)
+		{
+			m_tIdle = 0;
+			if (m_pPool.size()>m_nInitPoolSize)
+			{
+				CCommEventData * pEventData = m_pPool.front();
+				if (pEventData!=0)
+					delete pEventData;
+			}
+		}
+	}
 
 	void Clear(void)
 	{
@@ -165,6 +182,7 @@ public:
 	
 	CCommEventDataPool(cgc::uint16 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
 		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
+		, m_tIdle(0)
 	{
 		for (cgc::uint16 i=0;i<nInitPoolSize; i++)
 		{
@@ -191,6 +209,7 @@ private:
 	cgc::uint16 m_nBufferSize;
 	cgc::uint16 m_nInitPoolSize;
 	cgc::uint16 m_nMaxPoolSize;
+	time_t m_tIdle;
 };
 
 #endif // __CgcRemoteInfo_h__

@@ -49,16 +49,20 @@ CSotpRtpSource::CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId)
 , m_nLastFrameTimestamp(0), m_nWaitForFrameSeq(-1), m_bWaitforNextKeyVideo(false), m_nLostData(0)
 , theLostSeqInfo1(1,6), theLostSeqInfo2(7,25)//, theLostSeqInfo3(13,20)
 , m_nLastPacketSeq(-1)
+//, m_nLastExpectSeq(-1)
 , m_nCurrentSeq(0)
 #ifdef USES_FILE_LOG
 , m_flog(NULL)
 #endif
 {
+	printf("**** CSotpRtpSource() srdid=%lld\n",m_nSrcId);
 	m_tLastTime = time(0);
 	memset(m_pReliableQueue,0,sizeof(m_pReliableQueue));
 }
 CSotpRtpSource::~CSotpRtpSource(void)
 {
+	printf("**** ~CSotpRtpSource() srdid=%lld\n",m_nSrcId);
+
 #ifdef USES_FILE_LOG
 	if (m_flog!=NULL)
 	{
@@ -114,6 +118,36 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	boost::mutex::scoped_lock lock(m_pCaculateMissedPacketsMutex);
 	const cgc::uint16 nSeq = pRtpDataHead.m_nSeq;
 	const cgc::uint8 nNAKType = pRtpDataHead.m_nNAKType;
+	if (nNAKType==SOTP_RTP_NAK_REQUEST_1)
+	{
+		if (m_pLastExpect1.m_nExpectSeq==nSeq)
+		{
+			m_pLastExpect1.Init();
+			return;
+		}else if (m_pLastExpect2.m_nExpectSeq==nSeq)
+		{
+			m_pLastExpect2.Init();
+			return;
+		}else if (m_pLastExpect1.m_nExpectSeq!=-1 && (++m_pLastExpect1.m_nCount)>=2)
+		{
+			sendNAKRequest(m_pLastExpect1.m_nExpectSeq+1,1,pcgcRemote);
+			m_pLastExpect1.Init();
+		}else if (m_pLastExpect2.m_nExpectSeq!=-1 && (++m_pLastExpect2.m_nCount)>=2)
+		{
+			sendNAKRequest(m_pLastExpect2.m_nExpectSeq+1,1,pcgcRemote);
+			m_pLastExpect2.Init();
+		}
+	}
+
+	//if (m_nLastExpectSeq!=-1)
+	//{
+	//	if (m_nLastExpectSeq!=nSeq)
+	//	{
+	//		sendNAKRequest(m_nLastExpectSeq+1,1,pcgcRemote);
+	//	}
+	//	m_nLastExpectSeq = -1;
+	//}
+
 	if (nNAKType==SOTP_RTP_NAK_REQUEST_2)
 	{
 		unsigned short sendSeq = 0;
@@ -138,7 +172,11 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 
 #ifdef USES_FILE_LOG
 	char lpszBuffer[260];
-	sprintf(lpszBuffer,"f:\\%lld-%d.txt",this->GetSrcId(),pRtpDataHead.m_nTimestamp);
+#ifdef WIN32
+	sprintf(lpszBuffer,"f:\\%lld-%d-%d.txt",this->GetSrcId(),pRtpDataHead.m_nTimestamp,(int)this);
+#else
+	sprintf(lpszBuffer,"/%lld-%d-%d.txt",this->GetSrcId(),pRtpDataHead.m_nTimestamp,(int)this);
+#endif
 	if (m_flog==NULL)
 		m_flog = fopen(lpszBuffer,"w+");
 	
@@ -149,8 +187,10 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	}
 #endif
 
-	const unsigned short expectSeq = m_nLastPacketSeq + 1;
-	if (nSeq == expectSeq || m_nLastPacketSeq==-1) {
+	const cgc::uint16 expectSeq = m_nLastPacketSeq + 1;
+	if (nSeq == expectSeq || m_nLastPacketSeq==-1 ||
+		(nSeq==1 && m_nLastPacketSeq>300 && m_nLastPacketSeq<65200))	// ?客户端重新进入
+	{
 		m_nLastPacketSeq = nSeq;
 		return;
 	}
@@ -162,12 +202,12 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	else if (intervalseqs>0)
 		intervalseqs--;
 
-	// **效果好很多，就不知流量如何；
-	const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
-	//const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
 	int n = 0;
 	if (nSeq>expectSeq && (nSeq-expectSeq) < 0x7F00)	// 正常大小SEQ，缺少前面SEQ
 	{
+		// *效果好像好一些，就不知流量如何；
+		const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
+		//const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
 		n = ((nSeq-expectSeq) > nMaxResendCount) ? nMaxResendCount : (nSeq-expectSeq);
 		m_nLastPacketSeq = nSeq;
 
@@ -193,6 +233,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	//else if (expectSeq > nSeq && (intervalseqs > 200))
 	{
 		const int diff = nSeq + (65535 - expectSeq);
+		const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
 		n = (diff > nMaxResendCount) ? nMaxResendCount : diff;
 		m_nLastPacketSeq = nSeq;
 
@@ -237,16 +278,23 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 		fwrite(lpszBuffer,1,strlen(lpszBuffer),m_flog);
 	}
 #endif
-	//if (nSeq==174)
-	//{
-	//	int i=0;
-	//}
 
 	if (nNAKType==SOTP_RTP_NAK_REQUEST_1 && n>0)	// *音频 感觉网络差时,音频效果好一些
 	{
-		sendNAKRequest(nSeq, n,pcgcRemote);
+		if (n==1)
+		{
+			//m_nLastExpectSeq = expectSeq;	// 临时记录缺失数据，下一个seq包会自动判断是否需要请求补偿，优化流量。
+			if (m_pLastExpect1.m_nExpectSeq==-1)
+				m_pLastExpect1.Init(expectSeq);
+			else
+			{
+				if (m_pLastExpect2.m_nExpectSeq!=-1)
+					sendNAKRequest(m_pLastExpect2.m_nExpectSeq+1,1,pcgcRemote);
+				m_pLastExpect2.Init(expectSeq);
+			}
+		}else
+			sendNAKRequest(nSeq,n,pcgcRemote);
 	}
-
 }
 void CSotpRtpSource::sendNAKRequest(unsigned short nSeq, unsigned short nCount,const cgcRemote::pointer& pcgcRemote)
 {
@@ -301,7 +349,11 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 		memcpy(&pFrame->m_pRtpHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
 		pFrame->m_nFirstSeq = pRtpDataHead.m_nSeq-pRtpDataHead.m_nIndex;	// *seq重头开始也正常
 		pFrame->m_nPacketNumber = (pRtpDataHead.m_nTotleLength+pRtpDataHead.m_nUnitLength-1)/pRtpDataHead.m_nUnitLength;
-		// ??? pFrame->m_nExpireTime = timeGetTime() + (pFrame->m_nPacketNumber/10)*1000 + 800;
+#ifdef WIN32
+		pFrame->m_nExpireTime = timeGetTime() + min(4000,((pFrame->m_nPacketNumber/10)*1000 + 800));
+#else
+		pFrame->m_nExpireTime = timeGetTime() + std::min(4000,((pFrame->m_nPacketNumber/10)*1000 + 800));
+#endif
 
 		//if (pRtpDataHead.m_nTotleLength>20*1024 || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)
 		//	pFrame->m_nExpireTime = timeGetTime()+1800;

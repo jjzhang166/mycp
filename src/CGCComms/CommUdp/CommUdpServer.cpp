@@ -203,7 +203,7 @@ public:
 	CUdpServer(int nIndex)
 		: m_nIndex(nIndex),m_commPort(0), /*m_capacity(1), */m_protocol(0)
 		, m_nDoCommEventCount(0)
-		, m_pCommEventDataPool(Max_UdpSocket_ReceiveSize,30,50)
+		, m_pCommEventDataPool(Max_UdpSocket_ReceiveSize,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 
 	{
@@ -235,6 +235,7 @@ public:
 		// ??
 		//m_socket.setMaxBufferSize(10*1024);
 		//m_socket.setUnusedSize(0, false);
+		m_socket.setPoolSize(20,200);
 		if (m_ioservice.get() == NULL)
 			m_ioservice = IoService::create();
 		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
@@ -350,6 +351,10 @@ private:
 		CCommEventData * pCommEventData = m_listMgr.front();
 		if (pCommEventData == NULL)
 		{
+			if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID+1)
+			{
+				m_pCommEventDataPool.Idle();
+			}
 			return;
 		}
 

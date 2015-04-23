@@ -25,6 +25,8 @@
 
 namespace cgc {
 
+#pragma pack(push)
+#pragma pack(1)
 struct tagSotpRtpDataRequest
 {
 	cgc::uint16			m_nSeq;
@@ -55,6 +57,7 @@ struct tagSotpRtpDataHead
 	cgc::uint8		m_nIndex;
 };
 const cgc::uint16 SOTP_RTP_DATA_HEAD_SIZE = sizeof(tagSotpRtpDataHead);
+#pragma pack(pop) // 恢复先前的pack设置
 
 #define SOTP_RTP_MAX_PACKETS_PER_FRAME	256	// 64
 #define SOTP_RTP_MAX_PAYLOAD_LENGTH		1100
