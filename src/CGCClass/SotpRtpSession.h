@@ -45,6 +45,7 @@ public:
 	bool IsRegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId) const;
 	bool IsRegisterSink(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nDestId) const;
 
+	//bool RegisterSource(cgc::bigint 
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew);
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId) const;
 

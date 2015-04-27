@@ -118,6 +118,9 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 
 CgcBaseClient::~CgcBaseClient(void)
 {
+	m_pRtpBufferPool.Clear();
+	m_pRtpMsgPool.Clear();
+
 	m_pRtpSession.SetCbUserData(0);
 	StopClient(true);
 
@@ -959,15 +962,18 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 		pRtpMsgIn->m_pRtpDataHead.m_nDataType = nDataType;
 		pRtpMsgIn->m_pRtpDataHead.m_nTotleLength = nSize;
 		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = SOTP_RTP_MAX_PAYLOAD_LENGTH;
-		pRtpMsgIn->m_pRtpDataHead.m_nSeq = pRtpSource->GetNextSeq();
+		pRtpMsgIn->m_pRtpDataHead.m_nSeq = nTimestamp==0?0:pRtpSource->GetNextSeq();
 		pRtpMsgIn->m_pRtpDataHead.m_nIndex = (cgc::uint8)i;
 		const cgc::uint16 nDataSize = (i+1)==nCount?(nSize%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
 		pRtpMsgIn->m_pAttachment->setAttach(pData+(pRtpMsgIn->m_pRtpDataHead.m_nIndex*SOTP_RTP_MAX_PAYLOAD_LENGTH),nDataSize);
 
 		// *
-		CSotpRtpReliableMsg * pRtpMsgOut = NULL;
-		pRtpSource->UpdateReliableQueue(pRtpMsgIn, &pRtpMsgOut);
-		m_pRtpMsgPool.Set(pRtpMsgOut);
+		if (nTimestamp>0)
+		{
+			CSotpRtpReliableMsg * pRtpMsgOut = NULL;
+			pRtpSource->UpdateReliableQueue(pRtpMsgIn, &pRtpMsgOut);
+			m_pRtpMsgPool.Set(pRtpMsgOut);
+		}
 
 		// send rtp data
 		//if (i%5>0)	// test

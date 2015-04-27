@@ -83,10 +83,6 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
-			if (!this->m_bServerMode)
-			{
-				pRtpRoom->UnRegisterAllSink(pRtpCommand.m_nSrcId);
-			}
 			if (!pRtpRoom->UnRegisterSource(pRtpCommand.m_nSrcId))
 				return false;
 			if (pRtpRoom->IsEmpty())

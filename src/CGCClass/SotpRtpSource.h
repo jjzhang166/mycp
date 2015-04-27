@@ -50,6 +50,20 @@ class CLostSeqInfo
 {
 public:
 	void clear(void) {m_lostSeq.clear();}
+	void recv(unsigned short seq)
+	{
+		std::list<unsigned short>::iterator pIter;
+		for (pIter=m_lostSeq.begin(); pIter!=m_lostSeq.end(); ++pIter)
+		{
+			unsigned short pLostSeqId = *pIter;
+			if (pLostSeqId == seq)
+			{
+				// 已经收到数据，删除掉
+				m_lostSeq.erase(pIter);
+				return;
+			}
+		}
+	}
 	bool recv(unsigned short seq, unsigned short lastseq, unsigned short & pOutSendSeq, int & pOutSendCount, bool bSend)
 	{
 		{
@@ -131,6 +145,10 @@ public:
 		: m_offset1(offset1), m_offset2(offset2)
 	{
 	}
+	virtual ~CLostSeqInfo(void)
+	{
+		clear();
+	}
 protected:
 	void lost(unsigned short seq)
 	{
@@ -193,7 +211,10 @@ public:
 			}
 		}
 	}
-	
+	void Clear(void)
+	{
+		m_pPool.clear();
+	}
 	CSotpRtpMsgPool(cgc::uint16 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
 		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
 	{
@@ -207,7 +228,7 @@ public:
 	//{}
 	virtual ~CSotpRtpMsgPool(void)
 	{
-		m_pPool.clear();
+		Clear();
 	}
 
 protected:
@@ -300,9 +321,11 @@ private:
 	cgc::uint16 m_nLostData;
 	CLockMap<cgc::uint32,CSotpRtpFrame::pointer> m_pReceiveFrames;	// ts->
 
-	boost::mutex m_pRelialeMutex;
+	boost::mutex m_pReliableMutex;
+	unsigned char * m_pReliableSendBuffer;
+	size_t m_nReliableBufferSize;
 	CSotpRtpReliableMsg*   m_pReliableQueue[RELIABLE_QUEUE_SIZE];
-	CLostSeqInfo theLostSeqInfo1;
+	//CLostSeqInfo theLostSeqInfo1;
 	CLostSeqInfo theLostSeqInfo2;
 	int m_nLastPacketSeq;
 	//int m_nLastExpectSeq;	// 临时记录上一个缺失数据包，下一个包到来进会自动判断，如果不对直接请求；一次数据补偿
