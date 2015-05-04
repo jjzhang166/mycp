@@ -110,8 +110,8 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 
 {
 	m_nDataIndex = 0;
-	m_pRtpSession.SetCbUserData((void*)this);
-	m_pRtpSession.SetCallback(MySotpRtpFrameCallback);
+	//m_pRtpSession.SetCbUserData((void*)this);
+	m_pRtpSession.SetRtpFrameCallback(MySotpRtpFrameCallback,(void*)this);
 
 	//memset(&m_pReceiveCidMasks,-1,sizeof(m_pReceiveCidMasks));
 }
@@ -121,7 +121,8 @@ CgcBaseClient::~CgcBaseClient(void)
 	m_pRtpBufferPool.Clear();
 	m_pRtpMsgPool.Clear();
 
-	m_pRtpSession.SetCbUserData(0);
+	//m_pRtpSession.SetCbUserData(0);
+	m_pRtpSession.SetRtpFrameCallback(NULL,NULL);
 	StopClient(true);
 
 	// clear client info
@@ -844,7 +845,7 @@ void CgcBaseClient::OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer&
 		m_pHandler->OnRtpFrame(nSrcId, pRtpFrame, nLostCount, m_nRtpCbUserData);
 }
 
-bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId)
+bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam)
 {
 	if (m_pOwnerRemote.get()==NULL)
 	{
@@ -854,6 +855,7 @@ bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId)
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SOURCE;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
+	pRtpCommand.u.m_nDestId = nParam;
 	return m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
 }
 void CgcBaseClient::doUnRegisterSource(cgc::bigint nRoomId)

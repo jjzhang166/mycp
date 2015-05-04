@@ -44,7 +44,7 @@ void CSotpRtpRoom::ClearAll(void)
 	m_pSourceList.clear();
 }
 
-CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote)
+CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData)
 {
 	if (nSrcId==0)
 		return NullSotpRtpSource;
@@ -52,65 +52,132 @@ CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, const c
 	CSotpRtpSource::pointer pRtpSource;
 	if (!m_pSourceList.find(nSrcId,pRtpSource))
 	{
-		pRtpSource = CSotpRtpSource::create(m_nRoomId,nSrcId);
+		if (m_bServerMode && pCallback!=NULL)
+		{
+			if (!pCallback->onRegisterSource(this->GetRoomId(), nSrcId, nParam, pUserData))
+				return NullSotpRtpSource;
+		}
+		pRtpSource = CSotpRtpSource::create(m_nRoomId,nSrcId,nParam);
 		CSotpRtpSource::pointer pRtpSourceTemp;
 		m_pSourceList.insert(nSrcId,pRtpSource,false,&pRtpSourceTemp);
 		if (pRtpSourceTemp.get()!=NULL)
 		{
 			pRtpSource = pRtpSourceTemp;
 		}
+		pRtpSource->SetRemote(pcgcRemote);
 	}else
 	{
+		if (m_bServerMode && pCallback!=NULL)
+		{
+			if (pcgcRemote.get()==NULL)
+				return NullSotpRtpSource;
+			if (pRtpSource->GetRemoteId()!=pcgcRemote->getRemoteId())
+			{
+				// remote id 不同，需要验证一次；
+				if (!pCallback->onRegisterSource(this->GetRoomId(), nSrcId, nParam, pUserData))
+					return NullSotpRtpSource;
+				pRtpSource->SetRemote(pcgcRemote);
+			}
+		}
+		pRtpSource->SetParam(nParam);
 		pRtpSource->SetLastTime();
 	}
-	pRtpSource->SetRemote(pcgcRemote);
 	return pRtpSource;
 }
-bool CSotpRtpRoom::UnRegisterSource(cgc::bigint nSrcId)
+bool CSotpRtpRoom::UnRegisterSource1(cgc::bigint nSrcId, cgc::bigint* pOutParam)
 {
 	if (!this->m_bServerMode)
 	{
-		UnRegisterAllSink(nSrcId);
+		UnRegisterAllSink(nSrcId, NullcgcRemote);
+
+		if (pOutParam==NULL)
+			return m_pSourceList.remove(nSrcId);
+		CSotpRtpSource::pointer pRtpSource;
+		if (!m_pSourceList.find(nSrcId,pRtpSource,true))
+		{
+			return false;
+		}
+		*pOutParam = pRtpSource->GetParam();
+		return true;
 	}
-	return m_pSourceList.remove(nSrcId);
+	return false;
 }
-bool CSotpRtpRoom::RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId)
+bool CSotpRtpRoom::UnRegisterSource2(cgc::bigint nSrcId, cgc::bigint nParam)
+{
+	if (this->m_bServerMode)
+	{
+		CSotpRtpSource::pointer pRtpSrcSource;
+		if (!m_pSourceList.find(nSrcId,pRtpSrcSource))
+		{
+			return false;
+		}
+		if (pRtpSrcSource->GetParam()!=nParam)
+			return false;
+		return m_pSourceList.remove(nSrcId);
+	}
+	return false;
+}
+bool CSotpRtpRoom::RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData)
 {
 	CSotpRtpSource::pointer pRtpSrcSource;
 	if (!m_pSourceList.find(nSrcId,pRtpSrcSource))
 		return false;
 
-	if (!this->m_bServerMode)
+	if (this->m_bServerMode)
 	{
-		CSotpRtpSource::pointer pRtpDestSource = RegisterSource(nDestId,NullcgcRemote);
+		if (pcgcRemote.get()==NULL || pRtpSrcSource->GetRemoteId()!=pcgcRemote->getRemoteId())
+			return false;
+		if (pCallback!=NULL)
+		{
+			if (pRtpSrcSource->IsSinkRecv(nDestId))
+				return true;
+			if (!pCallback->onRegisterSink(this->GetRoomId(), nSrcId, nDestId, pUserData))
+				return false;
+		}
+	}else
+	{
+		CSotpRtpSource::pointer pRtpDestSource = RegisterSource(nDestId,0,NullcgcRemote,pCallback,pUserData);
 		if (pRtpDestSource.get()==NULL)
 			return false;
 	}
 	pRtpSrcSource->AddSinkRecv(nDestId);
 	return true;
 }
-void CSotpRtpRoom::UnRegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId)
+bool CSotpRtpRoom::UnRegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgcRemote::pointer& pcgcRemote)
 {
 	CSotpRtpSource::pointer pRtpSrcSource;
 	if (m_pSourceList.find(nSrcId,pRtpSrcSource))
+	{
+		if (m_bServerMode)
+		{
+			if (pcgcRemote.get()==NULL || pRtpSrcSource->GetRemoteId()!=pcgcRemote->getRemoteId())
+				return false;
+		}
 		pRtpSrcSource->DelSinkRecv(nDestId);
+	}
 
 	if (!m_bServerMode)
 	{
-		UnRegisterSource(nDestId);
+		return UnRegisterSource1(nDestId, 0);
 	}
+	return true;
 }
-void CSotpRtpRoom::UnRegisterAllSink(cgc::bigint nSrcId)
+bool CSotpRtpRoom::UnRegisterAllSink(cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote)
 {
 	CSotpRtpSource::pointer pRtpSrcSource;
 	if (m_pSourceList.find(nSrcId,pRtpSrcSource))
 	{
-		UnRegisterAllSink(pRtpSrcSource);
+		return UnRegisterAllSink(pRtpSrcSource, pcgcRemote);
 	}
+	return false;
 }
-void CSotpRtpRoom::UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource)
+bool CSotpRtpRoom::UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource, const cgcRemote::pointer& pcgcRemote)
 {
-	if (!m_bServerMode)
+	if (m_bServerMode)
+	{
+		if (pcgcRemote.get()==NULL || pcgcRemote->getRemoteId()!=pRtpSrcSource->GetRemoteId())
+			return false;
+	}else
 	{
 		const CLockMap<cgc::bigint,bool>& pList = pRtpSrcSource->GetSinkRecvList();
 		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(pList.mutex()));
@@ -118,10 +185,11 @@ void CSotpRtpRoom::UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSourc
 		for (; pIter!=pList.end(); pIter++)
 		{
 			const cgc::bigint nDestId = pIter->first;
-			UnRegisterSource(nDestId);
+			UnRegisterSource1(nDestId, 0);
 		}
 	}
 	pRtpSrcSource->ClearSinkRecv(true);
+	return true;
 }
 
 CSotpRtpSource::pointer CSotpRtpRoom::GetRtpSource(cgc::bigint nSrcId) const
@@ -176,7 +244,7 @@ void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond)
 			CSotpRtpSource::pointer pRtpSrcSource = pIter->second;
 			if (tNow-pRtpSrcSource->GetLastTime()>nExpireSecond)
 			{
-				UnRegisterAllSink(pRtpSrcSource);
+				UnRegisterAllSink(pRtpSrcSource, pRtpSrcSource->GetRemote());
 				pRemoveList.push_back(pRtpSrcSource->GetSrcId());
 			}
 		}

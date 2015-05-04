@@ -93,7 +93,7 @@ namespace cgc
 		// sotp rtp
 		virtual void doSetRtpSourceId(cgc::bigint nSrcId) = 0;
 		virtual cgc::bigint doGetRtpSourceId(void) const = 0;
-		virtual bool doRegisterSource(cgc::bigint nRoomId) = 0;
+		virtual bool doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam) = 0;
 		virtual void doUnRegisterSource(cgc::bigint nRoomId) = 0;
 		virtual bool doIsRegisterSource(cgc::bigint nRoomId) const = 0;
 		virtual void doUnRegisterAllSource(void) = 0;

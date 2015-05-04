@@ -264,22 +264,25 @@ public:
 	{}
 };
 
-//#define USES_FILE_LOG
+#define USES_FILE_LOG
 class CSotpRtpSource
 {
 public:
 	typedef boost::shared_ptr<CSotpRtpSource> pointer;
-	static CSotpRtpSource::pointer create(cgc::bigint nRoomId,cgc::bigint nSrcId)
+	static CSotpRtpSource::pointer create(cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
 	{
-		return CSotpRtpSource::pointer(new CSotpRtpSource(nRoomId,nSrcId));
+		return CSotpRtpSource::pointer(new CSotpRtpSource(nRoomId,nSrcId,nParam));
 	}
 	cgc::bigint GetRoomId(void) const {return m_nRoomId;}
 	cgc::bigint GetSrcId(void) const {return m_nSrcId;}
+	void SetParam(cgc::bigint nParam) {m_nParam = nParam;}
+	cgc::bigint GetParam(void) const {return m_nParam;}
 	void SetLastTime(time_t v = time(0)) {m_tLastTime = v;}
 	time_t GetLastTime(void) const {return m_tLastTime;}
 
 	void SetRemote(const cgcRemote::pointer& v) {m_pRemote = v;}
 	const cgcRemote::pointer& GetRemote(void) const {return m_pRemote;}
+	unsigned long GetRemoteId(void) const {return m_pRemote.get()==NULL?0:m_pRemote->getRemoteId();}
 
 	//void AddSinkSend(cgc::bigint nToId);
 	//void DelSinkSend(cgc::bigint nToId);
@@ -302,7 +305,7 @@ public:
 
 	unsigned short GetNextSeq(void) {return ++m_nCurrentSeq;}
 
-	CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId);
+	CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId, cgc::bigint m_nParam);
 	virtual ~CSotpRtpSource(void);
 private:
 	void sendNAKRequest(unsigned short nSeq, unsigned short nCount,const cgcRemote::pointer& pcgcRemote);
@@ -310,6 +313,7 @@ private:
 private:
 	cgc::bigint m_nRoomId;
 	cgc::bigint m_nSrcId;
+	cgc::bigint m_nParam;
 	time_t m_tLastTime;
 	cgcRemote::pointer m_pRemote;
 	//CLockMap<cgc::bigint,bool> m_pSinkSendList;

@@ -29,7 +29,8 @@ namespace cgc
 
 CSotpRtpSession::CSotpRtpSession(bool bServerMode)
 : m_bServerMode(bServerMode)
-, m_pCallback(NULL), m_nCbUserData(0)
+//, m_pSotpRtpCallback(NULL)
+, m_pRtpFrameCallback(NULL), m_nCbUserData(0)
 
 {
 }
@@ -40,6 +41,40 @@ CSotpRtpSession::~CSotpRtpSession(void)
 void CSotpRtpSession::ClearAll(void)
 {
 	m_pRoomList.clear();
+}
+
+bool CSotpRtpSession::RegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback,void* pUserData)
+{
+	CSotpRtpCallback* pCallbackTemp = pCallback;
+	CSotpRtpRoom::pointer pRtpRoom;
+	if (!m_pRoomList.find(nRoomId,pRtpRoom))
+	{
+		if (m_bServerMode)
+		{
+			if (pCallbackTemp!=NULL)
+			{
+				if (!pCallbackTemp->onRegisterSource(nRoomId, nSrcId, nParam, pUserData))
+					return false;
+				pCallbackTemp = NULL;
+			}
+		}
+		pRtpRoom = CSotpRtpRoom::create(m_bServerMode,nRoomId);
+		CSotpRtpRoom::pointer pRtpRoomTemp;
+		m_pRoomList.insert(nRoomId,pRtpRoom,false,&pRtpRoomTemp);
+		if (pRtpRoomTemp.get()!=NULL)
+		{
+			pRtpRoom = pRtpRoomTemp;
+		}
+	}
+	CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(nSrcId, nParam, pcgcRemote, pCallbackTemp, pUserData);
+	if (pRtpSource.get()==NULL)
+		return false;
+	return true;
+	//CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,true);
+	//CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(pRtpCommand.m_nSrcId,pcgcRemote);
+	//if (pRtpSource.get()==NULL)
+	//	return false;
+
 }
 
 CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew)
@@ -67,15 +102,13 @@ CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId) const
 	return pRtpRoom;
 }
 
-bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote, bool bSendRtpCommand)
+bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote, bool bSendRtpCommand, CSotpRtpCallback* pCallback, void* pUserData)
 {
 	switch (pRtpCommand.m_nCommand)
 	{
 	case SOTP_RTP_COMMAND_REGISTER_SOURCE:
 		{
-			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,true);
-			CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(pRtpCommand.m_nSrcId,pcgcRemote);
-			if (pRtpSource.get()==NULL)
+			if (!RegisterSource(pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId, pcgcRemote,pCallback, pUserData))
 				return false;
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_SOURCE:
@@ -83,8 +116,18 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
-			if (!pRtpRoom->UnRegisterSource(pRtpCommand.m_nSrcId))
-				return false;
+			if (this->m_bServerMode)
+			{
+				cgc::bigint nOutParam = 0;
+				if (!pRtpRoom->UnRegisterSource1(pRtpCommand.m_nSrcId, &nOutParam))
+					return false;
+				if (bSendRtpCommand)
+					const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDestId = nOutParam;
+			}else
+			{
+				if (!pRtpRoom->UnRegisterSource2(pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId))
+					return false;
+			}
 			if (pRtpRoom->IsEmpty())
 				m_pRoomList.remove(pRtpCommand.m_nRoomId);
 		}break;
@@ -93,32 +136,23 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
-			if (!pRtpRoom->RegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId))
+			if (!pRtpRoom->RegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId, pcgcRemote,pCallback, pUserData))
 				return false;
-			//if (!this->m_bServerMode)
-			//{
-			//	CSotpRtpSource::pointer pRtpSource = pRtpRoom->RegisterSource(pRtpCommand.u.m_nDestId,pcgcRemote);
-			//	if (pRtpSource.get()==NULL)
-			//		return false;
-			//}
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_SINK:
 		{
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
-			pRtpRoom->UnRegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId);
-			//if (!this->m_bServerMode)
-			//{
-			//	pRtpRoom->UnRegisterSource(pRtpCommand.u.m_nDestId);
-			//}
+			if (!pRtpRoom->UnRegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId,pcgcRemote))
+				return false;
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_ALLSINK:
 		{
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
-			pRtpRoom->UnRegisterAllSink(pRtpCommand.m_nSrcId);
+			pRtpRoom->UnRegisterAllSink(pRtpCommand.m_nSrcId,pcgcRemote);
 		}break;
 	case SOTP_RTP_COMMAND_DATA_REQUEST:
 		{
@@ -152,7 +186,7 @@ void CSotpRtpSession::UnRegisterAllRoomSink(cgc::bigint nSrcId)
 	for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 	{
 		CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
-		pRtpRoom->UnRegisterAllSink(nSrcId);
+		pRtpRoom->UnRegisterAllSink(nSrcId, NullcgcRemote);
 	}
 }
 
@@ -179,7 +213,7 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 	}else
 	{
 		pRtpSrcSource->PushRtpData(pRtpDataHead,pAttackment);
-		pRtpSrcSource->GetWholeFrame(m_pCallback,m_nCbUserData);
+		pRtpSrcSource->GetWholeFrame(m_pRtpFrameCallback,m_nCbUserData);
 	}
 
 	return true;

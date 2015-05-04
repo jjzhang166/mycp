@@ -104,6 +104,7 @@ class CGCApp
 	, public cgcServiceManager
 	, public cgcCommHandler
 	, public cgcParserCallback
+	, public CSotpRtpCallback	// for sotp rtp
 	, public boost::enable_shared_from_this<CGCApp>
 {
 public:
@@ -141,6 +142,10 @@ private:
 	void LoadAuthsConf(void);
 	void LoadModulesConf(void);
 	void LoadSystemParams(void);
+
+	// CSotpRtpCallback
+	virtual bool onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData);
+	virtual bool onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData);
 
 	// cgcParserCallback 
 	virtual tstring onGetSslPrivateKey(void) const {return "";}

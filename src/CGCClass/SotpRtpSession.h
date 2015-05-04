@@ -28,14 +28,16 @@
 namespace cgc
 {
 
-
 class CSotpRtpSession
 {
 public:
-	void SetCallback(HSotpRtpFrameCallback pCallback) {m_pCallback = pCallback;}
-	void SetCbUserData(void* nUserData) {m_nCbUserData = nUserData;}
-	bool doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote,bool bSendRtpCommand);
-	void UnRegisterAllRoomSink(cgc::bigint nSrcId);
+	// for server
+	//void SetSotpRtpCallback(CSotpRtpCallback* pCallback) {m_pSotpRtpCallback = pCallback;}
+	// for client
+	void SetRtpFrameCallback(HSotpRtpFrameCallback pCallback, void * pUserData) {m_pRtpFrameCallback = pCallback;m_nCbUserData=pUserData;}
+	//void SetCbUserData(void* nUserData) {m_nCbUserData = nUserData;}
+	bool doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote,bool bSendRtpCommand,CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);
+	void UnRegisterAllRoomSink(cgc::bigint nSrcId);	// for client
 	bool doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment, const cgcRemote::pointer& pcgcRemote);
 
 	void CheckRegisterSourceLive(short nExpireSecond);	// for server
@@ -45,7 +47,7 @@ public:
 	bool IsRegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId) const;
 	bool IsRegisterSink(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nDestId) const;
 
-	//bool RegisterSource(cgc::bigint 
+	bool RegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew);
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId) const;
 
@@ -55,7 +57,8 @@ public:
 	virtual ~CSotpRtpSession(void);
 private:
 	bool m_bServerMode;
-	HSotpRtpFrameCallback m_pCallback;
+	//CSotpRtpCallback* m_pSotpRtpCallback;
+	HSotpRtpFrameCallback m_pRtpFrameCallback;
 	void* m_nCbUserData;
 	CLockMap<cgc::bigint,CSotpRtpRoom::pointer> m_pRoomList;
 };

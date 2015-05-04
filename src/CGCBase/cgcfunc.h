@@ -63,6 +63,13 @@ namespace cgc{
 	typedef void (FAR *FPCGC_SetServiceManagerHandler)(const cgcServiceManager::pointer& pHandler);
 	//typedef void (FAR *FPCGC_SetCommunicationsHandler)(cgcCommunications::pointer pHandler);
 
+	// ******** sotp rtp function ********
+	// extern "C" bool CGC_API CGC_Rtp_Register_Source(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam) {}
+	typedef bool (FAR *FPCGC_Rtp_Register_Source)(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam);
+
+	// extern "C" bool CGC_API CGC_Rtp_Register_Sink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId) {}
+	typedef bool (FAR *FPCGC_Rtp_Register_Sink)(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId);
+
 }
 
 #endif // __cgcfunc_head__

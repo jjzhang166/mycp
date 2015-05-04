@@ -43,8 +43,8 @@ inline unsigned long timeGetTime()
 #endif
 
 
-CSotpRtpSource::CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId)
-: m_nRoomId(nRoomId), m_nSrcId(nSrcId)
+CSotpRtpSource::CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
+: m_nRoomId(nRoomId), m_nSrcId(nSrcId), m_nParam(nParam)
 , m_tLastTime(0)
 , m_nLastFrameTimestamp(0), m_nWaitForFrameSeq(-1), m_bWaitforNextKeyVideo(false), m_nLostData(0)
 , m_pReliableSendBuffer(NULL), m_nReliableBufferSize(0)
@@ -110,7 +110,7 @@ CSotpRtpSource::~CSotpRtpSource(void)
 
 void CSotpRtpSource::AddSinkRecv(cgc::bigint nDestId)
 {
-	m_pSinkRecvList.insert(nDestId,true);
+	m_pSinkRecvList.insert(nDestId,true,false);
 }
 void CSotpRtpSource::DelSinkRecv(cgc::bigint nDestId)
 {

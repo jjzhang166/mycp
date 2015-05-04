@@ -146,7 +146,7 @@ protected:
 	cgcRemote::pointer m_pOwnerRemote;
 	virtual void doSetRtpSourceId(cgc::bigint nSrcId) {m_nSrcId = nSrcId;}
 	virtual cgc::bigint doGetRtpSourceId(void) const {return m_nSrcId;}
-	virtual bool doRegisterSource(cgc::bigint nRoomId);
+	virtual bool doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam);
 	virtual void doUnRegisterSource(cgc::bigint nRoomId);
 	virtual bool doIsRegisterSource(cgc::bigint nRoomId) const;
 	virtual void doUnRegisterAllSource(void);

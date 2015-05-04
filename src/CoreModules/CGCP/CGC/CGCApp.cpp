@@ -88,6 +88,7 @@ CGCApp::CGCApp(const tstring & sPath)
 //	fs::path currentPath( fs::initial_path());
 //	m_sModulePath = currentPath.string();
 //#endif
+	//m_pRtpSession.SetSotpRtpCallback((CSotpRtpCallback*)this);
 	m_logModuleImpl.setModulePath(m_sModulePath);
 }
 
@@ -667,6 +668,55 @@ void CGCApp::LoadSystemParams(void)
 	}
 }
 
+bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
+{
+	const int nServerPort = (int)pUserData;
+	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
+	if (portApp.get() == NULL)
+	{
+		return true;	// *
+	}
+	if (portApp->getModuleHandle() == NULL)
+	{
+		ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(portApp->getApp());
+		if (moduleItem.get() == NULL || moduleItem->getModuleHandle() == NULL)
+		{
+			return false;
+		}
+		void * hModule = moduleItem->getModuleHandle();
+		portApp->setModuleHandle(hModule);
+
+#ifdef WIN32
+		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Source");
+		FPCGC_Rtp_Register_Sink fp2 = (FPCGC_Rtp_Register_Sink)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Sink");
+#else
+		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)dlsym(hModule, "CGC_Rtp_Register_Source");
+		FPCGC_Rtp_Register_Sink fp2 = (FPCGC_Rtp_Register_Sink)dlsym(hModule, "CGC_Rtp_Register_Sink");
+#endif
+		portApp->setFuncHandle1((void*)fp1);
+		portApp->setFuncHandle2((void*)fp2);
+	}
+
+	FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)portApp->getFuncHandle1();
+	if (fp==NULL)
+		return false;
+	return fp(nRoomId, nSourceId, nParam);
+}
+
+bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData)
+{
+	const int nServerPort = (int)pUserData;
+	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
+	if (portApp.get() == NULL)
+	{
+		return true;	// *
+	}
+	FPCGC_Rtp_Register_Sink fp = (FPCGC_Rtp_Register_Sink)portApp->getFuncHandle2();
+	if (fp==NULL)
+		return false;
+	return fp(nRoomId, nSourceId, nDestId);
+}
+
 tstring CGCApp::onGetSslPassword(const tstring& sSessionId) const
 {
 	cgcSession::pointer sessionImpl = m_mgrSession.GetSessionImpl(sSessionId);
@@ -745,13 +795,13 @@ int CGCApp::onRecvData(const cgcRemote::pointer& pcgcRemote, const unsigned char
 #else
 				FPCGC_DefaultFunc fp = (FPCGC_DefaultFunc)dlsym(hModule, sFunc.c_str());
 #endif
-				portApp->setFuncHandle((void*)fp);
+				portApp->setFuncHandle1((void*)fp);
 
 				cgcSession::pointer sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,cgcNullParserBaseService);
-				CSessionImpl * pSessionImpl = (CSessionImpl*)sessionImpl.get();
+				//CSessionImpl * pSessionImpl = (CSessionImpl*)sessionImpl.get();
 			}
 
-			if (portApp->getFuncHandle() == NULL)
+			if (portApp->getFuncHandle1() == NULL)
 			{
 				pcgcRemote->invalidate();
 				return 0;
@@ -779,7 +829,7 @@ int CGCApp::onRecvData(const cgcRemote::pointer& pcgcRemote, const unsigned char
 			((CRequestImpl*)requestImpl.get())->setContent((const char*)recvData, recvLen);
 			((CResponseImpl*)responseImpl.get())->setSession(sessionImpl);
 
-			FPCGC_DefaultFunc fp = (FPCGC_DefaultFunc)portApp->getFuncHandle();
+			FPCGC_DefaultFunc fp = (FPCGC_DefaultFunc)portApp->getFuncHandle1();
 			fp(requestImpl, responseImpl);
 			//if (!sResponse.empty())
 			//{
@@ -1539,7 +1589,8 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		{
 			//tagSotpRtpCommand pRtpCommand = pcgcParser->getRtpCommand();
 			//printf("**** command=%d,roomid=%lld,srcid=%lld,size=%d\n",pRtpCommand.m_nCommand,pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId,SOTP_RTP_COMMAND_SIZE);
-			m_pRtpSession.doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false);
+			const int serverPort = pcgcRemote->getServerPort();
+			m_pRtpSession.doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
 		}else if (pcgcParser->isRtpData())
 		{
 			//tagSotpRtpDataHead pRtpDataHead = pcgcParser->getRtpDataHead();
@@ -2346,7 +2397,7 @@ void CGCApp::FreeLibrarys(void)
 			continue;
 
 		void * hModule = moduleItem->getModuleHandle();
-		printf("**** Free Module(0x%x) %02d -> %s\n", hModule, i+1, moduleItem->getName().c_str());
+		printf("**** Free Module(0x%x) %02d -> %s\n", (int)hModule, i+1, moduleItem->getName().c_str());
 		//m_logModuleImpl.log(LOG_INFO, _T("Free Module %02d : name=%s, module=0x%x\n"), i+1, moduleItem->getName().c_str(),hModule);
 		if (hModule!=NULL)
 		{

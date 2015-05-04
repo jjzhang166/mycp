@@ -26,6 +26,12 @@
 namespace cgc
 {
 //typedef void (FAR *SinkExpireCallback) (void* pUserData, void* pRtpRoom,void* pRtpSourc);
+class CSotpRtpCallback
+{
+public:
+	virtual bool onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData) = 0;
+	virtual bool onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData) = 0;
+};
 
 class CSotpRtpRoom
 {
@@ -39,12 +45,13 @@ public:
 	cgc::bigint GetRoomId(void) const {return m_nRoomId;}
 	bool IsEmpty(void) const {return m_pSourceList.empty();}
 
-	CSotpRtpSource::pointer RegisterSource(cgc::bigint nSrcId,const cgcRemote::pointer& pcgcRemote);
-	bool UnRegisterSource(cgc::bigint nSrcId);
-	bool RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId);
-	void UnRegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId);
-	void UnRegisterAllSink(cgc::bigint nSrcId);
-	void UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource);
+	CSotpRtpSource::pointer RegisterSource(cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData);
+	bool UnRegisterSource1(cgc::bigint nSrcId, cgc::bigint* pOutParam);	// for client
+	bool UnRegisterSource2(cgc::bigint nSrcId, cgc::bigint nParam);		// for server
+	bool RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData);
+	bool UnRegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgcRemote::pointer& pcgcRemote);
+	bool UnRegisterAllSink(cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);
+	bool UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource, const cgcRemote::pointer& pcgcRemote);
 
 	CSotpRtpSource::pointer GetRtpSource(cgc::bigint nSrcId) const;
 	bool IsRegisterSource(cgc::bigint nSrcId) const;

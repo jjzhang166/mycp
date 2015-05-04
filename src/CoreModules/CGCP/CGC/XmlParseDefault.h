@@ -107,20 +107,29 @@ public:
 
 	void setModuleHandle(void * v) {m_hModule = v;}
 	void * getModuleHandle(void) const {return m_hModule;}
-	void setFuncHandle(void * v) {m_hFunc = v;}
-	void * getFuncHandle(void) const {return m_hFunc;}
+	void setFuncHandle1(void * v) {m_hFunc1 = v;}
+	void * getFuncHandle1(void) const {return m_hFunc1;}
+	void setFuncHandle2(void * v) {m_hFunc2 = v;}
+	void * getFuncHandle2(void) const {return m_hFunc2;}
 
 	CPortApp(int port, const tstring& app)
 		: m_port(port), m_app(app), m_func("")
-		, m_hModule(NULL), m_hFunc(NULL)
+		, m_hModule(NULL), m_hFunc1(NULL), m_hFunc2(NULL)
 	{}
+	//virtual ~CPortApp(void)
+	//{
+	//	if (m_hModule!=NULL)
+	//	{
+	//	}
+	//}
 private:
 	int m_port;
 	tstring m_app;
 	tstring m_func;
 
 	void * m_hModule;
-	void * m_hFunc;
+	void * m_hFunc1;
+	void * m_hFunc2;
 };
 
 #define PORTAPP_POINTER(p, f) CPortApp::pointer(new CPortApp(p, f))
