@@ -62,8 +62,8 @@ CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint
 	memset(m_pReliableQueue,0,sizeof(m_pReliableQueue));
 
 	m_NAKRequestCommand.m_nCommand = SOTP_RTP_COMMAND_DATA_REQUEST;
-	m_NAKRequestCommand.m_nRoomId = m_nRoomId;
-	m_NAKRequestCommand.m_nSrcId = m_nSrcId;
+	m_NAKRequestCommand.m_nRoomId = cgc::htonll(m_nRoomId);
+	m_NAKRequestCommand.m_nSrcId = cgc::htonll(m_nSrcId);
 }
 CSotpRtpSource::~CSotpRtpSource(void)
 {
@@ -132,7 +132,7 @@ void CSotpRtpSource::ClearSinkRecv(bool bLock)
 void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote)
 {
 	boost::mutex::scoped_lock lock(m_pCaculateMissedPacketsMutex);
-	const cgc::uint16 nSeq = pRtpDataHead.m_nSeq;
+	const cgc::uint16 nSeq = ntohs(pRtpDataHead.m_nSeq);
 	if (nSeq==0 && pRtpDataHead.m_nTimestamp==0) return;
 	const cgc::uint8 nNAKType = pRtpDataHead.m_nNAKType;
 	if (nNAKType>=SOTP_RTP_NAK_REQUEST_1)
@@ -191,17 +191,18 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 
 #ifdef USES_FILE_LOG
 	char lpszBuffer[260];
+	const cgc::uint32 ts = ntohl(pRtpDataHead.m_nTimestamp);
 #ifdef WIN32
-	sprintf(lpszBuffer,"f:\\%lld-%d-%d.txt",this->GetSrcId(),pRtpDataHead.m_nTimestamp,(int)this);
+	sprintf(lpszBuffer,"f:\\%lld-%d-%d.txt",this->GetSrcId(),ts,(int)this);
 #else
-	sprintf(lpszBuffer,"/%lld-%d-%d.txt",this->GetSrcId(),pRtpDataHead.m_nTimestamp,(int)this);
+	sprintf(lpszBuffer,"/%lld-%d-%d.txt",this->GetSrcId(),ts,(int)this);
 #endif
 	if (m_flog==NULL)
 		m_flog = fopen(lpszBuffer,"w+");
 	
 	if (m_flog!=NULL)
 	{
-		sprintf(lpszBuffer,"ts=%d: recv seq=%d,last seq=%d\n",pRtpDataHead.m_nTimestamp,pRtpDataHead.m_nSeq,m_nLastPacketSeq);
+		sprintf(lpszBuffer,"ts=%d: recv seq=%d,last seq=%d\n",ts,nSeq,m_nLastPacketSeq);
 		fwrite(lpszBuffer,1,strlen(lpszBuffer),m_flog);
 	}
 #endif
@@ -226,7 +227,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	{
 		// *效果好像好一些，就不知流量如何；
 		m_nLastPacketSeq = nSeq;
-		//const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
+		//const cgc::uint16 nMaxResendCount = (ntohl(pRtpDataHead.m_nTotleLength)/ntohs(pRtpDataHead.m_nUnitLength))>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
 		const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
 		if ((nSeq-expectSeq)>nMaxResendCount)
 			return;	// 网络过差，重发数据也没用，优化流量；
@@ -256,7 +257,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 		m_nLastPacketSeq = nSeq;
 		const int diff = nSeq + (65535 - expectSeq);
 		const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
-		//const cgc::uint16 nMaxResendCount = (pRtpDataHead.m_nTotleLength/pRtpDataHead.m_nUnitLength)>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
+		//const cgc::uint16 nMaxResendCount = (ntohl(pRtpDataHead.m_nTotleLength)/ntohs(pRtpDataHead.m_nUnitLength))>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
 		n = (diff > nMaxResendCount) ? nMaxResendCount : diff;
 
 		if (nNAKType>=SOTP_RTP_NAK_REQUEST_2)
@@ -296,7 +297,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 #ifdef USES_FILE_LOG
 	if (m_flog!=NULL)
 	{
-		sprintf(lpszBuffer,"ts=%d: expect seq=%d,last seq=%d,n=%d\n",pRtpDataHead.m_nTimestamp,expectSeq,m_nLastPacketSeq,n);
+		sprintf(lpszBuffer,"ts=%d: expect seq=%d,last seq=%d,n=%d\n",ts,expectSeq,m_nLastPacketSeq,n);
 		fwrite(lpszBuffer,1,strlen(lpszBuffer),m_flog);
 	}
 #endif
@@ -326,8 +327,8 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 }
 void CSotpRtpSource::sendNAKRequest(unsigned short nSeq, unsigned short nCount,const cgcRemote::pointer& pcgcRemote)
 {
-	m_NAKRequestCommand.u.m_nDataRequest.m_nSeq = nSeq;
-	m_NAKRequestCommand.u.m_nDataRequest.m_nCount = nCount;
+	m_NAKRequestCommand.u.m_nDataRequest.m_nSeq = htons(nSeq);
+	m_NAKRequestCommand.u.m_nDataRequest.m_nCount = htons(nCount);
 	size_t nSendSize = 0;
 	unsigned char lpszBuffer[64];	// SOTP_RTP_COMMAND_SIZE=25
 	SotpCallTable2::toRtpCommand(m_NAKRequestCommand,lpszBuffer,nSendSize);
@@ -336,7 +337,7 @@ void CSotpRtpSource::sendNAKRequest(unsigned short nSeq, unsigned short nCount,c
 bool CSotpRtpSource::UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut)
 {
 	bool bResult = false;
-	const unsigned short nSeq = pRtpMsgIn->m_pRtpDataHead.m_nSeq;
+	const cgc::uint16 nSeq = ntohs(pRtpMsgIn->m_pRtpDataHead.m_nSeq);
 	const int i = nSeq%RELIABLE_QUEUE_SIZE;
 	boost::mutex::scoped_lock lock(m_pReliableMutex);
 	if (m_pReliableQueue[i] != 0)
@@ -507,7 +508,7 @@ void CSotpRtpSource::SendReliableMsg(unsigned short nStartSeq,unsigned short nEn
 		i= k%RELIABLE_QUEUE_SIZE;
 		boost::mutex::scoped_lock lock(m_pReliableMutex);
 		const CSotpRtpReliableMsg* pRtpReliableMsg = m_pReliableQueue[i];
-		if (pRtpReliableMsg!=NULL && pRtpReliableMsg->m_pRtpDataHead.m_nSeq==k)
+		if (pRtpReliableMsg!=NULL && ntohs(pRtpReliableMsg->m_pRtpDataHead.m_nSeq)==k)
 		{
 			const size_t nSizeTemp = 20+SOTP_RTP_DATA_HEAD_SIZE+pRtpReliableMsg->m_pAttachment->getAttachSize();
 			if (m_pReliableSendBuffer==NULL)
@@ -533,15 +534,15 @@ void CSotpRtpSource::SendRegisterSink(const cgcRemote::pointer& pcgcRemote)
 	unsigned char lpszBuffer[64];	// SOTP_RTP_COMMAND_SIZE=25
 	tagSotpRtpCommand pRtpCommand;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SINK;
-	pRtpCommand.m_nRoomId = this->GetRoomId();
-	pRtpCommand.m_nSrcId = this->GetSrcId();
+	pRtpCommand.m_nRoomId = cgc::htonll(this->GetRoomId());
+	pRtpCommand.m_nSrcId = cgc::htonll(this->GetSrcId());
 
 	BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_pSinkRecvList.mutex()));
 	CLockMap<cgc::bigint,bool>::const_iterator pIter = m_pSinkRecvList.begin();
 	for (; pIter!=m_pSinkRecvList.end(); pIter++)
 	{
 		const cgc::bigint nDestId = pIter->first;
-		pRtpCommand.u.m_nDestId = nDestId;
+		pRtpCommand.u.m_nDestId = cgc::htonll(nDestId);
 
 		size_t nSendSize = 0;
 		SotpCallTable2::toRtpCommand(pRtpCommand,lpszBuffer,nSendSize);

@@ -271,20 +271,41 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				if (!isRTPProto()) return NULL;
 				memcpy(&m_pSotpRtpCommand,pLineBuffer+1,SOTP_RTP_COMMAND_SIZE);
 				pNextLineFind = pLineBuffer+(1+SOTP_RTP_COMMAND_SIZE);
+				// **** do ntoll,...
+				if (m_pSotpRtpCommand.m_nCommand==SOTP_RTP_COMMAND_DATA_REQUEST)
+				{
+					m_pSotpRtpCommand.u.m_nDataRequest.m_nCount = ntohs(m_pSotpRtpCommand.u.m_nDataRequest.m_nCount);
+					m_pSotpRtpCommand.u.m_nDataRequest.m_nSeq = ntohs(m_pSotpRtpCommand.u.m_nDataRequest.m_nSeq);
+				}else
+				{
+					m_pSotpRtpCommand.u.m_nDestId = cgc::ntohll(m_pSotpRtpCommand.u.m_nDestId);
+				}
+				m_pSotpRtpCommand.m_nRoomId = cgc::ntohll(m_pSotpRtpCommand.m_nRoomId);
+				m_pSotpRtpCommand.m_nSrcId = cgc::ntohll(m_pSotpRtpCommand.m_nSrcId);
 				m_bRtpCommand = true;
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_RTP_DATA:
 			{
 				if (!isRTPProto()) return NULL;
 				memcpy(&m_pSotpRtpDataHead,pLineBuffer+1,SOTP_RTP_DATA_HEAD_SIZE);
-				const cgc::uint32 nDataOffset = ((cgc::uint32)m_pSotpRtpDataHead.m_nIndex)*m_pSotpRtpDataHead.m_nUnitLength;
-				const cgc::uint32 nDataLength = (m_pSotpRtpDataHead.m_nTotleLength-nDataOffset)>=m_pSotpRtpDataHead.m_nUnitLength?m_pSotpRtpDataHead.m_nUnitLength:(m_pSotpRtpDataHead.m_nTotleLength-nDataOffset);
-				if (nDataOffset>=m_pSotpRtpDataHead.m_nTotleLength ||
+				//m_pSotpRtpDataHead.m_nRoomId = cgc::ntohll(m_pSotpRtpDataHead.m_nRoomId);
+				//m_pSotpRtpDataHead.m_nSeq = ntohs(m_pSotpRtpDataHead.m_nSeq);
+				//m_pSotpRtpDataHead.m_nSrcId = cgc::ntohll(m_pSotpRtpDataHead.m_nSrcId);
+				//m_pSotpRtpDataHead.m_nTimestamp = ntohl(m_pSotpRtpDataHead.m_nTimestamp);
+				//m_pSotpRtpDataHead.m_nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
+				//m_pSotpRtpDataHead.m_nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
+				const cgc::uint8 nIndex = m_pSotpRtpDataHead.m_nIndex;
+				const cgc::uint16 nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
+				const cgc::uint32 nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
+
+				const cgc::uint32 nDataOffset = ((cgc::uint32)nIndex)*nUnitLength;
+				const cgc::uint32 nDataLength = (nTotleLength-nDataOffset)>=nUnitLength?nUnitLength:(nTotleLength-nDataOffset);
+				if (nDataOffset>=nTotleLength ||
 					(nDataLength+SOTP_RTP_DATA_HEAD_SIZE+2)>(nBufferSize))
 					return NULL;
 				try
 				{
-					m_attach->setTotal(m_pSotpRtpDataHead.m_nTotleLength);
+					m_attach->setTotal(nTotleLength);
 					m_attach->setIndex(nDataOffset);
 					m_attach->setAttach((const unsigned char *)pLineBuffer+(1+SOTP_RTP_DATA_HEAD_SIZE),nDataLength);
 				}catch(const std::exception&)

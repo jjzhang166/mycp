@@ -173,6 +173,17 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 	if (!m_bServerMode && bSendRtpCommand && pcgcRemote.get()!=NULL)
 	{
 		// send rtp command
+		if (pRtpCommand.m_nCommand==SOTP_RTP_COMMAND_DATA_REQUEST)
+		{
+			const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDataRequest.m_nCount = htons(pRtpCommand.u.m_nDataRequest.m_nCount);
+			const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDataRequest.m_nSeq = htons(pRtpCommand.u.m_nDataRequest.m_nSeq);
+		}else
+		{
+			const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDestId = cgc::htonll(pRtpCommand.u.m_nDestId);
+		}
+		const_cast<tagSotpRtpCommand&>(pRtpCommand).m_nRoomId = cgc::htonll(pRtpCommand.m_nRoomId);
+		const_cast<tagSotpRtpCommand&>(pRtpCommand).m_nSrcId = cgc::htonll(pRtpCommand.m_nSrcId);
+
 		size_t nSendSize = 0;
 		unsigned char* pSendBuffer = SotpCallTable2::toRtpCommand(pRtpCommand,NULL,nSendSize);
 		pcgcRemote->sendData(pSendBuffer,nSendSize);
@@ -195,11 +206,11 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 {
 	if (pAttackment.get()==NULL || !pAttackment->isHasAttach())
 		return false;
-	CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpDataHead.m_nRoomId,false);
+	CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(cgc::ntohll(pRtpDataHead.m_nRoomId),false);
 	if (pRtpRoom.get()==NULL)
 		return false;
 
-	CSotpRtpSource::pointer pRtpSrcSource = pRtpRoom->GetRtpSource(pRtpDataHead.m_nSrcId);
+	CSotpRtpSource::pointer pRtpSrcSource = pRtpRoom->GetRtpSource(cgc::ntohll(pRtpDataHead.m_nSrcId));
 	if (pRtpSrcSource.get()==NULL)
 		return false;
 
@@ -220,6 +231,12 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 			pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
 	}else
 	{
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nRoomId = cgc::ntohll(pRtpDataHead.m_nRoomId);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nSeq = ntohs(pRtpDataHead.m_nSeq);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nSrcId = cgc::ntohll(pRtpDataHead.m_nSrcId);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nTimestamp = ntohl(pRtpDataHead.m_nTimestamp);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nTotleLength = ntohl(pRtpDataHead.m_nTotleLength);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nUnitLength = ntohs(pRtpDataHead.m_nUnitLength);
 		pRtpSrcSource->PushRtpData(pRtpDataHead,pAttackment);
 		pRtpSrcSource->GetWholeFrame(m_pRtpFrameCallback,m_nCbUserData);
 	}

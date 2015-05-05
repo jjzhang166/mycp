@@ -956,14 +956,14 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 #endif
 		}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();
-		pRtpMsgIn->m_pRtpDataHead.m_nRoomId= nRoomId;
-		pRtpMsgIn->m_pRtpDataHead.m_nSrcId = this->doGetRtpSourceId();
-		pRtpMsgIn->m_pRtpDataHead.m_nTimestamp = nTimestamp;
+		pRtpMsgIn->m_pRtpDataHead.m_nRoomId = cgc::htonll(nRoomId);
+		pRtpMsgIn->m_pRtpDataHead.m_nSrcId = cgc::htonll(this->doGetRtpSourceId());
+		pRtpMsgIn->m_pRtpDataHead.m_nTimestamp = htonl(nTimestamp);
 		pRtpMsgIn->m_pRtpDataHead.m_nNAKType = nNAKType;
 		pRtpMsgIn->m_pRtpDataHead.m_nDataType = nDataType;
-		pRtpMsgIn->m_pRtpDataHead.m_nTotleLength = nSize;
-		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = SOTP_RTP_MAX_PAYLOAD_LENGTH;
-		pRtpMsgIn->m_pRtpDataHead.m_nSeq = nTimestamp==0?0:pRtpSource->GetNextSeq();
+		pRtpMsgIn->m_pRtpDataHead.m_nTotleLength = htonl(nSize);
+		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = htons(SOTP_RTP_MAX_PAYLOAD_LENGTH);
+		pRtpMsgIn->m_pRtpDataHead.m_nSeq = htons(nTimestamp==0?0:pRtpSource->GetNextSeq());
 		pRtpMsgIn->m_pRtpDataHead.m_nIndex = (cgc::uint8)i;
 		const cgc::uint16 nDataSize = (i+1)==nCount?(nSize%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
 		pRtpMsgIn->m_pAttachment->setAttach(pData+(pRtpMsgIn->m_pRtpDataHead.m_nIndex*SOTP_RTP_MAX_PAYLOAD_LENGTH),nDataSize);

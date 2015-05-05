@@ -26,15 +26,54 @@
 namespace cgc{
 #ifdef WIN32
 	typedef __int64				bigint;
+	typedef unsigned __int64	ubigint;
 #define cgc_atoi64(a) _atoi64(a)
+#include <WinSock.h>
 #else
 	typedef long long			bigint;
+	typedef unsigned long long	ubigint;
 #define cgc_atoi64(a) atoll(a)
+#include <arpa/inet.h>
 #endif
 typedef unsigned char			uint8;
 typedef unsigned short			uint16;
 typedef unsigned int			uint32;
 typedef bigint					uint64;
+
+//#ifdef WIN32
+inline cgc::ubigint htonll(cgc::ubigint val) {
+	return (((cgc::ubigint)htonl((unsigned int)((val << 32) >> 32))) << 32) | (unsigned int)htonl((unsigned int)(val >> 32));
+	//return  (((cgc::ubigint) htonl(val))  <<   32 )  +  htonl(val  >>   32 );
+}
+inline cgc::ubigint ntohll(cgc::ubigint val) {
+	return (((cgc::ubigint)ntohl((unsigned int)((val << 32) >> 32))) << 32) | (unsigned int)ntohl((unsigned int)(val >> 32));
+	//return  (((cgc::ubigint) ntohl(val))  <<   32 )  +  ntohl(val  >>   32 );
+}
+//#else
+//unsigned long long ntohll(unsigned long long val)
+//{
+//    if (__BYTE_ORDER == __LITTLE_ENDIAN)
+//    {
+//        return (((unsigned long long )ntohl((int)((val << 32) >> 32))) << 32) | (unsigned int)ntohl((int)(val >> 32));
+//    }
+//    else if (__BYTE_ORDER == __BIG_ENDIAN)
+//    {
+//        return val;
+//    }
+//}
+//
+//unsigned long long htonll(unsigned long long val)
+//{
+//    if (__BYTE_ORDER == __LITTLE_ENDIAN)
+//    {
+//        return (((unsigned long long )htonl((int)((val << 32) >> 32))) << 32) | (unsigned int)htonl((int)(val >> 32));
+//    }
+//    else if (__BYTE_ORDER == __BIG_ENDIAN)
+//    {
+//        return val;
+//    }
+//}
+//#endif
 
 class cgcObject
 {

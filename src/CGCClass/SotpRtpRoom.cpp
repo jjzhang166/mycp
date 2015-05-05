@@ -205,6 +205,7 @@ bool CSotpRtpRoom::IsRegisterSource(cgc::bigint nSrcId) const
 
 void CSotpRtpRoom::BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment) const
 {
+	const cgc::bigint nRealSrcId = cgc::ntohll(pRtpDataHead.m_nSrcId);
 	{
 		unsigned char * pSendBuffer = NULL;
 		size_t nSendSize = 0;
@@ -213,10 +214,10 @@ void CSotpRtpRoom::BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const
 		for (; pIter!=m_pSourceList.end(); pIter++)
 		{
 			const cgc::bigint nSrcId = pIter->first;
-			if (nSrcId==pRtpDataHead.m_nSrcId)
+			if (nSrcId==nRealSrcId)
 				continue;
 			CSotpRtpSource::pointer pRtpDestSource = pIter->second;
-			if (!pRtpDestSource->IsSinkRecv(pRtpDataHead.m_nSrcId))
+			if (!pRtpDestSource->IsSinkRecv(nRealSrcId))
 				continue;
 			const cgcRemote::pointer& pcgcRemote = pRtpDestSource->GetRemote();
 			if (pcgcRemote.get()!=NULL)
@@ -262,8 +263,8 @@ void CSotpRtpRoom::CheckRegisterSinkLive(time_t tNow,short nExpireSecond,cgc::bi
 		unsigned char pSendBuffer[64];
 		tagSotpRtpCommand pRtpCommand;
 		pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SOURCE;
-		pRtpCommand.m_nRoomId = this->GetRoomId();
-		pRtpCommand.m_nSrcId = nSrcId;
+		pRtpCommand.m_nRoomId = cgc::htonll(this->GetRoomId());
+		pRtpCommand.m_nSrcId = cgc::htonll(nSrcId);
 		BoostReadLock rdlock(m_pSourceList.mutex());
 		CLockMap<cgc::bigint,CSotpRtpSource::pointer>::iterator pIter = m_pSourceList.begin();
 		for (; pIter!=m_pSourceList.end(); pIter++)
