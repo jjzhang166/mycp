@@ -264,14 +264,14 @@ public:
 	{}
 };
 
-#define USES_FILE_LOG
+//#define USES_FILE_LOG
 class CSotpRtpSource
 {
 public:
 	typedef boost::shared_ptr<CSotpRtpSource> pointer;
-	static CSotpRtpSource::pointer create(cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
+	static CSotpRtpSource::pointer create(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
 	{
-		return CSotpRtpSource::pointer(new CSotpRtpSource(nRoomId,nSrcId,nParam));
+		return CSotpRtpSource::pointer(new CSotpRtpSource(bServerMode,nRoomId,nSrcId,nParam));
 	}
 	cgc::bigint GetRoomId(void) const {return m_nRoomId;}
 	cgc::bigint GetSrcId(void) const {return m_nSrcId;}
@@ -297,7 +297,8 @@ public:
 
 	boost::mutex m_pCaculateMissedPacketsMutex;
 	void CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote);
-	void UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut = NULL);
+	// return true : exist seq
+	bool UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut = NULL);
 	void PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment);
 	void GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData);
 	void SendReliableMsg(unsigned short nStartSeq,unsigned short nEndSeq,const cgcRemote::pointer& pcgcRemote);
@@ -305,12 +306,13 @@ public:
 
 	unsigned short GetNextSeq(void) {return ++m_nCurrentSeq;}
 
-	CSotpRtpSource(cgc::bigint nRoomId,cgc::bigint nSrcId, cgc::bigint m_nParam);
+	CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId, cgc::bigint m_nParam);
 	virtual ~CSotpRtpSource(void);
 private:
 	void sendNAKRequest(unsigned short nSeq, unsigned short nCount,const cgcRemote::pointer& pcgcRemote);
 
 private:
+	bool m_bServerMode;
 	cgc::bigint m_nRoomId;
 	cgc::bigint m_nSrcId;
 	cgc::bigint m_nParam;
@@ -325,6 +327,7 @@ private:
 	cgc::uint16 m_nLostData;
 	CLockMap<cgc::uint32,CSotpRtpFrame::pointer> m_pReceiveFrames;	// ts->
 
+	tagSotpRtpCommand m_NAKRequestCommand;
 	boost::mutex m_pReliableMutex;
 	unsigned char * m_pReliableSendBuffer;
 	size_t m_nReliableBufferSize;
@@ -332,7 +335,9 @@ private:
 	//CLostSeqInfo theLostSeqInfo1;
 	CLostSeqInfo theLostSeqInfo2;
 	int m_nLastPacketSeq;
-	//int m_nLastExpectSeq;	// 临时记录上一个缺失数据包，下一个包到来进会自动判断，如果不对直接请求；一次数据补偿
+	// for server
+	int m_nLastExpectSeq;	// 临时记录上一个缺失数据包，下一个包到来进会自动判断，如果不对直接请求；一次数据补偿
+	// for client
 	CLastExpectInfo m_pLastExpect1;
 	CLastExpectInfo m_pLastExpect2;
 	cgc::uint16 m_nCurrentSeq;

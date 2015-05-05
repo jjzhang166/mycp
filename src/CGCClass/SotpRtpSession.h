@@ -57,6 +57,7 @@ public:
 	virtual ~CSotpRtpSession(void);
 private:
 	bool m_bServerMode;
+	CSotpRtpMsgPool m_pRtpMsgPool;	// for server
 	//CSotpRtpCallback* m_pSotpRtpCallback;
 	HSotpRtpFrameCallback m_pRtpFrameCallback;
 	void* m_nCbUserData;

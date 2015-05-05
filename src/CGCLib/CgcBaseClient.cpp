@@ -924,6 +924,9 @@ bool CgcBaseClient::doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) c
 
 bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint32 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType)
 {
+	const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	if (nCount>=SOTP_RTP_MAX_PACKETS_PER_FRAME)
+		return false;
 	CSotpRtpRoom::pointer pRtpRoom = m_pRtpSession.GetRtpRoom(nRoomId,false);
 	if (pRtpRoom.get()==NULL)
 		return false;
@@ -934,11 +937,7 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	//if (pRtpSource->
 
 	CSotpRtpReliableMsg* pBufferMsg = m_pRtpBufferPool.Get();
-
 	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
-	const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
-	if (nCount>=SOTP_RTP_MAX_PACKETS_PER_FRAME)
-		return false;
 	for (cgc::uint16 i=0; i<nCount; i++)
 	{
 		if ((i%50)==49)
@@ -951,9 +950,9 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 		}else if ((i%9)==8)
 		{
 #ifdef WIN32
-			Sleep(35);
+			Sleep(50);
 #else
-			usleep(35000);
+			usleep(50000);
 #endif
 		}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();

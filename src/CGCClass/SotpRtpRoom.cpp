@@ -57,7 +57,7 @@ CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, cgc::bi
 			if (!pCallback->onRegisterSource(this->GetRoomId(), nSrcId, nParam, pUserData))
 				return NullSotpRtpSource;
 		}
-		pRtpSource = CSotpRtpSource::create(m_nRoomId,nSrcId,nParam);
+		pRtpSource = CSotpRtpSource::create(m_bServerMode,m_nRoomId,nSrcId,nParam);
 		CSotpRtpSource::pointer pRtpSourceTemp;
 		m_pSourceList.insert(nSrcId,pRtpSource,false,&pRtpSourceTemp);
 		if (pRtpSourceTemp.get()!=NULL)

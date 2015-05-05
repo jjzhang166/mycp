@@ -29,14 +29,15 @@ namespace cgc
 
 CSotpRtpSession::CSotpRtpSession(bool bServerMode)
 : m_bServerMode(bServerMode)
+, m_pRtpMsgPool(1,0,5)
 //, m_pSotpRtpCallback(NULL)
 , m_pRtpFrameCallback(NULL), m_nCbUserData(0)
-
 {
 }
 CSotpRtpSession::~CSotpRtpSession(void)
 {
 	ClearAll();
+	m_pRtpMsgPool.Clear();
 }
 void CSotpRtpSession::ClearAll(void)
 {
@@ -164,7 +165,7 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			if (pRtpSrcSource.get()==NULL)
 				return false;
 
-			pRtpSrcSource->SendReliableMsg(pRtpCommand.u.m_nDataRequest.m_nSeq-pRtpCommand.u.m_nDataRequest.m_nCount, pRtpCommand.u.m_nDataRequest.m_nSeq,pcgcRemote);
+			pRtpSrcSource->SendReliableMsg(pRtpCommand.u.m_nDataRequest.m_nSeq-pRtpCommand.u.m_nDataRequest.m_nCount, pRtpCommand.u.m_nDataRequest.m_nSeq-1,pcgcRemote);
 		}break;
 	default:
 		return false;
@@ -207,9 +208,16 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 	if (this->m_bServerMode)
 	{
 		// save as wait for SOTP_RTP_COMMAND_DATA_REQUEST msg
-		CSotpRtpReliableMsg * pRtpMsgIn = new CSotpRtpReliableMsg(pRtpDataHead,pAttackment);
-		pRtpSrcSource->UpdateReliableQueue(pRtpMsgIn);
-		pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
+		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();
+		memcpy(&pRtpMsgIn->m_pRtpDataHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
+		pRtpMsgIn->m_pAttachment = pAttackment;
+		CSotpRtpReliableMsg * pRtpMsgOut = NULL;
+		const bool bExistSeq = pRtpSrcSource->UpdateReliableQueue(pRtpMsgIn, &pRtpMsgOut);
+		m_pRtpMsgPool.Set(pRtpMsgOut);
+		//CSotpRtpReliableMsg * pRtpMsgIn = new CSotpRtpReliableMsg(pRtpDataHead,pAttackment);
+		//pRtpSrcSource->UpdateReliableQueue(pRtpMsgIn);
+		if (!bExistSeq)
+			pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
 	}else
 	{
 		pRtpSrcSource->PushRtpData(pRtpDataHead,pAttackment);
