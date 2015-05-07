@@ -49,6 +49,8 @@ public:
 			m_socket = new udp::socket(ioservice, pEndPoint);
 			//m_socket->bind(pEndPoint);	// exception
 			m_socket->set_option(boost::asio::socket_base::reuse_address(true));
+			//m_socket->set_option(boost::asio::socket_base::send_buffer_size(8192));
+			//m_socket->set_option(boost::asio::socket_base::receive_buffer_size(8192));
 		}
 
 		if (m_proc_data == 0)

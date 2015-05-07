@@ -262,6 +262,7 @@ void CSotpRtpRoom::CheckRegisterSinkLive(time_t tNow,short nExpireSecond,cgc::bi
 	{
 		unsigned char pSendBuffer[64];
 		tagSotpRtpCommand pRtpCommand;
+		pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 		pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SOURCE;
 		pRtpCommand.m_nRoomId = cgc::htonll(this->GetRoomId());
 		pRtpCommand.m_nSrcId = cgc::htonll(nSrcId);

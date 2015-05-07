@@ -32,9 +32,11 @@ struct tagSotpRtpDataRequest
 	cgc::uint16			m_nSeq;
 	cgc::uint16			m_nCount;
 };
+#define SOTP_RTP_COMMAND_VERSION 2
 struct tagSotpRtpCommand
 {
-	cgc::uint8			m_nCommand;
+	cgc::uint8			m_nVersion;
+	cgc::uint8			m_nCommand;				// see SOTP_RTP_COMMAND_TYPE
 	cgc::bigint			m_nRoomId;
 	cgc::bigint			m_nSrcId;
 	union
@@ -43,7 +45,8 @@ struct tagSotpRtpCommand
 		tagSotpRtpDataRequest	m_nDataRequest;	// for SOTP_RTP_COMMAND_DATA_REQUEST
 	}u;
 };
-const cgc::uint16 SOTP_RTP_COMMAND_SIZE = sizeof(tagSotpRtpCommand);
+#define SOTP_RTP_COMMAND_SIZE 26
+//const cgc::uint16 SOTP_RTP_COMMAND_SIZE = sizeof(tagSotpRtpCommand);
 struct tagSotpRtpDataHead
 {
 	cgc::bigint		m_nRoomId;
@@ -56,8 +59,9 @@ struct tagSotpRtpDataHead
 	cgc::uint16		m_nUnitLength;
 	cgc::uint8		m_nIndex;
 };
-const cgc::uint16 SOTP_RTP_DATA_HEAD_SIZE = sizeof(tagSotpRtpDataHead);
-#pragma pack(pop) // 恢复先前的pack设置
+#define SOTP_RTP_DATA_HEAD_SIZE 31
+//const cgc::uint16 SOTP_RTP_DATA_HEAD_SIZE = sizeof(tagSotpRtpDataHead);
+#pragma pack(pop)
 
 #define SOTP_RTP_MAX_PACKETS_PER_FRAME	256	// 64
 #define SOTP_RTP_MAX_PAYLOAD_LENGTH		1100

@@ -20,7 +20,8 @@
 #ifndef __cgcaddress_h__
 #define __cgcaddress_h__
 
-#include "../ThirdParty/stl/stldef.h"
+//#include "../ThirdParty/stl/stldef.h"
+#include <string>
 
 class CCgcAddress
 {
@@ -43,32 +44,32 @@ public:
 		return *this;
 	}
 
-	void address(const tstring & sAddress) {
-		const tstring::size_type find = sAddress.find(":");
-		if (find != tstring::npos)
+	void address(const std::string & sAddress) {
+		const std::string::size_type find = sAddress.find(":");
+		if (find != std::string::npos)
 		{
 			m_ip = sAddress.substr(0, find);
-			m_port = atoi(sAddress.substr(find+1).c_str());;
+			m_port = atoi(sAddress.substr(find+1).c_str());
 		}
 	}
-	void address(const tstring & ip, unsigned short port) {
+	void address(const std::string & ip, unsigned short port) {
 		m_ip = ip;
 		m_port = port;
 	}
-	tstring address(void) const {
-		char buffer[32];
-		sprintf(buffer, "%s:%d", m_ip.c_str(), m_port);
+	std::string address(void) const {
+		char buffer[64];
+		sprintf(buffer, "%s:%d", m_ip.c_str(), (int)m_port);
 		return buffer;
 	}
 	void socketType(SocketType newv) {m_socketType = newv;}
 	SocketType socketType(void) const {return m_socketType;}
 
-	const tstring& getip(void) const {return m_ip;}
+	const std::string& getip(void) const {return m_ip;}
 	unsigned short getport(void) const {return m_port;}
 
 	void reset(void)
 	{
-		m_ip = _T("127.0.0.1");
+		m_ip = "127.0.0.1";
 		m_port = 8010;
 		m_socketType = ST_UNKNOWN;
 	}
@@ -82,12 +83,12 @@ protected:
 	}
 
 public:
-	CCgcAddress(const tstring & sAddress="127.0.0.1:8010", SocketType socketType = ST_UDP)
+	CCgcAddress(const std::string & sAddress="127.0.0.1:8010", SocketType socketType = ST_UDP)
 		: m_port(0), m_socketType(socketType)
 	{
 		address(sAddress);
 	}
-	CCgcAddress(const tstring & ip, unsigned short port, SocketType socketType)
+	CCgcAddress(const std::string & ip, unsigned short port, SocketType socketType)
 		: m_ip(ip), m_port(port),m_socketType(socketType)
 	{
 		//address(ip, port);
@@ -95,7 +96,7 @@ public:
 	virtual ~CCgcAddress(void)
 	{}
 private:
-	tstring	m_ip;
+	std::string	m_ip;
 	unsigned short m_port;
 	SocketType m_socketType;
 };

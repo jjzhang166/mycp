@@ -852,6 +852,7 @@ bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam)
 		m_pOwnerRemote = cgcRemote::pointer(new CcgcBaseRemote(shared_from_this()));
 	}
 	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SOURCE;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
@@ -861,6 +862,7 @@ bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam)
 void CgcBaseClient::doUnRegisterSource(cgc::bigint nRoomId)
 {
 	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_UNREGISTER_SOURCE;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
@@ -884,6 +886,7 @@ void CgcBaseClient::doUnRegisterAllSource(void)
 bool CgcBaseClient::doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
 {
 	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SINK;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
@@ -893,6 +896,7 @@ bool CgcBaseClient::doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
 void CgcBaseClient::doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
 {
 	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_UNREGISTER_SINK;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
@@ -902,6 +906,7 @@ void CgcBaseClient::doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
 void CgcBaseClient::doUnRegisterAllSink(cgc::bigint nRoomId)
 {
 	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_UNREGISTER_ALLSINK;
 	pRtpCommand.m_nRoomId = nRoomId;
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();

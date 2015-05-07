@@ -105,6 +105,7 @@ CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId) const
 
 bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote, bool bSendRtpCommand, CSotpRtpCallback* pCallback, void* pUserData)
 {
+	if (pRtpCommand.m_nVersion!=SOTP_RTP_COMMAND_VERSION) return false;
 	switch (pRtpCommand.m_nCommand)
 	{
 	case SOTP_RTP_COMMAND_REGISTER_SOURCE:

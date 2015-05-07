@@ -61,6 +61,7 @@ CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint
 	m_tLastTime = time(0);
 	memset(m_pReliableQueue,0,sizeof(m_pReliableQueue));
 
+	m_NAKRequestCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	m_NAKRequestCommand.m_nCommand = SOTP_RTP_COMMAND_DATA_REQUEST;
 	m_NAKRequestCommand.m_nRoomId = cgc::htonll(m_nRoomId);
 	m_NAKRequestCommand.m_nSrcId = cgc::htonll(m_nSrcId);
@@ -533,6 +534,7 @@ void CSotpRtpSource::SendRegisterSink(const cgcRemote::pointer& pcgcRemote)
 		return;
 	unsigned char lpszBuffer[64];	// SOTP_RTP_COMMAND_SIZE=25
 	tagSotpRtpCommand pRtpCommand;
+	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SINK;
 	pRtpCommand.m_nRoomId = cgc::htonll(this->GetRoomId());
 	pRtpCommand.m_nSrcId = cgc::htonll(this->GetSrcId());
