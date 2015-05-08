@@ -32,6 +32,7 @@ unsigned long GetLastError(void)
 
 #ifdef WIN32
 #include <tchar.h>
+#pragma comment(lib, "Ws2_32.lib")
 #else
 #include "../../../CGCClass/tchar.h"
 #endif // WIN32
@@ -201,7 +202,7 @@ bool CGCApp::ProcLastAccessedTime(void)
 	static unsigned int nIndex = 0;
 	if ((nIndex++)%3==2)	// 3*20=60秒处理一次；
 	{
-		m_pRtpSession.CheckRegisterSourceLive(59);
+		m_pRtpSession.CheckRegisterSourceLive(59, this, 0);
 	}
 	return false;
 	//// 检查mysessioninfo
@@ -688,10 +689,12 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 
 #ifdef WIN32
 		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Source");
-		FPCGC_Rtp_Register_Sink fp2 = (FPCGC_Rtp_Register_Sink)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Sink");
+		CGC_Rtp_UnRegister_Source fp2 = (CGC_Rtp_UnRegister_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_UnRegister_Source");
+		FPCGC_Rtp_Register_Sink fp3 = (FPCGC_Rtp_Register_Sink)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Sink");
 #else
 		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)dlsym(hModule, "CGC_Rtp_Register_Source");
-		FPCGC_Rtp_Register_Sink fp2 = (FPCGC_Rtp_Register_Sink)dlsym(hModule, "CGC_Rtp_Register_Sink");
+		CGC_Rtp_UnRegister_Source fp2 = (CGC_Rtp_UnRegister_Source)dlsym(hModule, "CGC_Rtp_UnRegister_Source");
+		FPCGC_Rtp_Register_Sink fp3 = (FPCGC_Rtp_Register_Sink)dlsym(hModule, "CGC_Rtp_Register_Sink");
 #endif
 		portApp->setFuncHandle1((void*)fp1);
 		portApp->setFuncHandle2((void*)fp2);
@@ -702,7 +705,19 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 		return false;
 	return fp(nRoomId, nSourceId, nParam);
 }
-
+void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
+{
+	const int nServerPort = (int)pUserData;
+	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
+	if (portApp.get() == NULL)
+	{
+		return;	// *
+	}
+	CGC_Rtp_UnRegister_Source fp = (CGC_Rtp_UnRegister_Source)portApp->getFuncHandle2();
+	if (fp==NULL)
+		return;
+	fp(nRoomId, nSourceId, nParam);
+}
 bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData)
 {
 	const int nServerPort = (int)pUserData;
@@ -711,7 +726,7 @@ bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::big
 	{
 		return true;	// *
 	}
-	FPCGC_Rtp_Register_Sink fp = (FPCGC_Rtp_Register_Sink)portApp->getFuncHandle2();
+	FPCGC_Rtp_Register_Sink fp = (FPCGC_Rtp_Register_Sink)portApp->getFuncHandle3();
 	if (fp==NULL)
 		return false;
 	return fp(nRoomId, nSourceId, nDestId);

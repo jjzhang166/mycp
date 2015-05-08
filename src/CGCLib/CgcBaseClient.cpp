@@ -107,6 +107,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_currentPath(_T(""))
 , theProtoVersion(SOTP_PROTO_VERSION_20)
 , m_pRtpBufferPool(2*1024,3,5), m_pRtpMsgPool(2*1024,20,30), m_pRtpSession(false)
+, m_nSrcId(0), m_nRtpCbUserData(0), m_nTranSpeedLimit(64), m_nDefaultSleep1(50), m_nDefaultSleep2(500)
 
 {
 	m_nDataIndex = 0;
@@ -520,11 +521,20 @@ tstring CgcBaseClient::onGetSslPassword(const tstring& sSessionId) const
 	return m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
 }
 
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
 bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 {
 	bool ret = true;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT:
+		{
+			m_nTranSpeedLimit = nInValue;
+			m_nDefaultSleep1 = max(10,(50-((int)(m_nTranSpeedLimit+63)/64)*6));
+			m_nDefaultSleep2 = max(0,(500-((int)(m_nTranSpeedLimit+63)/64)*60));
+		}break;
 	case SOTP_CLIENT_CONFIG_RTP_CB_USERDATA:
 		{
 			m_nRtpCbUserData = nInValue;
@@ -689,6 +699,9 @@ void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 {
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT:
+		*nOutValue = m_nTranSpeedLimit;
+		break;
 	case SOTP_CLIENT_CONFIG_RTP_CB_USERDATA:
 		{
 			*nOutValue = m_nRtpCbUserData;
@@ -945,19 +958,19 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
 	for (cgc::uint16 i=0; i<nCount; i++)
 	{
-		if ((i%50)==49)
+		if (m_nDefaultSleep2>0 && (i%50)==49)
 		{
 #ifdef WIN32
-			Sleep(500);
+			Sleep(m_nDefaultSleep2);
 #else
-			usleep(500000);
+			usleep(m_nDefaultSleep2*1000);
 #endif
 		}else if ((i%9)==8)
 		{
 #ifdef WIN32
-			Sleep(50);
+			Sleep(m_nDefaultSleep1);
 #else
-			usleep(50000);
+			usleep(m_nDefaultSleep1*1000);
 #endif
 		}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();

@@ -280,6 +280,9 @@ public:
 	void SetLastTime(time_t v = time(0)) {m_tLastTime = v;}
 	time_t GetLastTime(void) const {return m_tLastTime;}
 
+	void SetCallbackUserData(void * v) {m_pCallbackUserData = v;}
+	void * GetCallbackUserData(void) const {return m_pCallbackUserData;}
+
 	void SetRemote(const cgcRemote::pointer& v) {m_pRemote = v;}
 	const cgcRemote::pointer& GetRemote(void) const {return m_pRemote;}
 	unsigned long GetRemoteId(void) const {return m_pRemote.get()==NULL?0:m_pRemote->getRemoteId();}
@@ -344,6 +347,7 @@ private:
 #ifdef USES_FILE_LOG
 	FILE * m_flog;
 #endif
+	void * m_pCallbackUserData;
 };
 const CSotpRtpSource::pointer NullSotpRtpSource;
 

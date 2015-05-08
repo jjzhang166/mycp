@@ -65,6 +65,7 @@ CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, cgc::bi
 			pRtpSource = pRtpSourceTemp;
 		}
 		pRtpSource->SetRemote(pcgcRemote);
+		pRtpSource->SetCallbackUserData(pUserData);
 	}else
 	{
 		if (m_bServerMode && pCallback!=NULL)
@@ -102,7 +103,7 @@ bool CSotpRtpRoom::UnRegisterSource1(cgc::bigint nSrcId, cgc::bigint* pOutParam)
 	}
 	return false;
 }
-bool CSotpRtpRoom::UnRegisterSource2(cgc::bigint nSrcId, cgc::bigint nParam)
+bool CSotpRtpRoom::UnRegisterSource2(cgc::bigint nSrcId, cgc::bigint nParam, CSotpRtpCallback* pCallback, void* pUserData)
 {
 	if (this->m_bServerMode)
 	{
@@ -113,6 +114,8 @@ bool CSotpRtpRoom::UnRegisterSource2(cgc::bigint nSrcId, cgc::bigint nParam)
 		}
 		if (pRtpSrcSource->GetParam()!=nParam)
 			return false;
+		if (pCallback!=NULL)
+			pCallback->onUnRegisterSource(this->GetRoomId(), nSrcId, nParam, pUserData==NULL?pRtpSrcSource->GetCallbackUserData():pUserData);
 		return m_pSourceList.remove(nSrcId);
 	}
 	return false;
@@ -234,7 +237,7 @@ void CSotpRtpRoom::BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const
 			delete[] pSendBuffer;
 	}
 }
-void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond)
+void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond, CSotpRtpCallback* pCallback,void* pUserData)
 {
 	std::vector<cgc::bigint> pRemoveList;
 	{
@@ -245,6 +248,8 @@ void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond)
 			CSotpRtpSource::pointer pRtpSrcSource = pIter->second;
 			if (tNow-pRtpSrcSource->GetLastTime()>nExpireSecond)
 			{
+				if (pCallback!=NULL)
+					pCallback->onUnRegisterSource(this->GetRoomId(), pRtpSrcSource->GetSrcId(), pRtpSrcSource->GetParam(), pUserData==NULL?pRtpSrcSource->GetCallbackUserData():pUserData);
 				UnRegisterAllSink(pRtpSrcSource, pRtpSrcSource->GetRemote());
 				pRemoveList.push_back(pRtpSrcSource->GetSrcId());
 			}
@@ -275,6 +280,7 @@ void CSotpRtpRoom::CheckRegisterSinkLive(time_t tNow,short nExpireSecond,cgc::bi
 			{
 				if (pcgcRemote.get()!=NULL)
 				{
+					pRtpCommand.u.m_nDestId = cgc::htonll(pRtpSrcSource->GetParam());
 					size_t nSendSize = 0;
 					SotpCallTable2::toRtpCommand(pRtpCommand,pSendBuffer,nSendSize);
 					pcgcRemote->sendData(pSendBuffer,nSendSize);

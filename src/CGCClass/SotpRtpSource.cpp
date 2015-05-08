@@ -56,6 +56,8 @@ CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint
 #ifdef USES_FILE_LOG
 , m_flog(NULL)
 #endif
+, m_pCallbackUserData(NULL)
+
 {
 	//printf("**** CSotpRtpSource() srdid=%lld\n",m_nSrcId);
 	m_tLastTime = time(0);

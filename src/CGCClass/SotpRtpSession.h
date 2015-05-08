@@ -40,7 +40,7 @@ public:
 	void UnRegisterAllRoomSink(cgc::bigint nSrcId);	// for client
 	bool doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment, const cgcRemote::pointer& pcgcRemote);
 
-	void CheckRegisterSourceLive(short nExpireSecond);	// for server
+	void CheckRegisterSourceLive(short nExpireSecond, CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);	// for server
 	void CheckRegisterSinkLive(short nExpireSecond, cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
 
 	void GetRoomIdList(std::vector<cgc::bigint>& pOutRoomIdList) const;

@@ -143,6 +143,9 @@ protected:
 	CSotpRtpSession m_pRtpSession;
 	cgc::bigint m_nSrcId;
 	cgc::uint32 m_nRtpCbUserData;
+	cgc::uint32 m_nTranSpeedLimit;
+	cgc::uint32 m_nDefaultSleep1;	// 每8个包，等待时间，64KB，默认50ms
+	cgc::uint32 m_nDefaultSleep2;	// 每50个包，等待时间，64KB，默认500ms
 	cgcRemote::pointer m_pOwnerRemote;
 	virtual void doSetRtpSourceId(cgc::bigint nSrcId) {m_nSrcId = nSrcId;}
 	virtual cgc::bigint doGetRtpSourceId(void) const {return m_nSrcId;}

@@ -27,6 +27,7 @@
 
 #ifdef WIN32
 #include "windows.h"
+#pragma comment(lib, "Ws2_32.lib")
 std::string str_convert(const char * strSource, int sourceCodepage, int targetCodepage)
 {
 	int unicodeLen = MultiByteToWideChar(sourceCodepage, 0, strSource, -1, NULL, 0);

@@ -61,6 +61,7 @@ namespace cgc
 		, SOTP_CLIENT_CONFIG_SOTP_VERSION			= 10	// 20,21 default 20
 		, SOTP_CLIENT_CONFIG_CURRENT_INDEX					// for sid and ssl pwd,...
 		, SOTP_CLIENT_CONFIG_RTP_CB_USERDATA				// for OnRtpFrame
+		, SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT				// KB/S default 64KB/S
 	};
 
 	class DoSotpClientHandler

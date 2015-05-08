@@ -57,7 +57,7 @@ public:
 		m_port = port;
 	}
 	std::string address(void) const {
-		char buffer[64];
+		char buffer[32];
 		sprintf(buffer, "%s:%d", m_ip.c_str(), (int)m_port);
 		return buffer;
 	}

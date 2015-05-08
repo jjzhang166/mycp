@@ -120,15 +120,15 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 				return false;
 			if (this->m_bServerMode)
 			{
+				if (!pRtpRoom->UnRegisterSource2(pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId,pCallback,pUserData))
+					return false;
+			}else
+			{
 				cgc::bigint nOutParam = 0;
 				if (!pRtpRoom->UnRegisterSource1(pRtpCommand.m_nSrcId, &nOutParam))
 					return false;
 				if (bSendRtpCommand)
 					const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDestId = nOutParam;
-			}else
-			{
-				if (!pRtpRoom->UnRegisterSource2(pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId))
-					return false;
 			}
 			if (pRtpRoom->IsEmpty())
 				m_pRoomList.remove(pRtpCommand.m_nRoomId);
@@ -245,7 +245,7 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 	return true;
 }
 
-void CSotpRtpSession::CheckRegisterSourceLive(short nExpireSecond)
+void CSotpRtpSession::CheckRegisterSourceLive(short nExpireSecond, CSotpRtpCallback* pCallback,void* pUserData)
 {
 	std::vector<cgc::bigint> pRemoveList;
 	{
@@ -255,7 +255,7 @@ void CSotpRtpSession::CheckRegisterSourceLive(short nExpireSecond)
 		for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 		{
 			CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
-			pRtpRoom->CheckRegisterSourceLive(tNow, nExpireSecond);
+			pRtpRoom->CheckRegisterSourceLive(tNow, nExpireSecond, pCallback, pUserData);
 			if (pRtpRoom->IsEmpty())
 			{
 				pRemoveList.push_back(pRtpRoom->GetRoomId());
