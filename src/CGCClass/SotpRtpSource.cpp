@@ -212,18 +212,18 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 
 	const cgc::uint16 expectSeq = m_nLastPacketSeq + 1;
 	if (nSeq == expectSeq || m_nLastPacketSeq==-1 ||
-		(nSeq==1 && m_nLastPacketSeq>300 && m_nLastPacketSeq<65200))	// ?客户端重新进入
+		(nSeq>=1 && nSeq<=10 && m_nLastPacketSeq>300 && m_nLastPacketSeq<65200))	// ?客户端重新进入
 	{
 		m_nLastPacketSeq = nSeq;
 		return;
 	}
 
-	// 计算相距多少个SEQ
-	int intervalseqs = nSeq - m_nLastPacketSeq;
-	if (intervalseqs<0)
-		intervalseqs = (intervalseqs*-1)-1;
-	else if (intervalseqs>0)
-		intervalseqs--;
+	//// 计算相距多少个SEQ
+	//int intervalseqs = nSeq - m_nLastPacketSeq;
+	//if (intervalseqs<0)
+	//	intervalseqs = (intervalseqs*-1)-1;
+	//else if (intervalseqs>0)
+	//	intervalseqs--;
 
 	int n = 0;
 	if (nSeq>expectSeq && (nSeq-expectSeq) < 0x7F00)	// 正常大小SEQ，缺少前面SEQ
@@ -254,7 +254,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 			}
 		}
 	}
-	else if (expectSeq - nSeq> 0x7F00)	// seq 重新从头开始计算
+	else if (expectSeq>nSeq && (expectSeq - nSeq)> 0x7F00)	// seq 重新从头开始计算
 	//else if (expectSeq > nSeq && (intervalseqs > 200))
 	{
 		m_nLastPacketSeq = nSeq;
@@ -408,7 +408,7 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	if (ts>0 && m_nLastFrameTimestamp == 0)
 	{
 		// 不能删除，用于解决中间进房间出视频慢问题
-		m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp - 1;
+		m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp - 1;	// ??这行代码没用，但也没有影响；
 		m_nWaitForFrameSeq = (int)(unsigned short)(pFrame->m_nFirstSeq);
 	}
 

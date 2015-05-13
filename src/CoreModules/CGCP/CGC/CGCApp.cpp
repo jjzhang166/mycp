@@ -698,6 +698,7 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 #endif
 		portApp->setFuncHandle1((void*)fp1);
 		portApp->setFuncHandle2((void*)fp2);
+		portApp->setFuncHandle3((void*)fp3);
 	}
 
 	FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)portApp->getFuncHandle1();

@@ -66,17 +66,18 @@ int CHttpResponseImpl::sendResponse(void)
 		if (isInvalidate() || m_cgcParser.get() == 0) return -1;
 		if (m_bNotResponse)
 		{
-			if (m_session.get() != NULL)
-			{
-				CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
-				if (m_nHoldSecond > 0)
-					pSessionImpl->HoldResponse(this->shared_from_this(), m_nHoldSecond);
-				//else if (m_nHoldSecond == 0)
-				//{
-				//	m_nHoldSecond = -1;
-				//	pSessionImpl->removeResponse(getRemoteId());
-				//}
-			}
+			// ** setNotResponse()已经保存，不需要重复处理；
+			//if (m_session.get() != NULL)
+			//{
+			//	CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
+			//	if (m_nHoldSecond > 0)
+			//		pSessionImpl->HoldResponse(this->shared_from_this(), m_nHoldSecond);
+			//	//else if (m_nHoldSecond == 0)
+			//	//{
+			//	//	m_nHoldSecond = -1;
+			//	//	pSessionImpl->removeResponse(getRemoteId());
+			//	//}
+			//}
 			return 0;
 		}else if (m_nHoldSecond > 0)
 		{
@@ -172,7 +173,8 @@ unsigned long CHttpResponseImpl::setNotResponse(int nHoldSecond)
 				pSessionImpl->removeResponse(getRemoteId());
 			}else
 			{
-				//pSessionImpl->HoldResponse(this->shared_from_this(), m_nHoldSecond);
+				// ** 这里必须记下来，否则外面业务处理太快，会来不及；
+				pSessionImpl->HoldResponse(this->shared_from_this(), m_nHoldSecond);
 			}
 		}
 	}

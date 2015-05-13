@@ -305,9 +305,9 @@ void CSessionImpl::ProcHoldResponseTimeout(void)
 
 void CSessionImpl::HoldResponse(const cgcResponse::pointer& pResponse, int nHoldSecond)
 {
-	unsigned long nRemoteId = pResponse->getRemoteId();
+	const unsigned long nRemoteId = pResponse->getRemoteId();
 	CHoldResponseInfo::pointer pHoldResponse;
-	bool bRemote = (bool)(nHoldSecond<=0);
+	const bool bRemote = (bool)(nHoldSecond<=0);
 	if (m_pHoldResponseList.find(nRemoteId,pHoldResponse,bRemote))
 	{
 		if (!bRemote)
