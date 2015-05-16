@@ -38,7 +38,7 @@ private:
 
 	bool m_bForward;
 public:
-	CHttpResponseImpl(cgcRemote::pointer pcgcRemote, cgcParserHttp::pointer pcgcParser);
+	CHttpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserHttp::pointer& pcgcParser);
 	virtual ~CHttpResponseImpl(void);
 	
 	virtual int sendResponse(void);

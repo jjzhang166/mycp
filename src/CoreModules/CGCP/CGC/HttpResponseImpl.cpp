@@ -20,7 +20,7 @@
 #include <stdarg.h>
 #include "SessionMgr.h"
 
-CHttpResponseImpl::CHttpResponseImpl(cgcRemote::pointer pcgcRemote, cgcParserHttp::pointer pcgcParser)
+CHttpResponseImpl::CHttpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserHttp::pointer& pcgcParser)
 : m_cgcRemote(pcgcRemote)
 , m_cgcParser(pcgcParser)
 , m_bResponseSended(false)

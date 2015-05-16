@@ -96,12 +96,13 @@ bool CSessionImpl::OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,
 	CSessionModuleInfo::pointer pSessionModuleInfo = addModuleItem(pModuleItem,pcgcRemote);
 	if (pSessionModuleInfo.get() == NULL) return false;
 	if (pSessionModuleInfo->m_bOpenSessioned) return true;
-	void * hModule = pModuleItem->getModuleHandle();
-#ifdef WIN32
-	FPCGC_Session_Open fp = (FPCGC_Session_Open)GetProcAddress((HMODULE)hModule, "CGC_Session_Open");
-#else
-	FPCGC_Session_Open fp = (FPCGC_Session_Open)dlsym(hModule, "CGC_Session_Open");
-#endif
+	FPCGC_Session_Open fp = (FPCGC_Session_Open)pModuleItem->getFpSessionOpen();
+//	void * hModule = pModuleItem->getModuleHandle();
+//#ifdef WIN32
+//	FPCGC_Session_Open fp = (FPCGC_Session_Open)GetProcAddress((HMODULE)hModule, "CGC_Session_Open");
+//#else
+//	FPCGC_Session_Open fp = (FPCGC_Session_Open)dlsym(hModule, "CGC_Session_Open");
+//#endif
 	if (fp)
 	{
 		bool ret = false;
@@ -125,19 +126,20 @@ bool CSessionImpl::OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,
 	// default true
 	return true;
 }
-
+//#define USES_HTTP_REMOTE_CLOSE // ?
 void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode)
 {
 	//printf("**** OnRunCGC_Remote_Close remoteid=%d, ,size=%d\n",nRemoteId,m_pSessionModuleList.size());
-	bool bIsHttpIe6 = false;
-	if (getProtocol()&PROTOCOL_HTTP)
-	{
-		//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
-		// MSIE 6.
-		// MSIE 9.0
-		bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
-		//bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
-	}
+//#ifdef USES_HTTP_REMOTE_CLOSE
+//	bool bIsHttpIeAgent = false;
+//	if (getProtocol()&PROTOCOL_HTTP)
+//	{
+//		//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
+//		// MSIE 6.
+//		// MSIE 9.0
+//		bIsHttpIeAgent = m_sUserAgent.find("MSIE ") >= 0;
+//	}
+//#endif
 
 	BoostReadLock rdlock(m_pSessionModuleList.mutex());
 	CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
@@ -145,9 +147,13 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 	{
 		CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
 		OnRunCGC_Remote_Close(pSessionModuleInfo,nRemoteId,nErrorCode);
-		if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
-			nErrorCode == 2)) 		// End of file
-			continue;
+
+//#ifdef USES_HTTP_REMOTE_CLOSE
+//		if (bIsHttpIeAgent && (nErrorCode == 10054 || // 远程主机强迫关闭了一个现有的连接
+//			nErrorCode == 104 ||	// Connection reset by peer
+//			nErrorCode == 2)) 		// End of file
+//			continue;
+//#endif
 		if (pSessionModuleInfo->m_pRemote->getRemoteId() == nRemoteId)
 			pSessionModuleInfo->m_pRemote->invalidate();
 	}
@@ -172,12 +178,13 @@ void CSessionImpl::OnRunCGC_Remote_Change(const CSessionModuleInfo::pointer& pSe
 		pSessionModuleInfo->m_bOpenSessioned = false;
 		//printf("**** CGC_Session_Close %s\n",getId().c_str());
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
-		void * hModule = pModuleItem->getModuleHandle();
-#ifdef WIN32
-		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)GetProcAddress((HMODULE)hModule, "CGC_Remote_Change");
-#else
-		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)dlsym(hModule, "CGC_Remote_Change");
-#endif
+		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)pModuleItem->getFpRemoteChange();
+//		void * hModule = pModuleItem->getModuleHandle();
+//#ifdef WIN32
+//		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)GetProcAddress((HMODULE)hModule, "CGC_Remote_Change");
+//#else
+//		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)dlsym(hModule, "CGC_Remote_Change");
+//#endif
 		if (fp)
 		{
 			try
@@ -196,30 +203,36 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 	if (pSessionModuleInfo->m_pRemoteList.remove(nRemoteId))
 	{
 		// **该错误不能处理，否则IE6会有问题；
-		if (getProtocol()&PROTOCOL_HTTP)
-		{
-			//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
-			if ((nErrorCode == 104 ||		// Connection reset by peer
-				nErrorCode == 2) && 		// End of file
-				m_sUserAgent.find("MSIE ") >= 0)
-				return;
-
-			// MSIE 6.
-			// MSIE 9.0
-			//const bool bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
-			//if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
-			//	nErrorCode == 2)) 		// End of file
-			//	return;
-		}
+//		if (getProtocol()&PROTOCOL_HTTP)
+//		{
+//#ifdef USES_HTTP_REMOTE_CLOSE
+//			//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
+//			if ((nErrorCode == 10054 ||		// 远程主机强迫关闭了一个现有的连接
+//				nErrorCode == 104 ||		// Connection reset by peer
+//				nErrorCode == 2) && 		// End of file
+//				m_sUserAgent.find("MSIE ") >= 0)
+//				return;
+//
+//			// MSIE 6.
+//			// MSIE 9.0
+//			//const bool bIsHttpIeAgent = m_sUserAgent.find("MSIE ") >= 0;
+//			//if (bIsHttpIeAgent && (nErrorCode == 104 ||	// Connection reset by peer
+//			//	nErrorCode == 2)) 		// End of file
+//			//	return;
+//#else
+//			return;
+//#endif
+//		}
 		//printf("**** OnRunCGC_Remote_Close remove modulete_remoteid=%d\n",nRemoteId);
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
-		void * hModule = pModuleItem->getModuleHandle();
-		if (hModule == NULL) return;
-#ifdef WIN32
-		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)GetProcAddress((HMODULE)hModule, "CGC_Remote_Close");
-#else
-		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)dlsym(hModule, "CGC_Remote_Close");
-#endif
+		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)pModuleItem->getFpRemoteClose();
+//		void * hModule = pModuleItem->getModuleHandle();
+//		if (hModule == NULL) return;
+//#ifdef WIN32
+//		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)GetProcAddress((HMODULE)hModule, "CGC_Remote_Close");
+//#else
+//		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)dlsym(hModule, "CGC_Remote_Close");
+//#endif
 		if (fp)
 		{
 			try
@@ -255,12 +268,13 @@ void CSessionImpl::OnRunCGC_Session_Close(const CSessionModuleInfo::pointer& pSe
 		pSessionModuleInfo->m_bOpenSessioned = false;
 		//printf("**** CGC_Session_Close %s\n",getId().c_str());
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
-		void * hModule = pModuleItem->getModuleHandle();
-#ifdef WIN32
-		FPCGC_Session_Close fp = (FPCGC_Session_Close)GetProcAddress((HMODULE)hModule, "CGC_Session_Close");
-#else
-		FPCGC_Session_Close fp = (FPCGC_Session_Close)dlsym(hModule, "CGC_Session_Close");
-#endif
+		FPCGC_Session_Close fp = (FPCGC_Session_Close)pModuleItem->getFpSessionClose();
+//		void * hModule = pModuleItem->getModuleHandle();
+//#ifdef WIN32
+//		FPCGC_Session_Close fp = (FPCGC_Session_Close)GetProcAddress((HMODULE)hModule, "CGC_Session_Close");
+//#else
+//		FPCGC_Session_Close fp = (FPCGC_Session_Close)dlsym(hModule, "CGC_Session_Close");
+//#endif
 		if (fp)
 		{
 			try
@@ -355,38 +369,24 @@ void CSessionImpl::onRemoteClose(unsigned long remoteId,int nErrorCode)
 	m_pHoldResponseList.remove(remoteId);
 	if (m_pcgcRemote.get() != NULL && m_pcgcRemote->getRemoteId() == remoteId)
 	{
-		//if (!m_pcgcRemote->isInvalidate() && (getProtocol()&PROTOCOL_HTTP))
-		//{
-		//	cgcHttpResponse::pointer pResponse = cgcHttpResponse::pointer(new CHttpResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
-		//	pResponse->sendResponse(STATUS_CODE_200);
-		//}
-		if ((nErrorCode == 104 ||		// Connection reset by peer
-			nErrorCode == 2) && 		// End of file
-			(getProtocol()&PROTOCOL_HTTP)==PROTOCOL_HTTP &&	m_sUserAgent.find("MSIE ") >= 0)
-		{
-			// **
-		}else
-		{
-			m_pcgcRemote->invalidate();	// 清除connection
-		}
-
-		//bool bIsHttpIe6 = false;
-		//if (getProtocol()&PROTOCOL_HTTP)
-		//{
-		//	//printf("**** UserAgent: %s\n",m_sUserAgent.c_str());
-		//	// MSIE 6.
-		//	// MSIE 9.0
-		//	bIsHttpIe6 = m_sUserAgent.find("MSIE ") >= 0;
-		//	//bIsHttpIe6 = m_sUserAgent.find("MSIE 6.") >= 0;
-		//}
-		//if (bIsHttpIe6 && (nErrorCode == 104 ||	// Connection reset by peer
-		//	nErrorCode == 2)) 		// End of file
-		//{
-		//	// ***
-		//}else
-		//{
-		//	m_pcgcRemote->invalidate();	// 清除connection
-		//}
+		m_pcgcRemote->invalidate();	// 清除connection
+//#ifdef USES_HTTP_REMOTE_CLOSE
+//		if ((nErrorCode == 10054 ||		// 远程主机强迫关闭了一个现有的连接
+//			nErrorCode == 104 ||		// Connection reset by peer
+//			nErrorCode == 2) && 		// End of file
+//			(getProtocol()&PROTOCOL_HTTP)==PROTOCOL_HTTP &&	m_sUserAgent.find("MSIE ") >= 0)
+//		{
+//			// **
+//		}else
+//		{
+//			m_pcgcRemote->invalidate();	// 清除connection
+//		}
+//#else
+//		if ((getProtocol()&PROTOCOL_HTTP)!=PROTOCOL_HTTP)
+//		{
+//			m_pcgcRemote->invalidate();	// 清除connection
+//		}
+//#endif
 	}else if (m_pcgcRemote.get() != NULL && !m_pcgcRemote->isInvalidate())
 	{
 		bNotRemoteConnected = false;

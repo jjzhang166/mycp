@@ -52,6 +52,14 @@ bool CPPSotp2::doParse(const unsigned char * requestData, size_t size,const char
 	return m_cgcInvoke.parseBuffer(requestData,size,sEncoding);
 }
 
+void CPPSotp2::reset(void)
+{
+	m_cgcInvoke.Reset(true);
+	if (m_attach->isHasAttach())
+		m_attach = cgcAttachment::create();
+	m_pCallback = NULL;
+}
+
 /*
 tstring CPPSotp2::getRecvParameterValue(const tstring & sParamName, const tstring & sDefault) const
 {

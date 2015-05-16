@@ -73,6 +73,7 @@ CGCApp::CGCApp(const tstring & sPath)
 , m_fpGetLogService(NULL), m_fpResetLogService(NULL), m_fpParserSotpService(NULL), m_fpParserHttpService(NULL)
 , /*m_fpHttpStruct(NULL), */m_fpHttpServer(NULL), m_sHttpServerName("")
 , m_pRtpSession(true)
+, m_tLastNewParserSotpTime(0), m_tLastNewParserHttpTime(0)
 
 {
 //#ifdef WIN32
@@ -154,6 +155,7 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 		try
 		{
 
+			pCGCApp->ProcCheckParserPool();
 			pCGCApp->ProcNotKeepAliveRmote();
 			if ((++theIndex%20) != 0) continue;	// 10*2=20秒处理一次
 
@@ -311,7 +313,7 @@ void CGCApp::AppStop(void)
 	m_logModuleImpl.log(LOG_INFO, _T("Stop %s Service......\n"), m_parseDefault.getCgcpName().c_str());
 	m_bStopedApp = true;
 	m_parsePortApps.clear();
-	
+	m_pSotpParserPool.clear();
 	m_pRtpSession.ClearAll();
 	m_mgrSession.invalidates(true);
 	FreeLibModules(MODULE_COMM);
@@ -899,11 +901,12 @@ cgcServiceInterface::pointer CGCApp::getService(const tstring & serviceName, con
 		if (!InitLibModule(application, moduleItem)) return cgcNullServiceInterface;
 	}
 
-#ifdef WIN32
-	FPCGC_GetService fp = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-#else
-	FPCGC_GetService fp = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-#endif
+	FPCGC_GetService fp = (FPCGC_GetService)moduleItem->getFpGetService();
+//#ifdef WIN32
+//	FPCGC_GetService fp = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
+//#else
+//	FPCGC_GetService fp = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
+//#endif
 
 	cgcServiceInterface::pointer resultService;
 	if (fp != NULL)
@@ -1180,10 +1183,45 @@ tstring CGCApp::SetNewMySessionId(cgcParserHttp::pointer& phttpParser,const tstr
 	return phttpParser->getCookieMySessionId();
 }
 
+void CGCApp::GetHttpParserPool(cgcParserHttp::pointer& phttpParser)
+{
+	if (m_pHttpParserPool.front(phttpParser))
+	{
+		phttpParser->reset();
+		return;
+	}
+	m_tLastNewParserHttpTime = time(0);
+	cgcServiceInterface::pointer parserService;
+	m_fpParserHttpService(parserService, cgcNullValueInfo);
+	if (parserService.get() != NULL)
+	{
+		phttpParser = CGC_PARSERHTTPSERVICE_DEF(parserService);
+	}
+}
+void CGCApp::SetHttpParserPool(const cgcParserHttp::pointer& phttpParser)
+{
+	// *** 200 max pool size
+	if (m_pHttpParserPool.size()<200)
+	{
+		m_pHttpParserPool.add(phttpParser);
+	}
+}
+void CGCApp::CheckHttpParserPool(void)
+{
+	// *** 20 min pool size
+	if (m_pHttpParserPool.size()>20 && (time(0)-m_tLastNewParserHttpTime)>5)
+	{
+		cgcParserHttp::pointer phttpParser;
+		m_pHttpParserPool.front(phttpParser);
+	}
+}
+
+
 HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote)
 {
 	bool findMultiPartEnd = false;
 	cgcParserHttp::pointer phttpParser;
+	bool bCanSetParserToPool = false;
 
 	cgcMultiPart::pointer currentMultiPart;
 	if (m_mapMultiParts.find(pcgcRemote->getRemoteId(), currentMultiPart))
@@ -1192,14 +1230,21 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	}
 	if (phttpParser.get() == NULL)
 	{
-		cgcServiceInterface::pointer parserService;
-		m_fpParserHttpService(parserService, cgcNullValueInfo);
-		if (parserService.get() == NULL)
+		GetHttpParserPool(phttpParser);
+		bCanSetParserToPool = true;
+		if (phttpParser.get() == NULL)
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("ParserHttpService GetParser error! %s\n"), recvData);
 			return STATUS_CODE_500;
 		}
-		phttpParser = CGC_PARSERHTTPSERVICE_DEF(parserService);
+		//cgcServiceInterface::pointer parserService;
+		//m_fpParserHttpService(parserService, cgcNullValueInfo);
+		//if (parserService.get() == NULL)
+		//{
+		//	m_logModuleImpl.log(LOG_ERROR, _T("ParserHttpService GetParser error! %s\n"), recvData);
+		//	return STATUS_CODE_500;
+		//}
+		//phttpParser = CGC_PARSERHTTPSERVICE_DEF(parserService);
 	}
 	cgcHttpRequest::pointer requestImpl(new CHttpRequestImpl(pcgcRemote, phttpParser));
 	cgcHttpResponse::pointer responseImpl(new CHttpResponseImpl(pcgcRemote, phttpParser));
@@ -1267,103 +1312,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 		if (phttpParser->getStatusCode()==STATUS_CODE_200)
 			m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),phttpParser->getCookieMySessionId()); 
 
-		/*
-		// MYSESSIONID
-		if (phttpParser->isEmptyCookieMySessionId())
-		{
-			// 空SESSIONID
-			tstring sid = SetNewMySessionId(phttpParser);
-			m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sid); 
-		}else
-		{
-			if (pHttpSessionImpl==NULL ||										// *有可能TCP已经断开，但找到现存旧SESSION，更新新SESSIONID
-				sessionImpl->getId() != phttpParser->getCookieMySessionId())	// 前面remoteid错误
-			{
-				bool bSidError = sessionImpl.get() != NULL && sessionImpl->getId() != phttpParser->getCookieMySessionId();
-				if (bSidError)
-				{
-					printf("**** sessionImpl->getId() != phttpParser->getCookieMySessionId()\n");
-				}
-				sessionImpl = m_mgrSession.GetSessionImpl(phttpParser->getCookieMySessionId());
-				pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
-				if (pHttpSessionImpl==NULL)
-				{
-					// SESSIONID已经过期，重新分配SESSIONID
-					printf("**** Can not find Session '%s'\n", phttpParser->getCookieMySessionId().c_str());
-					tstring sid = SetNewMySessionId(phttpParser);
-					m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sid); 
-				//}else if (pHttpSessionImpl->isRemoteClosed())
-				//{
-				//	printf("**** Old Session Closed '%s'\n", phttpParser->getCookieMySessionId().c_str());
-				//	SetNewMySessionId(phttpParser);
-				//	pHttpSessionImpl = NULL;
-				//	sessionImpl.reset();
-				}else
-				{
-					if (bSidError)
-					{
-						phttpParser->setCookieMySessionId(sessionImpl->getId());
-					}
-					m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),sessionImpl->getId()); 
-				}
-			}
-
-			//if (pHttpSessionImpl!=NULL)
-			//{
-			//	// 检查MYSESSIONID
-			//	const tstring sUserAgent = phttpParser->getHeader(Http_UserAgent,"");
-			//	if (pHttpSessionImpl->GetUserAgent() != sUserAgent)
-			//	{
-			//		// *可能浏览器数据被窜改
-			//		if (pHttpSessionImpl->GetUserAgent().empty())
-			//		{
-			//			// 会话REMOTE已经无效，重设User-Agent
-			//			pHttpSessionImpl->SetUserAgent(sUserAgent);
-			//		}else
-			//		{
-			//			// *分配一个新的MYSESSIONID
-			//			printf("**** error UserAgent sid:'%s'='%s'\n", sessionImpl->getId().c_str(),phttpParser->getCookieMySessionId().c_str());
-			//			printf("**** 1='%s'\n", pHttpSessionImpl->GetUserAgent().c_str());
-			//			printf("**** 2='%s'\n", sUserAgent.c_str());
-			//			SetNewMySessionId(phttpParser);
-			//			m_mgrSession.ChangeSessionId(sessionImpl->getId(),pcgcRemote,phttpParser);
-			//		}
-			//	}
-			//}
-		}
-		*/
 		// ****解决IE多窗口COOKIE丢失问题
 		phttpParser->setHeader("P3P","CP=\"CAO PSA OUR\"");
-
-		//size_t nContentLength = dataSize;
-		//if (pHttpSessionImpl)
-		//{
-		//	if (pHttpSessionImpl->isHasPrevData())
-		//		nContentLength = pHttpSessionImpl->getPrevDataLength();
-		//	pHttpSessionImpl->clearPrevData();
-		//	// Change URL, change session
-		//	//bool changeSession = false;
-		//	//tstring sAppModuleName;
-		//	//if (phttpParser->isServletRequest())
-		//	//{
-		//	//	sAppModuleName = phttpParser->getModuleName();
-		//	//	CServletInfo::pointer servletInfo = m_parseWeb.setServletInfo(sAppModuleName);
-		//	//	if (servletInfo.get() != NULL)
-		//	//	{
-		//	//		sAppModuleName = servletInfo->getServletApp();
-		//	//	}
-		//	//}else
-		//	//{
-		//	//	sAppModuleName = m_sHttpServerName;
-		//	//}
-		//	//if (!pHttpSessionImpl->existModuleItem(sAppModuleName))
-		//	//{
-		//	//	// 不存在，置空，下面会打开MODUTE SESSION
-		//	//	printf("**** Not existModuleItem %s\n", sAppModuleName.c_str());
-		//	//	sessionImpl.reset();
-		//	//	pHttpSessionImpl = NULL;
-		//	//}
-		//}
 
 		tstring sAppModuleName;
 		if (phttpParser->isServletRequest())
@@ -1386,7 +1336,15 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			{
 				if (sessionImpl.get() == NULL)
 				{
-					sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,phttpParser);
+					cgcParserHttp::pointer phttpLastParser;
+					GetHttpParserPool(phttpLastParser);
+					if (phttpLastParser.get()==NULL)
+					{
+						phttpLastParser = phttpParser;
+						bCanSetParserToPool = false;
+					}
+					sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,phttpLastParser);
+					//sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,phttpParser);
 					pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
 				}
 				if (pHttpSessionImpl->OnRunCGC_Session_Open(moduleItem,pcgcRemote))
@@ -1401,63 +1359,67 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			}
 		}
 
-		if (sessionImpl.get() == NULL)
+		if (sessionImpl.get() != NULL)
 		{
-			// 这段代码没用了
-//			unsigned long remoteId = pcgcRemote->getRemoteId();
-//			bool bOpenSession = false;
-//			if (m_mapRemoteOpenSes.find(remoteId, bOpenSession))
-//			{
-//				// Wait for open the session
-//#ifdef WIN32
-//				Sleep(100);
-//#else
-//				usleep(100000);
-//#endif
-//			}else
-//			{
-//				m_mapRemoteOpenSes.insert(remoteId, true);
-//			}
-//			sessionImpl = m_mgrSession.GetSessionImplByRemote(remoteId);
-//
-//			// 客户端没有OPEN SESSION, sSessionId=APPNAME.
-//			// 临时打开SESSION
-//			if (sessionImpl.get() == NULL)
-//			{
-//				tstring sAppModuleName;
-//				if (phttpParser->isServletRequest())
-//					sAppModuleName = phttpParser->getModuleName();
-//				else
-//					sAppModuleName = m_sHttpServerName;
-//				ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(sAppModuleName);
-//				if (moduleItem.get() != 0)
-//				{
-//					//cgcServiceInterface::pointer parserService;
-//					//m_fpParserHttpService(parserService, cgcNullValueInfo);
-//					//if (parserService.get() == NULL) return STATUS_CODE_500;
-//					//sessionImpl = m_mgrSession.SetSessionImpl(pcgcRemote, pcgcParserLastSession);
-//					sessionImpl = m_mgrSession.SetSessionImpl(pcgcRemote, phttpParser);
-//					pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
-//					// 调用模块 CGC_Session_Open
-//					if (pHttpSessionImpl->OnRunCGC_Session_Open(moduleItem))
-//					{
-//						m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\'.%s opened\n"), sessionImpl->getId().c_str(),moduleItem->getName().c_str());
-//					}else
-//					{
-//						// 删除 sessionimpl
-//						//m_mgrSession.RemoveSessionImpl(sessionImpl);
-//						statusCode = STATUS_CODE_401;
-//						sessionImpl.reset();
-//						pHttpSessionImpl = NULL;
-//					}
-//				}
-//			}
-//			m_mapRemoteOpenSes.remove(remoteId);
-		}else
-		{
-			// Record cgcRemote
 			pHttpSessionImpl->setDataResponseImpl(sAppModuleName,pcgcRemote);
 		}
+//		if (sessionImpl.get() == NULL)
+//		{
+//			// 这段代码没用了
+////			unsigned long remoteId = pcgcRemote->getRemoteId();
+////			bool bOpenSession = false;
+////			if (m_mapRemoteOpenSes.find(remoteId, bOpenSession))
+////			{
+////				// Wait for open the session
+////#ifdef WIN32
+////				Sleep(100);
+////#else
+////				usleep(100000);
+////#endif
+////			}else
+////			{
+////				m_mapRemoteOpenSes.insert(remoteId, true);
+////			}
+////			sessionImpl = m_mgrSession.GetSessionImplByRemote(remoteId);
+////
+////			// 客户端没有OPEN SESSION, sSessionId=APPNAME.
+////			// 临时打开SESSION
+////			if (sessionImpl.get() == NULL)
+////			{
+////				tstring sAppModuleName;
+////				if (phttpParser->isServletRequest())
+////					sAppModuleName = phttpParser->getModuleName();
+////				else
+////					sAppModuleName = m_sHttpServerName;
+////				ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(sAppModuleName);
+////				if (moduleItem.get() != 0)
+////				{
+////					//cgcServiceInterface::pointer parserService;
+////					//m_fpParserHttpService(parserService, cgcNullValueInfo);
+////					//if (parserService.get() == NULL) return STATUS_CODE_500;
+////					//sessionImpl = m_mgrSession.SetSessionImpl(pcgcRemote, pcgcParserLastSession);
+////					sessionImpl = m_mgrSession.SetSessionImpl(pcgcRemote, phttpParser);
+////					pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
+////					// 调用模块 CGC_Session_Open
+////					if (pHttpSessionImpl->OnRunCGC_Session_Open(moduleItem))
+////					{
+////						m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\'.%s opened\n"), sessionImpl->getId().c_str(),moduleItem->getName().c_str());
+////					}else
+////					{
+////						// 删除 sessionimpl
+////						//m_mgrSession.RemoveSessionImpl(sessionImpl);
+////						statusCode = STATUS_CODE_401;
+////						sessionImpl.reset();
+////						pHttpSessionImpl = NULL;
+////					}
+////				}
+////			}
+////			m_mapRemoteOpenSes.remove(remoteId);
+//		}else
+//		{
+//			// Record cgcRemote
+//			pHttpSessionImpl->setDataResponseImpl(sAppModuleName,pcgcRemote);
+//		}
 
 		try
 		{
@@ -1573,30 +1535,71 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	if (!requestImpl->isKeepAlive())
 	{
 		m_pNotKeepAliveRemoteList.add(CNotKeepAliveRemote::create(pcgcRemote));
-//#ifdef WIN32
-//		Sleep(50);
-//#else
-//		usleep(50000);
-//#endif
-//		//  断开客户端连接，避免继续上传文件
-//		//printf("******* Connection close:\n");
-//		//onRemoteClose(pcgcRemote->getRemoteId(),0);
-//		pcgcRemote->invalidate(true);
 	}
+	
+	if (bCanSetParserToPool)
+		SetHttpParserPool(phttpParser);
 	return statusCode;
 }
 
-int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const cgcRemote::pointer& pcgcRemote)
+
+void CGCApp::GetSotpParserPool(cgcParserSotp::pointer& pcgcParser)
 {
+	if (m_pSotpParserPool.front(pcgcParser))
+	{
+		pcgcParser->reset();
+		return;
+	}
+	m_tLastNewParserSotpTime = time(0);
 	cgcServiceInterface::pointer parserService;
 	m_fpParserSotpService(parserService, cgcNullValueInfo);
-	if (parserService.get() == NULL)
+	if (parserService.get() != NULL)
+		pcgcParser = CGC_PARSERSOTPSERVICE_DEF(parserService);
+}
+void CGCApp::SetSotpParserPool(const cgcParserSotp::pointer& pcgcParser)
+{
+	// *** 200 max pool size
+	if (m_pSotpParserPool.size()<200)
+	{
+		m_pSotpParserPool.add(pcgcParser);
+	}
+}
+void CGCApp::CheckSotpParserPool(void)
+{
+	// *** 20 min pool size
+	//printf("** m_pSotpParserPool.size()=%d\n",m_pSotpParserPool.size());
+	if (m_pSotpParserPool.size()>20 && (time(0)-m_tLastNewParserSotpTime)>5)
+	{
+		cgcParserSotp::pointer pcgcParser;
+		m_pSotpParserPool.front(pcgcParser);
+	}
+}
+void CGCApp::ProcCheckParserPool(void)
+{
+	static unsigned int theIndex = 0;
+	theIndex++;
+	if ((theIndex%3)==2)
+	{
+		CheckSotpParserPool();
+		CheckHttpParserPool();
+	}
+}
+
+
+int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const cgcRemote::pointer& pcgcRemote)
+{
+	cgcParserSotp::pointer pcgcParser;
+	GetSotpParserPool(pcgcParser);
+	if (pcgcParser.get() == NULL)
+	//cgcServiceInterface::pointer parserService;
+	//m_fpParserSotpService(parserService, cgcNullValueInfo);
+	//if (parserService.get() == NULL)
 	{
 		m_logModuleImpl.log(LOG_ERROR, _T("ParserSotpService GetParser error! %s\n"), recvData);
 		return -1;
 	}
 
-	cgcParserSotp::pointer pcgcParser = CGC_PARSERSOTPSERVICE_DEF(parserService);
+	//cgcParserSotp::pointer pcgcParser = CGC_PARSERSOTPSERVICE_DEF(parserService);
 	pcgcParser->setParseCallback(this);
 	const bool parseResult = pcgcParser->doParse(recvData, dataSize);
 	if (pcgcParser->getProtoType()==SOTP_PROTO_TYPE_RTP)
@@ -1613,6 +1616,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 			////printf("**** data-head : roomid=%lld,srcid=%lld,size=%d\n",pRtpDataHead.m_nRoomId,pRtpDataHead.m_nSrcId,SOTP_RTP_DATA_HEAD_SIZE);
 			m_pRtpSession.doRtpData(pcgcParser->getRtpDataHead(),pcgcParser->getRecvAttachment(),pcgcRemote);
 		}
+		SetSotpParserPool(pcgcParser);
 		return 1;
 	}
 
@@ -1655,6 +1659,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 			{
 				if (pSessionImpl)
 					pSessionImpl->ProcessAckSeq(seq);
+				SetSotpParserPool(pcgcParser);
 				return 1;
 			}
 			if (pcgcParser->isNeedAck())
@@ -1673,6 +1678,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				if (pSessionImpl->ProcessDuplationSeq(seq))
 				{
 					//printf("seq=%d,duplation \n", seq);
+					SetSotpParserPool(pcgcParser);
 					return 1;
 				}
 			}
@@ -1736,6 +1742,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		}
 	}
 
+	SetSotpParserPool(pcgcParser);
 	return parseResult ? 0 : -1;
 }
 
@@ -1778,14 +1785,16 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 			retCode = -105;
 		}else
 		{
-			cgcServiceInterface::pointer parserService;
-			m_fpParserSotpService(parserService, cgcNullValueInfo);
-			if (parserService.get() == NULL) return -1;
-
-			cgcParserSotp::pointer pcgcParserLastSession = CGC_PARSERSOTPSERVICE_DEF(parserService);
+			cgcParserSotp::pointer pcgcParserLastSession;
+			GetSotpParserPool(pcgcParserLastSession);
+			if (pcgcParserLastSession.get() == NULL) return -1;
+			//cgcServiceInterface::pointer parserService;
+			//m_fpParserSotpService(parserService, cgcNullValueInfo);
+			//if (parserService.get() == NULL) return -1;
+			//cgcParserSotp::pointer pcgcParserLastSession = CGC_PARSERSOTPSERVICE_DEF(parserService);
 			if (NULL == pRemoteSessionImpl)
 			{
-				remoteSessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote, pcgcParserLastSession);
+				remoteSessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,pcgcParserLastSession);
 				pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
 			}
 
@@ -2032,11 +2041,14 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 				ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(sAppModuleName);
 				if (moduleItem.get() != 0)
 				{
-					cgcServiceInterface::pointer parserService;
-					m_fpParserSotpService(parserService, cgcNullValueInfo);
-					if (parserService.get() == NULL) return -1;
+					cgcParserSotp::pointer pcgcParserLastSession;
+					GetSotpParserPool(pcgcParserLastSession);
+					if (pcgcParserLastSession.get() == NULL) return -1;
 
-					cgcParserSotp::pointer pcgcParserLastSession = CGC_PARSERSOTPSERVICE_DEF(parserService);
+					//cgcServiceInterface::pointer parserService;
+					//m_fpParserSotpService(parserService, cgcNullValueInfo);
+					//if (parserService.get() == NULL) return -1;
+					//cgcParserSotp::pointer pcgcParserLastSession = CGC_PARSERSOTPSERVICE_DEF(parserService);
 					remoteSessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote, pcgcParserLastSession);
 					pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
 
@@ -2375,11 +2387,10 @@ void CGCApp::OpenLibrarys(void)
 		// FPCGC_SetServiceManagerHandler
 		//if (!pModuleImpl->getModuleItem()->isServiceModule())
 		{
-			FPCGC_SetServiceManagerHandler fp = 0;
 #ifdef WIN32
-			fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
+			FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
 #else
-			fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
+			FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
 #endif
 			if (fp)
 				fp(shared_from_this());
@@ -2536,11 +2547,10 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 		}
 
 		// CGC_Module_Init
-		FPCGC_Module_Init farProc_Init = 0;
 #ifdef WIN32
-		farProc_Init = (FPCGC_Module_Init)GetProcAddress((HMODULE)hModule, "CGC_Module_Init");
+		FPCGC_Module_Init farProc_Init = (FPCGC_Module_Init)GetProcAddress((HMODULE)hModule, "CGC_Module_Init");
 #else
-		farProc_Init = (FPCGC_Module_Init)dlsym(hModule, "CGC_Module_Init");
+		FPCGC_Module_Init farProc_Init = (FPCGC_Module_Init)dlsym(hModule, "CGC_Module_Init");
 #endif
 		if (farProc_Init)
 		{
@@ -2548,16 +2558,17 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			try
 			{
 				ret = farProc_Init();
-				if (!ret && moduleImpl->getModuleType()==cgc::MODULE_APP)
+				static bool theCanRetry = true;
+				if (!ret && moduleImpl->getModuleType()==cgc::MODULE_APP && theCanRetry)
 				{
+					theCanRetry = false;
 					// CGC_Module_Free
-					FPCGC_Module_Free farProc_Free = 0;
 #ifdef WIN32
-					farProc_Free = (FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
+					FPCGC_Module_Free farProc_Free = (FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
 #else
-					farProc_Free = (FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
+					FPCGC_Module_Free farProc_Free = (FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
 #endif
-					const int nMaxTryCount = m_parseDefault.getRetryCount()>100?100:m_parseDefault.getRetryCount();
+					const int nMaxTryCount = m_parseDefault.getRetryCount()>10?10:m_parseDefault.getRetryCount();
 					for (int i=0;i<nMaxTryCount;i++)
 					{
 						m_logModuleImpl.log(LOG_INFO, _T("CGC_Module_Init '%s' retry %d...\n"), moduleItem->getName().c_str(),i+1);
@@ -2591,18 +2602,28 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 		}
 	}
 
+#ifdef WIN32
+	FPCGC_GetService fpGetService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
+	FPCGC_ResetService fpResetService = (FPCGC_ResetService)GetProcAddress((HMODULE)hModule, "CGC_ResetService");
+#else
+	FPCGC_GetService fpGetService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
+	FPCGC_ResetService fpResetService = (FPCGC_ResetService)dlsym(hModule, "CGC_ResetService");
+#endif
+	moduleItem->setFpGetService((void*)fpGetService);
+	moduleItem->setFpResetService((void*)fpResetService);
+
 	switch (moduleItem->getType())
 	{
 	case MODULE_LOG:
 		{
 			if (m_fpGetLogService == NULL)
 			{
-#ifdef WIN32
-				m_fpGetLogService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-#else
-				m_fpGetLogService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-#endif
-
+				m_fpGetLogService = (FPCGC_GetService)moduleItem->getFpGetService();
+//#ifdef WIN32
+//				m_fpGetLogService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
+//#else
+//				m_fpGetLogService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
+//#endif
 				if (m_fpGetLogService != NULL)
 				{
 					// LogService owner
@@ -2619,11 +2640,12 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 
 			if (m_fpResetLogService == NULL)
 			{
-#ifdef WIN32
-				m_fpResetLogService = (FPCGC_ResetService)GetProcAddress((HMODULE)hModule, "CGC_ResetService");
-#else
-				m_fpResetLogService = (FPCGC_ResetService)dlsym(hModule, "CGC_ResetService");
-#endif
+				m_fpResetLogService = (FPCGC_ResetService)moduleItem->getFpResetService();
+//#ifdef WIN32
+//				m_fpResetLogService = (FPCGC_ResetService)GetProcAddress((HMODULE)hModule, "CGC_ResetService");
+//#else
+//				m_fpResetLogService = (FPCGC_ResetService)dlsym(hModule, "CGC_ResetService");
+//#endif
 			}
 		}break;
 	case MODULE_PARSER:
@@ -2633,22 +2655,24 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 				// HTTP
 				if (m_fpParserHttpService == NULL)
 				{
-#ifdef WIN32
-					m_fpParserHttpService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-#else
-					m_fpParserHttpService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-#endif
+					m_fpParserHttpService = (FPCGC_GetService)moduleItem->getFpGetService();
+//#ifdef WIN32
+//					m_fpParserHttpService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
+//#else
+//					m_fpParserHttpService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
+//#endif
 				}
 			}else if (moduleItem->getProtocol() == PROTOCOL_SOTP)
 			{
 				// SOTP
 				if (m_fpParserSotpService == NULL)
 				{
-#ifdef WIN32
-					m_fpParserSotpService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-#else
-					m_fpParserSotpService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-#endif
+					m_fpParserSotpService = (FPCGC_GetService)moduleItem->getFpGetService();
+//#ifdef WIN32
+//					m_fpParserSotpService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
+//#else
+//					m_fpParserSotpService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
+//#endif
 				}
 			}else
 			{
@@ -2700,6 +2724,24 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 #endif
 				}
 			}
+		}break;
+	case MODULE_APP:
+		{
+#ifdef WIN32
+			FPCGC_Session_Open fpSessionOpen = (FPCGC_Session_Open)GetProcAddress((HMODULE)hModule, "CGC_Session_Open");
+			FPCGC_Session_Close fpSessionClose = (FPCGC_Session_Close)GetProcAddress((HMODULE)hModule, "CGC_Session_Close");
+			FPCGC_Remote_Change fpRemoteChange = (FPCGC_Remote_Change)GetProcAddress((HMODULE)hModule, "CGC_Remote_Change");
+			FPCGC_Remote_Close fpRemoteClose = (FPCGC_Remote_Close)GetProcAddress((HMODULE)hModule, "CGC_Remote_Close");
+#else
+			FPCGC_Session_Open fpSessionOpen = (FPCGC_Session_Open)dlsym(hModule, "CGC_Session_Open");
+			FPCGC_Session_Close fpSessionClose = (FPCGC_Session_Close)dlsym(hModule, "CGC_Session_Close");
+			FPCGC_Remote_Change fpRemoteChange = (FPCGC_Remote_Change)dlsym(hModule, "CGC_Remote_Change");
+			FPCGC_Remote_Close fpRemoteClose = (FPCGC_Remote_Close)dlsym(hModule, "CGC_Remote_Close");
+#endif
+			moduleItem->setFpSessionOpen((void*)fpSessionOpen);
+			moduleItem->setFpSessionClose((void*)fpSessionClose);
+			moduleItem->setFpRemoteChange((void*)fpRemoteChange);
+			moduleItem->setFpRemoteClose((void*)fpRemoteClose);
 		}break;
 	default:
 		break;

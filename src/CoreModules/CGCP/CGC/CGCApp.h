@@ -126,6 +126,7 @@ public:
 	void ProcNotKeepAliveRmote(void);
 	bool ProcLastAccessedTime(void);
 	bool ProcDataResend(void) {return this->m_mgrSession.ProcDataResend();}
+	void ProcCheckParserPool(void);
 
 	void AppInit(bool bNTService = true);
 	void AppStart(void);
@@ -184,9 +185,15 @@ private:
 	virtual cgcAttributes::pointer getAppAttributes(const tstring & appName) const;
 
 	tstring SetNewMySessionId(cgcParserHttp::pointer& phttpParser,const tstring& sSessionId="");
+	void GetHttpParserPool(cgcParserHttp::pointer& phttpParser);
+	void SetHttpParserPool(const cgcParserHttp::pointer& phttpParser);
+	void CheckHttpParserPool(void);
 	HTTP_STATUSCODE ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote);
 	HTTP_STATUSCODE ProcHttpAppProto(const cgcHttpRequest::pointer& pRequestImpl,const cgcHttpResponse::pointer& pResponseImpl,const cgcParserHttp::pointer& pcgcParser);
 	HTTP_STATUSCODE ProcHttpLibMethod(const ModuleItem::pointer& moduleItem,const tstring& sMethodName,const cgcHttpRequest::pointer& pRequest,const cgcHttpResponse::pointer& pResponse);
+	void GetSotpParserPool(cgcParserSotp::pointer& pcgcParser);
+	void SetSotpParserPool(const cgcParserSotp::pointer& pcgcParser);
+	void CheckSotpParserPool(void);
 	int ProcCgcData(const unsigned char * recvData, size_t dataSize, const cgcRemote::pointer& pcgcRemote);
 	// pRemoteSessionImpl 可以为空；
 	int ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcParserSotp::pointer& pcgcParser, const cgcRemote::pointer& pcgcRemote, cgcSession::pointer& pRemoteSessionImpl);
@@ -248,6 +255,10 @@ private:
 	CLockMap<void*, cgcApplication::pointer> m_mapOpenModules;			//
 	//CLockMap<tstring,CMySessionInfo::pointer> m_pMySessionInfoList;		// mysessionid-> (后期考虑保存到硬盘)
 	CLockList<CNotKeepAliveRemote::pointer> m_pNotKeepAliveRemoteList;
+	CLockList<cgcParserSotp::pointer> m_pSotpParserPool;
+	time_t m_tLastNewParserSotpTime;
+	CLockList<cgcParserHttp::pointer> m_pHttpParserPool;
+	time_t m_tLastNewParserHttpTime;
 };
 
 #endif // _CGCApp_HEAD_VER_1_0_0_0__INCLUDED_

@@ -34,6 +34,7 @@ class cgcParserSotp
 public:
 	typedef boost::shared_ptr<cgcParserSotp> pointer;
 
+	virtual void reset(void) = 0;
 	// protocol
 	virtual SOTP_PROTO_VERSION getSotpVersion(void) const = 0;
 	virtual bool isSessionProto(void) const = 0;

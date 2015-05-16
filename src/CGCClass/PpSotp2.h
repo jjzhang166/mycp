@@ -66,6 +66,7 @@ public:
 	virtual void setParseCallback(cgcParserCallback* pCallback) {m_pCallback = pCallback;}
 	virtual bool doParse(const unsigned char * requestData, size_t size,const char* sEncoding="");
 
+	virtual void reset(void);
 	virtual SOTP_PROTO_VERSION getSotpVersion(void) const {return m_cgcInvoke.getSotpVersion();}
 	virtual bool isSessionProto(void) const {return m_cgcInvoke.isSessionProto();}
 	virtual bool isAppProto(void) const {return m_cgcInvoke.isAppProto();}

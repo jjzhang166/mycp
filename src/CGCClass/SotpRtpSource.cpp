@@ -439,65 +439,69 @@ inline bool IsWholeFrame(const CSotpRtpFrame::pointer& frame)
 void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData)
 {
 	cgc::uint16 nCount = 0;
-	const cgc::uint32 tNow = timeGetTime();
-	BoostWriteLock wrlock(m_pReceiveFrames.mutex());
-	CLockMap<cgc::uint32,CSotpRtpFrame::pointer>::iterator pIter = m_pReceiveFrames.begin();
-	for (; pIter!=m_pReceiveFrames.end(); pIter++)
+	while (!m_pReceiveFrames.empty())
 	{
-		const CSotpRtpFrame::pointer pFrame = pIter->second;
-		if (pFrame->m_pRtpHead.m_nTimestamp==0 && pFrame->m_pRtpHead.m_nSeq==0 && IsWholeFrame(pFrame))
+		const cgc::uint32 tNow = timeGetTime();
+		BoostWriteLock wrlock(m_pReceiveFrames.mutex());
+		CLockMap<cgc::uint32,CSotpRtpFrame::pointer>::iterator pIter = m_pReceiveFrames.begin();
+		for (; pIter!=m_pReceiveFrames.end(); pIter++)
 		{
-			// OK
-			m_pReceiveFrames.erase(pIter);
-			//callback the frame.
-			wrlock.unlock();	// **
-			if(pCallback!=0)
-				pCallback(this->GetSrcId(), pFrame, 0, nUserData);
-			break;
-		}else if ((m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq) && IsWholeFrame(pFrame))
-		//}else if (IsWholeFrame(pFrame) && (m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq))
-		{
-			// OK
-			m_pReceiveFrames.erase(pIter);
-			m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
-			m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
-			if (m_bWaitforNextKeyVideo && pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I)
-				m_bWaitforNextKeyVideo = false;
-
-			if (!m_bWaitforNextKeyVideo || pFrame->m_pRtpHead.m_nDataType != SOTP_RTP_NAK_DATA_VIDEO)
+			const CSotpRtpFrame::pointer pFrame = pIter->second;
+			if (pFrame->m_pRtpHead.m_nTimestamp==0 && pFrame->m_pRtpHead.m_nSeq==0 && IsWholeFrame(pFrame))
 			{
+				// OK
+				m_pReceiveFrames.erase(pIter);
 				//callback the frame.
-				const cgc::uint16 nLostDataTemp = m_nLostData;
-				m_nLostData = 0;
 				wrlock.unlock();	// **
 				if(pCallback!=0)
-					pCallback(this->GetSrcId(), pFrame, nLostDataTemp, nUserData);
-			}
-			break;
-		}else if (pFrame->m_nExpireTime < tNow)
-		{
-			// expire time
-			m_pReceiveFrames.erase(pIter);
-			m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
-			m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
+					pCallback(this->GetSrcId(), pFrame, 0, nUserData);
+				break;
+			}else if ((m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq) && IsWholeFrame(pFrame))
+				//}else if (IsWholeFrame(pFrame) && (m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq))
+			{
+				// OK
+				m_pReceiveFrames.erase(pIter);
+				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
+				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
+				if (m_bWaitforNextKeyVideo && pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I)
+					m_bWaitforNextKeyVideo = false;
 
-			if (!m_bWaitforNextKeyVideo && IsWholeFrame(pFrame))
+				if (!m_bWaitforNextKeyVideo || pFrame->m_pRtpHead.m_nDataType != SOTP_RTP_NAK_DATA_VIDEO)
+				{
+					//callback the frame.
+					const cgc::uint16 nLostDataTemp = m_nLostData;
+					m_nLostData = 0;
+					wrlock.unlock();	// **
+					if(pCallback!=0)
+						pCallback(this->GetSrcId(), pFrame, nLostDataTemp, nUserData);
+				}
+				break;
+			}else if (pFrame->m_nExpireTime < tNow)
 			{
-				//callback the frame.
-				const cgc::uint16 nLostDataTemp = m_nLostData;
-				m_nLostData = 0;
-				wrlock.unlock();	// **
-				if(pCallback!=0)
-					pCallback(this->GetSrcId(), pFrame, nLostDataTemp, nUserData);
-			}else
+				// expire time
+				m_pReceiveFrames.erase(pIter);
+				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
+				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
+
+				if (!m_bWaitforNextKeyVideo && IsWholeFrame(pFrame))
+				{
+					//callback the frame.
+					const cgc::uint16 nLostDataTemp = m_nLostData;
+					m_nLostData = 0;
+					wrlock.unlock();	// **
+					if(pCallback!=0)
+						pCallback(this->GetSrcId(), pFrame, nLostDataTemp, nUserData);
+				}else
+				{
+					m_nLostData++;
+					m_bWaitforNextKeyVideo = (pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I||pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)?true:false;
+				}
+				break;
+			}else if ((++nCount)>=2)
 			{
-				m_nLostData++;
-				m_bWaitforNextKeyVideo = (pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I||pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)?true:false;
+				return;
+				//break;
 			}
-			break;
-		}else if ((++nCount)>=2)
-		{
-			break;
 		}
 	}
 }

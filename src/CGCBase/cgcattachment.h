@@ -61,7 +61,7 @@ public:
 	}
 	virtual ~cgcAttachment(void)
 	{
-		clear();
+		clear(true);
 	}
 
 public:
@@ -81,18 +81,18 @@ public:
 	{
 		if (pAttachData == NULL || nAttachSize == 0)
 		{
-			clearAttachData();
+			clear(false);
 			return;
 		}
 		if (m_bufferSize < nAttachSize)
 		{
-			clearAttachData();
+			clearAttachData(true);
 			m_bufferSize = nAttachSize+1;
 			m_data = new unsigned char[m_bufferSize];
 			if (m_data==NULL)
 			{
 				// memory error
-				clearAttachData();
+				clearAttachData(true);
 				return;
 			}
 			memset(m_data, 0, m_bufferSize);
@@ -102,7 +102,7 @@ public:
 	}
 	void setAttach2(unsigned char * pAttachData, unsigned int nAttachSize)
 	{
-		clearAttachData();
+		clearAttachData(true);
 		if (pAttachData == NULL || nAttachSize == 0)
 		{
 			return;
@@ -124,22 +124,25 @@ public:
 	unsigned int getAttachSize(void) const {return m_len;}
 	unsigned int getBufferSize(void) const {return m_bufferSize;}
 
-	void clear(void)
+	void clear(bool bClearBuffer = true)
 	{
-		clearAttachData();
+		clearAttachData(bClearBuffer);
 		m_name = _T("");
 		m_total = 0;
 		m_index = 0;
 	}
 protected:
-	void clearAttachData(void)
+	void clearAttachData(bool bClearBuffer)
 	{
 		m_len = 0;
-		m_bufferSize = 0;
-		if (m_data)
+		if (bClearBuffer)
 		{
-			delete[] m_data;
-			m_data = NULL;
+			m_bufferSize = 0;
+			if (m_data)
+			{
+				delete[] m_data;
+				m_data = NULL;
+			}
 		}
 	}
 };

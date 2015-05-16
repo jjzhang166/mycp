@@ -125,7 +125,7 @@ public:
 //	const ClusterSvrList & getClusters(void) const {return m_custerSvrList;}
 //	int getClusters(ClusterSvrList & listResult);
 
-	void FreeHandle(void);
+	void Reset(bool bResetAttach);
 	void addParameter(const cgcParameter::pointer& parameter);
 
 public:

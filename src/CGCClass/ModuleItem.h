@@ -103,6 +103,19 @@ public:
 	void setModuleHandle(void * newValue) {this->m_pModuleHandle = newValue;}
 	void *getModuleHandle(void) const {return this->m_pModuleHandle;}
 
+	void setFpSessionOpen(void * newValue) {m_fpSessionOpen = newValue;}
+	void * getFpSessionOpen(void) const {return m_fpSessionOpen;}
+	void setFpSessionClose(void * newValue) {m_fpSessionClose = newValue;}
+	void * getFpSessionClose(void) const {return m_fpSessionClose;}
+	void setFpRemoteChange(void * newValue) {m_fpRemoteChange = newValue;}
+	void * getFpRemoteChange(void) const {return m_fpRemoteChange;}
+	void setFpRemoteClose(void * newValue) {m_fpRemoteClose = newValue;}
+	void * getFpRemoteClose(void) const {return m_fpRemoteClose;}
+	void setFpGetService(void * newValue) {m_fpGetService = newValue;}
+	void * getFpGetService(void) const {return m_fpGetService;}
+	void setFpResetService(void * newValue) {m_fpResetService = newValue;}
+	void * getFpResetService(void) const {return m_fpResetService;}
+
 	bool isAppModule(void) const {return m_type==MODULE_APP;}
 	bool isCommModule(void) const {return m_type==MODULE_COMM;}
 	bool isParserModule(void) const {return m_type==MODULE_PARSER;}
@@ -131,6 +144,12 @@ private:
 	int m_nCommPort;					// for MODULE_COMM, default 0
 
 	void * m_pModuleHandle;
+	void * m_fpSessionOpen;
+	void * m_fpSessionClose;
+	void * m_fpRemoteChange;
+	void * m_fpRemoteClose;
+	void * m_fpGetService;
+	void * m_fpResetService;
 	LockState m_lockState;				// default LS_NONE
 	bool m_bDisable;					// default false
 };

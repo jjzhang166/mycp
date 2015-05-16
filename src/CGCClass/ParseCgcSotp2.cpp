@@ -74,7 +74,8 @@ ParseCgcSotp2::ParseCgcSotp2(void)
 }
 ParseCgcSotp2::~ParseCgcSotp2(void)
 {
-	FreeHandle();
+	Reset(false);
+	m_attach.reset();
 }
 
 /*
@@ -111,10 +112,13 @@ int ParseCgcSotp2::getClusters(ClusterSvrList & listResult)
 	return result;
 }
 */
-void ParseCgcSotp2::FreeHandle(void)
+void ParseCgcSotp2::Reset(bool bResetAttach)
 {
 	//m_nCgcProto = 0;
+	m_pCallback = NULL;
+	m_nSotpVersion = SOTP_PROTO_VERSION_20;
 	m_nProtoType = SOTP_PROTO_TYPE_UNKNOWN;
+	m_bHasSeq = false;
 	m_seq = 0;
 	m_bNeedAck = false;
 	//m_sProtoValue.clear();
@@ -128,10 +132,12 @@ void ParseCgcSotp2::FreeHandle(void)
 		m_pSslDecryptData = NULL;
 	}
 	m_nCallId = 0;
-
+	m_nSign = 0;
 	m_bResulted = false;
 	//	m_sResultValue.clear();
 	m_nResultValue = 0;
+	m_sAccount = "";
+	m_sPasswd = "";
 
 	m_parameterMap.clear();
 	m_bRtpCommand = false;
@@ -139,6 +145,8 @@ void ParseCgcSotp2::FreeHandle(void)
 	memset(&m_pSotpRtpCommand,0,SOTP_RTP_COMMAND_SIZE);
 	memset(&m_pSotpRtpDataHead,0,SOTP_RTP_DATA_HEAD_SIZE);
 
+	if (bResetAttach && m_attach->isHasAttach())
+		m_attach = cgcAttachment::create();
 	//m_attach->clear();
 
 	//for_each(m_custerSvrList.begin(), m_custerSvrList.end(), DeletePtr());

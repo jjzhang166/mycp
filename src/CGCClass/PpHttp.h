@@ -199,6 +199,10 @@ public:
 	CPpHttp(void);
 	virtual ~CPpHttp(void);
 
+	char * m_pHeaderBufferTemp;
+	char * m_pHeaderTemp;
+	char * m_pCookieTemp;
+
 	XmlParseUpload theUpload;
 	void setFileSystemService(cgcServiceInterface::pointer v) {m_fileSystemService = v;}
 };
