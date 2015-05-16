@@ -1439,10 +1439,6 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 		m_pHandler->OnCgcResponse(recvData);
 		return;
 	}
-	//if (strstr((const char*)recvData->data(),"p2ptry")!=NULL)
-	//{
-	//	int i=0;
-	//}
 
 	CPPSotp2 ppSotp;
 	ppSotp.setParseCallback(this);

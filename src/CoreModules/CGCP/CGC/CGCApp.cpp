@@ -280,6 +280,8 @@ void CGCApp::AppStart(void)
 	{
 		return;
 	}
+	m_pSotpParserPool.clear();
+	m_pHttpParserPool.clear();
 	m_bStopedApp = false;
 
 	LoadDefaultConf();
@@ -314,6 +316,7 @@ void CGCApp::AppStop(void)
 	m_bStopedApp = true;
 	m_parsePortApps.clear();
 	m_pSotpParserPool.clear();
+	m_pHttpParserPool.clear();
 	m_pRtpSession.ClearAll();
 	m_mgrSession.invalidates(true);
 	FreeLibModules(MODULE_COMM);
@@ -1558,6 +1561,7 @@ void CGCApp::GetSotpParserPool(cgcParserSotp::pointer& pcgcParser)
 }
 void CGCApp::SetSotpParserPool(const cgcParserSotp::pointer& pcgcParser)
 {
+	//return;
 	// *** 200 max pool size
 	if (m_pSotpParserPool.size()<200)
 	{

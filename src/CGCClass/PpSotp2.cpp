@@ -39,6 +39,11 @@ CPPSotp2::CPPSotp2(void)
 {
 	m_attach = cgcAttachment::create();
 }
+CPPSotp2::~CPPSotp2(void)
+{
+	m_cgcInvoke.Reset(false);
+	m_attach.reset();
+}
 
 //////////////////////////////////////////////
 // Request

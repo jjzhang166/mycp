@@ -42,6 +42,7 @@ private:
 	cgcParserCallback* m_pCallback;
 public:
 	CPPSotp2(void);
+	virtual ~CPPSotp2(void);
 
 	// cgcServiceInterface
 	virtual tstring serviceName(void) const {return _T("ParserSotp");}
