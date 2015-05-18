@@ -45,8 +45,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <CGCClass/cgcclassinclude.h>
 using namespace cgc;
 
-class CParserSotp
-	: public CPPSotp2
+class CParserSotp : public CPPSotp2
 {
 private:
 	virtual tstring serviceName(void) const {return _T("PARSERSOTP");}

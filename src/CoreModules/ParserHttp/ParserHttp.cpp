@@ -60,7 +60,6 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 {
 	theXmlFile = theApplication->getAppConfPath();
 	theXmlFile.append(_T("/upload.xml"));
-
 	theFileSystemService = theServiceManager->getService("FileSystemService");
 	if (theFileSystemService.get() == NULL)
 	{

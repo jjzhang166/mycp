@@ -1169,8 +1169,8 @@ tstring CGCApp::SetNewMySessionId(cgcParserHttp::pointer& phttpParser,const tstr
 {
 	if (sSessionId.empty())
 	{
-		char lpszMySessionId[100];
-		static unsigned short the_sid_index=0;
+		char lpszMySessionId[64];
+		static unsigned int the_sid_index=0;
 		sprintf(lpszMySessionId, "%d%d%d",(int)time(0),(int)rand(),(the_sid_index++));
 		MD5 md5;
 		md5.update((const unsigned char*)lpszMySessionId,strlen(lpszMySessionId));
@@ -1190,7 +1190,7 @@ void CGCApp::GetHttpParserPool(cgcParserHttp::pointer& phttpParser)
 {
 	if (m_pHttpParserPool.front(phttpParser))
 	{
-		phttpParser->reset();
+		phttpParser->init();
 		return;
 	}
 	m_tLastNewParserHttpTime = time(0);
@@ -1262,7 +1262,6 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 		{
 			if (currentMultiPart.get() != NULL && currentMultiPart.get() != multiPart.get())
 			{
-				//printf("******** 11111 error\n");
 				m_mapMultiParts.remove(pcgcRemote->getRemoteId());
 				currentMultiPart.reset();
 			}
@@ -1291,6 +1290,26 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			m_mapMultiParts.remove(pcgcRemote->getRemoteId());
 			currentMultiPart.reset();
 		}
+
+		cgcSession::pointer sessionImpl;
+		if (phttpParser->isEmptyCookieMySessionId())
+		{
+			sessionImpl = m_mgrSession.GetSessionImplByRemote(pcgcRemote->getRemoteId());
+			if (sessionImpl.get()!=NULL)
+				SetNewMySessionId(phttpParser,sessionImpl->getId());
+			else
+				SetNewMySessionId(phttpParser);
+		}else
+		{
+			sessionImpl = m_mgrSession.GetSessionImpl(phttpParser->getCookieMySessionId());
+			if (sessionImpl.get()==NULL)
+			{
+				printf("**** Can not find Session'%s',changed!\n", phttpParser->getCookieMySessionId().c_str());
+				SetNewMySessionId(phttpParser);
+			}
+		}
+
+		/*
 		cgcSession::pointer sessionImpl = m_mgrSession.GetSessionImplByRemote(pcgcRemote->getRemoteId());
 		if (phttpParser->isEmptyCookieMySessionId())
 		{
@@ -1311,6 +1330,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			printf("**** Find old session '%s',changed to '%s'!\n",phttpParser->getCookieMySessionId().c_str(),sessionImpl->getId().c_str());
 			SetNewMySessionId(phttpParser,sessionImpl->getId());
 		}
+		*/
+
 		CSessionImpl * pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
 		if (phttpParser->getStatusCode()==STATUS_CODE_200)
 			m_mgrSession.SetRemoteSession(pcgcRemote->getRemoteId(),phttpParser->getCookieMySessionId()); 
@@ -1339,15 +1360,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			{
 				if (sessionImpl.get() == NULL)
 				{
-					cgcParserHttp::pointer phttpLastParser;
-					GetHttpParserPool(phttpLastParser);
-					if (phttpLastParser.get()==NULL)
-					{
-						phttpLastParser = phttpParser;
-						bCanSetParserToPool = false;
-					}
-					sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,phttpLastParser);
-					//sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,phttpParser);
+					bCanSetParserToPool = false;
+					sessionImpl = m_mgrSession.SetSessionImpl(moduleItem,pcgcRemote,phttpParser);
 					pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
 				}
 				if (pHttpSessionImpl->OnRunCGC_Session_Open(moduleItem,pcgcRemote))
@@ -1550,7 +1564,7 @@ void CGCApp::GetSotpParserPool(cgcParserSotp::pointer& pcgcParser)
 {
 	if (m_pSotpParserPool.front(pcgcParser))
 	{
-		pcgcParser->reset();
+		pcgcParser->init();
 		return;
 	}
 	m_tLastNewParserSotpTime = time(0);

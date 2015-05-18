@@ -173,18 +173,13 @@ void CSessionImpl::OnRunCGC_Remote_Change(const cgcRemote::pointer& pcgcRemote)
 
 void CSessionImpl::OnRunCGC_Remote_Change(const CSessionModuleInfo::pointer& pSessionModuleInfo, const cgcRemote::pointer& pcgcRemote)
 {
+	if (getProtocol()&PROTOCOL_HTTP)
+		return;
 	if (pSessionModuleInfo->m_bOpenSessioned)
 	{
-		pSessionModuleInfo->m_bOpenSessioned = false;
-		//printf("**** CGC_Session_Close %s\n",getId().c_str());
+		//pSessionModuleInfo->m_bOpenSessioned = false;
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
 		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)pModuleItem->getFpRemoteChange();
-//		void * hModule = pModuleItem->getModuleHandle();
-//#ifdef WIN32
-//		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)GetProcAddress((HMODULE)hModule, "CGC_Remote_Change");
-//#else
-//		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)dlsym(hModule, "CGC_Remote_Change");
-//#endif
 		if (fp)
 		{
 			try
@@ -202,6 +197,8 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 {
 	if (pSessionModuleInfo->m_pRemoteList.remove(nRemoteId))
 	{
+		if (getProtocol()&PROTOCOL_HTTP)
+			return;
 		// **该错误不能处理，否则IE6会有问题；
 //		if (getProtocol()&PROTOCOL_HTTP)
 //		{
@@ -266,15 +263,8 @@ void CSessionImpl::OnRunCGC_Session_Close(const CSessionModuleInfo::pointer& pSe
 	if (pSessionModuleInfo->m_bOpenSessioned)
 	{
 		pSessionModuleInfo->m_bOpenSessioned = false;
-		//printf("**** CGC_Session_Close %s\n",getId().c_str());
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
 		FPCGC_Session_Close fp = (FPCGC_Session_Close)pModuleItem->getFpSessionClose();
-//		void * hModule = pModuleItem->getModuleHandle();
-//#ifdef WIN32
-//		FPCGC_Session_Close fp = (FPCGC_Session_Close)GetProcAddress((HMODULE)hModule, "CGC_Session_Close");
-//#else
-//		FPCGC_Session_Close fp = (FPCGC_Session_Close)dlsym(hModule, "CGC_Session_Close");
-//#endif
 		if (fp)
 		{
 			try
@@ -365,7 +355,7 @@ void CSessionImpl::onRemoteClose(unsigned long remoteId,int nErrorCode)
 	//		}
 	//	}
 	//}
-	//printf("**** onRemoteClose 1111\n");
+	//printf("**** CSessionImpl::onRemoteClose %d\n",remoteId);
 	m_pHoldResponseList.remove(remoteId);
 	if (m_pcgcRemote.get() != NULL && m_pcgcRemote->getRemoteId() == remoteId)
 	{
@@ -391,7 +381,6 @@ void CSessionImpl::onRemoteClose(unsigned long remoteId,int nErrorCode)
 	{
 		bNotRemoteConnected = false;
 	}
-	//printf("**** SessionMgr.onRemoteClose end\n");
 	//if (bNotRemoteConnected)
 	//{
 	//	// 已经没有REMOTE连接，设置UserAgent为空
@@ -519,12 +508,12 @@ void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemot
 			{
 				pSessionModuleItem = pIter->second;
 				pSessionModuleItem->m_pRemote = pcgcRemote;
-				pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true);
+				pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true, false);
 			}
 		}else if (m_pSessionModuleList.find(sModuleName,pSessionModuleItem))
 		{
 			pSessionModuleItem->m_pRemote = pcgcRemote;
-			pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true);
+			pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true, false);
 		}
 		m_pcgcRemote = pcgcRemote;
 	}
@@ -611,7 +600,7 @@ CSessionModuleInfo::pointer CSessionImpl::addModuleItem(const ModuleItem::pointe
 	{
 		pSessionModuleItem->m_pRemote = wssRemote;
 	}
-	pSessionModuleItem->m_pRemoteList.insert(wssRemote->getRemoteId(),true);
+	pSessionModuleItem->m_pRemoteList.insert(wssRemote->getRemoteId(),true,false);
 	return pSessionModuleItem;
 }
 ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool bGetDefault) const

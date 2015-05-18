@@ -49,6 +49,7 @@ public:
 
 	virtual tstring getAccount(void) const {return "";}
 	virtual tstring getSecure(void) const {return "";}
+	virtual void init(void) = 0;
 };
 
 const cgcParserBase::pointer cgcNullParserBaseService;

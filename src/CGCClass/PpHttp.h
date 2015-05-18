@@ -158,6 +158,7 @@ protected:
 	virtual void write(const tstring& text);
 	virtual void newline(void);
 	virtual void reset(void);
+	virtual void init(void);
 
 	virtual void setStatusCode(HTTP_STATUSCODE statusCode) {m_statusCode = statusCode;}
 	virtual HTTP_STATUSCODE getStatusCode(void) const {return m_statusCode;}

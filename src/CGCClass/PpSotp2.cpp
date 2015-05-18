@@ -57,7 +57,7 @@ bool CPPSotp2::doParse(const unsigned char * requestData, size_t size,const char
 	return m_cgcInvoke.parseBuffer(requestData,size,sEncoding);
 }
 
-void CPPSotp2::reset(void)
+void CPPSotp2::init(void)
 {
 	m_cgcInvoke.Reset(true);
 	if (m_attach->isHasAttach())

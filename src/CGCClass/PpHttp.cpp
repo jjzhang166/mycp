@@ -159,6 +159,15 @@ void CPpHttp::reset(void)
 	m_bodySize = 0;
 	memset(m_resultBuffer, 0, m_bodyBufferSize);
 }
+void CPpHttp::init(void)
+{
+	reset();
+	m_sMyCookieSessionId = "";
+	m_files.clear();
+	m_currentMultiPart.reset();
+	m_sCurrentParameterData = "";
+}
+
 	
 void CPpHttp::setCookieMySessionId(const tstring& sMySessionId)
 {

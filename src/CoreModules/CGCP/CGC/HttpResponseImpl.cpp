@@ -164,8 +164,10 @@ unsigned long CHttpResponseImpl::setNotResponse(int nHoldSecond)
 	if (m_nHoldSecond > 0  || nHoldSecond > 0)
 	{
 		m_nHoldSecond = nHoldSecond;
+
 		if (m_session.get() != NULL)
 		{
+			//printf("**** CHttpResponseImpl::setNotResponse %d sid=%s\n",getRemoteId(), m_session->getId().c_str());
 			CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
 			if (m_nHoldSecond <= 0)
 			{
