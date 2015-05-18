@@ -148,8 +148,9 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const Receiv
 
 	if (data->size() <= 0) return;
 	m_tSendRecv = time(0);
-	this->parseData(CCgcData::create(data->data(), data->size()),0);
-	//this->parseData(CCgcData::create(data->data(), data->size()),(unsigned long)tcpClient.get());
+	this->parseData(data->data(), data->size(),0);
+	//this->parseData(CCgcData::create(data->data(), data->size()),0);
+	////this->parseData(CCgcData::create(data->data(), data->size()),(unsigned long)tcpClient.get());
 }
 
 } // namespace cgc

@@ -37,7 +37,8 @@ namespace cgc
 	public:
 		virtual void OnCgcResponse(const cgcParserSotp & response)=0;
 		virtual void OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, cgc::uint32 nUserData){}
-		virtual void OnCgcResponse(const CCgcData::pointer& recvData){}	// disable CGCParser or parser Error
+		virtual void OnCgcResponse(const unsigned char * data, size_t size){}	// disable CGCParser or parser Error
+		//virtual void OnCgcResponse(const CCgcData::pointer& recvData){}	// disable CGCParser or parser Error
 
 		virtual void OnActiveTimeout(void) {}
 		//

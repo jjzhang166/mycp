@@ -1415,7 +1415,8 @@ size_t CgcBaseClient::RecvData(unsigned char * buffer, size_t size)
 	
 	try
 	{
-		parseData(CCgcData::create(buffer, recvSize),0);
+		parseData(buffer, recvSize,0);
+		//parseData(CCgcData::create(buffer, recvSize),0);
 	}catch (std::exception& e)
 	{
 		//if (m_pHandler)
@@ -1430,19 +1431,21 @@ size_t CgcBaseClient::RecvData(unsigned char * buffer, size_t size)
 	return recvSize;
 }
 
-void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId)
+void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned long nRemoteId)
+//void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId)
 {
-	BOOST_ASSERT (recvData.get() != NULL);
+	BOOST_ASSERT (data != NULL);
+	//BOOST_ASSERT (recvData.get() != NULL);
 
 	if (m_bDisableSotpparser && m_pHandler != NULL)
 	{
-		m_pHandler->OnCgcResponse(recvData);
+		m_pHandler->OnCgcResponse(data,size);
 		return;
 	}
 
 	CPPSotp2 ppSotp;
 	ppSotp.setParseCallback(this);
-	if (ppSotp.doParse(recvData->data(), recvData->size(),doGetEncoding().c_str()))
+	if (ppSotp.doParse(data, size,doGetEncoding().c_str()))
 	{
 		if (ppSotp.isP2PProto()) return;
 
@@ -1605,7 +1608,7 @@ void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nR
 	}else
 	{
 		if (m_pHandler)
-			m_pHandler->OnCgcResponse(recvData);
+			m_pHandler->OnCgcResponse(data,size);
 	}
 }
 

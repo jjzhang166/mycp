@@ -102,7 +102,8 @@ protected:
 	virtual size_t sendData(const unsigned char * data, size_t size) = 0;
 	virtual size_t sendData(const unsigned char * data, size_t size, unsigned int timestamp) {return 0;}	// for RTP
 	virtual size_t recvData(unsigned char * buffer, size_t size) {return 0;}
-	virtual void parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId);
+	virtual void parseData(const unsigned char * data, size_t size,unsigned long nRemoteId);
+	//virtual void parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId);
 	virtual bool setRemoteAddr(const tstring & sRemoteAddr) {return true;}
 	virtual void setMediaType(unsigned short mediatype) {}	// for RTP
 

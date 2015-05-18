@@ -192,7 +192,8 @@ void CgcUdpClient::OnReceiveData(const UdpSocket & UdpSocket, const UdpEndPoint:
 	//{
 	//	m_ipRemote = CCgcAddress(m_endpointRemote.address().to_string(),m_endpointRemote.port(), CCgcAddress::ST_UDP);
 	//}
-	this->parseData(CCgcData::create(endpoint->buffer(), endpoint->size()),endpoint->getId());
+	this->parseData(endpoint->buffer(), endpoint->size(),endpoint->getId());
+	//this->parseData(CCgcData::create(endpoint->buffer(), endpoint->size()),endpoint->getId());
 }
 
 } // namespace cgc
