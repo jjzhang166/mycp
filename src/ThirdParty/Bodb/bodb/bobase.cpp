@@ -40,7 +40,7 @@ namespace bo
 			}break;
 		case VALUE_BIGINT:
 			{
-				variant->setReal(itemValue->u.value_bigint);
+				variant->setBigInt(itemValue->u.value_bigint);
 			}break;
 		case VALUE_REAL:
 			{
