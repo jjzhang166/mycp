@@ -162,10 +162,44 @@ void CPpHttp::reset(void)
 void CPpHttp::init(void)
 {
 	reset();
+	m_account = "";
+	m_secure = "";
 	m_sMyCookieSessionId = "";
+	m_contentLength = 0;
+	m_method = HTTP_NONE;
+	m_requestURL = "";
+	m_requestURI = "";
+	m_queryString = "";
+	m_postString = "";
+	m_fileName = "";
+	m_nRangeFrom = 0;
+	m_nRangeTo = 0;
+	m_keepAlive = false;
+	m_contentSize = 0;
+	m_receiveSize = 0;
+	m_sReqContentType = "";
+	m_forwardFromURL = "";
+	m_fileName = "";
+	if (m_bodyBufferSize>1*1024*1024)	// 1MB
+	{
+		delete[] m_resultBuffer;
+		m_bodyBufferSize = INCREASE_BODY_SIZE;
+		m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
+	}
+	if (m_fileSystemService.get() != NULL)
+	{
+		for (size_t i=0; i<m_files.size(); i++)
+		{
+			m_fileSystemService->callService("delete", CGC_VALUEINFO(m_files[i]->getUploadFile()->getFilePath()));
+		}
+	}
 	m_files.clear();
 	m_currentMultiPart.reset();
 	m_sCurrentParameterData = "";
+
+	m_propertys.cleanAllPropertys();
+	m_pReqHeaders.cleanAllPropertys();
+	m_pReqCookies.cleanAllPropertys();
 }
 
 	

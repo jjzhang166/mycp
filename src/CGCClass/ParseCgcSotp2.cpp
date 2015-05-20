@@ -134,10 +134,10 @@ void ParseCgcSotp2::Reset(bool bResetAttach)
 	m_nCallId = 0;
 	m_nSign = 0;
 	m_bResulted = false;
-	//	m_sResultValue.clear();
 	m_nResultValue = 0;
 	m_sAccount = "";
 	m_sPasswd = "";
+	//m_et = ModuleItem::ET_NONE;
 
 	m_parameterMap.clear();
 	m_bRtpCommand = false;

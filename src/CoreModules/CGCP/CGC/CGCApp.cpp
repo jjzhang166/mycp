@@ -1203,6 +1203,7 @@ void CGCApp::GetHttpParserPool(cgcParserHttp::pointer& phttpParser)
 }
 void CGCApp::SetHttpParserPool(const cgcParserHttp::pointer& phttpParser)
 {
+	//return;
 	// *** 200 max pool size
 	if (m_pHttpParserPool.size()<200)
 	{
