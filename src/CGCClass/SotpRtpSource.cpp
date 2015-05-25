@@ -357,7 +357,7 @@ bool CSotpRtpSource::UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRt
 void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment)
 {
 	if (pRtpDataHead.m_nIndex>=SOTP_RTP_MAX_PACKETS_PER_FRAME) return;
-	const cgc::uint32 ts = ntohl(pRtpDataHead.m_nTimestamp);
+	const cgc::uint32 ts = pRtpDataHead.m_nTimestamp;
 	// the packet expire time.
 	if (ts<m_nLastFrameTimestamp && ts>0 && (m_nLastFrameTimestamp-ts) < 0xFFFF)		// 前面过期数据
 	{
@@ -408,8 +408,7 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	if (ts>0 && m_nLastFrameTimestamp == 0)
 	{
 		// 不能删除，用于解决中间进房间出视频慢问题
-		m_nLastFrameTimestamp = ts - 1;	// ??这行代码没用，但也没有影响；
-		//m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp - 1;	// ??这行代码没用，但也没有影响；
+		m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp - 1;	// ??这行代码没用，但也没有影响；
 		m_nWaitForFrameSeq = (int)(unsigned short)(pFrame->m_nFirstSeq);
 	}
 
@@ -462,7 +461,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 			{
 				// OK
 				m_pReceiveFrames.erase(pIter);
-				m_nLastFrameTimestamp = ntohl(pFrame->m_pRtpHead.m_nTimestamp);
+				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
 				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
 				if (m_bWaitforNextKeyVideo && pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I)
 					m_bWaitforNextKeyVideo = false;
@@ -481,7 +480,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 			{
 				// expire time
 				m_pReceiveFrames.erase(pIter);
-				m_nLastFrameTimestamp = ntohl(pFrame->m_pRtpHead.m_nTimestamp);
+				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
 				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
 
 				if (!m_bWaitforNextKeyVideo && IsWholeFrame(pFrame))
