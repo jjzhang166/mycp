@@ -121,7 +121,7 @@ void TimerInfo::doRunTimer(void)
 	// compare the millisecond
 	if (tNow.time == m_tLastRunTime.time + m_nElapse/1000)
 	{
-		long nOff = m_tLastRunTime.millitm+m_nElapse%1000 - tNow.millitm;
+		const long nOff = m_tLastRunTime.millitm+(m_nElapse%1000) - tNow.millitm;
 		if (nOff > 0)
 		{
 #ifdef WIN32
@@ -146,6 +146,9 @@ void TimerInfo::doRunTimer(void)
 		}catch (const std::exception & e)
 		{
 			printf("******* timeout exception: %s\n",e.what());
+		}catch(...)
+		{
+			printf("******* timeout exception.\n");
 		}
 		if (lock != NULL)
 			delete lock;
@@ -158,12 +161,12 @@ void TimerInfo::doRunTimer(void)
 	}
 	//ftime(&m_tLastRunTime);
 	
-	if (m_nElapse < 50) return;
+	if (m_nElapse < 100) return;
 
 #ifdef WIN32
-	Sleep(m_nElapse > 1000 ? 1000 : m_nElapse-5);
+	Sleep(m_nElapse > 500 ? 500 : (m_nElapse-5));
 #else
-	usleep(m_nElapse > 1000 ? 1000000 : (m_nElapse-5)*1000);
+	usleep(m_nElapse > 500 ? 500000 : (m_nElapse-5)*1000);
 #endif
 }
 

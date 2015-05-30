@@ -72,7 +72,7 @@ CGCApp::CGCApp(const tstring & sPath)
 , m_licenseModuleCount(1)
 , m_fpGetLogService(NULL), m_fpResetLogService(NULL), m_fpParserSotpService(NULL), m_fpParserHttpService(NULL)
 , /*m_fpHttpStruct(NULL), */m_fpHttpServer(NULL), m_sHttpServerName("")
-, m_pRtpSession(true)
+//, m_pRtpSession(true)
 , m_tLastNewParserSotpTime(0), m_tLastNewParserHttpTime(0)
 
 {
@@ -148,16 +148,18 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 	while (pCGCApp->isInited())
 	{
 #ifdef WIN32
-		Sleep(1000);
+		Sleep(100);
 #else
-		sleep(1);
+		usleep(100000);
 #endif
+		if (((theIndex++)%10)!=9)
+			continue;
 		try
 		{
 
 			pCGCApp->ProcCheckParserPool();
 			pCGCApp->ProcNotKeepAliveRmote();
-			if ((++theIndex%20) != 0) continue;	// 10*2=20秒处理一次
+			if ((++theIndex%200)!=199) continue;	// 100*200=20*1000=20秒处理一次
 
 			// 如果没有超时SESSION，再继续等待
 			while(pCGCApp->ProcLastAccessedTime())
@@ -204,7 +206,14 @@ bool CGCApp::ProcLastAccessedTime(void)
 	static unsigned int nIndex = 0;
 	if ((nIndex++)%3==2)	// 3*20=60秒处理一次；
 	{
-		m_pRtpSession.CheckRegisterSourceLive(59, this, 0);
+		BoostReadLock rdlock(m_pRtpSession.mutex());
+		CLockMap<int,CSotpRtpSession::pointer>::iterator pIter = m_pRtpSession.begin();
+		for (; pIter!=m_pRtpSession.end(); pIter++)
+		{
+			CSotpRtpSession::pointer pRtpSession = pIter->second;
+			pRtpSession->CheckRegisterSourceLive(59, this, 0);
+		}
+		//m_pRtpSession.CheckRegisterSourceLive(59, this, 0);
 	}
 	return false;
 	//// 检查mysessioninfo
@@ -317,7 +326,7 @@ void CGCApp::AppStop(void)
 	m_parsePortApps.clear();
 	m_pSotpParserPool.clear();
 	m_pHttpParserPool.clear();
-	m_pRtpSession.ClearAll();
+	m_pRtpSession.clear();
 	m_mgrSession.invalidates(true);
 	FreeLibModules(MODULE_COMM);
 	FreeLibModules(MODULE_APP);		// ***先停止APP应用
@@ -1628,12 +1637,28 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 			//tagSotpRtpCommand pRtpCommand = pcgcParser->getRtpCommand();
 			//printf("**** command=%d,roomid=%lld,srcid=%lld,size=%d\n",pRtpCommand.m_nCommand,pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId,SOTP_RTP_COMMAND_SIZE);
 			const int serverPort = pcgcRemote->getServerPort();
-			m_pRtpSession.doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
+			CSotpRtpSession::pointer pRtpSession;
+			if (!m_pRtpSession.find(serverPort,pRtpSession))
+			{
+				pRtpSession = CSotpRtpSession::create(true);
+				CSotpRtpSession::pointer pRtpSessionTemp;
+				m_pRtpSession.insert(serverPort, pRtpSession, false, &pRtpSessionTemp);
+				if (pRtpSessionTemp.get()!=NULL)
+					pRtpSession = pRtpSessionTemp;
+			}
+			pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
 		}else if (pcgcParser->isRtpData())
 		{
+			const int serverPort = pcgcRemote->getServerPort();
+			CSotpRtpSession::pointer pRtpSession;
+			if (m_pRtpSession.find(serverPort,pRtpSession))
+			{
+				pRtpSession->doRtpData(pcgcParser->getRtpDataHead(),pcgcParser->getRecvAttachment(),pcgcRemote);
+			}
+
 			//tagSotpRtpDataHead pRtpDataHead = pcgcParser->getRtpDataHead();
 			////printf("**** data-head : roomid=%lld,srcid=%lld,size=%d\n",pRtpDataHead.m_nRoomId,pRtpDataHead.m_nSrcId,SOTP_RTP_DATA_HEAD_SIZE);
-			m_pRtpSession.doRtpData(pcgcParser->getRtpDataHead(),pcgcParser->getRecvAttachment(),pcgcRemote);
+			//m_pRtpSession.doRtpData(pcgcParser->getRtpDataHead(),pcgcParser->getRecvAttachment(),pcgcRemote);
 		}
 		SetSotpParserPool(pcgcParser);
 		return 1;

@@ -208,12 +208,20 @@ void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClien
 {
 	BOOST_ASSERT (cgcClient.get() != NULL);
 
-	unsigned int index = 0;
+	unsigned int index1 = 0;
+	unsigned int index2 = 0;
 	while (!cgcClient->isInvalidate())
 	{
+#ifdef WIN32
+		Sleep(10);
+#else
+		usleep(10000);
+#endif
+		if (((++index1)%100)!=1)
+			continue;
 		try
 		{
-			if (((++index)%4)==0)	// 4秒检查一次；
+			if (((++index2)%4)==0)	// 4秒检查一次；
 				cgcClient->RtpCheckRegisterSink();
 
 			//if (!cgcClient->isTimeToActiveSes()) continue;
@@ -227,11 +235,6 @@ void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClien
 		}catch(...)
 		{
 		}
-#ifdef WIN32
-		Sleep(1000);
-#else
-		sleep(1);
-#endif
 	}
 }
 
@@ -239,26 +242,22 @@ void CgcBaseClient::do_proc_cid_timeout(CgcBaseClient * cgcClient)
 {
 	if (NULL == cgcClient) return;
 
+	unsigned int index1 = 0;
+	bool bExistSeqTimeout = true;
 	while (!cgcClient->isClientState(CgcBaseClient::Exit_Client))
 //	while (!cgcClient->isInvalidate())
 	{
+#ifdef WIN32
+		Sleep(10);
+#else
+		usleep(10000);
+#endif
+		if (!bExistSeqTimeout && ((++index1)%50)!=1)
+			continue;
+
 		try
 		{
-			if (!cgcClient->checkSeqTimeout())
-			{
-#ifdef WIN32
-				Sleep(500);
-#else
-				usleep(500000);
-#endif
-			}else
-			{
-#ifdef WIN32
-				Sleep(10);
-#else
-				usleep(10000);
-#endif
-			}
+			bExistSeqTimeout = cgcClient->checkSeqTimeout();
 		}catch(const std::exception &)
 		{
 		}catch(...)

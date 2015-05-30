@@ -98,6 +98,7 @@ private:
 	time_t m_tNewProcPrevThread;
 	time_t m_tPrevDataTime;
 
+	bool m_bInvalidate;
 	cgcRemote::pointer m_pcgcRemote;	// default remote
 	cgcParserBase::pointer m_pcgcParser;
 
@@ -188,7 +189,7 @@ protected:
 	virtual bool isNewSession(void) const{return m_bIsNewSession;}
 	virtual time_t getCreationTime(void) const{return m_tCreationTime;}
 	virtual void invalidate(void);
-	virtual bool isInvalidate(void) const{return m_pcgcRemote->isInvalidate();}
+	virtual bool isInvalidate(void) const{return m_bInvalidate || m_pcgcRemote->isInvalidate();}
 	virtual const tstring & getId(void) const {return m_sSessionId;}
 	virtual unsigned long getRemoteId(void) const {return m_pcgcRemote->getRemoteId();}
 	//virtual const tstring & getAccount(void) const {return m_sAccount;}

@@ -42,7 +42,7 @@ CSessionImpl::CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemot
 //, m_fpFreeParser(NULL)
 , m_tNewProcPrevThread(0)
 , m_tPrevDataTime(0)
-, m_pcgcRemote(pcgcRemote), m_pcgcParser(pcgcParser)
+, m_bInvalidate(false), m_pcgcRemote(pcgcRemote), m_pcgcParser(pcgcParser)
 , m_sSessionId(_T(""))
 , m_interval(DEFAULT_MAX_INACTIVE_INTERVAL)
 //, m_sAccount(_T(""))
@@ -426,7 +426,11 @@ void CSessionImpl::SetSslPublicKey(const tstring& newValue)
 void CSessionImpl::invalidate(void)
 {
 	OnRunCGC_Session_Close();
-	m_pcgcRemote->invalidate();
+	m_bInvalidate = true;
+	if (getProtocol()!=PROTOCOL_SOTP)
+	{
+		m_pcgcRemote->invalidate();
+	}
 }
 
 void CSessionImpl::setMaxInactiveInterval(int interval)

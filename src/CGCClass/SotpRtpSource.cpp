@@ -57,6 +57,7 @@ CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint
 , m_flog(NULL)
 #endif
 , m_pCallbackUserData(NULL)
+, m_pSendBuffer(NULL), m_nSendBufferSize(0)
 
 {
 	//printf("**** CSotpRtpSource() srdid=%lld\n",m_nSrcId);
@@ -99,6 +100,11 @@ CSotpRtpSource::~CSotpRtpSource(void)
 				m_pReliableQueue[i] = NULL;
 			}
 		}
+	}
+	if (m_pSendBuffer)
+	{
+		delete[] m_pSendBuffer;
+		m_pSendBuffer = NULL;
 	}
 }
 
@@ -345,7 +351,7 @@ bool CSotpRtpSource::UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRt
 	boost::mutex::scoped_lock lock(m_pReliableMutex);
 	if (m_pReliableQueue[i] != 0)
 	{
-		bResult = m_pReliableQueue[i]->m_pRtpDataHead.m_nSeq==pRtpMsgIn->m_pRtpDataHead.m_nSeq?true:false;
+		bResult = (m_pReliableQueue[i]->m_pRtpDataHead.m_nSeq==pRtpMsgIn->m_pRtpDataHead.m_nSeq&&m_pReliableQueue[i]->m_pRtpDataHead.m_nTimestamp==pRtpMsgIn->m_pRtpDataHead.m_nTimestamp)?true:false;
 		if (pRtpMsgOut==NULL)
 			delete m_pReliableQueue[i];
 		else
@@ -557,6 +563,21 @@ void CSotpRtpSource::SendRegisterSink(const cgcRemote::pointer& pcgcRemote)
 		pcgcRemote->sendData(lpszBuffer,nSendSize);
 	}
 
+}
+unsigned char* CSotpRtpSource::GetSendBuffer(unsigned int nNeedSize)
+{
+	//if (nNeedSize==0) return NULL;
+	if (m_pSendBuffer==NULL)
+	{
+		m_nSendBufferSize = nNeedSize;
+		m_pSendBuffer = new unsigned char[m_nSendBufferSize];
+	}else if (nNeedSize>m_nSendBufferSize)
+	{
+		delete[] m_pSendBuffer;
+		m_nSendBufferSize = nNeedSize;
+		m_pSendBuffer = new unsigned char[m_nSendBufferSize];
+	}
+	return m_pSendBuffer;
 }
 
 

@@ -286,6 +286,7 @@ public:
 	void SetRemote(const cgcRemote::pointer& v) {m_pRemote = v;}
 	const cgcRemote::pointer& GetRemote(void) const {return m_pRemote;}
 	unsigned long GetRemoteId(void) const {return m_pRemote.get()==NULL?0:m_pRemote->getRemoteId();}
+	bool isRemoteInvalidate(void) const {return (m_pRemote.get()==NULL || m_pRemote->isInvalidate())?true:false;}
 
 	//void AddSinkSend(cgc::bigint nToId);
 	//void DelSinkSend(cgc::bigint nToId);
@@ -308,6 +309,9 @@ public:
 	void SendRegisterSink(const cgcRemote::pointer& pcgcRemote);
 
 	unsigned short GetNextSeq(void) {return ++m_nCurrentSeq;}
+
+	boost::mutex m_pSendBufferMutex;
+	unsigned char* GetSendBuffer(unsigned int nNeedSize);
 
 	CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId, cgc::bigint m_nParam);
 	virtual ~CSotpRtpSource(void);
@@ -348,6 +352,8 @@ private:
 	FILE * m_flog;
 #endif
 	void * m_pCallbackUserData;
+	unsigned char* m_pSendBuffer;
+	unsigned int m_nSendBufferSize;
 };
 const CSotpRtpSource::pointer NullSotpRtpSource;
 

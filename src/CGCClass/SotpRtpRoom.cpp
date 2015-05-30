@@ -78,6 +78,10 @@ CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, cgc::bi
 				if (!pCallback->onRegisterSource(this->GetRoomId(), nSrcId, nParam, pUserData))
 					return NullSotpRtpSource;
 				pRtpSource->SetRemote(pcgcRemote);
+			}else if (pRtpSource->isRemoteInvalidate())
+			{
+				// ¸üÐÂremoteid
+				pRtpSource->SetRemote(pcgcRemote);
 			}
 		}
 		pRtpSource->SetParam(nParam);
@@ -129,11 +133,15 @@ bool CSotpRtpRoom::RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgc
 	if (this->m_bServerMode)
 	{
 		if (pcgcRemote.get()==NULL || pRtpSrcSource->GetRemoteId()!=pcgcRemote->getRemoteId())
+		{
+			//printf("*** CSotpRtpRoom::RegisterSink %d<>%d\n",pRtpSrcSource->GetRemoteId(),pcgcRemote->getRemoteId());
 			return false;
+		}
 		if (pCallback!=NULL)
 		{
 			if (pRtpSrcSource->IsSinkRecv(nDestId))
 				return true;
+			//printf("*** Callback->onRegisterSink \n");
 			if (!pCallback->onRegisterSink(this->GetRoomId(), nSrcId, nDestId, pUserData))
 				return false;
 		}
@@ -210,7 +218,15 @@ void CSotpRtpRoom::BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const
 {
 	const cgc::bigint nRealSrcId = cgc::ntohll(pRtpDataHead.m_nSrcId);
 	{
-		unsigned char * pSendBuffer = NULL;
+		CSotpRtpSource::pointer pRtpSrcSource;
+		if (!m_pSourceList.find(nRealSrcId,pRtpSrcSource))
+		{
+			return;
+		}
+		boost::mutex::scoped_lock lockSrcSendBuffer(pRtpSrcSource->m_pSendBufferMutex);
+		unsigned char * pSendBuffer = pRtpSrcSource->GetSendBuffer(20+SOTP_RTP_DATA_HEAD_SIZE+pAttackment->getAttachSize());
+		bool bSet2RtpData = false;
+
 		size_t nSendSize = 0;
 		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_pSourceList.mutex()));
 		CLockMap<cgc::bigint,CSotpRtpSource::pointer>::const_iterator pIter = m_pSourceList.begin();
@@ -221,20 +237,29 @@ void CSotpRtpRoom::BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const
 				continue;
 			CSotpRtpSource::pointer pRtpDestSource = pIter->second;
 			if (!pRtpDestSource->IsSinkRecv(nRealSrcId))
+			{
+				//printf("*** CSotpRtpRoom::BroadcastRtpData %lld not recv %lld\n",pRtpDestSource->GetSrcId(),nRealSrcId);
 				continue;
+			}
 			const cgcRemote::pointer& pcgcRemote = pRtpDestSource->GetRemote();
 			if (pcgcRemote.get()!=NULL)
 			{
-				if (pSendBuffer==NULL)
+				if (!bSet2RtpData)
 				{
-					pSendBuffer = new unsigned char[20+SOTP_RTP_DATA_HEAD_SIZE+pAttackment->getAttachSize()];
+					bSet2RtpData = true;
 					SotpCallTable2::toRtpData(pRtpDataHead,pAttackment,pSendBuffer,nSendSize);
 				}
 				pcgcRemote->sendData(pSendBuffer, nSendSize);
+				//const int ret = pcgcRemote->sendData(pSendBuffer, nSendSize);
+				//if (ret!=0)
+				//{
+				//	printf("*** CSotpRtpRoom::BroadcastRtpData %lld sendData error=%d\n",pRtpDestSource->GetSrcId(),ret);
+				//}
+			//}else
+			//{
+			//	printf("*** CSotpRtpRoom::BroadcastRtpData %lld pcgcRemote is NULL\n",pRtpDestSource->GetSrcId());
 			}
 		}
-		if (pSendBuffer!=NULL)
-			delete[] pSendBuffer;
 	}
 }
 void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond, CSotpRtpCallback* pCallback,void* pUserData)

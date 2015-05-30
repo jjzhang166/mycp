@@ -216,7 +216,8 @@ private:
 //	XmlParseAuths m_parseAuths;
 
 	//CRSA m_pRsa;
-	CSotpRtpSession m_pRtpSession;
+	CLockMap<int,CSotpRtpSession::pointer> m_pRtpSession;
+	//CSotpRtpSession m_pRtpSession;
 
 	XmlParseParams m_systemParams;
 	XmlParseCdbcs m_cdbcs;

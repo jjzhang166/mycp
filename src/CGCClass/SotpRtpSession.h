@@ -31,6 +31,11 @@ namespace cgc
 class CSotpRtpSession
 {
 public:
+	typedef boost::shared_ptr<CSotpRtpSession> pointer;
+	static CSotpRtpSession::pointer create(bool bServerMode)
+	{
+		return CSotpRtpSession::pointer(new CSotpRtpSession(bServerMode));
+	}
 	// for server
 	//void SetSotpRtpCallback(CSotpRtpCallback* pCallback) {m_pSotpRtpCallback = pCallback;}
 	// for client

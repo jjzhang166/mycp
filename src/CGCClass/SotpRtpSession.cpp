@@ -110,8 +110,10 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 	{
 	case SOTP_RTP_COMMAND_REGISTER_SOURCE:
 		{
+			//printf("**** SOTP_RTP_COMMAND_REGISTER_SOURCE srcid=%lld\n",pRtpCommand.m_nSrcId);
 			if (!RegisterSource(pRtpCommand.m_nRoomId, pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId, pcgcRemote,pCallback, pUserData))
 				return false;
+			//printf("**** SOTP_RTP_COMMAND_REGISTER_SOURCE srcid=%lld ok\n",pRtpCommand.m_nSrcId);
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_SOURCE:
 		{
@@ -135,11 +137,13 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 		}break;
 	case SOTP_RTP_COMMAND_REGISTER_SINK:
 		{
+			//printf("*** SOTP_RTP_COMMAND_REGISTER_SINK srcid=%lld,destid=%lld\n",pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId);
 			CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(pRtpCommand.m_nRoomId,false);
 			if (pRtpRoom.get()==NULL)
 				return false;
 			if (!pRtpRoom->RegisterSink(pRtpCommand.m_nSrcId,pRtpCommand.u.m_nDestId, pcgcRemote,pCallback, pUserData))
 				return false;
+			//printf("*** SOTP_RTP_COMMAND_REGISTER_SINK srcid=%lld,destid=%lld ok\n",pRtpCommand.m_nSrcId, pRtpCommand.u.m_nDestId);
 		}break;
 	case SOTP_RTP_COMMAND_UNREGISTER_SINK:
 		{
@@ -220,16 +224,21 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 	if (this->m_bServerMode)
 	{
 		// save as wait for SOTP_RTP_COMMAND_DATA_REQUEST msg
+		//const cgc::uint16 nSeq = ntohs(pRtpDataHead.m_nSeq);
+		//if ((nSeq%20)==1)
+		//{
+		//	printf("*** doRtpData seq=%d,srcid=%lld\n",nSeq,cgc::ntohll(pRtpDataHead.m_nSrcId));
+		//}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();
 		memcpy(&pRtpMsgIn->m_pRtpDataHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
 		pRtpMsgIn->m_pAttachment = pAttackment;
 		CSotpRtpReliableMsg * pRtpMsgOut = NULL;
 		const bool bExistSeq = pRtpSrcSource->UpdateReliableQueue(pRtpMsgIn, &pRtpMsgOut);
 		m_pRtpMsgPool.Set(pRtpMsgOut);
-		//CSotpRtpReliableMsg * pRtpMsgIn = new CSotpRtpReliableMsg(pRtpDataHead,pAttackment);
-		//pRtpSrcSource->UpdateReliableQueue(pRtpMsgIn);
 		if (!bExistSeq)
 			pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
+		//else
+		//	printf("*** doRtpData exist seq=%d,srcid=%lld\n",nSeq,cgc::ntohll(pRtpDataHead.m_nSrcId));
 	}else
 	{
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nRoomId = cgc::ntohll(pRtpDataHead.m_nRoomId);
