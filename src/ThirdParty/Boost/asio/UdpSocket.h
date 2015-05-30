@@ -39,7 +39,8 @@ public:
 	}
 
 	// udpPort == 0; ¶¯Ì¬
-	void start(boost::asio::io_service & ioservice, unsigned short udpPort, UdpSocket_Handler::pointer handler)
+	// nThtreadStackSize 100=100KB
+	void start(boost::asio::io_service & ioservice, unsigned short udpPort, const UdpSocket_Handler::pointer& handler, int nThtreadStackSize=100)
 	{
 		m_handler = handler;
 
@@ -56,7 +57,7 @@ public:
 		if (m_proc_data == 0)
 		{
 			boost::thread_attributes attrs;
-			attrs.set_stack_size(1024*100);	// 100K
+			attrs.set_stack_size(1024*nThtreadStackSize);	// 100K
 			m_proc_data = new boost::thread(attrs,boost::bind(&UdpSocket::do_proc_data, this));
 			//m_proc_data = new boost::thread(boost::bind(&UdpSocket::do_proc_data, this));
 		}

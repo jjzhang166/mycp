@@ -84,6 +84,7 @@ CSotpRtpSource::~CSotpRtpSource(void)
 	theLostSeqInfo2.clear();
 	m_pSinkRecvList.clear();
 	m_pReceiveFrames.clear();
+	m_pFramePool.clear();
 	{
 		m_nReliableBufferSize = 0;
 		if (m_pReliableSendBuffer!=0)
@@ -360,6 +361,28 @@ bool CSotpRtpSource::UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRt
 	m_pReliableQueue[i] = pRtpMsgIn;
 	return bResult;
 }
+
+CSotpRtpFrame::pointer CSotpRtpSource::GetPool(const tagSotpRtpDataHead& pRtpDataHead)
+{
+	CSotpRtpFrame::pointer pFrame;
+	if (!m_pFramePool.front(pFrame))
+	{
+		pFrame = CSotpRtpFrame::create(pRtpDataHead);
+	}else
+	{
+		pFrame->Init(pRtpDataHead);
+	}
+	return pFrame;
+}
+
+void CSotpRtpSource::SetPool(const CSotpRtpFrame::pointer& pFrame)
+{
+	if (pFrame.get()!=NULL && m_pFramePool.size()<20)
+	{
+		m_pFramePool.add(pFrame);
+	}
+}
+
 void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment)
 {
 	if (pRtpDataHead.m_nIndex>=SOTP_RTP_MAX_PACKETS_PER_FRAME) return;
@@ -376,8 +399,10 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	CSotpRtpFrame::pointer pFrame;
 	if (!m_pReceiveFrames.find(ts,pFrame))
 	{
-		pFrame = CSotpRtpFrame::create(pRtpDataHead);
-		pFrame->m_pPayload = new char[pRtpDataHead.m_nTotleLength+1];
+		pFrame = GetPool(pRtpDataHead);
+		pFrame->BuildBuffer(pRtpDataHead.m_nTotleLength+1);
+		//pFrame = CSotpRtpFrame::create(pRtpDataHead);
+		//pFrame->m_pPayload = new char[pRtpDataHead.m_nTotleLength+1];
 		if (pFrame->m_pPayload==0)
 		{
 			return;
@@ -407,6 +432,7 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 		m_pReceiveFrames.insert(ts,pFrame,false,&pFromTemp);
 		if (pFromTemp!=NULL)
 		{
+			SetPool(pFrame);
 			pFrame = pFromTemp;
 		}
 	}
@@ -461,6 +487,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 				wrlock.unlock();	// **
 				if(pCallback!=0)
 					pCallback(this->GetSrcId(), pFrame, 0, nUserData);
+				SetPool(pFrame);
 				break;
 			}else if ((m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq) && IsWholeFrame(pFrame))
 				//}else if (IsWholeFrame(pFrame) && (m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq))
@@ -481,6 +508,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 					if(pCallback!=0)
 						pCallback(this->GetSrcId(), pFrame, nLostDataTemp, nUserData);
 				}
+				SetPool(pFrame);
 				break;
 			}else if (pFrame->m_nExpireTime < tNow)
 			{
@@ -502,6 +530,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 					m_nLostData++;
 					m_bWaitforNextKeyVideo = (pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I||pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)?true:false;
 				}
+				SetPool(pFrame);
 				break;
 			}else// if ((++nCount)>=2)
 			{

@@ -124,7 +124,7 @@ public:
 	bool isInited(void) const {return m_bInitedApp;}
 	bool isExitLog(void) const {return m_bExitLog;}
 	void ProcNotKeepAliveRmote(void);
-	bool ProcLastAccessedTime(void);
+	void ProcLastAccessedTime(void);
 	bool ProcDataResend(void) {return this->m_mgrSession.ProcDataResend();}
 	void ProcCheckParserPool(void);
 

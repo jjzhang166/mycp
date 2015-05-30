@@ -145,6 +145,7 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 
 	// 1 秒检查一次，SESSION是否超时没有访问。自动清除无用SESSION
 	unsigned int theIndex = 0;
+	unsigned int theSecondIndex = 0;
 	while (pCGCApp->isInited())
 	{
 #ifdef WIN32
@@ -159,19 +160,24 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 
 			pCGCApp->ProcCheckParserPool();
 			pCGCApp->ProcNotKeepAliveRmote();
-			if ((++theIndex%200)!=199) continue;	// 100*200=20*1000=20秒处理一次
 
-			// 如果没有超时SESSION，再继续等待
-			while(pCGCApp->ProcLastAccessedTime())
+			if (((++theSecondIndex)%20)==19)	// 20秒处理一次
 			{
-				// 如果有超时SESSION，继续处理；
-#ifdef WIN32
-				Sleep(1000);
-#else
-				sleep(1);
-#endif
-				pCGCApp->ProcNotKeepAliveRmote();
+				pCGCApp->ProcLastAccessedTime();
 			}
+
+//			if (((++theSecondIndex)%20)!=19) continue;	// 20秒处理一次
+//			// 如果没有超时SESSION，再继续等待
+//			while(pCGCApp->ProcLastAccessedTime())
+//			{
+//				// 如果有超时SESSION，继续处理；
+//#ifdef WIN32
+//				Sleep(10);
+//#else
+//				usleep(10000);
+//#endif
+//				pCGCApp->ProcNotKeepAliveRmote();
+//			}
 		}catch(std::exception const &)
 		{
 		}catch(...){
@@ -193,18 +199,18 @@ void CGCApp::ProcNotKeepAliveRmote(void)
 		}
 	}
 }
-bool CGCApp::ProcLastAccessedTime(void)
+void CGCApp::ProcLastAccessedTime(void)
 {
-	std::string sCloseSid;
-	this->m_mgrSession.ProcLastAccessedTime(sCloseSid);
-	if (!sCloseSid.empty())
+	std::vector<std::string> sCloseSidList;
+	this->m_mgrSession.ProcLastAccessedTime(sCloseSidList);
+	for (size_t i=0; i<sCloseSidList.size(); i++)
 	{
-		m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sCloseSid.c_str());
-		return true;
+		m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sCloseSidList[i].c_str());
 	}
+	sCloseSidList.clear();
 
-	static unsigned int nIndex = 0;
-	if ((nIndex++)%3==2)	// 3*20=60秒处理一次；
+	//static unsigned int nIndex = 0;
+	//if ((nIndex++)%2==1)	// 2*20=40秒处理一次；
 	{
 		BoostReadLock rdlock(m_pRtpSession.mutex());
 		CLockMap<int,CSotpRtpSession::pointer>::iterator pIter = m_pRtpSession.begin();
@@ -215,7 +221,7 @@ bool CGCApp::ProcLastAccessedTime(void)
 		}
 		//m_pRtpSession.CheckRegisterSourceLive(59, this, 0);
 	}
-	return false;
+	//return false;
 	//// 检查mysessioninfo
 	//{
 	//	boost::mutex::scoped_lock lock(m_pMySessionInfoList.mutex());

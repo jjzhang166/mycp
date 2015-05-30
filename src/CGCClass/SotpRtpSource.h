@@ -264,6 +264,41 @@ public:
 	{}
 };
 
+//class CSotpRtpFrameEx : public CSotpRtpFrame
+//{
+//public:
+//	typedef boost::shared_ptr<CSotpRtpFrame> pointer;
+//	static CSotpRtpFrameEx::pointer create(const tagSotpRtpDataHead& pRtpHead)
+//	{
+//		return CSotpRtpFrameEx::pointer(new CSotpRtpFrameEx(pRtpHead));
+//	}
+//	char* BuildBuffer(unsigned int nBufferSize)
+//	{
+//		if (m_pPayload==NULL)
+//		{
+//			m_nBufferSize = nBufferSize;
+//			m_pPayload = new char[m_nBufferSize];
+//		}else if (m_nBufferSize < nBufferSize)
+//		{
+//			delete[] m_pPayload;
+//			m_pPayload = NULL;
+//			m_nBufferSize = nBufferSize;
+//			m_pPayload = new char[m_nBufferSize];
+//		}
+//		return m_pPayload;
+//	}
+//
+//	CSotpRtpFrameEx(void)
+//		: CSotpRtpFrame()
+//		, m_nBufferSize(0)
+//	{}
+//	CSotpRtpFrameEx(const tagSotpRtpDataHead& pRtpHead)
+//		: CSotpRtpFrame(pRtpHead)
+//		, m_nBufferSize(0)
+//	{}
+//private:
+//	unsigned int m_nBufferSize;
+//};
 //#define USES_FILE_LOG
 class CSotpRtpSource
 {
@@ -318,6 +353,9 @@ public:
 private:
 	void sendNAKRequest(unsigned short nSeq, unsigned short nCount,const cgcRemote::pointer& pcgcRemote);
 
+	CSotpRtpFrame::pointer GetPool(const tagSotpRtpDataHead& pRtpDataHead);
+	void SetPool(const CSotpRtpFrame::pointer& pFrame);
+
 private:
 	bool m_bServerMode;
 	cgc::bigint m_nRoomId;
@@ -333,6 +371,7 @@ private:
 	bool m_bWaitforNextKeyVideo;
 	cgc::uint16 m_nLostData;
 	CLockMap<cgc::uint32,CSotpRtpFrame::pointer> m_pReceiveFrames;	// ts->
+	CLockList<CSotpRtpFrame::pointer> m_pFramePool;
 
 	tagSotpRtpCommand m_NAKRequestCommand;
 	boost::mutex m_pReliableMutex;

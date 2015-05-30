@@ -226,7 +226,7 @@ public:
 	void onRemoteClose(unsigned long remoteId, int nErrorCode);
 
 	bool ProcDataResend(void);
-	void ProcLastAccessedTime(std::string& pOutCloseSid);
+	void ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidList);
 	void invalidates(bool bStop);
 	void FreeHandle(void);
 

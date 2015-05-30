@@ -85,11 +85,36 @@ public:
 	cgc::uint32			m_nExpireTime;
 	tagSotpRtpDataHead	m_pRtpHead;
 	char*				m_pPayload;
+
+	char* BuildBuffer(unsigned int nBufferSize)
+	{
+		if (m_pPayload==NULL)
+		{
+			m_nBufferSize = nBufferSize;
+			m_pPayload = new char[m_nBufferSize];
+		}else if (m_nBufferSize < nBufferSize)
+		{
+			delete[] m_pPayload;
+			m_pPayload = NULL;
+			m_nBufferSize = nBufferSize;
+			m_pPayload = new char[m_nBufferSize];
+		}
+		return m_pPayload;
+	}
+	void Init(const tagSotpRtpDataHead& pRtpHead)
+	{
+		m_nFirstSeq = 0;
+		m_nPacketNumber = 0;
+		m_nExpireTime = 0;
+		memset(&m_nFilled,0,sizeof(m_nFilled));
+		memcpy(&m_pRtpHead,&pRtpHead,SOTP_RTP_DATA_HEAD_SIZE);
+	}
 	CSotpRtpFrame(void)
 		: m_nFirstSeq(0)
 		, m_nPacketNumber(0)
 		, m_nExpireTime(0)
 		, m_pPayload(NULL)
+		, m_nBufferSize(0)
 	{
 		memset(&m_nFilled,0,sizeof(m_nFilled));
 		memset(&m_pRtpHead,0,SOTP_RTP_DATA_HEAD_SIZE);
@@ -99,6 +124,7 @@ public:
 		, m_nPacketNumber(0)
 		, m_nExpireTime(0)
 		, m_pPayload(NULL)
+		, m_nBufferSize(0)
 	{
 		memset(&m_nFilled,0,sizeof(m_nFilled));
 		memcpy(&m_pRtpHead,&pRtpHead,SOTP_RTP_DATA_HEAD_SIZE);
@@ -108,6 +134,9 @@ public:
 		if (m_pPayload!=NULL)
 			delete[] m_pPayload;
 	}
+private:
+	unsigned int m_nBufferSize;
+
 };
 
 //typedef void (* HSotpRtpFrameCallback)(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, cgc::uint32 nUserData);

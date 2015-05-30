@@ -937,11 +937,12 @@ bool CSessionMgr::ProcDataResend(void)
 	return false;
 }
 
-void CSessionMgr::ProcLastAccessedTime(std::string& pOutCloseSid)
+void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidList)
 {
 	// lock
 	time_t now = time(0);
-	cgcSession::pointer pSessionImplTimeout;
+	//cgcSession::pointer pSessionImplTimeout;
+	std::vector<cgcSession::pointer> pRemoveList;
 	{
 		BoostReadLock rdlock(m_mapSessionImpl.mutex());
 		CLockMap<tstring, cgcSession::pointer>::iterator pIter;
@@ -957,16 +958,23 @@ void CSessionMgr::ProcLastAccessedTime(std::string& pOutCloseSid)
 			// SESSION ÒÑ¾­Ê§Ð§
 			if (timeout > pSessionImpl->getMaxInactiveInterval()*60)
 			{
-				pSessionImplTimeout =  pSessionImpl;
+				//pSessionImplTimeout =  pSessionImpl;
+				pRemoveList.push_back(pSessionImpl);
 				break;
 			}
 		}
 	}
-	if (pSessionImplTimeout.get() != NULL)
+	for (size_t i=0; i<pRemoveList.size(); i++)
 	{
-		OnSessionClosedTimeout(pSessionImplTimeout);
-		pOutCloseSid = pSessionImplTimeout->getId();
+		pOutCloseSidList.push_back(pRemoveList[i]->getId());
+		OnSessionClosedTimeout(pRemoveList[i]);
 	}
+	pRemoveList.clear();
+	//if (pSessionImplTimeout.get() != NULL)
+	//{
+	//	OnSessionClosedTimeout(pSessionImplTimeout);
+	//	pOutCloseSid = pSessionImplTimeout->getId();
+	//}
 }
 
 void CSessionMgr::invalidates(bool bStop)
