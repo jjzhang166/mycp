@@ -50,7 +50,7 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 		CgcUdpClient::pointer clientHandler = boost::static_pointer_cast<CgcUdpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
 
-		m_udpClient->start(m_ipService->ioservice(), bindPort, clientHandler, 1024);
+		m_udpClient->start(m_ipService->ioservice(), bindPort, clientHandler);
 		m_udpClient->socket()->connect(m_endpointRemote);
 		m_ipService->start();
 		// **²âÊÔ£¬²»ÄÜÉ¾³ı£»

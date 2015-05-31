@@ -810,7 +810,7 @@ protected:
 			cgcRemote::pointer pCgcRemote;
 			if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote))
 			{
-				printf("******** OnRemoteRecv:%d not find\n",nRemoteId,data->data(),data->size());
+				printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
 				return;
 			}
 			if (pCgcRemote->isInvalidate())
