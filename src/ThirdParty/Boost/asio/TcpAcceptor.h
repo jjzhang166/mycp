@@ -37,7 +37,8 @@ public:
 		m_acceptor->set_option(boost::asio::socket_base::reuse_address(true));
 		//m_acceptor->set_option(boost::asio::socket_base::enable_connection_aborted(true));
 		//m_acceptor->set_option(boost::asio::socket_base::keep_alive(true));
-		m_acceptor->set_option(boost::asio::socket_base::receive_buffer_size(Max_ReceiveBuffer_ReceiveSize));
+		m_acceptor->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
+		m_acceptor->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
 		start_accept();
 	}
 	void stop(void)

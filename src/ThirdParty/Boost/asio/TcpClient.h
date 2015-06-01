@@ -62,11 +62,18 @@ public:
 				m_socket->get_ssl_socket()->set_verify_mode(boost::asio::ssl::verify_peer);  
 				m_socket->get_ssl_socket()->set_verify_callback(boost::bind(&TcpClient::verify_certificate, this, _1, _2)); 
 				//ctx->set_password_callback(boost::bind(&TcpClient::get_password, this));
-			}
-			else
+				//m_socket->get_ssl_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
+				//m_socket->get_ssl_socket()->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
+			}else
+			{
 				m_socket = new boost_socket<tcp::socket>(io_service);
+				m_socket->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
+				m_socket->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
+			}
 #else
 			m_socket = new tcp::socket(io_service);
+			m_socket->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
+			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
 #endif
 		}
 		if (m_proc_data == 0)

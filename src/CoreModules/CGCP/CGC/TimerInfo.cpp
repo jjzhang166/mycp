@@ -164,9 +164,9 @@ void TimerInfo::doRunTimer(void)
 	if (m_nElapse < 100) return;
 
 #ifdef WIN32
-	Sleep(m_nElapse > 500 ? 500 : (m_nElapse-5));
+	Sleep(m_nElapse > 300 ? 300 : (m_nElapse-5));
 #else
-	usleep(m_nElapse > 500 ? 500000 : (m_nElapse-5)*1000);
+	usleep(m_nElapse > 300 ? 300000 : (m_nElapse-5)*1000);
 #endif
 }
 

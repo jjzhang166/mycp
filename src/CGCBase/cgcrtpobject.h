@@ -57,13 +57,13 @@ struct tagSotpRtpDataHead
 	cgc::uint32		m_nTimestamp;
 	cgc::uint32		m_nTotleLength;
 	cgc::uint16		m_nUnitLength;
-	cgc::uint8		m_nIndex;
+	cgc::uint16		m_nIndex;
 };
-#define SOTP_RTP_DATA_HEAD_SIZE 31
+#define SOTP_RTP_DATA_HEAD_SIZE 32
 //const cgc::uint16 SOTP_RTP_DATA_HEAD_SIZE = sizeof(tagSotpRtpDataHead);
 #pragma pack(pop)
 
-#define SOTP_RTP_MAX_PACKETS_PER_FRAME	256	// 64
+#define SOTP_RTP_MAX_PACKETS_PER_FRAME	512	// 64
 #define SOTP_RTP_MAX_PAYLOAD_LENGTH		1100
 
 class CSotpRtpFrame
@@ -80,12 +80,21 @@ public:
 	}
 
 	cgc::uint16			m_nFirstSeq;
-	cgc::uint8			m_nPacketNumber;
-	cgc::uint8			m_nFilled[SOTP_RTP_MAX_PACKETS_PER_FRAME];   
+	cgc::uint16			m_nPacketNumber;
+	cgc::uint8*			m_nFilled;
 	cgc::uint32			m_nExpireTime;
 	tagSotpRtpDataHead	m_pRtpHead;
 	char*				m_pPayload;
 
+	bool IsWholeFrame(void) const {
+		cgc::uint16 i = 0;
+		for(; i < m_nPacketNumber; i++) {
+			if (m_nFilled[i] != 1) {
+				return false;
+			}
+		}
+		return true;
+	}
 	char* BuildBuffer(unsigned int nBufferSize)
 	{
 		if (m_pPayload==NULL)
@@ -106,7 +115,7 @@ public:
 		m_nFirstSeq = 0;
 		m_nPacketNumber = 0;
 		m_nExpireTime = 0;
-		memset(&m_nFilled,0,sizeof(m_nFilled));
+		memset(m_nFilled,0,SOTP_RTP_MAX_PACKETS_PER_FRAME);
 		memcpy(&m_pRtpHead,&pRtpHead,SOTP_RTP_DATA_HEAD_SIZE);
 	}
 	CSotpRtpFrame(void)
@@ -116,7 +125,8 @@ public:
 		, m_pPayload(NULL)
 		, m_nBufferSize(0)
 	{
-		memset(&m_nFilled,0,sizeof(m_nFilled));
+		m_nFilled = new cgc::uint8[SOTP_RTP_MAX_PACKETS_PER_FRAME];
+		memset(m_nFilled,0,SOTP_RTP_MAX_PACKETS_PER_FRAME);
 		memset(&m_pRtpHead,0,SOTP_RTP_DATA_HEAD_SIZE);
 	}
 	CSotpRtpFrame(const tagSotpRtpDataHead&	pRtpHead)
@@ -126,13 +136,16 @@ public:
 		, m_pPayload(NULL)
 		, m_nBufferSize(0)
 	{
-		memset(&m_nFilled,0,sizeof(m_nFilled));
+		m_nFilled = new cgc::uint8[SOTP_RTP_MAX_PACKETS_PER_FRAME];
+		memset(m_nFilled,0,SOTP_RTP_MAX_PACKETS_PER_FRAME);
 		memcpy(&m_pRtpHead,&pRtpHead,SOTP_RTP_DATA_HEAD_SIZE);
 	}
 	virtual ~CSotpRtpFrame(void)
 	{
 		if (m_pPayload!=NULL)
 			delete[] m_pPayload;
+		if (m_nFilled!=NULL)
+			delete[] m_nFilled;
 	}
 private:
 	unsigned int m_nBufferSize;

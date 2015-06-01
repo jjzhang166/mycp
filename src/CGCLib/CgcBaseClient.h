@@ -147,6 +147,7 @@ protected:
 	cgc::uint32 m_nTranSpeedLimit;
 	cgc::uint32 m_nDefaultSleep1;	// 每8个包，等待时间，64KB，默认50ms
 	cgc::uint32 m_nDefaultSleep2;	// 每50个包，等待时间，64KB，默认500ms
+	cgc::uint16 m_nDefaultPackageSize;	// 默认1100字节，每增加64KB，增加512
 	cgcRemote::pointer m_pOwnerRemote;
 	virtual void doSetRtpSourceId(cgc::bigint nSrcId) {m_nSrcId = nSrcId;}
 	virtual cgc::bigint doGetRtpSourceId(void) const {return m_nSrcId;}

@@ -23,6 +23,7 @@ public:
 	CMysqlSink(void);
 	virtual ~CMysqlSink(void);
 	std::string m_sHost;
+	unsigned int m_nPort;
 	std::string m_sAccount;
 	std::string m_sSecure;
 	std::string m_sDatabase;
@@ -51,7 +52,7 @@ public:
 	virtual ~CMysqlPool(void);
 
 	bool IsOpen(void) const;
-	int PoolInit(int nMin, int nMax,const char* lpHost,const char* lpAccount,const char* lpSecure,const char* lpszDatabase,const char* lpCharset);
+	int PoolInit(int nMin, int nMax,const char* lpHost,unsigned int nPort,const char* lpAccount,const char* lpSecure,const char* lpszDatabase,const char* lpCharset);
 	void PoolExit(void);
 
 	CMysqlSink* SinkGet(void);

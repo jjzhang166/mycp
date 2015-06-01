@@ -247,6 +247,7 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nTimestamp = ntohl(pRtpDataHead.m_nTimestamp);
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nTotleLength = ntohl(pRtpDataHead.m_nTotleLength);
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nUnitLength = ntohs(pRtpDataHead.m_nUnitLength);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nIndex = ntohs(pRtpDataHead.m_nIndex);
 		pRtpSrcSource->PushRtpData(pRtpDataHead,pAttackment);
 		pRtpSrcSource->GetWholeFrame(m_pRtpFrameCallback,m_nCbUserData);
 	}

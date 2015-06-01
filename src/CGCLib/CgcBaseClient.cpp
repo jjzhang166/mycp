@@ -107,7 +107,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_currentPath(_T(""))
 , theProtoVersion(SOTP_PROTO_VERSION_20)
 , m_pRtpBufferPool(2*1024,3,5), m_pRtpMsgPool(2*1024,20,30), m_pRtpSession(false)
-, m_nSrcId(0), m_nRtpCbUserData(0), m_nTranSpeedLimit(64), m_nDefaultSleep1(50), m_nDefaultSleep2(500)
+, m_nSrcId(0), m_nRtpCbUserData(0), m_nTranSpeedLimit(64), m_nDefaultSleep1(50), m_nDefaultSleep2(500), m_nDefaultPackageSize(SOTP_RTP_MAX_PAYLOAD_LENGTH)
 
 {
 	m_nDataIndex = 0;
@@ -523,6 +523,9 @@ tstring CgcBaseClient::onGetSslPassword(const tstring& sSessionId) const
 #ifndef max
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
 #endif
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
 bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 {
 	bool ret = true;
@@ -533,6 +536,8 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 			m_nTranSpeedLimit = nInValue;
 			m_nDefaultSleep1 = max(10,(50-((int)(m_nTranSpeedLimit+63)/64)*6));
 			m_nDefaultSleep2 = max(0,(500-((int)(m_nTranSpeedLimit+63)/64)*60));
+			const int nCount = min(12,((m_nTranSpeedLimit-63)/64));
+			m_nDefaultPackageSize = SOTP_RTP_MAX_PAYLOAD_LENGTH+nCount*512;
 		}break;
 	case SOTP_CLIENT_CONFIG_RTP_CB_USERDATA:
 		{
@@ -941,7 +946,8 @@ bool CgcBaseClient::doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) c
 
 bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint32 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType)
 {
-	const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	const cgc::uint16 nCount = (nSize+m_nDefaultPackageSize-1)/m_nDefaultPackageSize;
+	//const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
 	if (nCount>=SOTP_RTP_MAX_PACKETS_PER_FRAME)
 		return false;
 	CSotpRtpRoom::pointer pRtpRoom = m_pRtpSession.GetRtpRoom(nRoomId,false);
@@ -953,6 +959,11 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	// ?要判断是否有人接收数据
 	//if (pRtpSource->
 
+	const cgc::bigint nNetRoomId = cgc::htonll(nRoomId);
+	const cgc::bigint nNetSrcId = cgc::htonll(doGetRtpSourceId());
+	const cgc::uint32 nNetTS = htonl(nTimestamp);
+	const cgc::uint32 nNetLen = htonl(nSize);
+	const cgc::uint16 nNetUnitLen = htons(m_nDefaultPackageSize);
 	CSotpRtpReliableMsg* pBufferMsg = m_pRtpBufferPool.Get();
 	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
 	for (cgc::uint16 i=0; i<nCount; i++)
@@ -973,17 +984,17 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 #endif
 		}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();
-		pRtpMsgIn->m_pRtpDataHead.m_nRoomId = cgc::htonll(nRoomId);
-		pRtpMsgIn->m_pRtpDataHead.m_nSrcId = cgc::htonll(this->doGetRtpSourceId());
-		pRtpMsgIn->m_pRtpDataHead.m_nTimestamp = htonl(nTimestamp);
+		pRtpMsgIn->m_pRtpDataHead.m_nRoomId = nNetRoomId;
+		pRtpMsgIn->m_pRtpDataHead.m_nSrcId = nNetSrcId;
+		pRtpMsgIn->m_pRtpDataHead.m_nTimestamp = nNetTS;
 		pRtpMsgIn->m_pRtpDataHead.m_nNAKType = nNAKType;
 		pRtpMsgIn->m_pRtpDataHead.m_nDataType = nDataType;
-		pRtpMsgIn->m_pRtpDataHead.m_nTotleLength = htonl(nSize);
-		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = htons(SOTP_RTP_MAX_PAYLOAD_LENGTH);
+		pRtpMsgIn->m_pRtpDataHead.m_nTotleLength = nNetLen;
+		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = nNetUnitLen;
 		pRtpMsgIn->m_pRtpDataHead.m_nSeq = htons(nTimestamp==0?0:pRtpSource->GetNextSeq());
-		pRtpMsgIn->m_pRtpDataHead.m_nIndex = (cgc::uint8)i;
-		const cgc::uint16 nDataSize = (i+1)==nCount?(nSize%SOTP_RTP_MAX_PAYLOAD_LENGTH):SOTP_RTP_MAX_PAYLOAD_LENGTH;
-		pRtpMsgIn->m_pAttachment->setAttach(pData+(pRtpMsgIn->m_pRtpDataHead.m_nIndex*SOTP_RTP_MAX_PAYLOAD_LENGTH),nDataSize);
+		pRtpMsgIn->m_pRtpDataHead.m_nIndex = htons(i);
+		const cgc::uint16 nDataSize = (i+1)==nCount?(nSize%m_nDefaultPackageSize):m_nDefaultPackageSize;
+		pRtpMsgIn->m_pAttachment->setAttach(pData+((int)i*m_nDefaultPackageSize),nDataSize);
 
 		// *
 		if (nTimestamp>0)
@@ -996,6 +1007,7 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 		// send rtp data
 		//if (i%5>0)	// test
 		{
+			pBufferMsg->m_pAttachment->rebuildBuffer(20+SOTP_RTP_DATA_HEAD_SIZE+pRtpMsgIn->m_pAttachment->getAttachSize());
 			size_t nSendSize = 0;
 			toRtpData(pRtpMsgIn->m_pRtpDataHead,pRtpMsgIn->m_pAttachment,(unsigned char*)pBufferMsg->m_pAttachment->getAttachData(),nSendSize);
 			//toRtpData(pRtpMsgIn->m_pRtpDataHead,pRtpMsgIn->m_pAttachment,pSendBuffer,nSendSize);

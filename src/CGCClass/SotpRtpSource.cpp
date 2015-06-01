@@ -457,17 +457,6 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	}
 }
 
-inline bool IsWholeFrame(const CSotpRtpFrame::pointer& frame)
-{
-	cgc::uint8 i = 0;
-	for(; i < frame->m_nPacketNumber; i++) {
-		if(frame->m_nFilled[i] != 1) {
-			return false;
-		}
-	}
-	return true;
-}
-
 void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData)
 {
 	//cgc::uint16 nCount = 0;
@@ -479,7 +468,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 		for (; pIter!=m_pReceiveFrames.end(); pIter++)
 		{
 			const CSotpRtpFrame::pointer pFrame = pIter->second;
-			if (pFrame->m_pRtpHead.m_nTimestamp==0 && pFrame->m_pRtpHead.m_nSeq==0 && IsWholeFrame(pFrame))
+			if (pFrame->m_pRtpHead.m_nTimestamp==0 && pFrame->m_pRtpHead.m_nSeq==0 && pFrame->IsWholeFrame())
 			{
 				// OK
 				m_pReceiveFrames.erase(pIter);
@@ -489,7 +478,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 					pCallback(this->GetSrcId(), pFrame, 0, nUserData);
 				SetPool(pFrame);
 				break;
-			}else if ((m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq) && IsWholeFrame(pFrame))
+			}else if ((m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq) && pFrame->IsWholeFrame())
 				//}else if (IsWholeFrame(pFrame) && (m_nWaitForFrameSeq == -1 || ((unsigned short)(m_nWaitForFrameSeq)) == pFrame->m_nFirstSeq))
 			{
 				// OK
@@ -517,7 +506,7 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
 				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
 
-				if (!m_bWaitforNextKeyVideo && IsWholeFrame(pFrame))
+				if (!m_bWaitforNextKeyVideo && pFrame->IsWholeFrame())
 				{
 					//callback the frame.
 					const cgc::uint16 nLostDataTemp = m_nLostData;

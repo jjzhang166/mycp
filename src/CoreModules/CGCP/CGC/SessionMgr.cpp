@@ -923,7 +923,6 @@ bool CSessionMgr::ProcDataResend(void)
 {
 	// lock
 	BoostReadLock rdlock(m_mapSessionImpl.mutex());
-	cgcSession::pointer pSessionImplTimeout;
 	CLockMap<tstring, cgcSession::pointer>::iterator pIter;
 	for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
 	{

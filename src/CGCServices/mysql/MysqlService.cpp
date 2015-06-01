@@ -309,13 +309,17 @@ private:
 			unsigned short nMin = m_cdbcInfo->getMinSize();
 			unsigned short nMax = m_cdbcInfo->getMaxSize();
 
+			int nPort = 3306;
 			tstring sHost = m_cdbcInfo->getHost();
 			const tstring::size_type find = sHost.find(":");
 			if (find != tstring::npos)
+			{
 				sHost = sHost.substr(0,find);	// ip:port, remove *:port
+				nPort = atoi(sHost.substr(find+1).c_str());
+			}
 			//printf("**** open mysql host=%s,account=%s,pwd=%s\n",sHost.c_str(),m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str());
 			if (m_mysqlPool.PoolInit(nMin,nMax,
-				sHost.c_str(), 
+				sHost.c_str(), nPort,
 				m_cdbcInfo->getAccount().c_str(),
 				m_cdbcInfo->getSecure().c_str(),
 				m_cdbcInfo->getDatabase().c_str(),

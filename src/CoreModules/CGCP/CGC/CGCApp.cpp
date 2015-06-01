@@ -121,18 +121,19 @@ void do_dataresend(CGCApp * pCGCApp)
 {
 	if (pCGCApp == NULL) return;
 
+	unsigned int theIndex = 0;
 	while (pCGCApp->isInited())
 	{
+#ifdef WIN32
+		Sleep(100);
+#else
+		usleep(100000);
+#endif
+		if (((theIndex++)%5)!=4)
+			continue;
 		try
 		{
-			if (!pCGCApp->ProcDataResend())
-			{
-#ifdef WIN32
-				Sleep(500);
-#else
-				usleep(500000);
-#endif
-			}
+			pCGCApp->ProcDataResend();
 		}catch(std::exception const &)
 		{
 		}catch(...){

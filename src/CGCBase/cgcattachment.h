@@ -131,6 +131,21 @@ public:
 		m_total = 0;
 		m_index = 0;
 	}
+	void rebuildBuffer(unsigned int nBufferSize, bool bMemset = true)
+	{
+		if (m_data==NULL)
+		{
+			m_bufferSize = nBufferSize;
+			m_data = new unsigned char[m_bufferSize];
+		}else if (m_bufferSize < nBufferSize)
+		{
+			clearAttachData(true);
+			m_bufferSize = nBufferSize;
+			m_data = new unsigned char[m_bufferSize];
+		}
+		if (bMemset)
+			memset(m_data, 0, nBufferSize);
+	}
 protected:
 	void clearAttachData(bool bClearBuffer)
 	{

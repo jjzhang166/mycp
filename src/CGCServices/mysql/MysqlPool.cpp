@@ -3,7 +3,8 @@
 //#if (USES_MYSQLCDBC)
 
 CMysqlSink::CMysqlSink(void)
-: m_mysql(NULL)
+: m_nPort(3306)
+, m_mysql(NULL)
 , m_busy(false)
 
 {
@@ -28,7 +29,7 @@ bool CMysqlSink::Connect(void)
 	if (!Init()) return false;
 
 	if (!mysql_real_connect(m_mysql, m_sHost.c_str(), m_sAccount.c_str(),
-		m_sSecure.c_str(), m_sDatabase.c_str(), 0, NULL, CLIENT_MULTI_STATEMENTS))
+		m_sSecure.c_str(), m_sDatabase.c_str(), m_nPort, NULL, CLIENT_MULTI_STATEMENTS))
 	{
 		printf("**** mysql_real_connect error.(%s)\n",mysql_error(m_mysql));
 		mysql_close(m_mysql);
@@ -86,7 +87,7 @@ bool CMysqlPool::IsOpen(void) const
 {
 	return m_sinks==NULL?false:true;
 }
-int CMysqlPool::PoolInit(int nMin, int nMax,const char* lpHost,const char* lpAccount,const char* lpSecure,const char* lpszDatabase,const char* lpCharset)
+int CMysqlPool::PoolInit(int nMin, int nMax,const char* lpHost,unsigned int nPort,const char* lpAccount,const char* lpSecure,const char* lpszDatabase,const char* lpCharset)
 {
 	BoostReadLock rdlock(m_mutex);
 	if (m_sinks!=NULL)
@@ -102,6 +103,7 @@ int CMysqlPool::PoolInit(int nMin, int nMax,const char* lpHost,const char* lpAcc
 	{
 		m_sinks[i] = new CMysqlSink();
 		m_sinks[i]->m_sHost = lpHost;
+		m_sinks[i]->m_nPort = nPort;
 		m_sinks[i]->m_sAccount = lpAccount;
 		m_sinks[i]->m_sSecure = lpSecure;
 		m_sinks[i]->m_sDatabase = lpszDatabase;

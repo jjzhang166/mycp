@@ -74,6 +74,7 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	CgcTcpClient::pointer clientHandler = boost::static_pointer_cast<CgcTcpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
 
 	m_tcpClient = TcpClient::create(clientHandler);
+	//m_tcpClient->socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024));		// 8192
 
 	m_connectReturned = false;
 	// ?? bindPort

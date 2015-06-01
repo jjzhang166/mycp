@@ -53,6 +53,15 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 		m_udpClient->start(m_ipService->ioservice(), bindPort, clientHandler);
 		m_udpClient->socket()->connect(m_endpointRemote);
 		m_ipService->start();
+
+		//boost::asio::socket_base::send_buffer_size a;
+		//boost::asio::socket_base::receive_buffer_size b;
+		//m_udpClient->socket()->get_option(a);
+		//m_udpClient->socket()->get_option(b);
+		//char lpszBuffer[200];
+		//sprintf(lpszBuffer,"send-buf-size=%d,recv-buf-size=%d",a.value(),b.value());
+		//MessageBox(NULL,lpszBuffer,lpszBuffer,MB_OK);
+
 		// **²âÊÔ£¬²»ÄÜÉ¾³ý£»
 #ifdef WIN32
 		Sleep(50);

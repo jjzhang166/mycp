@@ -303,7 +303,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				//m_pSotpRtpDataHead.m_nTimestamp = ntohl(m_pSotpRtpDataHead.m_nTimestamp);
 				//m_pSotpRtpDataHead.m_nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
 				//m_pSotpRtpDataHead.m_nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
-				const cgc::uint8 nIndex = m_pSotpRtpDataHead.m_nIndex;
+				const cgc::uint16 nIndex = ntohs(m_pSotpRtpDataHead.m_nIndex);
 				const cgc::uint16 nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
 				const cgc::uint32 nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
 
