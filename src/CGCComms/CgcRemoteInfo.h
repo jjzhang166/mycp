@@ -57,35 +57,46 @@ public:
 	unsigned long getRemoteId(void) const {return m_remoteId;}
 
 	unsigned int getBufferSize(void) const {return m_bufferSize;}
-	void setBufferSize(unsigned int bufferSize)
+	bool setBufferSize(unsigned int bufferSize)
 	{
 		if (bufferSize == 0)
-			return;
-		if (m_bufferSize<bufferSize)
+			return false;
+		if (m_recvData==NULL)
+		{
+			m_bufferSize = bufferSize;
+			m_recvData = new unsigned char[m_bufferSize];
+		}else if (m_bufferSize<bufferSize)
 		{
 			clearData(true);
 			m_bufferSize = bufferSize;
 			m_recvData = new unsigned char[m_bufferSize];
-			if (m_recvData==NULL)
-			{
-				m_bufferSize = 0;
-				return;
-			}
+		}else
+		{
+			m_recvData[0] = '\0';
+			return true;
+		}
+		if (m_recvData==NULL)
+		{
+			m_bufferSize = 0;
+			return false;
 		}
 		m_recvData[0] = '\0';
+		return true;
 	}
-	void setRecvData(const unsigned char * recvData, unsigned int recvSize)
+	bool setRecvData(const unsigned char * recvData, unsigned int recvSize)
 	{
 		if (recvData == 0 || recvSize == 0)
-			return;
-
-		if (m_bufferSize<=recvSize)
-		{
-			setBufferSize(recvSize+1);
-		}
+			return false;
+		if (!setBufferSize(recvSize+1))
+			return false;
+		//if (m_bufferSize<=recvSize)
+		//{
+		//	setBufferSize(recvSize+1);
+		//}
 		m_recvSize = recvSize;
 		memcpy(m_recvData, recvData, m_recvSize);
 		m_recvData[m_recvSize] = '\0';
+		return true;
 	}
 	const unsigned char * getRecvData(void) const {return m_recvData;}
 	unsigned int getRecvSize(void) const {return m_recvSize;}
@@ -149,6 +160,8 @@ public:
 	{
 		if (pMsg!=NULL)
 		{
+			//delete pMsg;
+			//return;
 			if (m_pPool.size()<m_nMaxPoolSize)
 			{
 				m_pPool.add(pMsg);

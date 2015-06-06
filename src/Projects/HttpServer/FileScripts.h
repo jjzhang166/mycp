@@ -20,14 +20,16 @@
 #ifndef __FileScripts_head__
 #define __FileScripts_head__
 
-#ifdef WIN32
-	typedef unsigned __int64	ubigint;
-#else
-	typedef unsigned long long	ubigint;
-#endif
+//#ifdef WIN32
+//	typedef unsigned __int64	ubigint;
+//#else
+//	typedef unsigned long long	ubigint;
+//#endif
 
+#include <CGCBase/cgcobject.h>
 #include "tabconst.h"
 #include "ScriptItem.h"
+using namespace cgc;
 
 class CCSPFileInfo
 {

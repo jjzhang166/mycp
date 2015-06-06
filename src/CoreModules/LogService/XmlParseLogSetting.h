@@ -69,24 +69,24 @@ public:
 		ptree pt;
 		read_xml(filename, pt);
 
-		m_nLogLevel = pt.get("loglevel", 20);
+		m_nLogLevel = pt.get("root.log.loglevel", 20);
 
-		m_bLogToStderr = pt.get("tostderr", 1) == 1;
-		m_bLogToFile = pt.get("tofile", 1) == 1;
-		m_bLogToSystem = pt.get("tosystem", 0) == 1;
-		m_bLogToCallback = pt.get("tocallback", 0) == 1;
-		m_bLogToLogger = pt.get("tologger", 0) == 1;
+		m_bLogToStderr = pt.get("root.log.tostderr", 1) == 1;
+		m_bLogToFile = pt.get("root.log.tofile", 1) == 1;
+		m_bLogToSystem = pt.get("root.log.tosystem", 0) == 1;
+		m_bLogToCallback = pt.get("root.log.tocallback", 0) == 1;
+		m_bLogToLogger = pt.get("root.log.tologger", 0) == 1;
 
-		m_sLogPath = pt.get("path", "");
-		m_sLogFile = pt.get("file", "");
-		m_nMaxSize = pt.get("maxsize", 1);
-		m_nBackupNumber = pt.get("backupnumber", 1);
-		m_sLocale = pt.get("locale", "");
+		m_sLogPath = pt.get("root.log.path", "");
+		m_sLogFile = pt.get("root.log.file", "");
+		m_nMaxSize = pt.get("root.log.maxsize", 1);
+		m_nBackupNumber = pt.get("root.log.backupnumber", 1);
+		m_sLocale = pt.get("root.log.locale", "");
 
-		m_bDateFormat = pt.get("dateformat", 1) == 1;
-		m_bTimeFormat = pt.get("timeformat", 1) == 1;
-		m_bOneLineFormat = pt.get("onelineformat", 1) == 1;
-		m_bLevelString = pt.get("levelstring", 1) == 1;
+		m_bDateFormat = pt.get("root.log.dateformat", 1) == 1;
+		m_bTimeFormat = pt.get("root.log.timeformat", 1) == 1;
+		m_bOneLineFormat = pt.get("root.log.onelineformat", 1) == 1;
+		m_bLevelString = pt.get("root.log.levelstring", 1) == 1;
 	}
 
 private:

@@ -40,7 +40,7 @@ private:
 	cgcParserSotp::pointer m_sotpParser;
 
 public:
-	CSotpRequestImpl(cgcRemote::pointer pcgcRemote, cgcParserSotp::pointer pcgcParser)
+	CSotpRequestImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser)
 		: CRequestImpl(pcgcRemote, pcgcParser)
 		, m_sotpParser(pcgcParser)
 	{}
@@ -55,6 +55,7 @@ private:
 	virtual cgcParameter::pointer getParameter(const tstring & sParamName) const {return m_sotpParser->getRecvParameter(sParamName);}
 	virtual bool getParameter(const tstring & sParamName, std::vector<cgcParameter::pointer>& outParams) const {return m_sotpParser->getRecvParameter(sParamName, outParams);}
 	virtual tstring getParameterValue(const tstring & sParamName, const char* sDefault) const {return m_sotpParser->getRecvParameterValue(sParamName, sDefault);}
+	virtual tstring getParameterValue(const tstring & sParamName, const tstring& sDefault) const {return m_sotpParser->getRecvParameterValue(sParamName, sDefault);}
 	virtual int getParameterValue(const tstring & sParamName, int nDefault) const {return m_sotpParser->getRecvParameterValue(sParamName, nDefault);}
 	virtual bigint getParameterValue(const tstring & sParamName, bigint tDefault) const {return m_sotpParser->getRecvParameterValue(sParamName, tDefault);}
 	virtual bool getParameterValue(const tstring & sParamName, bool bDefault) const {return m_sotpParser->getRecvParameterValue(sParamName, bDefault);}

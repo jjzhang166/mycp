@@ -67,8 +67,8 @@ public:
 			}else
 			{
 				m_socket = new boost_socket<tcp::socket>(io_service);
-				m_socket->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
-				m_socket->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
+				m_socket->get_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
+				m_socket->get_socket()->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
 			}
 #else
 			m_socket = new tcp::socket(io_service);

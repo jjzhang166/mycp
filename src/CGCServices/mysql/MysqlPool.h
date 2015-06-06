@@ -12,7 +12,8 @@
 #include <mysql.h>
 #pragma comment(lib,"libmysql.lib")
 #else
-#include "mysql/mysql.h"
+#include <mysql.h>
+//#include "mysql/mysql.h"
 #endif // WIN32
 #include <stl/lockmap.h>
 #include <string>
@@ -30,7 +31,10 @@ public:
 	std::string m_sCharset;
 
 	bool Connect(void);
+	bool IsConnect(void) const {return m_mysql==NULL?false:true;}
 	void Disconnect(void);
+	bool Reconnect(void);
+	time_t GetCloseTime(void) const {return m_nCloseTime;}
 
 	bool IsIdleAndSetBusy(void);
 	void SetIdle(void);
@@ -42,7 +46,8 @@ private:
 private:
 	MYSQL* m_mysql;
 	bool m_busy;
-	boost::shared_mutex m_mutex; 
+	boost::shared_mutex m_mutex;
+	time_t m_nCloseTime;
 };
 
 class CMysqlPool

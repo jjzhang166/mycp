@@ -115,6 +115,7 @@ public:
 	virtual bool getRecvParameter(const tstring & sParamName, std::vector<cgcParameter::pointer>& outParams) const {return m_cgcInvoke.getParameter(sParamName, outParams);}
 
 	virtual tstring getRecvParameterValue(const tstring & sParamName, const char* defaultv) const {return m_cgcInvoke.getParameterValue(sParamName, defaultv);}
+	virtual tstring getRecvParameterValue(const tstring & sParamName, const tstring& defaultv) const {return m_cgcInvoke.getParameterValue(sParamName, defaultv);}
 	virtual int getRecvParameterValue(const tstring & sParamName, int defaultv) const {return m_cgcInvoke.getParameterValue(sParamName, defaultv);}
 	virtual bigint getRecvParameterValue(const tstring & sParamName, bigint defaultv) const {return m_cgcInvoke.getParameterValue(sParamName, defaultv);}
 	virtual bool getRecvParameterValue(const tstring & sParamName, bool defaultv) const {return m_cgcInvoke.getParameterValue(sParamName, defaultv);}

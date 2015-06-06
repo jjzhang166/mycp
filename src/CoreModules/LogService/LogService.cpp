@@ -399,6 +399,21 @@ protected:
 		std::string sMsg = W2Char(debugmsg);
 		afterLog(level, sMsg.c_str());
 	}
+	virtual void log2(LogLevel level, const char * format)
+	{
+		if (!beginLog(level)) return;
+		afterLog(level, format);
+	}
+	virtual void log2(LogLevel level, const wchar_t * format)
+	{
+		if (!beginLog(level)) return;
+		const std::string sMsg = W2Char(format);
+		afterLog(level, sMsg.c_str());
+	}
+	virtual bool isLogLevel(LogLevel level) const
+	{
+		return ((int)(m_setting.getLogLevel() & level) != (int)level)?false:true;
+	}
 
 	virtual std::string W2Char(const wchar_t* strSource) const
 	{

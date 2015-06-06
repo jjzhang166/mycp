@@ -97,6 +97,15 @@ cgcAttributes::pointer CModuleImpl::getAttributes(bool create)
 
 void CModuleImpl::log(LogLevel level, const char* format,...)
 {
+	if (m_logService.get() != NULL)
+	{
+		if (!m_logService->isLogLevel(level))
+			return;
+	}else if (!m_moduleParams.isLts())
+	//}else if ((m_moduleParams.getLogLevel()&(int)level)==0)
+	{
+		return;
+	}
 	char debugmsg[MAX_LOG_SIZE];
 	memset(debugmsg, 0, MAX_LOG_SIZE);
 	va_list   vl;
@@ -111,8 +120,8 @@ void CModuleImpl::log(LogLevel level, const char* format,...)
 
 	if (m_logService.get() != NULL)
 	{
-		m_logService->log(level, debugmsg);
-	}else
+		m_logService->log2(level, debugmsg);
+	}else if (m_moduleParams.isLts())
 	{
 		std::cerr << debugmsg;
 	}
@@ -120,6 +129,15 @@ void CModuleImpl::log(LogLevel level, const char* format,...)
 
 void CModuleImpl::log(LogLevel level, const wchar_t* format,...)
 {
+	if (m_logService.get() != NULL)
+	{
+		if (!m_logService->isLogLevel(level))
+			return;
+	}else if (!m_moduleParams.isLts())
+	//}else if ((m_moduleParams.getLogLevel()&(int)level)==0)
+	{
+		return;
+	}
 	wchar_t debugmsg[MAX_LOG_SIZE];
 	memset(debugmsg, 0, MAX_LOG_SIZE);
 	va_list   vl;
@@ -132,8 +150,8 @@ void CModuleImpl::log(LogLevel level, const wchar_t* format,...)
 
 	if (m_logService.get() != NULL)
 	{
-		m_logService->log(level, debugmsg);
-	}else
+		m_logService->log2(level, debugmsg);
+	}else if (m_moduleParams.isLts())
 	{
 		std::wcerr<< debugmsg;
 	}

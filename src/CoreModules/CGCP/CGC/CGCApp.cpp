@@ -2141,7 +2141,6 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		{
 			m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s', cid '%d', sign=\"%d\"\n"), sSessionId.c_str(), methodName.c_str(), nCallId, nSign);
 
-			//
 			///////////// app call /////////////////
 			boost::mutex::scoped_lock * lockWait = NULL;
 			CModuleImpl * pModuleImpl = NULL;
@@ -2193,6 +2192,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 					((CSotpRequestImpl*)requestImpl.get())->setSession(remoteSessionImpl);
 					((CSotpResponseImpl*)responseImpl.get())->setSession(remoteSessionImpl);
 					retCode = ProcLibMethod(pModuleItem, methodName, requestImpl, responseImpl);
+					m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' cid '%d', returnCode '%d'\n"), sSessionId.c_str(), nCallId, retCode);
 				}catch(std::exception const & e)
 				{
 					m_logModuleImpl.log(LOG_ERROR, _T("exception, sessionid=\'%s\', callname=\'%s\', lasterror=0x%x\n"), sSessionId.c_str(), methodName.c_str(), GetLastError());
@@ -2203,7 +2203,6 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 					m_logModuleImpl.log(LOG_ERROR, _T("exception, sessionid=\'%s\', callname=\'%s\', lasterror=0x%x\n"), sSessionId.c_str(), methodName.c_str(), GetLastError());
 					retCode = -111;
 				}
-				m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' cid '%d', returnCode '%d'\n"), sSessionId.c_str(), nCallId, retCode);
 
 				// callref
 				if (pModuleImpl)

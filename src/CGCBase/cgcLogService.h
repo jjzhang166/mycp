@@ -34,6 +34,9 @@ public:
 
 	virtual void log(LogLevel level, const char * format,...) = 0;
 	virtual void log(LogLevel level, const wchar_t * format,...) = 0;
+	virtual void log2(LogLevel level, const char * format) = 0;
+	virtual void log2(LogLevel level, const wchar_t * format) = 0;
+	virtual bool isLogLevel(LogLevel level) const = 0;
 };
 
 const cgcLogService::pointer cgcNullLogService;

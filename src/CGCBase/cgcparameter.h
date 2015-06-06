@@ -83,53 +83,33 @@ public:
 	{
 		cgcParameter::pointer param = getParameter(sParamName);
 		if (param.get() == NULL) return sDefault;
-		if (param->getType() != cgcParameter::TYPE_STRING)
-		{
-			cgcValueInfo::pointer temp = param->copy();
-			temp->totype(cgcParameter::TYPE_STRING);
-			return temp->getStr();
-		}
-		return param->getStr();
+		return param->getStrValue();
 	}
-
+	tstring getParameterValue(const tstring & sParamName, const tstring& sDefault) const
+	{
+		cgcParameter::pointer param = getParameter(sParamName);
+		if (param.get() == NULL) return sDefault;
+		return param->getStrValue();
+	}
 	int getParameterValue(const tstring & sParamName, int nDefault) const
 	{
 		cgcParameter::pointer param = getParameter(sParamName);
 		if (param.get() == NULL) return nDefault;
-		if (param->getType() != cgcParameter::TYPE_INT)
-		{
-			cgcValueInfo::pointer temp = param->copy();
-			temp->totype(cgcParameter::TYPE_INT);
-			return temp->getInt();
-		}
-		return param->getInt();
+		return param->getIntValue();
 	}
 	bigint getParameterValue(const tstring & sParamName, bigint nDefault) const
 	{
 		cgcParameter::pointer param = getParameter(sParamName);
 		if (param.get() == NULL) return nDefault;
-		if (param->getType() != cgcParameter::TYPE_BIGINT)
-		{
-			cgcValueInfo::pointer temp = param->copy();
-			temp->totype(cgcParameter::TYPE_BIGINT);
-			return temp->getBigInt();
-		}
-		return param->getBigInt();
+		return param->getBigIntValue();
 	}
 
 	bool getParameterValue(const tstring & sParamName, bool bDefault) const
 	{
 		cgcParameter::pointer param = getParameter(sParamName);
 		if (param.get() == NULL) return bDefault;
-		if (param->getType() != cgcParameter::TYPE_BOOLEAN)
-		{
-			cgcValueInfo::pointer temp = param->copy();
-			temp->totype(cgcParameter::TYPE_BOOLEAN);
-			return temp->getBoolean();
-		}
-		return param->getBoolean();
+		return param->getBooleanValue();
 	}
-
 	//time_t getParameterValue(const tstring & sParamName, time_t tDefault) const
 	//{
 	//	cgcParameter::pointer param = getParameter(sParamName);
@@ -147,13 +127,7 @@ public:
 	{
 		cgcParameter::pointer param = getParameter(sParamName);
 		if (param.get() == NULL) return fDefault;
-		if (param->getType() != cgcParameter::TYPE_FLOAT)
-		{
-			cgcValueInfo::pointer temp = param->copy();
-			temp->totype(cgcParameter::TYPE_FLOAT);
-			return temp->getFloat();
-		}
-		return param->getFloat();
+		return param->getFloatValue();
 	}
 
 	virtual ~cgcParameterMap(void)

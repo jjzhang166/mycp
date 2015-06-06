@@ -6,6 +6,7 @@ CMysqlSink::CMysqlSink(void)
 : m_nPort(3306)
 , m_mysql(NULL)
 , m_busy(false)
+, m_nCloseTime(0)
 
 {
 }
@@ -36,16 +37,22 @@ bool CMysqlSink::Connect(void)
 		m_mysql = NULL;
 		return false;
 	}
+	// 设置支持 mysql_query 自动重连；mysql_ping 也能够自动重连数据库
+	char value = 1;
+	mysql_options(m_mysql, MYSQL_OPT_RECONNECT, &value);
 
 	if (m_sCharset.empty())
 	{
 		mysql_query(m_mysql, "set names utf8;");
+		mysql_set_character_set(m_mysql, "utf8");
 	}else
 	{
 		char lpszCharsetCommand[100];
 		sprintf(lpszCharsetCommand, "set names %s;", m_sCharset.c_str());
 		mysql_query(m_mysql, lpszCharsetCommand);
+		mysql_set_character_set(m_mysql, m_sCharset.c_str());
 	}
+	m_nCloseTime = 0;
 	return true;
 }
 void CMysqlSink::Disconnect(void)
@@ -55,7 +62,14 @@ void CMysqlSink::Disconnect(void)
 		mysql_close(m_mysql);
 		m_mysql = NULL;
 	}
+	m_nCloseTime = time(0);
 }
+bool CMysqlSink::Reconnect(void)
+{
+	Disconnect();
+	return Connect();
+}
+
 bool CMysqlSink::IsIdleAndSetBusy(void)
 {
 	BoostWriteLock wtlock(m_mutex);
@@ -89,7 +103,7 @@ bool CMysqlPool::IsOpen(void) const
 }
 int CMysqlPool::PoolInit(int nMin, int nMax,const char* lpHost,unsigned int nPort,const char* lpAccount,const char* lpSecure,const char* lpszDatabase,const char* lpCharset)
 {
-	BoostReadLock rdlock(m_mutex);
+	BoostWriteLock wtlock(m_mutex);
 	if (m_sinks!=NULL)
 	{
 		return m_nSinkSize;
@@ -125,7 +139,7 @@ void CMysqlPool::PoolExit(void)
 	m_nSinkSize = 0;
 	m_nSinkMin = 0;
 	m_nSinkMax = 0;
-	BoostReadLock rdlock(m_mutex);
+	BoostWriteLock wtlock(m_mutex);
 	if (m_sinks!=NULL)
 	{
 		for(int i = 0; i < m_nSinkMax; i++)
@@ -150,6 +164,23 @@ CMysqlSink* CMysqlPool::SinkGet(void)
 				CMysqlSink* pSink = m_sinks[i];
 				if (!pSink->IsIdleAndSetBusy())
 					continue;
+				if (!pSink->IsConnect())
+				{
+					if ((time(0)-pSink->GetCloseTime())>60)
+					{
+						// 超过一分钟，重新连接一次；
+						if (!pSink->Reconnect())
+						{
+							SinkPut(pSink);
+							continue;
+						}
+						// **重新连接成功，继续下面
+					}else
+					{
+						SinkPut(pSink);
+						continue;
+					}
+				}
 
 				rdlock.unlock();
 				if (m_nSinkSize>m_nSinkMin && i<=(m_nSinkMin-2))	// 只使用了最小值后面二条
@@ -168,6 +199,12 @@ CMysqlSink* CMysqlPool::SinkGet(void)
 				{
 					theminnumbercount = 0;
 				}
+				//const int nState = mysql_ping(pSink->GetMYSQL());
+				//if (nState!=0)
+				//{
+				//	pSink->Disconnect();
+				//	pSink->Connect();
+				//}
 				return pSink;
 			}
 		}
@@ -185,9 +222,9 @@ CMysqlSink* CMysqlPool::SinkGet(void)
 
 		//等待一段时间
 #ifdef WIN32
-		Sleep (10);
+		Sleep(10);
 #else
-		usleep( 10000);
+		usleep(10000);
 #endif
 	}
 	return NULL;
@@ -196,7 +233,9 @@ CMysqlSink* CMysqlPool::SinkGet(void)
 void CMysqlPool::SinkPut(CMysqlSink* pMysql)
 {
 	if (pMysql!=NULL)
+	{
 		pMysql->SetIdle();
+	}
 }
 
 CMysqlSink* CMysqlPool::SinkAdd(void)

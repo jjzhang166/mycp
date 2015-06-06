@@ -311,13 +311,14 @@ private:
 
 			int nPort = 3306;
 			tstring sHost = m_cdbcInfo->getHost();
+			//printf("**** open mysql host=%s\n",sHost.c_str());
 			const tstring::size_type find = sHost.find(":");
 			if (find != tstring::npos)
 			{
+				nPort = atoi(sHost.substr(find+1).c_str());	// **必须放前面
 				sHost = sHost.substr(0,find);	// ip:port, remove *:port
-				nPort = atoi(sHost.substr(find+1).c_str());
 			}
-			//printf("**** open mysql host=%s,account=%s,pwd=%s\n",sHost.c_str(),m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str());
+			//printf("**** open mysql host=%s:%d,account=%s,pwd=%s\n",sHost.c_str(),nPort,m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str());
 			if (m_mysqlPool.PoolInit(nMin,nMax,
 				sHost.c_str(), nPort,
 				m_cdbcInfo->getAccount().c_str(),
@@ -329,28 +330,6 @@ private:
 				m_mysqlPool.PoolExit();
 				return false;
 			}
-
-			//m_mysql = mysql_init((MYSQL*)NULL);
-			//if (m_mysql == NULL)
-			//	return false;
-
-			//if (!mysql_real_connect(m_mysql, m_cdbcInfo->getHost().c_str(), m_cdbcInfo->getAccount().c_str(),
-			//	m_cdbcInfo->getSecure().c_str(), m_cdbcInfo->getDatabase().c_str(), 0, NULL, 0))
-			//{
-			//	mysql_close(m_mysql);
-			//	m_mysql = NULL;
-			//	return false;
-			//}
-
-			//tstring sCharset = m_cdbcInfo->getCharset();
-			//if (sCharset.empty())
-			//{
-			//	sCharset = "utf8";
-			//}
-			//char lpszCharsetCommand[100];
-			//sprintf(lpszCharsetCommand, "set names %s;", sCharset.c_str());
-			//mysql_query(m_mysql, lpszCharsetCommand);
-			//mysql_query("set names utf8;");
 		}catch(...)
 		{
 			return false;
@@ -421,10 +400,149 @@ private:
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, exeSql))
 			{
-				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", exeSql,mysql_error(pMysql)));
-				CMysqlPool::SinkPut(pSink);
-				return -1;
+				// MySQL server has gone away
+				// 2006:MySQL server has gone away
+				/*
+1005: 创建表失败
+1006: 创建数据库失败
+1007: 数据库已存在，创建数据库失败
+1008: 数据库不存在，删除数据库失败
+1009: 不能删除数据库文件导致删除数据库失败
+1010: 不能删除数据目录导致删除数据库失败
+1011: 删除数据库文件失败
+1012: 不能读取系统表中的记录
+1016: 无法打开文件
+1020:记录已被其他用户修改
+1021:硬盘剩余空间不足，请加大硬盘可用空间
+1022:关键字重复，更改记录失败
+1023:关闭时发生错误
+1024:读文件错误
+1025:更改名字时发生错误
+1026:写文件错误
+1032:记录不存在
+1036:数据表是只读的，不能对它进行修改
+1037:系统内存不足，请重启数据库或重启服务器
+1038:用于排序的内存不足，请增大排序缓冲区
+1040:已到达数据库的最大连接数，请加大数据库可用连接数
+1041:系统内存不足
+1042:无效的主机名
+1043:无效连接
+1044:当前用户没有访问数据库的权限
+1045:不能连接数据库，用户名或密码错误
+1040: 最大连接数
+1048:字段不能为空
+1049:数据库不存在
+1050:数据表已存在
+1051:数据表不存在
+1054:字段不存在
+1065:无效的SQL语句，SQL语句为空
+1081:不能建立Socket连接
+1114:数据表已满，不能容纳任何记录
+1116:打开的数据表太多
+1129:数据库出现异常，请重启数据库
+1130:连接数据库失败，没有连接数据库的权限
+1133:数据库用户不存在
+1141:当前用户无权访问数据库
+1142:当前用户无权访问数据表
+1143:当前用户无权访问数据表中的字段
+1146:数据表不存在
+1147:未定义用户对数据表的访问权限
+1149:SQL语句语法错误
+1158:网络错误，出现读错误，请检查网络连接状况
+1159:网络错误，读超时，请检查网络连接状况
+1160:网络错误，出现写错误，请检查网络连接状况
+1161:网络错误，写超时，请检查网络连接状况
+1062:字段值重复，入库失败
+
+                  1162                  	                  ER_TOO_LONG_STRING                 
+                  1163                  	                  ER_TABLE_CANT_HANDLE_BLOB                 
+                  1164                  	                  ER_TABLE_CANT_HANDLE_AUTO_INCREMENT                 
+                  1165                  	                  ER_DELAYED_INSERT_TABLE_LOCKED                 
+                  1166                  	                  ER_WRONG_COLUMN_NAME                 
+                  1167                  	                  ER_WRONG_KEY_COLUMN                 
+                  1168                  	                  ER_WRONG_MRG_TABLE                 
+                  1169                  	                  ER_DUP_UNIQUE                 
+                  1170                  	                  ER_BLOB_KEY_WITHOUT_LENGTH                 
+                  1171                  	                  ER_PRIMARY_CANT_HAVE_NULL                 
+                  1172                  	                  ER_TOO_MANY_ROWS                 
+                  1173                  	                  ER_REQUIRES_PRIMARY_KEY                 
+                  1174                  	                  ER_NO_RAID_COMPILED                 
+                  1175                  	                  ER_UPDATE_WITHOUT_KEY_IN_SAFE_MODE                 
+                  1176                  	                  ER_KEY_DOES_NOT_EXITS                 
+                  1177                  	                  ER_CHECK_NO_SUCH_TABLE                 
+                  1178                  	                  ER_CHECK_NOT_IMPLEMENTED                 
+                  1179                  	                  ER_CANT_DO_THIS_DURING_AN_TRANSACTION                 
+                  1180                  	                  ER_ERROR_DURING_COMMIT                 
+                  1181                  	                  ER_ERROR_DURING_ROLLBACK                 
+                  1182                  	                  ER_ERROR_DURING_FLUSH_LOGS                 
+                  1183                  	                  ER_ERROR_DURING_CHECKPOINT                 
+                  1184                  	                  ER_NEW_ABORTING_CONNECTION                 
+                  1185                  	                  ER_DUMP_NOT_IMPLEMENTED                 
+                  1186                  	                  ER_FLUSH_MASTER_BINLOG_CLOSED                 
+                  1187                  	                  ER_INDEX_REBUILD                 
+                  1188                  	                  ER_MASTER                 
+                  1189                  	                  ER_MASTER_NET_READ                 
+                  1190                  	                  ER_MASTER_NET_WRITE                 
+                  1191                  	                  ER_FT_MATCHING_KEY_NOT_FOUND                 
+                  1192                  	                  ER_LOCK_OR_ACTIVE_TRANSACTION                 
+                  1193                  	                  ER_UNKNOWN_SYSTEM_VARIABLE                 
+                  1194                  	                  ER_CRASHED_ON_USAGE                 
+                  1195                  	                  ER_CRASHED_ON_REPAIR                 
+                  1196                  	                  ER_WARNING_NOT_COMPLETE_ROLLBACK                 
+                  1197                  	                  ER_TRANS_CACHE_FULL                 
+                  2000                  	                  CR_UNKNOWN_ERROR                 
+                  2001                  	                  CR_SOCKET_CREATE_ERROR                 
+                  2002                  	                  CR_CONNECTION_ERROR                 
+                  2003                  	                  CR_CONN_HOST_ERROR                 
+                  2004                  	                  CR_IPSOCK_ERROR                 
+                  2005                  	                  CR_UNKNOWN_HOST                 
+                  2006                  	                  CR_SERVER_GONE_ERROR                 
+                  2007                  	                  CR_VERSION_ERROR                 
+                  2008                  	                  CR_OUT_OF_MEMORY                 
+                  2009                  	                  CR_WRONG_HOST_INFO                 
+                  2010                  	                  CR_LOCALHOST_CONNECTION                 
+                  2011                  	                  CR_TCP_CONNECTION                 
+                  2012                  	                  CR_SERVER_HANDSHAKE_ERR                 
+                  2013                  	                  CR_SERVER_LOST                 
+                  2014                  	                  CR_COMMANDS_OUT_OF_SYNC                 
+                  2015                  	                  CR_NAMEDPIPE_CONNECTION                 
+                  2016                  	                  CR_NAMEDPIPEWAIT_ERROR                 
+                  2017                  	                  CR_NAMEDPIPEOPEN_ERROR                 
+                  2018                  	                  CR_NAMEDPIPESETSTATE_ERROR                 
+                  2019                  	                  CR_CANT_READ_CHARSET                 
+                  2020                  	                  CR_NET_PACKET_TOO_LARGE          
+				  */
+				//mysql_ping(nMysqlError); // mysql_ping需要定时做心跳
+				const unsigned int nMysqlError = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", exeSql,nMysqlError,mysql_error(pMysql)));
+				if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
+					nMysqlError==2013)		// CR_SERVER_LOST
+				{
+					// **重新连接
+					if (!pSink->Reconnect())
+					{
+						// **重连失败
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重连成功
+					pMysql = pSink->GetMYSQL();
+					if(mysql_query(pMysql, exeSql))
+					{
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重新查询成功
+				}else
+				{
+					// **其他错误
+					CMysqlPool::SinkPut(pSink);
+					return -1;
+				}
 			}
+			//CR_COMMANDS_OUT_OF_SYNC
+			//CR_SERVER_GONE_ERROR
+			//mysql_ping(
 			ret = (cgc::bigint)mysql_affected_rows(pMysql);
 			MYSQL_RES * result = 0;
 			do
@@ -436,16 +554,14 @@ private:
 				mysql_free_result(result);
 			}while( !mysql_next_result( pMysql ) );
 			CMysqlPool::SinkPut(pSink);
-
-			//if(mysql_query(m_mysql, exeSql))
-			//	return -1;
-
-			//ret = (int)mysql_affected_rows(m_mysql);
-			////resultset = mysql_store_result(m_mysql);
 		}catch(...)
 		{
-			CMysqlPool::SinkPut(pSink);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			if (!pSink->Reconnect())
+			{
+				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+			}
+			CMysqlPool::SinkPut(pSink);
 			return -1;
 		}
 		//try
@@ -473,19 +589,35 @@ private:
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, selectSql))
 			{
-				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", selectSql,mysql_error(pMysql)));
-				CMysqlPool::SinkPut(pSink);
-				return -1;
+				const unsigned int nMysqlError = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,nMysqlError,mysql_error(pMysql)));
+				if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
+					nMysqlError==2013)		// CR_SERVER_LOST
+				{
+					// **重新连接
+					if (!pSink->Reconnect())
+					{
+						// **重连失败
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重连成功
+					pMysql = pSink->GetMYSQL();
+					if(mysql_query(pMysql, selectSql))
+					{
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重新查询成功
+				}else
+				{
+					// **其他错误
+					CMysqlPool::SinkPut(pSink);
+					return -1;
+				}
 			}
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
 			rows = (cgc::bigint)mysql_num_rows(resultset);
-
-			//if(mysql_query(m_mysql, selectSql))
-			//	return -1;
-
-			//resultset = mysql_store_result(m_mysql);
-			//rows = (int)mysql_num_rows(resultset);
-
 			if (rows > 0)
 			{
 				outCookie = (int)resultset;
@@ -498,8 +630,12 @@ private:
 			}
 		}catch(...)
 		{
-			CMysqlPool::SinkPut(pSink);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			if (!pSink->Reconnect())
+			{
+				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+			}
+			CMysqlPool::SinkPut(pSink);
 			return -1;
 		}
 		return rows;
@@ -542,9 +678,32 @@ private:
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, selectSql))
 			{
-				CGC_LOG((cgc::LOG_WARNING, "%s(%s)\n", selectSql,mysql_error(pMysql)));
-				CMysqlPool::SinkPut(pSink);
-				return -1;
+				const unsigned int nMysqlError = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,nMysqlError,mysql_error(pMysql)));
+				if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
+					nMysqlError==2013)		// CR_SERVER_LOST
+				{
+					// **重新连接
+					if (!pSink->Reconnect())
+					{
+						// **重连失败
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重连成功
+					pMysql = pSink->GetMYSQL();
+					if(mysql_query(pMysql, selectSql))
+					{
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重新查询成功
+				}else
+				{
+					// **其他错误
+					CMysqlPool::SinkPut(pSink);
+					return -1;
+				}
 			}
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
 			rows = (cgc::bigint)mysql_num_rows(resultset);
@@ -553,8 +712,12 @@ private:
 			resultset = NULL;
 		}catch(...)
 		{
-			CMysqlPool::SinkPut(pSink);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			if (!pSink->Reconnect())
+			{
+				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+			}
+			CMysqlPool::SinkPut(pSink);
 			return -1;
 		}
 		return rows;

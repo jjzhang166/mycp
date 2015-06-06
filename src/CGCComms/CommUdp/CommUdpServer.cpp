@@ -207,8 +207,9 @@ private:
 public:
 	CUdpServer(int nIndex)
 		: m_nIndex(nIndex),m_commPort(0), /*m_capacity(1), */m_protocol(0)
+		, m_socket(8*1024)
 		, m_nDoCommEventCount(0)
-		, m_pCommEventDataPool(Max_UdpSocket_ReceiveSize,30,300)
+		, m_pCommEventDataPool(8*1024,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 
 	{
@@ -342,7 +343,7 @@ private:
 			{
 				m_nFindEventDataCount = 0;
 				m_nNullEventDataCount++;
-				if (m_nCurrentThread>MIN_EVENT_THREAD && ((nSize<(m_nCurrentThread/2)&&m_nNullEventDataCount>200) || m_nNullEventDataCount>300))	// 300*10ms=3S
+				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || (nSize<(m_nCurrentThread/2)&&m_nNullEventDataCount>200) || m_nNullEventDataCount>300))	// 300*10ms=3S
 				{
 					m_nNullEventDataCount = 0;
 					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;

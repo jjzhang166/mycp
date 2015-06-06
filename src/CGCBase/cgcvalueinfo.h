@@ -77,24 +77,29 @@ namespace cgc{
 
 		void setInt(int v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_int = v;}
 		int getInt(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? -1 : u.m_int;}
+		int getIntValue(void) const;
 
 		void setBigInt(bigint v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_bigint = v;}
 		bigint getBigInt(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? -1 : u.m_bigint;}
+		bigint getBigIntValue(void) const;
 
 		//void setTime(time_t v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_time = v;}
 		//time_t getTime(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? 0 : u.m_time;}
 
 		void setBoolean(bool v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_boolean = v;}
 		bool getBoolean(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? false : u.m_boolean;}
+		bool getBooleanValue(void) const ;
 
 		void setFloat(double v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_float = v;}
 		double getFloat(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? 0.0 : u.m_float;}
+		double getFloatValue(void) const;
 
 		void setPointer(const void* v) {if (m_attribute != ATTRIBUTE_READONLY) u.m_pointer = v;}
 		const void* getPointer(void) const {return (m_attribute == ATTRIBUTE_WRITEONLY || m_type!=TYPE_POINTER) ? NULL : u.m_pointer;}
 
 		void setStr(const tstring& v) {if (m_attribute != ATTRIBUTE_READONLY) m_str = v;}
 		const tstring& getStr(void) const {return m_attribute == ATTRIBUTE_WRITEONLY ? cgcEmptyTString : m_str;}
+		tstring getStrValue(void) const;
 
 		void setBuffer(const unsigned char* pBuffer,unsigned int nSize);
 		void setBuffer(unsigned char* pBuffer,unsigned int nSize);
@@ -157,7 +162,6 @@ namespace cgc{
 		void totype(ValueType newtype);
 		void reset(void);
 		void clearBuffer(void);
-
 
 	protected:
 		ValueType m_type;
@@ -1396,6 +1400,58 @@ namespace cgc{
 			}
 			m_type = newtype;
 		}
+	}
+	inline int cgcValueInfo::getIntValue(void) const
+	{
+		if (m_attribute != ATTRIBUTE_READONLY)
+		{
+			if (m_type==TYPE_INT)
+				return u.m_int;
+			const tstring newString = this->toString();
+			return atoi(newString.c_str());
+		}
+		return -1;
+	}
+	inline bigint cgcValueInfo::getBigIntValue(void) const
+	{
+		if (m_attribute != ATTRIBUTE_READONLY)
+		{
+			if (m_type==TYPE_BIGINT)
+				return u.m_bigint;
+			const tstring newString = this->toString();
+			return cgc_atoi64(newString.c_str());
+		}
+		return -1;
+	}
+	inline bool cgcValueInfo::getBooleanValue(void) const 
+	{
+		if (m_attribute != ATTRIBUTE_READONLY)
+		{
+			if (m_type==TYPE_BIGINT)
+				return u.m_boolean;
+			const tstring newString = this->toString();
+			return (newString == "false" || newString == "0") ? false : !newString.empty();
+		}
+		return false;
+	}
+	inline double cgcValueInfo::getFloatValue(void) const
+	{
+		if (m_attribute != ATTRIBUTE_READONLY)
+		{
+			if (m_type==TYPE_FLOAT)
+				return u.m_float;
+			const tstring newString = this->toString();
+			return atof(newString.c_str());
+		}
+		return false;
+	}
+	inline tstring cgcValueInfo::getStrValue(void) const
+	{
+		if (m_attribute != ATTRIBUTE_READONLY)
+		{
+			return toString();
+		}
+		return cgcEmptyTString;
 	}
 
 	inline void cgcValueInfo::reset(void)

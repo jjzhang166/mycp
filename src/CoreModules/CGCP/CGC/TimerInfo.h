@@ -39,6 +39,7 @@ public:
 private:
 	unsigned int m_nIDEvent;
 	unsigned int m_nElapse;
+	//boost::mutex m_mutex;
 	cgcOnTimerHandler::pointer m_timerHandler;
 	bool m_bOneShot;
 	const void * m_pvParam;
@@ -48,7 +49,7 @@ private:
 	struct timeb m_tLastRunTime;
 
 public:
-	TimerInfo(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam);
+	TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam);
 	virtual ~TimerInfo(void);
 
 public:
@@ -60,7 +61,7 @@ public:
 	unsigned int getIDEvent(void) const {return m_nIDEvent;}
 	void setElapse(unsigned int newv) {m_nElapse = newv;}
 	unsigned int getElapse(void) const {return m_nElapse;}
-	void setTimerHandler(cgcOnTimerHandler::pointer newv) {m_timerHandler = newv;}
+	void setTimerHandler(const cgcOnTimerHandler::pointer& newv) {m_timerHandler = newv;}
 	void setOneShot(bool newv) {m_bOneShot = newv;}
 	void setParam(const void * newv) {m_pvParam = newv;}
 	const void * getParam(void) const {return m_pvParam;}
@@ -69,7 +70,6 @@ protected:
 	static void do_timer(TimerInfo * pTimerInfo);
 	void doRunTimer(void);
 	void doTimerExit(void);
-
 };
 
 //
@@ -84,7 +84,7 @@ public:
 	virtual ~TimerTable(void);
 
 public:
-	bool SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam);
+	bool SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam);
 	void KillTimer(unsigned int nIDEvent);
 
 	void KillAll(void);

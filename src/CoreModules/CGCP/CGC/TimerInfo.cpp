@@ -23,7 +23,7 @@
 
 //
 // TimerInfo class 
-TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam)
+TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam)
 : m_nIDEvent(nIDEvent), m_nElapse(nElapse)
 , m_timerHandler(handler), m_bOneShot(bOneShot)
 , m_pvParam(pvParam)
@@ -81,6 +81,8 @@ void TimerInfo::RunTimer(void)
 void TimerInfo::KillTimer(void)
 {
 	m_timerState = TS_Exit;
+	//boost::mutex::scoped_lock lockTimer(m_mutex);
+	//m_timerHandler.reset();
 	boost::thread * timerThreadTemp = m_timerThread;
 	m_timerThread = NULL;
 	if (timerThreadTemp)
@@ -133,27 +135,29 @@ void TimerInfo::doRunTimer(void)
 	}
 
 	// OnTimer
-	if (m_timerHandler.get() != NULL)
 	{
-		boost::mutex::scoped_lock * lock = NULL;
-		if (m_timerHandler->IsThreadSafe())
-			lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
+		//boost::mutex::scoped_lock lockTimer(m_mutex);
+		if (m_timerHandler.get() != NULL)
+		{
+			boost::mutex::scoped_lock * lock = NULL;
+			if (m_timerHandler->IsThreadSafe())
+				lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
 
-		try
-		{
-			ftime(&m_tLastRunTime);
-			m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
-		}catch (const std::exception & e)
-		{
-			printf("******* timeout exception: %s\n",e.what());
-		}catch(...)
-		{
-			printf("******* timeout exception.\n");
+			try
+			{
+				ftime(&m_tLastRunTime);
+				m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
+			}catch (const std::exception & e)
+			{
+				printf("******* timeout exception: %s\n",e.what());
+			}catch(...)
+			{
+				printf("******* timeout exception.\n");
+			}
+			if (lock != NULL)
+				delete lock;
 		}
-		if (lock != NULL)
-			delete lock;
 	}
-
 	if (m_bOneShot)
 	{
 		KillTimer();
@@ -190,7 +194,7 @@ TimerTable::~TimerTable(void)
 }
 
 
-bool TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam)
+bool TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam)
 {
 	if (nIDEvent <= 0 || nElapse <= 0 || handler.get() == NULL) return false;
 

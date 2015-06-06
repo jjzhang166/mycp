@@ -78,6 +78,7 @@ public:
 	virtual bool getRecvParameter(const tstring & sParamName, std::vector<cgcParameter::pointer>& outParams) const = 0;
 
 	virtual tstring getRecvParameterValue(const tstring & sParamName, const char* sDefault = "") const = 0;
+	virtual tstring getRecvParameterValue(const tstring & sParamName, const tstring& sDefault = "") const = 0;
 	virtual int getRecvParameterValue(const tstring & sParamName, int nDefault) const = 0;
 	virtual bigint getRecvParameterValue(const tstring & sParamName, bigint tDefault) const = 0;
 	virtual bool getRecvParameterValue(const tstring & sParamName, bool bDefault) const = 0;

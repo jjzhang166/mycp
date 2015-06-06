@@ -38,6 +38,7 @@ public:
 
 	virtual cgcParameter::pointer getParameter(const tstring & sParamName) const =0;
 	virtual tstring getParameterValue(const tstring & sParamName, const char * sDefault = "") const =0;
+	virtual tstring getParameterValue(const tstring & sParamName, const tstring & sDefault) const =0;
 	virtual int getParameterValue(const tstring & sParamName, int nDefault) const =0;
 	virtual bigint getParameterValue(const tstring & sParamName, bigint tDefault) const =0;
 	virtual bool getParameterValue(const tstring & sParamName, bool bDefault) const =0;

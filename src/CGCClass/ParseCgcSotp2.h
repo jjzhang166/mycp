@@ -112,6 +112,7 @@ public:
 	cgcParameter::pointer getParameter(const tstring & paramName) const {return m_parameterMap.getParameter(paramName);}
 	bool getParameter(const tstring & paramName, std::vector<cgcParameter::pointer>& outParams) const {return m_parameterMap.find(paramName, outParams);}
 	tstring getParameterValue(const tstring & paramName, const char* defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
+	tstring getParameterValue(const tstring & paramName, const tstring& defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
 	int getParameterValue(const tstring & paramName, int defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
 	bigint getParameterValue(const tstring & paramName, bigint defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
 	bool getParameterValue(const tstring & paramName, bool defaultValue) const {return m_parameterMap.getParameterValue(paramName, defaultValue);}
