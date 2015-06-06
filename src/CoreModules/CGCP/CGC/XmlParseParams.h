@@ -70,18 +70,18 @@ public:
 	void load(const tstring & filename)
 	{
 		clearParameters();
-
-
 		try
 		{
 			ptree pt;
 			read_xml(filename, pt);
 			BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root"))
 				Insert(v);
-
+		}catch(std::exception const & e)
+		{
+			printf("**** load %s exception, %s\n", filename.c_str(), e.what());
 		}catch(...)
 		{
-			int i=0;
+			printf("**** load %s exception\n", filename.c_str());
 		}
 	}
 

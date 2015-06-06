@@ -2548,7 +2548,8 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 
 			namespace fs = boost::filesystem;
 			boosttpath pathXmlFile(xmlFile);
-			if (boost::filesystem::exists(pathXmlFile))
+			boost::system::error_code ec;
+			if (boost::filesystem::exists(pathXmlFile,ec))
 			{
 				XmlParseAllowMethods parseAllowMethods;
 				parseAllowMethods.load(xmlFile);
@@ -2569,7 +2570,8 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 
 			namespace fs = boost::filesystem;
 			boosttpath pathXmlFile(xmlFile);
-			if (fs::exists(pathXmlFile))
+			boost::system::error_code ec;
+			if (fs::exists(pathXmlFile,ec))
 			{
 				XmlParseAuths parseAuths;
 				parseAuths.load(xmlFile);
@@ -2583,14 +2585,14 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 				m_logModuleImpl.log(LOG_WARNING, _T("'%s' authAccount, please setting '%s'\n"), moduleItem->getModule().c_str(), xmlFile.c_str());
 		}
 
-		//
 		// init parameter
 		tstring xmlFile(moduleImpl->getAppConfPath());
 		xmlFile.append(_T("/params.xml"));
 
 		namespace fs = boost::filesystem;
 		boosttpath pathXmlFile(xmlFile);
-		if (fs::exists(pathXmlFile))
+		boost::system::error_code ec;
+		if (fs::exists(pathXmlFile,ec))
 		{
 			pModuleImpl->m_moduleParams.clearParameters();
 			pModuleImpl->m_moduleParams.load(xmlFile);

@@ -82,7 +82,8 @@ public:
 		namespace fs = boost::filesystem;
 
 		fs::path pathXmlFile(m_xmlfile);
-		if (boost::filesystem::exists(pathXmlFile))
+		boost::system::error_code ec;
+		if (boost::filesystem::exists(pathXmlFile,ec))
 			m_setting.load(m_xmlfile);
 
 		if (m_setting.getLogFile().empty())
@@ -98,8 +99,8 @@ public:
 			tstring sLogRoot(theSystem->getServerPath());
 			sLogRoot.append("/log");
 			fs::path pathLogRoot(sLogRoot);
-			if (!boost::filesystem::exists(pathLogRoot))
-				boost::filesystem::create_directory(pathLogRoot);
+			if (!boost::filesystem::exists(pathLogRoot,ec))
+				boost::filesystem::create_directory(pathLogRoot,ec);
 
 			char logPath[256];
 			memset(logPath, 0, 256);
@@ -277,8 +278,9 @@ protected:
 			// Create log directory.
 			namespace fs = boost::filesystem;
 			fs::path logPath(sLogPath);
-			if (!boost::filesystem::exists(logPath))
-				boost::filesystem::create_directory(logPath);
+			boost::system::error_code ec;
+			if (!boost::filesystem::exists(logPath,ec))
+				boost::filesystem::create_directory(logPath,ec);
 
 			sLogPath.append("/");
 			sLogPath.append(sLogFile);
@@ -286,8 +288,17 @@ protected:
 			if (!m_stream.is_open()) return false;	// Open failed.
 
 			// Set locale to support Chinese.
-			std::locale loc(m_setting.getLocale().c_str());
-			m_stream.imbue(loc);
+			try
+			{
+				std::locale loc(m_setting.getLocale().c_str());
+				m_stream.imbue(loc);
+			}catch (const std::exception & e)
+			{
+				printf("**** log stream.imbue(std::locale) %s exception, %s\n", m_setting.getLocale().c_str(), e.what());
+			}catch(...)
+			{
+				printf("**** log stream.imbue(std::locale) %s exception\n", m_setting.getLocale().c_str());
+			}
 		}
 
 		return true;

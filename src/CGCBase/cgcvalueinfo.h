@@ -1403,7 +1403,7 @@ namespace cgc{
 	}
 	inline int cgcValueInfo::getIntValue(void) const
 	{
-		if (m_attribute != ATTRIBUTE_READONLY)
+		if (m_attribute != ATTRIBUTE_WRITEONLY)
 		{
 			if (m_type==TYPE_INT)
 				return u.m_int;
@@ -1414,7 +1414,7 @@ namespace cgc{
 	}
 	inline bigint cgcValueInfo::getBigIntValue(void) const
 	{
-		if (m_attribute != ATTRIBUTE_READONLY)
+		if (m_attribute != ATTRIBUTE_WRITEONLY)
 		{
 			if (m_type==TYPE_BIGINT)
 				return u.m_bigint;
@@ -1425,9 +1425,9 @@ namespace cgc{
 	}
 	inline bool cgcValueInfo::getBooleanValue(void) const 
 	{
-		if (m_attribute != ATTRIBUTE_READONLY)
+		if (m_attribute != ATTRIBUTE_WRITEONLY)
 		{
-			if (m_type==TYPE_BIGINT)
+			if (m_type==TYPE_BOOLEAN)
 				return u.m_boolean;
 			const tstring newString = this->toString();
 			return (newString == "false" || newString == "0") ? false : !newString.empty();
@@ -1436,7 +1436,7 @@ namespace cgc{
 	}
 	inline double cgcValueInfo::getFloatValue(void) const
 	{
-		if (m_attribute != ATTRIBUTE_READONLY)
+		if (m_attribute != ATTRIBUTE_WRITEONLY)
 		{
 			if (m_type==TYPE_FLOAT)
 				return u.m_float;
@@ -1447,7 +1447,7 @@ namespace cgc{
 	}
 	inline tstring cgcValueInfo::getStrValue(void) const
 	{
-		if (m_attribute != ATTRIBUTE_READONLY)
+		if (m_attribute != ATTRIBUTE_WRITEONLY)
 		{
 			return toString();
 		}
