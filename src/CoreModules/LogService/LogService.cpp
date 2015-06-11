@@ -318,6 +318,7 @@ protected:
 		}
 
 		if (this->m_setting.isLogToStderr())
+		//if (level==LOG_ERROR && this->m_setting.isLogToStderr())
 		{
 			std::cerr << m_name.c_str() << _T(": ") << logInfo->m_msg.c_str();// << std::endl;
 		}

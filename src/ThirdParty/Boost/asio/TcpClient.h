@@ -67,13 +67,15 @@ public:
 			}else
 			{
 				m_socket = new boost_socket<tcp::socket>(io_service);
-				m_socket->get_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
-				m_socket->get_socket()->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
+				boost::system::error_code ec;
+				m_socket->get_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
+				m_socket->get_socket()->set_option(boost::asio::socket_base::receive_buffer_size(64*1024),ec);
 			}
 #else
 			m_socket = new tcp::socket(io_service);
-			m_socket->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
-			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
+			boost::system::error_code ec;
+			m_socket->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
+			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(64*1024),ec);
 #endif
 		}
 		if (m_proc_data == 0)
