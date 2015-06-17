@@ -225,6 +225,11 @@ namespace bo
 	const unsigned short TIME_SIZE		= sizeof(TIME);
 	const unsigned short TIMESTAMP_SIZE	= sizeof(tagTIMESTAMP);
 
+	typedef enum OptionType
+	{
+		OPTION_FULL_MEMORY_MODE			// 0/1 default 0
+	}OptionType;
+
 } // namespace
 
 #endif // __bodbdef_h__

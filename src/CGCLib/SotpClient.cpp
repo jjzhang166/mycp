@@ -42,7 +42,7 @@ CSotpClient::~CSotpClient(void)
 
 }
 
-DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddress, unsigned int bindPort)
+DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddress, unsigned int bindPort, int nThreadStackSize)
 {
 	CgcBaseClient::pointer cgcClient;
 	switch (pAddress.socketType())
@@ -64,7 +64,7 @@ DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddre
 		return cgcClient;
 	}
 
-	if (cgcClient->StartClient(pAddress.address(), bindPort) != 0)
+	if (cgcClient->StartClient(pAddress.address(), bindPort, nThreadStackSize) != 0)
 	{
 		cgcClient.reset();
 		return cgcClient;

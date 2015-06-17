@@ -39,8 +39,9 @@ public:
 		, m_nWaitSleep(3)
 		, m_nRetryCount(0)
 		, m_sDefaultEncoding(_T("GBK"))
+		, m_bLogReceiveData(false)
 	{}
-	~XmlParseDefault(void)
+	virtual ~XmlParseDefault(void)
 	{}
 
 public:
@@ -60,12 +61,13 @@ public:
 		m_sCgcpName = pt.get("root.cgcp.name", _T("CGCP"));
 		m_sCgcpAddress = pt.get("root.cgcp.address", _T("127.0.0.1"));
 		m_sCgcpCode = pt.get("root.cgcp.code", _T("cgcp0"));
-		m_nCgcpRank = pt.get("root.cgcp.rank", 0);
+		m_nCgcpRank = pt.get("root.cgcp.rank", (int)0);
 		// root.time.*
 		m_nWaitSleep = pt.get("root.time.waitsleep", 3);
-		m_nRetryCount = pt.get("root.app.retry", 0);
+		m_nRetryCount = pt.get("root.app.retry", (int)0);
 		// root.encoding
 		m_sDefaultEncoding = pt.get("root.encoding", _T("GBK"));
+		m_bLogReceiveData = pt.get("root.log.receive", (int)0)==1?true:false;
 
 		// 遍历debug.modules段并把所有找到的模块保存到m_modules里 
 		// get_child()返回指定路径的下级引用.如果没有下级就抛出异常.
@@ -82,6 +84,7 @@ public:
 	int getWaitSleep(void) const {return m_nWaitSleep;}
 	int getRetryCount(void) const {return m_nRetryCount;}
 	const tstring & getDefaultEncoding(void) const {return m_sDefaultEncoding;}
+	bool getLogReceiveData(void) const {return m_bLogReceiveData;}
 
 private:
 	tstring m_sCgcpName;	// 本地名称
@@ -91,6 +94,7 @@ private:
 	int m_nWaitSleep;			// 等待多少秒才启动
 	int m_nRetryCount;			// 重试多少次（APP类型有效）
 	tstring m_sDefaultEncoding;
+	bool m_bLogReceiveData;
 };
 
 class CPortApp

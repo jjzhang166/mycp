@@ -44,6 +44,7 @@ namespace bo
 		enum TableType
 		{
 			TT_NORMAL	= 0x1
+			, TT_SYSTEM = 0x2
 
 			, TT_UNKNOWN	= 0xf
 		};
@@ -73,6 +74,7 @@ namespace bo
 		void name(const tstring & newv) {m_name = newv;}
 		const tstring & name(void) const {return m_name;}
 		TableType type(void) const {return m_type;}
+		void type(TableType  newv) {m_type = newv;}
 		void note(const tstring & newv) {m_note = newv;}
 		const tstring & note(void) const {return m_note;}
 

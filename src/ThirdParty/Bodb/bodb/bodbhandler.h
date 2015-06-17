@@ -51,6 +51,8 @@ namespace bo
 		virtual bool dropdefault(const tstring & tableName, const tstring & fieldName) = 0;
 		virtual bool setdefault(const tstring & tableName, const tstring & fieldName, tagItemValue * defaultValue) = 0;
 
+		virtual bool setoption(OptionType nOption, bo::uinteger nValue) = 0;
+
 	};
 
 	const CBodbHandler::pointer boNullBodbHandler;

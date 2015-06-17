@@ -792,6 +792,9 @@ int CGCApp::onRecvData(const cgcRemote::pointer& pcgcRemote, const unsigned char
 	{
 		printf("CGCApp::onRecvData isInvalidate size=%d\n",recvLen);
 		return -1;
+	}else if (m_parseDefault.getLogReceiveData())
+	{
+		m_logModuleImpl.log(LOG_TRACE, _T("****onRecvData:Size=%d\n****%s\n****\n"), recvLen, recvData);
 	}
 
 	//printf("CGCApp::onRecvData:%d size=%d\n",pcgcRemote->getRemoteId(),recvLen);

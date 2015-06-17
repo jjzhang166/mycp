@@ -38,7 +38,7 @@ CgcRtpClient::~CgcRtpClient(void)
 	StopClient();
 }
 
-int CgcRtpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort)
+int CgcRtpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize)
 {
 	if (m_pDoRtpHandler.get() == NULL)
 	{

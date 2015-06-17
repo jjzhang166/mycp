@@ -42,6 +42,13 @@ namespace bo
 		m_variants2.find(fieldName, variant);
 		return variant;
 	}
+	bool CRecordLine::equalFieldVariant(uinteger fieldId, const CFieldVariant::pointer& compare) const
+	{
+		CFieldVariant::pointer variant;
+		if (!m_variants.find(fieldId, variant))
+			return false;
+		return variant->equal(compare);
+	}
 
 	void CRecordLine::addVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& variant)
 	{

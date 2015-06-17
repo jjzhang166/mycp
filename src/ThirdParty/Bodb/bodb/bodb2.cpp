@@ -175,6 +175,8 @@ namespace bo
 
 						bool distinct = sp->parameter == (void*)1;
 						CResultSet::pointer rs = CDbService::select(tableInfo, topwheres, false);
+						rs->OrderBy(orderbys, sp->orderbydesc==1);
+						rs->LimitOffset(sp->offset, sp->limit);
 						result = rs->size();
 
 						if (outResultSet == 0)
@@ -188,7 +190,6 @@ namespace bo
 							(*outResultSet)->rsvalues = new PRECORDLINE[result];
 						}
 
-						rs->OrderBy(orderbys, sp->orderbydesc==1);
 						CRecordLine::pointer recordLine = rs->moveFirst();
 						while (recordLine.get() != 0)
 						{
@@ -677,6 +678,45 @@ namespace bo
 					}break;
 				case SQLCOM_ALTER_DATABASE:
 					{
+						// 
+						if (sp->dbname != 0)
+						{
+							if (!CDbService::use(sp->dbname))
+								break;
+						}
+
+						for (short i=0; i<sp->items->itemcount; i++)
+						{
+							tagParameter * item = (tagParameter*)sp->items->items[i]->item_handle;
+
+							switch (item->param_type)
+							{
+							case PARAMETER_RENAME:
+								{
+									char * newname = (char*)item->parameter;
+									if (newname == 0)
+										break;
+
+									//CDbService::rename(table->table_name, newname);
+								}break;
+							case PARAMETER_SET:
+								{
+									char * pParameter = (char*)item->parameter;
+									if (pParameter == 0)
+										break;
+									char * pValue = (char*)item->parameter2;
+									if (pValue == 0)
+										break;
+									if (strcmp(pParameter,"full_memory")==0)
+									{
+										if (CDbService::setoption(OPTION_FULL_MEMORY_MODE,atoi(pValue)))
+											result = 0;
+									}
+								}break;
+							default:
+								break;
+							}
+						}
 					}break;
 				default:
 					break;
@@ -737,6 +777,8 @@ namespace bo
 			return CFieldCompare::FCT_ISNOTNULL;
 		case COMPARE_BETWEENAND:
 			return CFieldCompare::FCT_BETWEENAND;
+		case COMPARE_LIKE:
+			return CFieldCompare::FCT_LIKE;
 		default:
 			// ??
 			break;
@@ -804,6 +846,7 @@ namespace bo
 			case COMPARE_GREATEREQUAL:
 			case COMPARE_LESS:
 			case COMPARE_LESSEQUAL:
+			case COMPARE_LIKE:
 				{
 					tagItemValue * itemValue = (tagItemValue*)pWhere->value_handle;
 					if (itemValue == 0)

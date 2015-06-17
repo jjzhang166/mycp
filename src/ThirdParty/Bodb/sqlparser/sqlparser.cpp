@@ -1,6 +1,6 @@
 /*
     The sqlparser library parse the SQL (Structured Query Language)
-    Copyright (C) 2009-2010  Akee Yang <akee.yang@gmail.com>
+    Copyright (C) 2009-2014  Akee Yang <akee.yang@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -551,7 +551,7 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 		// IS NULL - IS NOT NULL
 		// BETWEEN a AND b
 		// IN (a,b,c)
-		// NOT LIKE
+		// NOT LIKE - LIKE
 		// = (SELECT ...)
 		// IN (SELECT ...)
 		// =[.] ALL[ANY] (SELECT...)
@@ -564,14 +564,15 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 		{
 			leftoffset += leftIndex+7;
 			whereHandle->compare_type = COMPARE_ISNULL;
+		}else if (strCompare(pBuffer+leftoffset, "LIKE", leftIndex))
+		{
+			leftoffset += leftIndex+4;
+			whereHandle->compare_type = COMPARE_LIKE;
 		}else if (strCompare(pBuffer+leftoffset, "BETWEEN", leftIndex))
 		{
 			leftoffset += leftIndex+7;
 			whereHandle->compare_type = COMPARE_BETWEENAND;
-
-
 			// ???
-
 		}else if (strCompare(pBuffer+leftoffset, "=", leftIndex))
 		{
 			leftoffset += leftIndex+1;
@@ -601,18 +602,28 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 			return false;
 		}
 
-		if (whereHandle->compare_type <= COMPARE_LESSEQUAL)
+		switch (whereHandle->compare_type)
 		{
-			// <column_value>
-			tagItemValue * itemValue = new tagItemValue;
-			memset(itemValue, 0, sizeof(tagItemValue));
-			whereHandle->value_handle = itemValue;
-
-			if (!GetItemValue(pBuffer+leftoffset, itemValue, leftIndex))
+		case COMPARE_EQUAL:
+		case COMPARE_UNEQUAL:
+		case COMPARE_GREATER:
+		case COMPARE_GREATEREQUAL:
+		case COMPARE_LESS:
+		case COMPARE_LESSEQUAL:
+		case COMPARE_LIKE:
 			{
-				return false;
+				// <column_value>
+				tagItemValue * itemValue = new tagItemValue;
+				memset(itemValue, 0, sizeof(tagItemValue));
+				whereHandle->value_handle = itemValue;
+				if (!GetItemValue(pBuffer+leftoffset, itemValue, leftIndex))
+				{
+					return false;
+				}
+				leftoffset += leftIndex;
 			}
-			leftoffset += leftIndex;
+		default:
+			break;
 		}
 
 		if (nWhereLevel>0&& strCompare(pBuffer+leftoffset, ")", leftIndex))
@@ -654,7 +665,7 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 	outLeftIndex = leftoffset;
 	return true;
 }
-bool GetOrderBys(const char * pBuffer, tagSP * outSP)
+bool GetOrderBys(const char * pBuffer, tagSP * outSP, int & outLeftIndex)
 {
 	int leftoffset = 0;
 	int leftIndex = 0;
@@ -693,7 +704,66 @@ bool GetOrderBys(const char * pBuffer, tagSP * outSP)
 			}
 		}
 	}
+	outLeftIndex = leftoffset;
 	return true;
+}
+bool GetOffsetLimit(const char * pBuffer, tagSP * outSP)
+{
+	int leftoffset = 0;
+	int leftIndex = 0;
+	short wordLen = 0;
+	bool bResult = true;
+	char * tempBuffer;
+
+	tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+	bool bFindLimit = false;
+	bool bFindOffset = false;
+	while (true)
+	{
+		if (!strGetWord(pBuffer+leftoffset, tempBuffer, leftIndex, &wordLen))
+		{
+			break;
+		}
+		leftoffset += leftIndex+wordLen+1;
+
+		if (strCompare(tempBuffer, "OFFSET", leftIndex))
+		{
+			char * tempBuffer2 = new char[MAX_ITEM_STRING_SIZE];
+			if (strGetWordNumber(pBuffer+leftoffset, tempBuffer2, leftIndex, &wordLen))
+			{
+				leftoffset += leftIndex+wordLen;
+				outSP->offset = bo_atoi64(tempBuffer2);
+				delete[] tempBuffer2;
+			}else
+			{
+				delete[] tempBuffer2;
+				bResult = false;
+				break;
+			}
+			bFindOffset = true;
+			if (bFindLimit)
+				break;
+		}else if (strCompare(tempBuffer, "LIMIT", leftIndex))
+		{
+			char * tempBuffer2 = new char[MAX_ITEM_STRING_SIZE];
+			if (strGetWordNumber(pBuffer+leftoffset, tempBuffer2, leftIndex, &wordLen))
+			{
+				leftoffset += leftIndex+wordLen;
+				outSP->limit = bo_atoi64(tempBuffer2);
+				delete[] tempBuffer2;
+			}else
+			{
+				delete[] tempBuffer2;
+				bResult = false;
+				break;
+			}
+			bFindLimit = true;
+			if (bFindOffset)
+				break;
+		}
+	}
+	delete[] tempBuffer;
+	return bResult;
 }
 
 tagField * GetFieldItem(const char * sql, int & offset)
@@ -1026,6 +1096,10 @@ bool GetFieldItems(const char * sql, tagSP * outSP, int & offset)
 		{
 			offset += leftIndex+1;
 			continue;
+		//}else if (strCompare(sql+offset, "CONSTRAINT", leftIndex))
+		//{
+		//	// CONSTRAINT ebm_group_version_t_PK PRIMARY KEY(group_id)
+		//	offset += leftIndex+10;
 		}else if (strCompare(sql+offset, ")", leftIndex))
 		{
 			offset += leftIndex+1;
@@ -1133,7 +1207,6 @@ tagSP * parse_exec(const char * sql)
 		result = new tagSP;
 		memset(result, 0, sizeof(tagSP));
 		result->sql_command = SQLCOM_SELECT;
-
 	}else if (strCompare(sql, "CREATE", leftIndex))
 	{
 		leftoffset = leftIndex+7;
@@ -1303,6 +1376,9 @@ tagSP * parse_exec(const char * sql)
 
 	if (result == 0)
 		return result;
+	//// default
+	//result->limit = -1;
+	//result->offset = -1;
 
 	char * tempBuffer = new char[MAX_ITEM_STRING_SIZE];
 	if (result->sql_command != SQLCOM_SELECT)
@@ -1471,7 +1547,16 @@ tagSP * parse_exec(const char * sql)
 			if (!bGetWhereKeyword)
 			{
 				if (bGetOrderKeyword)
-					GetOrderBys(sql+leftoffset, result);
+				{
+					GetOrderBys(sql+leftoffset, result, leftIndex);
+					leftoffset += leftIndex;
+				}
+				if (!GetOffsetLimit(sql+leftoffset, result))
+				{
+					parse_free(result);
+					result = 0;
+					return result;
+				}
 				break;
 			}
 
@@ -1482,11 +1567,19 @@ tagSP * parse_exec(const char * sql)
 				result = 0;
 				return result;
 			}
+			leftoffset += leftIndex;
 			if (bGetOrderKeyword)
 			{
 				// WHERE后面带的ORDER
+				GetOrderBys(sql+leftoffset, result, leftIndex);
 				leftoffset += leftIndex;
-				GetOrderBys(sql+leftoffset, result);
+			}
+			//// LIMIT X OFFSET Y
+			if (!GetOffsetLimit(sql+leftoffset, result))
+			{
+				parse_free(result);
+				result = 0;
+				return result;
 			}
 		}break;
 	case SQLCOM_DELETE:
@@ -1765,6 +1858,96 @@ tagSP * parse_exec(const char * sql)
 		{
 			result->dbname = tempBuffer;
 		}break;
+	case SQLCOM_ALTER_DATABASE:
+		{
+			//ALTER DATABASE name [ [ WITH ] option [ ... ] ]
+			// 
+			//where option can be:
+			// 
+			//    CONNECTION LIMIT connlimit
+			// 
+			//ALTER DATABASE name SET parameter { TO | = } { value | DEFAULT }
+			//ALTER DATABASE name RESET parameter
+			//
+			//ALTER DATABASE name RENAME TO newname
+			//
+			//ALTER DATABASE name OWNER TO new_owner
+
+			result->dbname = tempBuffer;
+			if (strCompare(sql+leftoffset, "RENAME", leftIndex))
+			{
+				// ???未实现；
+				leftoffset += leftIndex+7;
+				if (!strCompare(sql+leftoffset, "TO", leftIndex))
+				{
+					parse_free(result);
+					result = 0;
+					return result;
+				}
+				leftoffset += leftIndex+3;
+
+				tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+				if (!strGetWord2(sql+leftoffset, tempBuffer, leftIndex, &wordLen))
+				{
+					delete[] tempBuffer;
+					parse_free(result);
+					result = 0;
+					return result;
+				}
+				leftoffset += leftIndex+wordLen;
+
+				tagParameter * parameter = new tagParameter;
+				memset(parameter, 0, sizeof(tagParameter));
+				parameter->param_type = PARAMETER_RENAME;
+				parameter->parameter = tempBuffer;
+				AddItem(result, PARAM_ITEM, parameter);
+			}else if (strCompare(sql+leftoffset, "SET", leftIndex))
+			{
+				leftoffset += leftIndex+4;
+
+				tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+				if (!strGetWord2(sql+leftoffset, tempBuffer, leftIndex, &wordLen))
+				{
+					delete[] tempBuffer;
+					parse_free(result);
+					result = 0;
+					return result;
+				}
+				leftoffset += leftIndex+wordLen;
+
+				if (!strCompare(sql+leftoffset, "=", leftIndex))
+				{
+					delete[] tempBuffer;
+					parse_free(result);
+					result = 0;
+					return result;
+				}
+				leftoffset += leftIndex + 1;
+
+				char* tempBuffer2 = new char[MAX_ITEM_STRING_SIZE];
+				if (!strGetWord2(sql+leftoffset, tempBuffer2, leftIndex, &wordLen))
+				{
+					delete[] tempBuffer;
+					delete[] tempBuffer2;
+					parse_free(result);
+					result = 0;
+					return result;
+				}
+				leftoffset += leftIndex+wordLen;
+
+
+				tagParameter * parameter = new tagParameter;
+				memset(parameter, 0, sizeof(tagParameter));
+				parameter->param_type = PARAMETER_SET;
+				parameter->parameter = tempBuffer;
+				parameter->parameter2 = tempBuffer2;
+				AddItem(result, PARAM_ITEM, parameter);
+			}else
+			{
+				break;
+			}
+
+		}break;
 	case SQLCOM_ALTER_TABLE:
 		{
 			AddTableItem(result, tempBuffer);
@@ -2029,8 +2212,12 @@ void free_param(tagParameter * param)
 		{
 		case PARAMETER_DROPTABLE:
 		case PARAMETER_RENAME:
+		case PARAMETER_SET:
 			{
 				char * buffer = (char*)param->parameter;
+				if (buffer != 0)
+					delete[] buffer;
+				buffer = (char*)param->parameter2;
 				if (buffer != 0)
 					delete[] buffer;
 			}break;
@@ -2107,6 +2294,7 @@ void free_item(tagItem * item)
 					case COMPARE_GREATEREQUAL:
 					case COMPARE_LESS:
 					case COMPARE_LESSEQUAL:
+					case COMPARE_LIKE:
 						{
 							tagItemValue * itemValue = (tagItemValue*)buffer->value_handle;
 							if (itemValue != 0)

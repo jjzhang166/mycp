@@ -68,6 +68,20 @@ namespace bo
 			moveFirst();
 		}
 	}
+	void CResultSet::LimitOffset(bo::bigint nOffset,bo::bigint nLimit)
+	{
+		// *offset pop_front
+		while(nOffset>0 && nOffset>0)
+		{
+			m_records.pop_front();
+			nOffset--;
+		}
+		// *limit pop_back
+		while(nLimit>0 && m_records.size()>nLimit)
+		{
+			m_records.pop_back();
+		}
+	}
 
 	CRecordLine::pointer CResultSet::moveFirst(void)
 	{
@@ -128,7 +142,21 @@ namespace bo
 		m_records.clear();
 		m_records2.clear();
 	}
-	void CResultSet::addRecord(CRecordLine::pointer record)
+	void CResultSet::getFieldEqualList(bo::uinteger fieldId, const CFieldVariant::pointer& variant, std::vector<CRecordLine::pointer>& pOutList)
+	{
+		BoostReadLock rdLock(m_records.mutex());
+		CLockList<CRecordLine::pointer>::iterator pIter = m_records.begin();
+		for (; pIter!=m_records.end(); pIter++)
+		{
+			CRecordLine::pointer pRecordLine = *pIter;
+			if (pRecordLine->equalFieldVariant(fieldId,variant))
+			{
+				pOutList.push_back(pRecordLine);
+			}
+		}
+	}
+
+	void CResultSet::addRecord(const CRecordLine::pointer& record)
 	{
 		BOOST_ASSERT (record.get() != 0);
 		m_records.add(record);

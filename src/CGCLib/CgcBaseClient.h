@@ -96,7 +96,7 @@ public:
 	};
 
 protected:
-	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort) = 0;
+	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize) = 0;
 	virtual void stopClient(void) = 0;
 	virtual bool isInvalidate(void) const = 0;
 	virtual size_t sendData(const unsigned char * data, size_t size) = 0;
@@ -227,7 +227,7 @@ public:
 	// nActiveWaitSeconds: how many second regular active the session.
 	//  >0, cycle seconds, <=0, do not regular
 	//int StartClient(const tstring & sCwssHostName, u_short nCwssPort=8089, int nRecvThreads=2, int nActiveWaitSeconds=60);
-	int StartClient(const tstring & sCgcServerAddr, unsigned int bindPort);
+	int StartClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize);
 
 	void StartCIDTimeout(void);
 	// nRecvThreads: 0 <= nRecvThreads <= 20

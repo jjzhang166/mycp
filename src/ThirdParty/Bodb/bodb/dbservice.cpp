@@ -191,25 +191,49 @@ namespace bo
 	void CDbService::create_default_table(void)
 	{
 		CTableInfo::pointer tableInfo = getTableInfo("bodb_sys_account");
-		if (tableInfo.get())
-			return;
-
-		tableInfo = CTableInfo::create("bodb_sys_account");
-		if (CDbService::createTable(tableInfo))
+		if (tableInfo.get() == NULL)
 		{
-			CDbService::createField(tableInfo, CFieldInfo::create("account", bo::FT_VARCHAR, 64));
-			CDbService::createField(tableInfo, CFieldInfo::create("password", bo::FT_VARCHAR, 64));
-			CDbService::createField(tableInfo, CFieldInfo::create("status", bo::FT_INTEGER));
-			CRecordLine::pointer recordLine = CRecordLine::create(tableInfo);
-			if (m_account.empty())
+			tableInfo = CTableInfo::create("bodb_sys_account", CTableInfo::TT_SYSTEM);
+			if (CDbService::createTable(tableInfo))
 			{
-				m_account = "system";
+				CDbService::createField(tableInfo, CFieldInfo::create("account", bo::FT_VARCHAR, 64));
+				CDbService::createField(tableInfo, CFieldInfo::create("password", bo::FT_VARCHAR, 64));
+				CDbService::createField(tableInfo, CFieldInfo::create("status", bo::FT_INTEGER));
+				CRecordLine::pointer recordLine = CRecordLine::create(tableInfo);
+				if (m_account.empty())
+				{
+					m_account = "system";
+				}
+				recordLine->addVariant("account", m_account.c_str(), m_account.size());
+				recordLine->addVariant("password", m_password.c_str(), m_password.size());
+				CDbService::insert(recordLine);
 			}
-			recordLine->addVariant("account", m_account.c_str(), m_account.size());
-			recordLine->addVariant("password", m_password.c_str(), m_password.size());
-			CDbService::insert(recordLine);
+		}else if (tableInfo->type()!=CTableInfo::TT_SYSTEM)
+		{
+			// ?
+			tableInfo->type(CTableInfo::TT_SYSTEM);
+			if (isopen())
+				m_curdb->update("bodb_sys_account");
 		}
 
+		tableInfo = getTableInfo("bodb_sys_option");
+		if (tableInfo.get() == NULL)
+		{
+			tableInfo = CTableInfo::create("bodb_sys_option", CTableInfo::TT_SYSTEM);
+			if (CDbService::createTable(tableInfo))
+			{
+				CFieldInfo::pointer pFieldInfo = CFieldInfo::create("option", bo::FT_INTEGER);
+				pFieldInfo->constraintType(FIELD_CONSTRAINT_PRIMARYKEY);
+				CDbService::createField(tableInfo, pFieldInfo);
+				CDbService::createField(tableInfo, CFieldInfo::create("value", bo::FT_VARCHAR, 64));
+			}
+		}else if (tableInfo->type()!=CTableInfo::TT_SYSTEM)
+		{
+			// ?
+			tableInfo->type(CTableInfo::TT_SYSTEM);
+			if (isopen())
+				m_curdb->update("bodb_sys_option");
+		}
 	}
 
 	void CDbService::setaccount(const tstring & account, const tstring & password)
@@ -249,6 +273,7 @@ namespace bo
 					create_default_table();
 					return true;
 				}
+				create_default_table();	// ** for bodb_sys_option
 
 				CFieldInfo::pointer fieldAccountInfo = tableInfo->getFieldInfo("account");
 				CFieldInfo::pointer fieldPasswordInfo = tableInfo->getFieldInfo("password");
@@ -365,6 +390,11 @@ namespace bo
 	{
 		if (!isopen()) return false;
 		return m_curdb->setdefault(tableName, fieldName, defaultValue);
+	}
+	bool CDbService::setoption(OptionType nOption, bo::uinteger nValue)
+	{
+		if (!isopen()) return false;
+		return m_curdb->setOption(nOption, nValue);
 	}
 
 	//CDatabase::pointer CDbService::opendb(const tstring & dbname)

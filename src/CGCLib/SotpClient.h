@@ -27,7 +27,7 @@
 class LIBSOTPCLIENT_CLASS CSotpClient
 {
 public:
-	DoSotpClientHandler::pointer startClient(const CCgcAddress & address, unsigned int bindPort=0);
+	DoSotpClientHandler::pointer startClient(const CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
 	void stopClient(DoSotpClientHandler::pointer pDoHandler);
 	void stopAllClient(void);
 

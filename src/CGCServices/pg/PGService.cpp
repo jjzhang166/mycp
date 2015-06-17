@@ -318,6 +318,8 @@ private:
 			{
 				BoostWriteLock wtlock(m_mutex);
 				sink_pool_cleanup();
+			}catch(const std::exception&)
+			{
 			}catch(...)
 			{
 			}

@@ -49,6 +49,8 @@ namespace bo
 		bool open(void);
 		void close(void);
 		std::string getDbName(void) const {return m_dbinfo.get() == 0 ? "" : m_dbinfo->name();}
+		bool setOption(OptionType nOption, bo::uinteger nValue);
+		bo::uinteger getOption(OptionType nOption) const;
 
 		bool createTable(const CTableInfo::pointer&);
 		bool dropTable(const tstring & tablename);
@@ -60,6 +62,7 @@ namespace bo
 		//CFieldInfo::pointer createField(CTableInfo::pointer tableInfo, const tstring & fieldName, FieldType fieldtype, uinteger len=0);
 
 		bool rename(const tstring & tableName, const tstring & newName);
+		bool update(const tstring & tableName);
 		bool dropdefault(const tstring & tableName, const tstring & fieldName);
 		bool setdefault(const tstring & tableName, const tstring & fieldName, tagItemValue * defaultValue);
 
@@ -79,6 +82,7 @@ namespace bo
 	public:
 		void do_proc_db(void);
 
+		CDatabase(void);
 		CDatabase(const CDatabaseInfo::pointer& dbinfo);
 		virtual ~CDatabase(void);
 
@@ -95,6 +99,7 @@ namespace bo
 		//CPageHeadInfo::pointer findInfoPage(usmallint needSize);
 		CPageHeadInfo::pointer findTableInfoPage(usmallint needSize);
 		CPageHeadInfo::pointer findFieldInfoPage(usmallint needSize);
+		void UnUsePage(const CPageHeadInfo::pointer& pageHeadInfo);
 
 	private:
 		CDatabaseInfo::pointer	m_dbinfo;
@@ -102,6 +107,8 @@ namespace bo
 		bool m_killed;
 		boost::thread * m_proc;
 		tfstream	m_fdb;
+		bool		m_bLoadError;
+		bool		m_bFullMemory;
 
 		// resultset
 		CLockMap<void*, CResultSet::pointer> m_results;	// CTableInfo*

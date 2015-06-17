@@ -44,7 +44,7 @@ public:
 	virtual ~CgcUdpClient(void);
 
 private:
-	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort);
+	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize);
 	virtual void stopClient(void);
 	virtual size_t recvData(unsigned char * buffer, size_t size) {return 0;}
 	virtual size_t sendData(const unsigned char * data, size_t size);

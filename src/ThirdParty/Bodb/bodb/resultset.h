@@ -37,6 +37,7 @@ namespace bo
 		}
 
 		void OrderBy(const std::vector<std::string>& pOrderBys, bool bDesc = false);
+		void LimitOffset(bo::bigint nOffset,bo::bigint nLimit);
 
 		CRecordLine::pointer moveFirst(void);
 		CRecordLine::pointer moveNext(void);
@@ -47,7 +48,8 @@ namespace bo
 		bool empty(void) const;
 
 		void close(void);
-		void addRecord(CRecordLine::pointer record);
+		void getFieldEqualList(bo::uinteger fieldId, const CFieldVariant::pointer& variant, std::vector<CRecordLine::pointer>& pOutList);
+		void addRecord(const CRecordLine::pointer& record);
 		CRecordLine::pointer getRecord(uinteger recordId);
 
 		CTableInfo::pointer	getTableInfo(void) const {return m_tableInfo;}

@@ -334,7 +334,7 @@ void CgcBaseClient::setCIDTResends(unsigned short timeoutResends, unsigned short
 	this->m_timeoutSeconds = timeoutSeconds;
 }
 
-int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bindPort)
+int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize)
 {
 	// 
 	// is already start
@@ -345,7 +345,7 @@ int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bind
 	int ret = 0;
 	try
 	{
-		ret = startClient(sCgcServerAddr, bindPort);
+		ret = startClient(sCgcServerAddr, bindPort, nThreadStackSize);
 	}catch (std::exception& e)
 	{
 		std::cerr << e.what() << std::endl;

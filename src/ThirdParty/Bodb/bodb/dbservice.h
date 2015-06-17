@@ -57,6 +57,8 @@ namespace bo
 		virtual bool dropdefault(const tstring & tableName, const tstring & fieldName);
 		virtual bool setdefault(const tstring & tableName, const tstring & fieldName, tagItemValue * defaultValue);
 
+		virtual bool setoption(OptionType nOption, bo::uinteger nValue);
+
 		//CDatabase::pointer opendb(const tstring & dbname);
 
 		CTableInfo::pointer getTableInfo(const tstring & tablename);

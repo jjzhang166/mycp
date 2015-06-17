@@ -1,6 +1,6 @@
 /*
     The sqlparser library parse the SQL (Structured Query Language)
-    Copyright (C) 2009-2010  Akee Yang <akee.yang@gmail.com>
+    Copyright (C) 2009-2014  Akee Yang <akee.yang@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@ enum enum_parameter_type
 	, PARAMETER_DROPTABLE
 	, PARAMETER_ADDCOLUMN, PARAMETER_MODIFYCOLUMN, PARAMETER_DROPCOLUMN
 	, PARAMETER_COLUMNSETDEFAULT, PARAMETER_COLUMNDROPDEFAULT
+	, PARAMETER_SET
 };
 
 enum enum_compare_type
@@ -83,10 +84,11 @@ enum enum_compare_type
 	, COMPARE_GREATER
 	, COMPARE_GREATEREQUAL
 	, COMPARE_LESS
-	, COMPARE_LESSEQUAL
+	, COMPARE_LESSEQUAL	// *
 	, COMPARE_ISNULL
 	, COMPARE_ISNOTNULL
 	, COMPARE_BETWEENAND
+	, COMPARE_LIKE
 };
 
 enum enum_field_types {
@@ -248,6 +250,7 @@ struct tagParameter
 {
 	enum_parameter_type	param_type;
 	void *				parameter;
+	void *				parameter2;
 };
 
 struct tagSP
@@ -262,6 +265,8 @@ struct tagSP
 	tagItems *			orderbys;
 	short				orderbydesc;
 	void *				parameter;
+	bo::bigint			limit;
+	bo::bigint			offset;
 };
 
 

@@ -45,7 +45,7 @@ public:
 	//size_t SendData(const unsigned char * data, size_t size) {return sendData(data, size);}
 
 private:
-	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort);
+	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize);
 	virtual void stopClient(void);
 	virtual bool isInvalidate(void) const;
 	virtual size_t sendData(const unsigned char * data, size_t size);

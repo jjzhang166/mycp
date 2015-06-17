@@ -37,6 +37,7 @@ namespace bo
 
 		CFieldVariant::pointer getVariant(uinteger fieldId) const;
 		CFieldVariant::pointer getVariant(const tstring & fieldName) const;
+		bool equalFieldVariant(uinteger fieldId, const CFieldVariant::pointer& compare) const;
 
 		void addVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& variant);
 		void delVariant(const CFieldInfo::pointer& fieldInfo);

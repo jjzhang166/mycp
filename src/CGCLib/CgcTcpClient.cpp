@@ -37,7 +37,7 @@ CgcTcpClient::~CgcTcpClient(void)
 	StopClient();
 }
 
-int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort)
+int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize)
 {
 	if (m_tcpClient.get() != 0) return 0;
 
