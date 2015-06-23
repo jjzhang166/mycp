@@ -420,7 +420,7 @@ private:
 
 		if (m_commHandler.get() != NULL)
 		{
-			u_long remoteAddrHash = endpoint->getId();	
+			const u_long remoteAddrHash = endpoint->getId();	
 
 			cgcRemote::pointer pCgcRemote;
 			if (!m_mapCgcRemote.find(remoteAddrHash, pCgcRemote))
@@ -429,9 +429,9 @@ private:
 				m_mapCgcRemote.insert(remoteAddrHash, pCgcRemote);
 			}else if (pCgcRemote->isInvalidate())
 			{
-				m_mapCgcRemote.remove(remoteAddrHash);
+				//m_mapCgcRemote.remove(remoteAddrHash);
 				pCgcRemote = cgcRemote::pointer(new CcgcRemote((CRemoteHandler*)this, endpoint, m_socket.socket()));
-				m_mapCgcRemote.insert(remoteAddrHash, pCgcRemote);
+				m_mapCgcRemote.insert(remoteAddrHash, pCgcRemote, true);
 			}else
 			{
 				((CcgcRemote*)pCgcRemote.get())->SetRemote(endpoint);

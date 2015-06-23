@@ -176,9 +176,9 @@ public:
 		const time_t tNow = time(0);
 		if (m_tIdle==0)
 			m_tIdle = tNow;
-		else if (tNow-m_tIdle>=2)
+		else if (tNow-m_tIdle>=3)
 		{
-			m_tIdle = 0;
+			m_tIdle = tNow;
 			if (m_pPool.size()>m_nInitPoolSize)
 			{
 				CCommEventData * pEventData = m_pPool.front();

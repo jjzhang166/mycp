@@ -117,7 +117,12 @@ public:
 			std::map<K, T, P>::clear();
 		}
 	}
-
+	size_t size(void) const
+	{
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+		size_t ret = std::map<K, T, P>::size();
+		return ret;
+	}
 public:
 	CLockMap(void) {}
 	virtual ~CLockMap(void)

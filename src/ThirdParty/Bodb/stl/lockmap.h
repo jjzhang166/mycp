@@ -22,10 +22,9 @@ typedef boost::unique_lock<boost::shared_mutex> BoostWriteLock;
 #define AUTO_CONST_WLOCK(l) BoostWriteLock wtLock(const_cast<boost::shared_mutex&>(l.mutex()))
 #endif // AUTO_LOCK
 
-
-template<typename K, typename T>
+template<typename K, typename T,typename P=std::less<K> >
 class CLockMap
-	: public std::map<K, T>
+	: public std::map<K, T, P>
 {
 public:
 	typedef std::pair<K, T>		Pair;
@@ -42,20 +41,20 @@ public:
 	bool insert(const K& k, const T& t,bool bInsertForce=true,T* pOutOld=NULL)
 	{
 		BoostWriteLock wtlock(m_mutex);
-		typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
-		if (iter != std::map<K, T>::end())
+		typename std::map<K, T, P>::iterator iter = std::map<K, T, P>::find(k);
+		if (iter != std::map<K, T, P>::end())
 		{
 			if (pOutOld!=NULL)
 				*pOutOld = iter->second;
 			if (bInsertForce)
 			{
-				std::map<K, T>::erase(iter);
+				std::map<K, T, P>::erase(iter);
 			}else
 			{
 				return false;
 			}
 		}
-		std::map<K, T>::insert(Pair(k, t));
+		std::map<K, T, P>::insert(Pair(k, t));
 		return true;
 	}
 	bool find(const K& k, T & out, bool erase)
@@ -63,17 +62,17 @@ public:
 		if (erase)
 		{
 			BoostWriteLock wtlock(m_mutex);
-			typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
-			if (iter == std::map<K, T>::end())
+			typename std::map<K, T, P>::iterator iter = std::map<K, T, P>::find(k);
+			if (iter == std::map<K, T, P>::end())
 				return false;
 			out = iter->second;
 			if (erase)
-				std::map<K, T>::erase(iter);
+				std::map<K, T, P>::erase(iter);
 		}else
 		{
 			BoostReadLock rdlock(m_mutex);
-			typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
-			if (iter == std::map<K, T>::end())
+			typename std::map<K, T, P>::iterator iter = std::map<K, T, P>::find(k);
+			if (iter == std::map<K, T, P>::end())
 				return false;
 			out = iter->second;
 		}
@@ -82,8 +81,8 @@ public:
 	bool find(const K& k, T & out) const
 	{
 		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
-		typename std::map<K, T>::const_iterator iter = std::map<K, T>::find(k);
-		if (iter == std::map<K, T>::end())
+		typename std::map<K, T, P>::const_iterator iter = std::map<K, T, P>::find(k);
+		if (iter == std::map<K, T, P>::end())
 			return false;
 		out = iter->second;
 		return true;
@@ -91,7 +90,7 @@ public:
 	bool exist(const K& k) const
 	{
 		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
-		typename std::map<K, T>::const_iterator iter = std::map<K, T>::find(k);
+		typename std::map<K, T, P>::const_iterator iter = std::map<K, T, P>::find(k);
 		return iter != std::map<K, T>::end();
 	}
 
@@ -99,9 +98,9 @@ public:
 	{
 		BoostWriteLock wtlock(m_mutex);
 		typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
-		if (iter != std::map<K, T>::end())
+		if (iter != std::map<K, T, P>::end())
 		{
-			std::map<K, T>::erase(iter);
+			std::map<K, T, P>::erase(iter);
 			return true;
 		}
 		return false;
@@ -112,13 +111,18 @@ public:
 		if (is_lock)
 		{
 			BoostWriteLock wtlock(m_mutex);
-			std::map<K, T>::clear();
+			std::map<K, T, P>::clear();
 		}else
 		{
-			std::map<K, T>::clear();
+			std::map<K, T, P>::clear();
 		}
 	}
-
+	size_t size(void) const
+	{
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+		size_t ret = std::map<K, T, P>::size();
+		return ret;
+	}
 public:
 	CLockMap(void) {}
 	virtual ~CLockMap(void)
@@ -127,21 +131,21 @@ public:
 	}
 };
 
-template<typename K, typename T>
+template<typename K, typename T, typename P=std::less<K> >
 class CLockMapPtr
-	: public CLockMap<K, T>
+	: public CLockMap<K, T, P>
 {
 public:
 	T find(const K& k, bool erase)
 	{
 		T out = 0;
-		CLockMap<K, T>::find(k, out, erase);
+		CLockMap<K, T, P>::find(k, out, erase);
 		return out;
 	}
 	const T find(const K& k) const
 	{
 		T out = 0;
-		CLockMap<K, T>::find(k, out);
+		CLockMap<K, T, P>::find(k, out);
 		return out;
 	}
 	bool remove(const K& k)
@@ -157,13 +161,13 @@ public:
 		{
 			BoostWriteLock wtlock(this->mutex());
 			if (is_delete)
-				for_each(CLockMap<K, T>::begin(), CLockMap<K, T>::end(), DeletePair());
-			std::map<K, T>::clear();
+				for_each(CLockMap<K, T, P>::begin(), CLockMap<K, T, P>::end(), DeletePair());
+			std::map<K, T, P>::clear();
 		}else
 		{
 			if (is_delete)
-				for_each(CLockMap<K, T>::begin(), CLockMap<K, T>::end(), DeletePair());
-			std::map<K, T>::clear();
+				for_each(CLockMap<K, T, P>::begin(), CLockMap<K, T, P>::end(), DeletePair());
+			std::map<K, T, P>::clear();
 		}
 	}
 
