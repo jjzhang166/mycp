@@ -517,7 +517,7 @@ void CPpHttp::GeServletInfo(void)
 	}
 }
 
-void CPpHttp::GetPropertys(const std::string& sString)
+void CPpHttp::GetPropertys(const std::string& sString, bool bUrlDecode)
 {
 	if (sString.empty()) return;
 	tstring parameter;
@@ -545,7 +545,11 @@ void CPpHttp::GetPropertys(const std::string& sString)
 		}
 
 		tstring p = parameter.substr(0, findParameter);
+		//if (bUrlDecode && !p.empty())
+		//	p = URLDecode(p.c_str());
 		tstring v = parameter.substr(findParameter+1, parameter.size()-findParameter);
+		if (bUrlDecode && !v.empty())
+			v = URLDecode(v.c_str());
 
 		m_propertys.setProperty(p, CGC_VALUEINFO(v));
 	}while (find != std::string::npos);
@@ -571,50 +575,18 @@ void CPpHttp::GeRequestInfo(void)
 		}
 	}
 
-	std::string::size_type nFind = m_sReqContentType.find("application/x-www-form-urlencoded");
-	if (nFind != std::string::npos)
+	const std::string::size_type nFind = m_sReqContentType.find("application/x-www-form-urlencoded");
+	const bool bUrlDecode = nFind != std::string::npos?true:false;
+	GetPropertys(m_queryString, bUrlDecode);
+	GetPropertys(m_postString, bUrlDecode);
+	if (bUrlDecode)
 	{
 		m_queryString = URLDecode(m_queryString.c_str());
 		if (!m_postString.empty())
 			m_postString = URLDecode(m_postString.c_str());
 	}
-
-	GetPropertys(m_queryString);
-	GetPropertys(m_postString);
 	if (m_method == HTTP_POST || !m_postString.empty())
 		m_queryString = m_postString;
-	//if (!m_queryString.empty())
-	//{
-	//	tstring parameter;
-	//	std::string::size_type find = 0;
-	//	do
-	//	{
-	//		// Get [parameter=value]
-	//		tstring::size_type findParameter = m_queryString.find("&", find+1);
-	//		if (findParameter == std::string::npos)
-	//		{
-	//			parameter = m_queryString.substr(find, m_queryString.size()-find);
-	//		}else
-	//		{
-	//			parameter = m_queryString.substr(find, findParameter-find);
-	//			findParameter += 1;
-	//		}
-	//		find = findParameter;
-
-	//		// Get parameter/value
-	//		findParameter = parameter.find("=", 1);
-	//		if (findParameter == std::string::npos)
-	//		{
-	//			// ERROR
-	//			break;
-	//		}
-
-	//		tstring p = parameter.substr(0, findParameter);
-	//		tstring v = parameter.substr(findParameter+1, parameter.size()-findParameter);
-
-	//		m_propertys.setProperty(p, CGC_VALUEINFO(v));
-	//	}while (find != std::string::npos);
-	//}
 }
 
 bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader)

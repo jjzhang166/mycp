@@ -185,7 +185,7 @@ protected:
 	virtual void setParseCallback(cgcParserCallback* pCallback) {}
 	virtual bool doParse(const unsigned char * requestData, size_t requestSize,const char* sEncoding);
 	void GeServletInfo(void);
-	void GetPropertys(const std::string& sString);
+	void GetPropertys(const std::string& sString, bool bUrlDecode);
 	void GeRequestInfo(void);
 	bool IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader);
 	const char * strstrl(const char * sourceBuffer, const char * findBuffer, size_t sourceSize, size_t fineSize);
