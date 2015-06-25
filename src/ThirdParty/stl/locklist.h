@@ -65,6 +65,14 @@ public:
 		}
 		return true;
 	}
+	bool popfront(void)
+	{
+		BoostWriteLock wtlock(m_mutex);
+		if (std::list<T>::empty())
+			return false;
+		std::list<T>::pop_front();
+		return true;
+	}
 	bool back(T & out, bool is_pop = true)
 	{
 		if (is_pop)
@@ -88,6 +96,14 @@ public:
 		}
 		return true;
 	}
+	bool popback(void)
+	{
+		BoostWriteLock wtlock(m_mutex);
+		if (std::list<T>::empty())
+			return false;
+		std::list<T>::pop_back();
+		return true;
+	}
 
 	void clear(bool is_lock = true)
 	{
@@ -105,6 +121,17 @@ public:
 		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
 		size_t ret = std::list<T>::size();
 		return ret;
+	}
+	bool empty(bool is_lock = false) const
+	{
+		if (is_lock)
+		{
+			BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+			return std::list<T>::empty();
+		}else
+		{
+			return std::list<T>::empty();
+		}
 	}
 
 public:

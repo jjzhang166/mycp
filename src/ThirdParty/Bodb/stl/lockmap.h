@@ -123,6 +123,18 @@ public:
 		size_t ret = std::map<K, T, P>::size();
 		return ret;
 	}
+	bool empty(bool is_lock = false) const
+	{
+		if (is_lock)
+		{
+			BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+			return std::map<K, T, P>::empty();
+		}else
+		{
+			return std::map<K, T, P>::empty();
+		}
+	}
+
 public:
 	CLockMap(void) {}
 	virtual ~CLockMap(void)
