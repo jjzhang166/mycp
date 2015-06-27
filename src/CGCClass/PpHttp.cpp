@@ -295,7 +295,10 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	if (m_pCookieTemp==NULL)
 		const_cast<CPpHttp*>(this)->m_pCookieTemp = new char[1024*4];
 	// get all headers
-	std::string sHeaders;
+	//std::string sHeaders;
+	sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\nContent-Type: %s\r\n",
+		cgcGetStatusCode(m_statusCode).c_str(), m_sResContentType.c_str());
+	size_t nHeadSize = strlen(m_pHeaderBufferTemp);
 	{
 		CLockMap<tstring,cgcValueInfo::pointer>::const_iterator pIter = m_pResHeaders.begin();
 		for (;pIter!=m_pResHeaders.end();pIter++)
@@ -303,16 +306,13 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 			const tstring sKey = pIter->first;
 			const cgcValueInfo::pointer pValue = pIter->second;
 			sprintf(m_pHeaderTemp,"%s: %s\r\n",sKey.c_str(),pValue->getStr().c_str());
-			sHeaders.append(m_pHeaderTemp);
+			//sHeaders.append(m_pHeaderTemp);
+			strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+			nHeadSize += strlen(m_pHeaderTemp);
 		}
-		//for (size_t i=0;i<m_pResHeaders.size();i++)
-		//{
-		//	const cgcKeyValue::pointer pHeader = m_pResHeaders[i];
-		//	sprintf(lpszHeader,"%s: %s\r\n",pHeader->getKey().c_str(),pHeader->getValue()->getStr().c_str());
-		//	sHeaders.append(lpszHeader);
-		//}
 	}
 	// Cookies
+	std::string sDTTemp;
 	{
 		CLockMap<tstring,cgcCookieInfo::pointer>::const_iterator pIter = m_pResCookies.begin();
 		for (;pIter!=m_pResCookies.end();pIter++)
@@ -324,67 +324,61 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 			if (pCookieInfo->m_tExpiresTime > 0)
 			{
 				// 设置cookie过期时间
-				struct tm *newtime;
-				time_t ltime;
-				time(&ltime);
-				ltime += pCookieInfo->m_tExpiresTime*60;
-				newtime = gmtime(&ltime);
-				char szDT[128];
-				strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
-				sprintf(m_pHeaderTemp, "Set-Cookie: %s; Expires=%s\r\n", m_pCookieTemp,szDT);
+				if (sDTTemp.empty())
+				{
+					struct tm *newtime;
+					time_t ltime;
+					time(&ltime);
+					ltime += pCookieInfo->m_tExpiresTime*60;
+					newtime = gmtime(&ltime);
+					char szDT[128];
+					strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+					sDTTemp = szDT;
+				}
+				sprintf(m_pHeaderTemp, "Set-Cookie: %s; Expires=%s\r\n", m_pCookieTemp,sDTTemp.c_str());
 			}else
 			{
 				sprintf(m_pHeaderTemp, "Set-Cookie: %s\r\n", m_pCookieTemp);
 			}
-			sHeaders.append(m_pHeaderTemp);
+			strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+			nHeadSize += strlen(m_pHeaderTemp);
+			//sHeaders.append(m_pHeaderTemp);
 		}
-
-		//for (size_t i=0;i<m_pResCookies.size();i++)
-		//{
-		//	const cgcKeyValue::pointer pCookie = m_pResCookies[i];
-		//	sprintf(lpszCookie,"%s=%s",pCookie->getKey().c_str(),pCookie->getValue()->getStr().c_str());
-		//	if (m_nCookieExpiresMinute > 0)
-		//	{
-		//		// 设置cookie过期时间
-		//		struct tm *newtime;
-		//		time_t ltime;
-		//		time(&ltime);
-		//		ltime += m_nCookieExpiresMinute*60;
-		//		newtime = gmtime(&ltime);
-		//		char szDT[128];
-		//		strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
-		//		sprintf(m_pHeaderTemp, "Set-Cookie: %s; Expires=%s\r\n", lpszCookie,szDT);
-		//	}else
-		//	{
-		//		sprintf(m_pHeaderTemp, "Set-Cookie: %s\r\n", lpszCookie);
-		//	}
-		//	sHeaders.append(m_pHeaderTemp);
-		//}
 	}
 	// Date: xxx
 	if (m_addDateHeader)
 	{
 		// Obtain current GMT date/time
-		struct tm *newtime;
-		time_t ltime;
-		time(&ltime);
-		newtime = gmtime(&ltime);
-		char szDT[128];
-		strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
-		sprintf(m_pHeaderTemp, "Date: %s\r\n", szDT);
-		sHeaders.append(m_pHeaderTemp);
+		if (sDTTemp.empty())
+		{
+			struct tm *newtime;
+			time_t ltime;
+			time(&ltime);
+			newtime = gmtime(&ltime);
+			char szDT[128];
+			strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+			sDTTemp = szDT;
+		}
+		sprintf(m_pHeaderTemp, "Date: %s\r\n", sDTTemp.c_str());
+		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+		nHeadSize += strlen(m_pHeaderTemp);
+		//sHeaders.append(m_pHeaderTemp);
 	}
 	// Location: xxx
 	if (!m_sLocation.empty())
 	{
 		sprintf(m_pHeaderTemp, "Location: %s\r\n", m_sLocation.c_str());
-		sHeaders.append(m_pHeaderTemp);
+		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+		nHeadSize += strlen(m_pHeaderTemp);
+		//sHeaders.append(m_pHeaderTemp);
 	}
 	// WWW-Authenticate: xxx
 	if (m_statusCode == STATUS_CODE_401)
 	{
 		sprintf(m_pHeaderTemp, "WWW-Authenticate: Basic realm=\"%s\"\r\n", m_host.c_str());
-		sHeaders.append(m_pHeaderTemp);
+		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+		nHeadSize += strlen(m_pHeaderTemp);
+		//sHeaders.append(m_pHeaderTemp);
 	}
 	// Connection: xxx
 	if (m_keepAlive && m_keepAliveInterval>=0)
@@ -395,23 +389,32 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	{
 		sprintf(m_pHeaderTemp, "Connection: close\r\n");
 	}
-	sHeaders.append(m_pHeaderTemp);
+	strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+	nHeadSize += strlen(m_pHeaderTemp);
+	//sHeaders.append(m_pHeaderTemp);
 	// Server: xxx
 	sprintf(m_pHeaderTemp,"Server: %s\r\n",SERVERNAME);
-	sHeaders.append(m_pHeaderTemp);
+	strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+	nHeadSize += strlen(m_pHeaderTemp);
+	//sHeaders.append(m_pHeaderTemp);
 	// Content-Length: xxx
 	if (m_addContentLength)
 	{
 		sprintf(m_pHeaderTemp,"Content-Length: %d\r\n",m_bodySize);
-		sHeaders.append(m_pHeaderTemp);
+		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+		nHeadSize += strlen(m_pHeaderTemp);
+		//sHeaders.append(m_pHeaderTemp);
 	}
+	strcpy(m_pHeaderBufferTemp+nHeadSize,"\r\n");
+	nHeadSize += 2;
 
 	// Transfer-Encoding: chunked\r\n 一直当接收不完整，会空白
 	// Accept-Ranges: bytes\r\n
-	sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\n%sContent-Type: %s\r\n\r\n",
-		cgcGetStatusCode(m_statusCode).c_str(), sHeaders.c_str(), m_sResContentType.c_str());
+	//sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\n%sContent-Type: %s\r\n\r\n",
+	//	cgcGetStatusCode(m_statusCode).c_str(), sHeaders.c_str(), m_sResContentType.c_str());
 
-	const size_t headerSize = strlen(m_pHeaderBufferTemp);
+	const size_t headerSize = nHeadSize;
+	//const size_t headerSize = strlen(m_pHeaderBufferTemp);
 	outSize = m_bodySize + headerSize;
 	memcpy(m_resultBuffer, m_pHeaderBufferTemp, headerSize);
 	memmove(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);

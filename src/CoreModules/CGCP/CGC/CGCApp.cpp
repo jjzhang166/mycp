@@ -1000,7 +1000,7 @@ HTTP_STATUSCODE CGCApp::executeInclude(const tstring & url, const cgcHttpRequest
 	m_fpParserHttpService(parserService, cgcNullValueInfo);
 	if (parserService.get() == NULL)
 	{
-		m_logModuleImpl.log(LOG_ERROR, _T("executeInclude: ParserHttpService GetParser error! %s\n"), url);
+		m_logModuleImpl.log(LOG_ERROR, _T("executeInclude: ParserHttpService GetParser error! %s\n"), url.c_str());
 		return STATUS_CODE_500;
 	}
 	phttpParser = CGC_PARSERHTTPSERVICE_DEF(parserService);
