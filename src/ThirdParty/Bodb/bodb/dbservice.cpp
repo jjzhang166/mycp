@@ -287,8 +287,8 @@ namespace bo
 
 				std::list<std::list<CFieldCompare::pointer> > topwheres;
 				std::list<CFieldCompare::pointer> wheres;
-				wheres.push_back(CFieldCompare::create(CFieldCompare::FCT_EQUAL, fieldAccountInfo, variantAccount,0));
-				wheres.push_back(CFieldCompare::create(CFieldCompare::FCT_EQUAL, fieldPasswordInfo, variantPassword,0));
+				wheres.push_back(CFieldCompare::create(tableInfo, CFieldCompare::FCT_EQUAL, fieldAccountInfo, variantAccount,0));
+				wheres.push_back(CFieldCompare::create(tableInfo, CFieldCompare::FCT_EQUAL, fieldPasswordInfo, variantPassword,0));
 				topwheres.push_back(wheres);
 				CResultSet::pointer rs = CDbService::select(tableInfo, topwheres, false);
 				if (rs.get() == NULL || rs->size() == 0)

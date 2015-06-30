@@ -39,6 +39,7 @@ namespace bo
 			, FCT_ISNULL
 			, FCT_ISNOTNULL
 			, FCT_BETWEENAND
+			, FCT_LIKE
 
 			, FCT_UNKNOWN		= 0xf
 		};
@@ -48,24 +49,33 @@ namespace bo
 		//{
 		//	return CFieldCompare::pointer(new CFieldCompare());
 		//}
-		static CFieldCompare::pointer create(FieldCompareType type, const CFieldInfo::pointer& field,short nWhereLevel)
+		static CFieldCompare::pointer create(const CTableInfo::pointer& tableInfo, const CTableInfo::pointer& tableInfo2, FieldCompareType type, const CFieldInfo::pointer& field, const CFieldInfo::pointer& field2,short nWhereLevel)
 		{
-			return CFieldCompare::pointer(new CFieldCompare(type, field,nWhereLevel));
+			return CFieldCompare::pointer(new CFieldCompare(tableInfo, tableInfo2, type, field, field2, nWhereLevel));
 		}
-		static CFieldCompare::pointer create(FieldCompareType type, const CFieldInfo::pointer& field,const CFieldVariant::pointer& variant,short nWhereLevel)
+		static CFieldCompare::pointer create(const CTableInfo::pointer& tableInfo, FieldCompareType type, const CFieldInfo::pointer& field,short nWhereLevel)
 		{
-			return CFieldCompare::pointer(new CFieldCompare(type, field, variant,nWhereLevel));
+			return CFieldCompare::pointer(new CFieldCompare(tableInfo, type, field,nWhereLevel));
+		}
+		static CFieldCompare::pointer create(const CTableInfo::pointer& tableInfo, FieldCompareType type, const CFieldInfo::pointer& field,const CFieldVariant::pointer& variant,short nWhereLevel)
+		{
+			return CFieldCompare::pointer(new CFieldCompare(tableInfo, type, field, variant,nWhereLevel));
 		}
 
 		void compareAnd(bool newv) {m_compareAnd = newv;}
 		bool compareAnd(void) const {return m_compareAnd;}
 
+		const CTableInfo::pointer& tableInfo(void) const {return m_tableInfo;}
+		const CTableInfo::pointer& tableInfo2(void) const {return m_tableInfo2;}
 		FieldCompareType compareType(void) const {return m_compareType;}
 		const CFieldInfo::pointer& compareField(void) const {return m_compareField;}
+		const CFieldInfo::pointer& compareField2(void) const {return m_compareField2;}
 		const CFieldVariant::pointer& compareVariant(void) const {return m_compareVariant;}
 		short whereLevel(void) const {return m_nWhereLevel;}
+		//void SetFinished(void) {m_bFinished = true;}
+		//bool GetFinished(void) const {return m_bFinished;}
 
-		bool doCompare(CFieldVariant::pointer doCompareVariant)
+		bool doCompare(const CFieldVariant::pointer& doCompareVariant)
 		{
 			BOOST_ASSERT (doCompareVariant.get() != 0);
 
@@ -102,6 +112,9 @@ namespace bo
 			case FCT_ISNOTNULL:
 				result = doCompareVariant->isNotNull();
 				break;
+			case FCT_LIKE:
+				result = doCompareVariant->isLike(m_compareVariant);
+				break;
 			default:
 				break;
 			}
@@ -113,14 +126,27 @@ namespace bo
 		//CFieldCompare(void)
 		//	: m_compareAnd(true), m_compareType(FCT_UNKNOWN)
 		//{}
-		CFieldCompare(FieldCompareType type,const CFieldInfo::pointer& field,short nWhereLevel)
-			: m_compareAnd(true), m_compareType(type), m_compareField(field),m_nWhereLevel(nWhereLevel)
+		CFieldCompare(const CTableInfo::pointer& tableInfo, const CTableInfo::pointer& tableInfo2, FieldCompareType type,const CFieldInfo::pointer& field,const CFieldInfo::pointer& field2,short nWhereLevel)
+			: m_tableInfo(tableInfo), m_tableInfo2(tableInfo2), m_compareAnd(true), m_compareType(type), m_compareField(field), m_compareField2(field2), m_nWhereLevel(nWhereLevel)
+			//, m_bFinished(false)
 		{
+			BOOST_ASSERT (m_tableInfo.get() != 0);
+			BOOST_ASSERT (m_tableInfo2.get() != 0);
+			BOOST_ASSERT (m_compareField.get() != 0);
+			BOOST_ASSERT (m_compareField2.get() != 0);
+		}
+		CFieldCompare(const CTableInfo::pointer& tableInfo, FieldCompareType type,const CFieldInfo::pointer& field,short nWhereLevel)
+			: m_tableInfo(tableInfo), m_compareAnd(true), m_compareType(type), m_compareField(field),m_nWhereLevel(nWhereLevel)
+			//, m_bFinished(false)
+		{
+			BOOST_ASSERT (m_tableInfo.get() != 0);
 			BOOST_ASSERT (m_compareField.get() != 0);
 		}
-		CFieldCompare(FieldCompareType type, const CFieldInfo::pointer& field, const CFieldVariant::pointer& variant,short nWhereLevel)
-			: m_compareAnd(true), m_compareType(type), m_compareField(field), m_compareVariant(variant),m_nWhereLevel(nWhereLevel)
+		CFieldCompare(const CTableInfo::pointer& tableInfo, FieldCompareType type, const CFieldInfo::pointer& field, const CFieldVariant::pointer& variant,short nWhereLevel)
+			: m_tableInfo(tableInfo), m_compareAnd(true), m_compareType(type), m_compareField(field), m_compareVariant(variant),m_nWhereLevel(nWhereLevel)
+			//, m_bFinished(false)
 		{
+			BOOST_ASSERT (m_tableInfo.get() != 0);
 			BOOST_ASSERT (m_compareField.get() != 0);
 			BOOST_ASSERT (m_compareVariant.get() != 0);
 		}
@@ -128,11 +154,15 @@ namespace bo
 		{}
 
 	private:
+		CTableInfo::pointer		m_tableInfo;
+		CTableInfo::pointer		m_tableInfo2;
 		bool					m_compareAnd;
 		FieldCompareType		m_compareType;
 		CFieldInfo::pointer		m_compareField;
+		CFieldInfo::pointer		m_compareField2;
 		CFieldVariant::pointer	m_compareVariant;
 		short					m_nWhereLevel;		// (xxx) OR (xxx)
+		//bool					m_bFinished;
 	};
 
 } // namespace bo

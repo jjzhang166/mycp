@@ -172,7 +172,7 @@ public:
 	typedef boost::shared_ptr<CBodbCdbc> pointer;
 
 	CBodbCdbc(const tstring& path)
-		: m_currentCookie(0), m_tLastTime(0), m_apppath(path)
+		: /*m_currentCookie(0), */m_tLastTime(0), m_apppath(path)
 	{}
 	~CBodbCdbc(void)
 	{
@@ -236,7 +236,7 @@ private:
 	{
 		if (isServiceInited() && m_bodbHandler->isopen())
 		{
-			m_currentCookie = 0;
+			//m_currentCookie = 0;
 			m_tLastTime = time(0);
 			m_results.clear();
 			m_bodbHandler->close();
@@ -254,9 +254,18 @@ private:
 		if (!open()) return -1;
 
 		m_tLastTime = time(0);
-		cgc::bigint ret = (cgc::bigint)m_bodbHandler->execsql(exeSql);
-		//m_serviceInfo->setInt(ret);
-		return ret;
+		try
+		{
+			return (cgc::bigint)m_bodbHandler->execsql(exeSql);
+			//m_serviceInfo->setInt(ret);
+		}catch(const std::exception& e)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s; exception:%s\n", exeSql,e.what()));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+		}
+		return -1;
 	}
 
 	virtual cgc::bigint select(const char * selectSql, int& outCookie)
@@ -266,21 +275,33 @@ private:
 
 		m_tLastTime = time(0);
 		PRESULTSET resultset = 0;
-		m_bodbHandler->execsql(selectSql, &resultset);
-
-		if (resultset != NULL)
+		try
 		{
-			if (resultset->rscount > 0)
+			m_bodbHandler->execsql(selectSql, &resultset);
+
+			if (resultset != NULL)
 			{
-				outCookie = ++m_currentCookie;
-				m_results.insert(outCookie, BODB_RESULTSET(resultset));
-			}else
-			{
-				bodb_free(resultset);
-				resultset = NULL;
+				if (resultset->rscount > 0)
+				{
+					outCookie = (int)resultset;
+					//outCookie = ++m_currentCookie;
+					m_results.insert(outCookie, BODB_RESULTSET(resultset));
+				}else
+				{
+					bodb_free(resultset);
+					resultset = NULL;
+				}
 			}
+			return resultset == NULL ? 0 : (cgc::bigint)resultset->rscount;
+		}catch(const std::exception& e)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s; exception:%s\n", selectSql,e.what()));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
 		}
-		return resultset == NULL ? 0 : (cgc::bigint)resultset->rscount;
+		outCookie = 0;
+		return -1;
 	}
 	virtual cgc::bigint select(const char * selectSql)
 	{
@@ -288,17 +309,27 @@ private:
 		if (!open()) return -1;
 
 		m_tLastTime = time(0);
-		PRESULTSET resultset = 0;
-		m_bodbHandler->execsql(selectSql, &resultset);
-
-		cgc::bigint nRet = 0;
-		if (resultset != NULL)
+		try
 		{
-			nRet = (cgc::bigint)resultset->rscount;
-			bodb_free(resultset);
-			resultset = NULL;
+			PRESULTSET resultset = 0;
+			m_bodbHandler->execsql(selectSql, &resultset);
+
+			cgc::bigint nRet = 0;
+			if (resultset != NULL)
+			{
+				nRet = (cgc::bigint)resultset->rscount;
+				bodb_free(resultset);
+				resultset = NULL;
+			}
+			return nRet;
+		}catch(const std::exception& e)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s; exception:%s\n", selectSql,e.what()));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
 		}
-		return nRet;
+		return -1;
 	}
 
 	virtual cgc::bigint size(int cookie) const
@@ -349,7 +380,7 @@ private:
 private:
 	CBodbHandler::pointer m_bodbHandler;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;
-	int m_currentCookie;
+	//int m_currentCookie;
 	cgcCDBCInfo::pointer m_cdbcInfo;
 	time_t m_tLastTime;
 

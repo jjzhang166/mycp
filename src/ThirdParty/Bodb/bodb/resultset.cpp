@@ -24,7 +24,7 @@ namespace bo
 	struct compare_records
 	{
 		bool m_bDesc;
-		std::string m_orderbyField;
+		bo::uinteger m_orderbyField;
 		bool operator()(const CRecordLine::pointer& line1, const CRecordLine::pointer& line2)
 		{
 			const CFieldVariant::pointer fieldvar1 = line1->getVariant(m_orderbyField);
@@ -54,7 +54,7 @@ namespace bo
 		}
 	};
 
-	void CResultSet::OrderBy(const std::vector<std::string>& pOrderBys, bool bDesc)
+	void CResultSet::OrderBy(const std::vector<bo::uinteger>& pOrderBys, bool bDesc)
 	{
 		if (!pOrderBys.empty())
 		{
@@ -65,7 +65,7 @@ namespace bo
 				compare.m_orderbyField = pOrderBys[i];
 				m_records.sort(compare);
 			}
-			moveFirst();
+			//moveFirst();
 		}
 	}
 	void CResultSet::LimitOffset(bo::bigint nOffset,bo::bigint nLimit)
@@ -82,53 +82,57 @@ namespace bo
 			m_records.pop_back();
 		}
 	}
-
-	CRecordLine::pointer CResultSet::moveFirst(void)
+	void CResultSet::RemoteRecord(bo::uinteger nRecordId)
 	{
-		m_curiter = m_records.begin();
-		if (m_curiter == m_records.end())
-			return boNullRecordLine;
-
-		return *m_curiter;
+		m_records2.remove(nRecordId);
 	}
 
-	CRecordLine::pointer CResultSet::moveNext(void)
-	{
-		if (++m_curiter == m_records.end())
-			return boNullRecordLine;
+	//CRecordLine::pointer CResultSet::moveFirst(void)
+	//{
+	//	m_curiter = m_records.begin();
+	//	if (m_curiter == m_records.end())
+	//		return boNullRecordLine;
 
-		return *m_curiter;
-	}
+	//	return *m_curiter;
+	//}
 
-	CRecordLine::pointer CResultSet::movePrev(void)
-	{
-		if (m_curiter == m_records.begin() || --m_curiter == m_records.begin())
-			return boNullRecordLine;
+	//CRecordLine::pointer CResultSet::moveNext(void)
+	//{
+	//	if (++m_curiter == m_records.end())
+	//		return boNullRecordLine;
 
-		return *m_curiter;
-	}
+	//	return *m_curiter;
+	//}
 
-	CRecordLine::pointer CResultSet::moveLast(void)
-	{
-		m_curiter = m_records.end();
-			if (m_curiter == m_records.begin())
-			return boNullRecordLine;
+	//CRecordLine::pointer CResultSet::movePrev(void)
+	//{
+	//	if (m_curiter == m_records.begin() || --m_curiter == m_records.begin())
+	//		return boNullRecordLine;
 
-		m_curiter--;
-		return *m_curiter;
-	}
+	//	return *m_curiter;
+	//}
 
-	CRecordLine::pointer CResultSet::deleteCurrent(void)
-	{
-		if (m_curiter == m_records.end())
-			return boNullRecordLine;
+	//CRecordLine::pointer CResultSet::moveLast(void)
+	//{
+	//	m_curiter = m_records.end();
+	//		if (m_curiter == m_records.begin())
+	//		return boNullRecordLine;
 
-		m_curiter = m_records.erase(m_curiter);
-		if (m_curiter == m_records.end())
-			return boNullRecordLine;
-		else
-			return *m_curiter;
-	}
+	//	m_curiter--;
+	//	return *m_curiter;
+	//}
+
+	//CRecordLine::pointer CResultSet::deleteCurrent(void)
+	//{
+	//	if (m_curiter == m_records.end())
+	//		return boNullRecordLine;
+
+	//	m_curiter = m_records.erase(m_curiter);
+	//	if (m_curiter == m_records.end())
+	//		return boNullRecordLine;
+	//	else
+	//		return *m_curiter;
+	//}
 	uinteger CResultSet::size(void) const
 	{
 		return (uinteger)m_records.size();

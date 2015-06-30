@@ -243,7 +243,10 @@ bool strGetValue(const char * pBuffer, char * outBuffer, int & leftIndex, enum_v
 			{
 				if (pBuffer[i1] == '.')
 				{
-					if (valuetype == VALUE_REAL)
+					if (valuetype == VALUE_LETTER)
+					{
+						break;
+					}else if (valuetype == VALUE_REAL)
 					{
 						// Already find '.'
 						result = false;
@@ -256,6 +259,9 @@ bool strGetValue(const char * pBuffer, char * outBuffer, int & leftIndex, enum_v
 			}else if (isInvalidateChar2(pBuffer[i1]) || ',' == pBuffer[i1] || ')' == pBuffer[i1])
 			{
 				break;
+			}else if (isValidateChar(pBuffer[i1]))
+			{
+				valuetype = VALUE_LETTER;
 			}
 			//}else if (isBOOLVALUE(pBuffer[i1]) || isNULLVALUE(pBuffer[i1]) || isDEFAULTVALUE(pBuffer[i1]))
 			//{
@@ -353,7 +359,25 @@ bool GetItemValue(const char * pBuffer, tagItemValue * outItemValue, int & offse
 		delete[] tempBuffer;
 		return false;
 	}
+
 	offset += wordLen;
+	char * pTableName = 0;
+	if (valuetype==VALUE_LETTER && strCompare(pBuffer+offset, ".", leftIndex))	// Table.field
+	{
+		offset += leftIndex+1;
+		pTableName = tempBuffer;
+		tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+		if (!strGetWord2(pBuffer+offset, tempBuffer, leftIndex, &wordLen))
+		{
+			delete[] pTableName;
+			delete[] tempBuffer;
+			return false;
+		}
+		offset += leftIndex+wordLen;
+		outItemValue->table_name = pTableName;
+		outItemValue->field_name = tempBuffer;
+		return true;
+	}
 
 	if (valuetype == VALUE_STRING)
 	{
@@ -416,7 +440,7 @@ bool GetItemValue(const char * pBuffer, tagItemValue * outItemValue, int & offse
 	return true;
 }
 
-void AddItem(tagSP * outSP, enum_item_types type, void * itemhandle)
+void AddItem(tagSP * outSP, enum_item_types type, void * itemhandle, char* tableName = 0)
 {
 	if (outSP->items == 0)
 	{
@@ -429,6 +453,7 @@ void AddItem(tagSP * outSP, enum_item_types type, void * itemhandle)
 	outSP->items->items[outSP->items->itemcount-1] = new tagItem;
 	memset(outSP->items->items[outSP->items->itemcount-1], 0, sizeof(tagItem));
 	outSP->items->items[outSP->items->itemcount-1]->item_type = type;
+	outSP->items->items[outSP->items->itemcount-1]->table_name = tableName;
 	outSP->items->items[outSP->items->itemcount-1]->item_handle = itemhandle;
 }
 
@@ -473,12 +498,13 @@ tagValue * AddValueItem(tagSP * outSP, char * fieldname = 0)
 	return valueHandle;
 }
 
-void AddStringItem(tagItems * items, char * stringItem)
+void AddStringItem(tagItems * items, char * stringItem, char* tableName = 0)
 {
 	items->itemcount++;
 	items->items[items->itemcount-1] = new tagItem;
 	memset(items->items[items->itemcount-1], 0, sizeof(tagItem));
 	items->items[items->itemcount-1]->item_type = STRING_ITEM;
+	items->items[items->itemcount-1]->table_name = tableName;
 	items->items[items->itemcount-1]->item_handle = stringItem;
 }
 void AddFuncItem(tagFunc * outFunc, char * stringItem)
@@ -511,6 +537,7 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 	outSP->wheres->items = new tagItem *[MAX_FIELD_ITEM];
 	bool prevAndWhere = true;
 	short nWhereLevel=0;
+	char * pTableName = NULL;
 	while (true)
 	{
 		// <(>
@@ -536,6 +563,20 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 		}
 		leftoffset += leftIndex+wordLen;
 
+		if (strCompare(pBuffer+leftoffset, ".", leftIndex))	// Table.field
+		{
+			leftoffset += leftIndex+1;
+			pTableName = tempBuffer;
+			tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+			if (!strGetWord2(pBuffer+leftoffset, tempBuffer, leftIndex, &wordLen))
+			{
+				delete[] pTableName;
+				delete[] tempBuffer;
+				return false;
+			}
+			leftoffset += leftIndex+wordLen;
+		}
+
 		outSP->wheres->itemcount++;
 		outSP->wheres->items[outSP->wheres->itemcount-1] = new tagItem;
 		memset(outSP->wheres->items[outSP->wheres->itemcount-1], 0, sizeof(tagItem));
@@ -543,9 +584,11 @@ bool GetItemWheres(const char * pBuffer, tagSP * outSP, int & outLeftIndex, bool
 		tagWhere * whereHandle = new tagWhere;
 		memset(whereHandle, 0, sizeof(tagWhere));
 		outSP->wheres->items[outSP->wheres->itemcount-1]->item_handle = whereHandle;
+		whereHandle->table_name = pTableName;
 		whereHandle->field_name = tempBuffer;
 		whereHandle->and_where = prevAndWhere;
 		whereHandle->where_level = nWhereLevel;
+		pTableName = 0;
 
 		// IS_NOTNULL - IS_NULL
 		// IS NULL - IS NOT NULL
@@ -681,6 +724,7 @@ bool GetOrderBys(const char * pBuffer, tagSP * outSP, int & outLeftIndex)
 		// <column_name>,
 		outSP->orderbys->items = new tagItem *[MAX_FIELD_ITEM];
 		outSP->orderbydesc = 0;
+		char * pTableName = 0;
 		while (true)
 		{
 			// <column_name>
@@ -691,7 +735,23 @@ bool GetOrderBys(const char * pBuffer, tagSP * outSP, int & outLeftIndex)
 				break;
 			}
 			leftoffset += leftIndex+wordLen;
-			AddStringItem(outSP->orderbys, tempBuffer);
+
+			if (strCompare(pBuffer+leftoffset, ".", leftIndex))	// Table.field
+			{
+				leftoffset += leftIndex+1;
+				pTableName = tempBuffer;
+				tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+				if (!strGetWord2(pBuffer+leftoffset, tempBuffer, leftIndex, &wordLen))
+				{
+					delete[] pTableName;
+					delete[] tempBuffer;
+					break;
+				}
+				leftoffset += leftIndex+wordLen;
+			}
+
+			AddStringItem(outSP->orderbys, tempBuffer, pTableName);
+			pTableName = 0;
 			if (strCompare(pBuffer+leftoffset, "DESC", leftIndex))
 			{
 				outSP->orderbydesc = 1;
@@ -700,6 +760,14 @@ bool GetOrderBys(const char * pBuffer, tagSP * outSP, int & outLeftIndex)
 			}else if (strCompare(pBuffer+leftoffset, "ASC", leftIndex))
 			{
 				leftoffset += leftIndex+4;
+				break;
+			}else if (strCompare(pBuffer+leftoffset, "LIMIT", leftIndex))
+			{
+				leftoffset += leftIndex;
+				break;
+			}else if (strCompare(pBuffer+leftoffset, "OFFSET", leftIndex))
+			{
+				leftoffset += leftIndex;
 				break;
 			}
 		}
@@ -1411,6 +1479,7 @@ tagSP * parse_exec(const char * sql)
 
 			}else
 			{
+				char * pTableName = 0;
 				while (true)
 				{
 					if (!strGetWord2(sql+leftoffset, tempBuffer, leftIndex, &wordLen))
@@ -1421,6 +1490,21 @@ tagSP * parse_exec(const char * sql)
 						return result;
 					}
 					leftoffset += leftIndex+wordLen;
+					if (strCompare(sql+leftoffset, ".", leftIndex))	// Table.field
+					{
+						leftoffset += leftIndex+1;
+						pTableName = tempBuffer;
+						tempBuffer = new char[MAX_ITEM_STRING_SIZE];
+						if (!strGetWord2(sql+leftoffset, tempBuffer, leftIndex, &wordLen))
+						{
+							delete[] pTableName;
+							delete[] tempBuffer;
+							parse_free(result);
+							result = 0;
+							return result;
+						}
+						leftoffset += leftIndex+wordLen;
+					}
 
 					enum_funciton_type functionType = IsFunctionString(tempBuffer);
 					if (functionType != FUNCTION_UNKNOWN)
@@ -1434,14 +1518,15 @@ tagSP * parse_exec(const char * sql)
 							return result;
 						}
 						leftoffset += leftIndex;
-						AddItem(result, FUNC_ITEM, pFunc);
-						delete[] tempBuffer;
+						AddItem(result, FUNC_ITEM, pFunc, pTableName);
+						pTableName = 0;
+						memset(tempBuffer,0,MAX_ITEM_STRING_SIZE);
 					}else
 					{
-						AddItem(result, STRING_ITEM, tempBuffer);
+						AddItem(result, STRING_ITEM, tempBuffer, pTableName);
+						pTableName = 0;
+						tempBuffer = new char[MAX_ITEM_STRING_SIZE];
 					}
-
-					tempBuffer = new char[MAX_ITEM_STRING_SIZE];
 
 					if (strCompare(sql+leftoffset, ",", leftIndex))
 					{
@@ -1492,6 +1577,14 @@ tagSP * parse_exec(const char * sql)
 				{
 					leftoffset += leftIndex+1;
 					continue;
+				}else if (strCompare(sql+leftoffset, "LIMIT", leftIndex))
+				{
+					leftoffset += leftIndex;
+					break;
+				}else if (strCompare(sql+leftoffset, "OFFSET", leftIndex))
+				{
+					leftoffset += leftIndex;
+					break;
 				}
 				if (!strGetWord2(sql+leftoffset, tempBuffer, leftIndex, &wordLen))
 				{
@@ -2189,6 +2282,8 @@ void free_field(tagField * field)
 {
 	if (field != 0)
 	{
+		//if (field->table_name)
+		//	delete[] field->table_name;
 		if (field->field_name)
 			delete[] field->field_name;
 		if (field->constraint_name)
@@ -2244,6 +2339,8 @@ void free_item(tagItem * item)
 		{
 		case STRING_ITEM:
 			{
+				if (item->table_name != 0)
+					delete[] item->table_name;
 				char * buffer = (char*)item->item_handle;
 				if (buffer != 0)
 					delete[] buffer;
@@ -2283,6 +2380,8 @@ void free_item(tagItem * item)
 				tagWhere * buffer = (tagWhere*)item->item_handle;
 				if (buffer != 0)
 				{
+					if (buffer->table_name)
+						delete[] buffer->table_name;
 					if (buffer->field_name)
 						delete[] buffer->field_name;
 
@@ -2299,6 +2398,10 @@ void free_item(tagItem * item)
 							tagItemValue * itemValue = (tagItemValue*)buffer->value_handle;
 							if (itemValue != 0)
 							{
+								if (itemValue->table_name != 0)
+									delete[] itemValue->table_name;
+								if (itemValue->field_name != 0)
+									delete[] itemValue->field_name;
 								if (itemValue->value_type == VALUE_STRING && itemValue->u.value_string != 0)
 									delete[] itemValue->u.value_string;
 
@@ -2313,6 +2416,8 @@ void free_item(tagItem * item)
 			}break;
 		case FUNC_ITEM:
 			{
+				if (item->table_name != 0)
+					delete[] item->table_name;
 				tagFunc * buffer = (tagFunc*)item->item_handle;
 				if (buffer != 0)
 				{

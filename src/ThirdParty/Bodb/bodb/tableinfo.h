@@ -62,10 +62,10 @@ namespace bo
 		CFieldInfo::pointer getFieldInfo(const tstring & fieldname);
 		CFieldInfo::pointer getFieldInfo2(short fieldindex);
 
-		CFieldInfo::pointer moveFirst(void);
-		CFieldInfo::pointer moveNext(void);
-		CFieldInfo::pointer movePrev(void);
-		CFieldInfo::pointer moveLast(void);
+		//CFieldInfo::pointer moveFirst(void);
+		//CFieldInfo::pointer moveNext(void);
+		//CFieldInfo::pointer movePrev(void);
+		//CFieldInfo::pointer moveLast(void);
 
 		const CLockList<CFieldInfo::pointer> & fields(void) const {return m_fields;}
 
@@ -113,7 +113,7 @@ namespace bo
 		CLockList<CFieldInfo::pointer> m_fields;
 		CLockMap<tstring, CFieldInfo::pointer> m_fields2;		// Field Name ->
 		CLockMap<uinteger, CFieldInfo::pointer> m_fields3;	// Field Id ->
-		CLockList<CFieldInfo::pointer>::iterator m_curiter;
+		//CLockList<CFieldInfo::pointer>::iterator m_curiter;
 
 		// id
 		uinteger m_currentRecordId;

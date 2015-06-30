@@ -24,22 +24,28 @@
 #include <stl/lockmap.h>
 #include "tableinfo.h"
 #include "fieldvariant.h"
+#include "fieldcompare.h"
 #include <boost/thread/mutex.hpp>
 
 namespace bo
 {
+#define RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG	0x1
+//#define RECORD_LINE_EXT_DATA_DELETE_FLAG		0x2
+
 	class CRecordLine
 	{
 	public:
 		typedef boost::shared_ptr<CRecordLine> pointer;
 		static CRecordLine::pointer create(const CTableInfo::pointer& tableInfo);
-		static CRecordLine::pointer create(uinteger id, CTableInfo::pointer tableInfo);
+		static CRecordLine::pointer create(uinteger id, const CTableInfo::pointer& tableInfo);
 
 		CFieldVariant::pointer getVariant(uinteger fieldId) const;
 		CFieldVariant::pointer getVariant(const tstring & fieldName) const;
 		bool equalFieldVariant(uinteger fieldId, const CFieldVariant::pointer& compare) const;
+		bool doCompareFieldVariant(uinteger fieldId, CFieldCompare::FieldCompareType compareType, const CFieldVariant::pointer& compare) const;
 
-		void addVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& variant);
+		void addVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& variant, bool bAddForce = true);
+		void addVariant(bo::uinteger fieldId, const tstring& fieldName, const CFieldVariant::pointer& variant, bool bAddForce = true);
 		void delVariant(const CFieldInfo::pointer& fieldInfo);
 
 		bool addVariant(const tstring & fieldName, bool value);
@@ -64,14 +70,18 @@ namespace bo
 
 		bool setNullDefaultVariant(uinteger fieldId);
 
-		void updateVariant(CFieldInfo::pointer fieldInfo, CFieldVariant::pointer fieldVariant);
-		void setVariantNull(CFieldInfo::pointer fieldInfo);
+		void updateVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& fieldVariant);
+		void setVariantNull(const CFieldInfo::pointer& fieldInfo);
 
-		CFieldVariant::pointer moveFirst(void);
-		CFieldVariant::pointer moveNext(void);
-		CFieldVariant::pointer movePrev(void);
-		CFieldVariant::pointer moveLast(void);
-		uinteger getFieldId(void) const;
+		CRecordLine::pointer Clone(bo::uinteger recordId) const;
+		void AddRecordLine(const CRecordLine::pointer& pRecordLine, bool bAddForce = true);
+		const CLockMap<uinteger, CFieldVariant::pointer>& GetVariantList(void) const {return m_variants;}
+		//CFieldVariant::pointer moveFirst(void);
+		//CFieldVariant::pointer moveNext(void);
+		//CFieldVariant::pointer movePrev(void);
+		//CFieldVariant::pointer moveLast(void);
+		//uinteger getFieldId(void) const;
+		//CFieldInfo::pointer getFieldInfo(void) const;
 		uinteger size(void) const;
 
 		void id(uinteger newv) {m_id = newv;}
@@ -79,7 +89,7 @@ namespace bo
 		CTableInfo::pointer	tableInfo(void) const {return m_tableInfo;}
 		
 		usmallint getLineSize(void) const;
-
+		bo::uinteger m_nExtData;
 	public:
 		CRecordLine(uinteger id, const CTableInfo::pointer& tableInfo);
 		virtual ~CRecordLine(void);
@@ -90,9 +100,8 @@ namespace bo
 		CTableInfo::pointer	m_tableInfo;
 		CLockMap<uinteger, CFieldVariant::pointer> m_variants;	// FieldId ->
 		CLockMap<tstring, CFieldVariant::pointer> m_variants2;		// FieldName ->
-		CLockMap<uinteger, CFieldVariant::pointer>::iterator m_curiter;
-		boost::shared_mutex m_mutex; 
-		//boost::mutex m_mutex;
+		//CLockMap<uinteger, CFieldVariant::pointer>::iterator m_curiter;
+		//boost::shared_mutex m_mutex; 
 	};
 
 	const CRecordLine::pointer boNullRecordLine;

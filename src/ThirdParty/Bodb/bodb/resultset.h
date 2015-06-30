@@ -36,14 +36,17 @@ namespace bo
 			return CResultSet::pointer(new CResultSet(tableInfo));
 		}
 
-		void OrderBy(const std::vector<std::string>& pOrderBys, bool bDesc = false);
+		void OrderBy(const std::vector<bo::uinteger>& pOrderBys, bool bDesc = false);
 		void LimitOffset(bo::bigint nOffset,bo::bigint nLimit);
 
-		CRecordLine::pointer moveFirst(void);
-		CRecordLine::pointer moveNext(void);
-		CRecordLine::pointer movePrev(void);
-		CRecordLine::pointer moveLast(void);
-		CRecordLine::pointer deleteCurrent(void);	// Delete OK MoveNext.
+		const CLockList<CRecordLine::pointer>& GetRecordList(void) const {return m_records;}
+		CLockList<CRecordLine::pointer>& GetRecordList2(void) {return m_records;}
+		void RemoteRecord(bo::uinteger nRecordId);
+		//CRecordLine::pointer moveFirst(void);
+		//CRecordLine::pointer moveNext(void);
+		//CRecordLine::pointer movePrev(void);
+		//CRecordLine::pointer moveLast(void);
+		//CRecordLine::pointer deleteCurrent(void);	// Delete OK MoveNext.
 		uinteger size(void) const;
 		bool empty(void) const;
 
@@ -59,7 +62,7 @@ namespace bo
 			: m_tableInfo(tableInfo)
 		{
 			BOOST_ASSERT (m_tableInfo.get() != 0);
-			m_curiter = m_records.begin();
+			//m_curiter = m_records.begin();
 		}
 		virtual ~CResultSet(void)
 		{
@@ -70,7 +73,7 @@ namespace bo
 		CTableInfo::pointer	m_tableInfo;
 		CLockList<CRecordLine::pointer> m_records;
 		CLockMap<uinteger, CRecordLine::pointer> m_records2;	// RecordId ->
-		CLockList<CRecordLine::pointer>::iterator m_curiter;
+		//CLockList<CRecordLine::pointer>::iterator m_curiter;
 	};
 
 	const CResultSet::pointer boNullResultSet;

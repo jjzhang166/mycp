@@ -117,45 +117,45 @@ namespace bo
 		return result;
 	}
 
-	CFieldInfo::pointer CTableInfo::moveFirst(void)
-	{
-		CFieldInfo::pointer resultNull;
-		m_curiter = m_fields.begin();
-	
-		if (m_curiter == m_fields.end())
-			return resultNull;
+	//CFieldInfo::pointer CTableInfo::moveFirst(void)
+	//{
+	//	CFieldInfo::pointer resultNull;
+	//	m_curiter = m_fields.begin();
+	//
+	//	if (m_curiter == m_fields.end())
+	//		return resultNull;
 
-		return *m_curiter;
-	}
-	CFieldInfo::pointer CTableInfo::moveNext(void)
-	{
-		CFieldInfo::pointer resultNull;
-		if (++m_curiter == m_fields.end())
-			return resultNull;
+	//	return *m_curiter;
+	//}
+	//CFieldInfo::pointer CTableInfo::moveNext(void)
+	//{
+	//	CFieldInfo::pointer resultNull;
+	//	if (++m_curiter == m_fields.end())
+	//		return resultNull;
 
-		return *m_curiter;
-	}
+	//	return *m_curiter;
+	//}
 
-	CFieldInfo::pointer CTableInfo::movePrev(void)
-	{
-		CFieldInfo::pointer resultNull;
-		if (m_curiter == m_fields.begin() || --m_curiter == m_fields.begin())
-			return resultNull;
+	//CFieldInfo::pointer CTableInfo::movePrev(void)
+	//{
+	//	CFieldInfo::pointer resultNull;
+	//	if (m_curiter == m_fields.begin() || --m_curiter == m_fields.begin())
+	//		return resultNull;
 
-		return *m_curiter;
-	}
+	//	return *m_curiter;
+	//}
 
-	CFieldInfo::pointer CTableInfo::moveLast(void)
-	{
-		CFieldInfo::pointer resultNull;
-		m_curiter = m_fields.end();
-	
-		if (m_curiter == m_fields.begin())
-			return resultNull;
+	//CFieldInfo::pointer CTableInfo::moveLast(void)
+	//{
+	//	CFieldInfo::pointer resultNull;
+	//	m_curiter = m_fields.end();
+	//
+	//	if (m_curiter == m_fields.begin())
+	//		return resultNull;
 
-		m_curiter--;
-		return *m_curiter;
-	}
+	//	m_curiter--;
+	//	return *m_curiter;
+	//}
 
 	//usmallint CTableInfo::getMaxTableInfoSize(void)
 	//{
@@ -179,13 +179,13 @@ namespace bo
 		: m_id(0), m_type(TT_UNKNOWN), m_name(_T("")), m_note(_T(""))
 		, m_currentRecordId(0)
 	{
-		m_curiter = m_fields.begin();
+		//m_curiter = m_fields.begin();
 	}
 	CTableInfo::CTableInfo(const tstring & name, TableType type, const tstring & note)
 		: m_id(0), m_type(type), m_name(name), m_note(note)
 		, m_currentRecordId(0)
 	{
-		m_curiter = m_fields.begin();
+		//m_curiter = m_fields.begin();
 	}
 	CTableInfo::~CTableInfo(void)
 	{

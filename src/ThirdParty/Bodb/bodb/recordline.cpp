@@ -25,7 +25,7 @@ namespace bo
 		BOOST_ASSERT (tableInfo.get() != 0);
 		return CRecordLine::pointer(new CRecordLine(tableInfo->getNextRecordId(), tableInfo));
 	}
-	CRecordLine::pointer CRecordLine::create(uinteger id, CTableInfo::pointer tableInfo)
+	CRecordLine::pointer CRecordLine::create(uinteger id, const CTableInfo::pointer& tableInfo)
 	{
 		return CRecordLine::pointer(new CRecordLine(id, tableInfo));
 	}
@@ -49,25 +49,83 @@ namespace bo
 			return false;
 		return variant->equal(compare);
 	}
+	bool CRecordLine::doCompareFieldVariant(uinteger fieldId, CFieldCompare::FieldCompareType compareType, const CFieldVariant::pointer& compare) const
+	{
+		CFieldVariant::pointer variant;
+		if (!m_variants.find(fieldId, variant))
+			return false;
+		bool result = false;
+		switch (compareType)
+		{
+		case CFieldCompare::FCT_EQUAL:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->equal(compare);
+			break;
+		case CFieldCompare::FCT_UNEQUAL:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->unequal(compare);
+			break;
+		case CFieldCompare::FCT_GREATER:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->greater(compare);
+			break;
+		case CFieldCompare::FCT_GREATEREQUAL:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->greaterEqual(compare);
+			break;
+		case CFieldCompare::FCT_LESS:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->less(compare);
+			break;
+		case CFieldCompare::FCT_LESSEQUAL:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->lessEqual(compare);
+			break;
+		case CFieldCompare::FCT_ISNULL:
+			result = variant->isNull();
+			break;
+		case CFieldCompare::FCT_ISNOTNULL:
+			result = variant->isNotNull();
+			break;
+		case CFieldCompare::FCT_LIKE:
+			BOOST_ASSERT (compare.get() != 0);
+			result = variant->isLike(compare);
+			break;
+		default:
+			break;
+		}
 
-	void CRecordLine::addVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& variant)
+		return result;
+	}
+
+	void CRecordLine::addVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& variant, bool bAddForce)
 	{
 		BOOST_ASSERT (fieldInfo.get() != 0);
 		BOOST_ASSERT (variant.get() != 0);
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
-		m_variants.insert(fieldInfo->id(), variant);
-		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		m_variants.insert(fieldInfo->id(), variant, bAddForce);
+		m_variants2.insert(fieldInfo->name(), variant, bAddForce);
+		//m_curiter = m_variants.end();	// restart for m_curiter
 	}
+	void CRecordLine::addVariant(bo::uinteger fieldId, const tstring& fieldName, const CFieldVariant::pointer& variant, bool bAddForce)
+	{
+		BOOST_ASSERT (variant.get() != 0);
+		//BoostWriteLock wtlock(m_mutex);
+		m_variants.insert(fieldId, variant, bAddForce);
+		if (!fieldName.empty())
+			m_variants2.insert(fieldName, variant, bAddForce);
+		//m_curiter = m_variants.end();	// restart for m_curiter
+	}
+
 	void CRecordLine::delVariant(const CFieldInfo::pointer& fieldInfo)
 	{
 		BOOST_ASSERT (fieldInfo.get() != 0);
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.remove(fieldInfo->id());
 		m_variants2.remove(fieldInfo->name());
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 	}
 
 	bool CRecordLine::addVariant(const tstring & fieldName, bool value)
@@ -80,11 +138,11 @@ namespace bo
 		if (!variant->setBool(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantInt(const tstring & fieldName, int value)
@@ -97,11 +155,11 @@ namespace bo
 		if (!variant->setInt(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantReal(const tstring & fieldName, double value)
@@ -114,11 +172,11 @@ namespace bo
 		if (!variant->setReal(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantUInt(const tstring & fieldName, uinteger value)
@@ -131,11 +189,11 @@ namespace bo
 		if (!variant->setIntu(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantBigInt(const tstring & fieldName, bigint value)
@@ -148,11 +206,11 @@ namespace bo
 		if (!variant->setBigInt(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 
@@ -170,11 +228,11 @@ namespace bo
 		if (!variant->setString(value, size))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 
@@ -187,11 +245,11 @@ namespace bo
 		CFieldVariant::pointer variant = fieldInfo->buildFieldVariant();
 		variant->setNull();
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantDefault(const tstring & fieldName)
@@ -204,11 +262,11 @@ namespace bo
 		if (variant.get() == 0)
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantCurrentTime(const tstring & fieldName)
@@ -221,11 +279,11 @@ namespace bo
 		if (!variant->setCurrentTime())
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariant(short fieldIndex, const char * value, uinteger size)
@@ -242,11 +300,11 @@ namespace bo
 		if (!variant->setString(value, size))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariant(short fieldIndex, bool value)
@@ -259,11 +317,11 @@ namespace bo
 		if (!variant->setBool(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantInt(short fieldIndex, int value)
@@ -276,11 +334,11 @@ namespace bo
 		if (!variant->setInt(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantReal(short fieldIndex, double value)
@@ -293,11 +351,11 @@ namespace bo
 		if (!variant->setReal(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantBigInt(short fieldIndex, bigint value)
@@ -310,11 +368,11 @@ namespace bo
 		if (!variant->setBigInt(value))
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 
@@ -327,11 +385,11 @@ namespace bo
 		CFieldVariant::pointer variant = fieldInfo->buildFieldVariant();
 		variant->setNull();
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantDefault(short fieldIndex)
@@ -344,11 +402,11 @@ namespace bo
 		if (variant.get() == 0)
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantCurrentTime(short fieldIndex)
@@ -361,11 +419,11 @@ namespace bo
 		if (!variant->setCurrentTime())
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::addVariantDefault2(uinteger fieldId)
@@ -378,11 +436,11 @@ namespace bo
 		if (variant.get() == 0)
 			return false;
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.insert(fieldInfo->id(), variant);
 		m_variants2.insert(fieldInfo->name(), variant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 		return true;
 	}
 	bool CRecordLine::setNullDefaultVariant(uinteger fieldId)
@@ -405,29 +463,29 @@ namespace bo
 			}
 		}else
 		{
-			BoostWriteLock wtlock(m_mutex);
+			//BoostWriteLock wtlock(m_mutex);
 			//boost::mutex::scoped_lock lock(m_mutex);
 			m_variants.insert(fieldInfo->id(), defaultVariant);
 			m_variants2.insert(fieldInfo->name(), defaultVariant);
-			m_curiter = m_variants.end();	// restart for m_curiter
+			//m_curiter = m_variants.end();	// restart for m_curiter
 			return true;
 		}
 		return false;
 	}
-	void CRecordLine::updateVariant(CFieldInfo::pointer fieldInfo, CFieldVariant::pointer fieldVariant)
+	void CRecordLine::updateVariant(const CFieldInfo::pointer& fieldInfo, const CFieldVariant::pointer& fieldVariant)
 	{
 		BOOST_ASSERT (fieldInfo.get() != 0);
 		BOOST_ASSERT (fieldVariant.get() != 0);
 
-		BoostWriteLock wtlock(m_mutex);
+		//BoostWriteLock wtlock(m_mutex);
 		//boost::mutex::scoped_lock lock(m_mutex);
 		m_variants.remove(fieldInfo->id());
 		m_variants.insert(fieldInfo->id(), fieldVariant);
 		m_variants2.remove(fieldInfo->name());
 		m_variants2.insert(fieldInfo->name(), fieldVariant);
-		m_curiter = m_variants.end();	// restart for m_curiter
+		//m_curiter = m_variants.end();	// restart for m_curiter
 	}
-	void CRecordLine::setVariantNull(CFieldInfo::pointer fieldInfo)
+	void CRecordLine::setVariantNull(const CFieldInfo::pointer& fieldInfo)
 	{
 		BOOST_ASSERT (fieldInfo.get() != 0);
 
@@ -438,55 +496,106 @@ namespace bo
 		}
 	}
 
-	CFieldVariant::pointer CRecordLine::moveFirst(void)
+	CRecordLine::pointer CRecordLine::Clone(bo::uinteger recordId) const
 	{
-		BoostReadLock rdlock(m_mutex);
-		//boost::mutex::scoped_lock lock(m_mutex);
-		m_curiter = m_variants.begin();
-		if (m_curiter == m_variants.end())
-			return boNullFieldVariant;
-
-		return m_curiter->second;
-	}
-	CFieldVariant::pointer CRecordLine::moveNext(void)
-	{
-		BoostReadLock rdlock(m_mutex);
-		//boost::mutex::scoped_lock lock(m_mutex);
-		if (m_curiter == m_variants.end() || (++m_curiter) == m_variants.end())
-			return boNullFieldVariant;
-
-		return m_curiter->second;
-	}
-	CFieldVariant::pointer CRecordLine::movePrev(void)
-	{
-		BoostReadLock rdlock(m_mutex);
-		//boost::mutex::scoped_lock lock(m_mutex);
-		if (m_curiter == m_variants.begin() || (--m_curiter) == m_variants.begin())
-			return boNullFieldVariant;
-
-		return m_curiter->second;
-	}
-	CFieldVariant::pointer CRecordLine::moveLast(void)
-	{
-		BoostReadLock rdlock(m_mutex);
-		//boost::mutex::scoped_lock lock(m_mutex);
-		m_curiter = m_variants.end();
-		if (m_curiter == m_variants.begin())
-			return boNullFieldVariant;
-
-		m_curiter--;
-		return m_curiter->second;
-	}
-	uinteger CRecordLine::getFieldId(void) const
-	{
-		uinteger result = 0;
-		if (m_curiter != m_variants.end())
+		CRecordLine::pointer pResult = CRecordLine::create(recordId, m_tableInfo);
+		AUTO_CONST_RLOCK(m_variants);
+		CLockMap<uinteger, CFieldVariant::pointer>::const_iterator pIter = m_variants.begin();
+		for (; pIter!=m_variants.end(); pIter++)
 		{
-			result = m_curiter->first;
+			const uinteger fieldId = pIter->first;;
+			CFieldVariant::pointer fieldVariant = pIter->second;
+			pResult->addVariant(fieldId,"",fieldVariant);
+		}
+		//CRecordLine * pOwner = const_cast<CRecordLine*>(this);
+		//CFieldVariant::pointer fieldVariant = pOwner->moveFirst();
+		//while (fieldVariant.get() != 0)
+		//{
+		//	//CFieldInfo::pointer pFieldInfo = getFieldInfo();
+		//	//if (pFieldInfo.get()!=0)
+		//	//	pResult->addVariant(pFieldInfo,fieldVariant);
+		//	//else
+		//		pResult->addVariant(this->getFieldId(),"",fieldVariant);
+		//	fieldVariant = pOwner->moveNext();
+		//}
+		return pResult;
+	}
+	void CRecordLine::AddRecordLine(const CRecordLine::pointer& pRecordLine, bool bAddForce)
+	{
+		const CLockMap<uinteger, CFieldVariant::pointer>& pVariantList = pRecordLine->GetVariantList();
+		AUTO_CONST_RLOCK(pVariantList);
+		CLockMap<uinteger, CFieldVariant::pointer>::const_iterator pIter = pVariantList.begin();
+		for (; pIter!=pVariantList.end(); pIter++)
+		{
+			const uinteger fieldId = pIter->first;;
+			CFieldVariant::pointer fieldVariant = pIter->second;
+			addVariant(fieldId,"",fieldVariant, bAddForce);
 		}
 
-		return result;
+		//CFieldVariant::pointer fieldVariant = pRecordLine->moveFirst();
+		//while (fieldVariant.get() != 0)
+		//{
+		//	//CFieldInfo::pointer pFieldInfo = pRecordLine->getFieldInfo();
+		//	//if (pFieldInfo.get()!=0)
+		//	//	addVariant(pFieldInfo,fieldVariant);
+		//	//else
+		//		addVariant(pRecordLine->getFieldId(),"", fieldVariant);
+		//	fieldVariant = pRecordLine->moveNext();
+		//}
 	}
+
+	//CFieldVariant::pointer CRecordLine::moveFirst(void)
+	//{
+	//	BoostReadLock rdlock(m_mutex);
+	//	//boost::mutex::scoped_lock lock(m_mutex);
+	//	m_curiter = m_variants.begin();
+	//	if (m_curiter == m_variants.end())
+	//		return boNullFieldVariant;
+
+	//	return m_curiter->second;
+	//}
+	//CFieldVariant::pointer CRecordLine::moveNext(void)
+	//{
+	//	BoostReadLock rdlock(m_mutex);
+	//	//boost::mutex::scoped_lock lock(m_mutex);
+	//	if (m_curiter == m_variants.end() || (++m_curiter) == m_variants.end())
+	//		return boNullFieldVariant;
+
+	//	return m_curiter->second;
+	//}
+	//CFieldVariant::pointer CRecordLine::movePrev(void)
+	//{
+	//	BoostReadLock rdlock(m_mutex);
+	//	//boost::mutex::scoped_lock lock(m_mutex);
+	//	if (m_curiter == m_variants.begin() || (--m_curiter) == m_variants.begin())
+	//		return boNullFieldVariant;
+
+	//	return m_curiter->second;
+	//}
+	//CFieldVariant::pointer CRecordLine::moveLast(void)
+	//{
+	//	BoostReadLock rdlock(m_mutex);
+	//	//boost::mutex::scoped_lock lock(m_mutex);
+	//	m_curiter = m_variants.end();
+	//	if (m_curiter == m_variants.begin())
+	//		return boNullFieldVariant;
+
+	//	m_curiter--;
+	//	return m_curiter->second;
+	//}
+	//uinteger CRecordLine::getFieldId(void) const
+	//{
+	//	uinteger result = 0;
+	//	if (m_curiter != m_variants.end())
+	//	{
+	//		result = m_curiter->first;
+	//	}
+	//	return result;
+	//}
+	//CFieldInfo::pointer CRecordLine::getFieldInfo(void) const
+	//{
+	//	return m_tableInfo->getFieldInfo(getFieldId());
+	//}
 
 	uinteger CRecordLine::size(void) const
 	{
@@ -495,9 +604,10 @@ namespace bo
 
 	CRecordLine::CRecordLine(uinteger id, const CTableInfo::pointer& tableInfo)
 		: m_id(id), m_tableInfo(tableInfo)
+		, m_nExtData(0)
 	{
 		BOOST_ASSERT (m_tableInfo.get() != 0);
-		m_curiter = m_variants.begin();
+		//m_curiter = m_variants.begin();
 	}
 	CRecordLine::~CRecordLine(void)
 	{

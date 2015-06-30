@@ -103,6 +103,9 @@ namespace bo
 		bool greaterEqual(const CFieldVariant::pointer& compare) const;
 		bool less(const CFieldVariant::pointer& compare) const;
 		bool lessEqual(const CFieldVariant::pointer& compare) const;
+		bool isLike(const CFieldVariant::pointer& compare) const;
+		bool isLike(const BUFFER& buffer, const BUFFER& compare) const;
+		bool isLike(const NBUFFER& buffer, const NBUFFER& compare) const;
 		bool isNull(void) const;
 		bool isNotNull(void) const;
 

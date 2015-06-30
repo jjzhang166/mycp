@@ -30,8 +30,8 @@ using namespace bo;
 //CDbService::pointer gDb;
 namespace bo
 {
-	bool GetOrderBys(CTableInfo::pointer tableInfo, tagItems * itemOrderBys, std::vector<std::string> & outTopOrderBys);
-	bool GetWheres(CTableInfo::pointer tableInfo, tagItems * itemWheres, std::list<std::list<CFieldCompare::pointer> > & outTopWheres);
+	bool GetOrderBys(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>& pTableInfoList, tagItems * itemOrderBys, std::vector<bo::uinteger> & outTopOrderBys);
+	bool GetWheres(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>& pTableInfoList, tagItems * itemWheres, std::list<std::list<CFieldCompare::pointer> > & outTopWheres);
 	bool GetValues(CTableInfo::pointer tableInfo, tagItems * itemValues, CRecordLine::pointer outRecordLine);
 	FieldConstraintType ToConstraintType(enum_field_constraint type);
 
@@ -153,28 +153,51 @@ namespace bo
 				{
 				case SQLCOM_SELECT:
 					{
-						tagTable * table = (tagTable*)sp->tables->items[0]->item_handle;
-						if (table == 0 || table->table_name == 0)
+						CLockMap<tstring,CTableInfo::pointer> pTableInfoList;
+						CTableInfo::pointer pFirstTableInfo;
+						for (short i=0;i<sp->tables->itemcount; i++)
+						{
+							tagTable * table = (tagTable*)sp->tables->items[i]->item_handle;
+							if (table == 0 || table->table_name == 0)
+							{
+								pTableInfoList.clear();
+								break;
+							}
+							CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
+							if (tableInfo.get() == 0)
+							{
+								pTableInfoList.clear();
+								break;
+							}
+							if (pFirstTableInfo.get()==NULL)
+								pFirstTableInfo = tableInfo;
+							pTableInfoList.insert(table->table_name,tableInfo);
+							if (table->alias_name != 0)
+							{
+								pTableInfoList.insert(table->alias_name,tableInfo,false);
+							}
+						}
+						if (pTableInfoList.empty())
+						{
+							// ? error
 							break;
-						CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
-						if (tableInfo.get() == 0)
-							break;
+						}
 
 						// WHERES
 						std::list<std::list<CFieldCompare::pointer> > topwheres;
-						if (!GetWheres(tableInfo, sp->wheres, topwheres))
+						if (!GetWheres(pFirstTableInfo, pTableInfoList, sp->wheres, topwheres))
 						{
 							break;
 						}
 						// ORDER BY
-						std::vector<std::string> orderbys;
-						if (!GetOrderBys(tableInfo, sp->orderbys, orderbys))
+						std::vector<bo::uinteger> orderbys;
+						if (!GetOrderBys(pFirstTableInfo, pTableInfoList, sp->orderbys, orderbys))
 						{
 							break;
 						}
 
-						bool distinct = sp->parameter == (void*)1;
-						CResultSet::pointer rs = CDbService::select(tableInfo, topwheres, false);
+						const bool distinct = sp->parameter == (void*)1;
+						CResultSet::pointer rs = CDbService::select(pFirstTableInfo, topwheres, false);
 						rs->OrderBy(orderbys, sp->orderbydesc==1);
 						rs->LimitOffset(sp->offset, sp->limit);
 						result = rs->size();
@@ -190,9 +213,14 @@ namespace bo
 							(*outResultSet)->rsvalues = new PRECORDLINE[result];
 						}
 
-						CRecordLine::pointer recordLine = rs->moveFirst();
-						while (recordLine.get() != 0)
+						const CLockList<CRecordLine::pointer>& pRecordList = rs->GetRecordList();
+						BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+						CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+						for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+						//CRecordLine::pointer recordLine = rs->moveFirst();
+						//while (recordLine.get() != 0)
 						{
+							CRecordLine::pointer recordLine = *pIterRecordList;
 							if (distinct)
 							{
 								bool equalRecordLine = false;
@@ -202,25 +230,50 @@ namespace bo
 									equalRecordLine = true;
 									if (sp->items == 0)
 									{
-										CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
-										while (fieldVariant.get() != 0)
+										const CLockMap<uinteger, CFieldVariant::pointer>& pVariantList = recordLine->GetVariantList();
+										AUTO_CONST_RLOCK(pVariantList);
+										CLockMap<uinteger, CFieldVariant::pointer>::const_iterator pIter = pVariantList.begin();
+										for (; pIter!=pVariantList.end(); pIter++)
 										{
+											CFieldVariant::pointer fieldVariant = pIter->second;
 											PFIELDVARIANT fieldVariantCompare = (*outResultSet)->rsvalues[i]->fieldvalues[j++];
 											if(!fieldVariant->equal(CFieldVariant::create(fieldVariantCompare)))
 											{
 												equalRecordLine = false;
 												break;
 											}
-											fieldVariant = recordLine->moveNext();
 										}
+
+										//CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
+										//while (fieldVariant.get() != 0)
+										//{
+										//	PFIELDVARIANT fieldVariantCompare = (*outResultSet)->rsvalues[i]->fieldvalues[j++];
+										//	if(!fieldVariant->equal(CFieldVariant::create(fieldVariantCompare)))
+										//	{
+										//		equalRecordLine = false;
+										//		break;
+										//	}
+										//	fieldVariant = recordLine->moveNext();
+										//}
 									}else
 									{
 										for (j=0; j<(*outResultSet)->rsvalues[i]->fieldcount; j++)
 										{
 											PFIELDVARIANT fieldVariantCompare = (*outResultSet)->rsvalues[i]->fieldvalues[j];
+											const char * tablename = (const char *)sp->items->items[j]->table_name;
 											const char * fieldname = (const char *)sp->items->items[j]->item_handle;
-											CFieldVariant::pointer fieldVariant = recordLine->getVariant(fieldname);
-
+											CFieldVariant::pointer fieldVariant;
+											CTableInfo::pointer pTableInfo;
+											if (tablename==0)
+											{
+												fieldVariant = recordLine->getVariant(fieldname);
+											}else if (pTableInfoList.find(tablename,pTableInfo))
+											{
+												CFieldInfo::pointer pFieldInfo = pTableInfo->getFieldInfo(fieldname);
+												if (pFieldInfo.get()==0)
+													break;
+												fieldVariant = recordLine->getVariant(pFieldInfo->id());
+											}
 											BOOST_ASSERT (fieldVariant.get() != NULL);
 											if(!fieldVariant->equal(CFieldVariant::create(fieldVariantCompare)))
 											{
@@ -237,14 +290,13 @@ namespace bo
 								}
 								if (equalRecordLine)
 								{
-									recordLine = rs->moveNext();
+									//recordLine = rs->moveNext();
 									continue;
 								}
 							}
 
 							if (sp->items == 0)
 							{
-								CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
 								if (recordLine->size() > 0)
 								{
 									(*outResultSet)->rscount++;
@@ -252,12 +304,17 @@ namespace bo
 									(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldcount = 0;
 									(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldvalues = new PFIELDVARIANT[recordLine->size()];
 								}
-
-								while (fieldVariant.get() != 0)
+								const CLockMap<uinteger, CFieldVariant::pointer>& pVariantList = recordLine->GetVariantList();
+								AUTO_CONST_RLOCK(pVariantList);
+								CLockMap<uinteger, CFieldVariant::pointer>::const_iterator pIter = pVariantList.begin();
+								for (; pIter!=pVariantList.end(); pIter++)
+								//CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
+								//while (fieldVariant.get() != 0)
 								{
+									CFieldVariant::pointer fieldVariant = pIter->second;
 									(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldcount++;
 									(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldvalues[(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldcount-1] = fieldVariant->getValue();
-									fieldVariant = recordLine->moveNext();
+									//fieldVariant = recordLine->moveNext();
 								}
 							}else
 							{
@@ -278,8 +335,19 @@ namespace bo
 									{
 									case STRING_ITEM:
 										{
+											const char * tablename = (const char *)sp->items->items[i]->table_name;
 											const char * fieldname = (const char *)sp->items->items[i]->item_handle;
-											fieldVariant = recordLine->getVariant(fieldname);
+											CTableInfo::pointer pTableInfo;
+											if (tablename==0)
+											{
+												fieldVariant = recordLine->getVariant(fieldname);
+											}else if (pTableInfoList.find(tablename,pTableInfo))
+											{
+												CFieldInfo::pointer pFieldInfo = pTableInfo->getFieldInfo(fieldname);
+												if (pFieldInfo.get()==0)
+													break;
+												fieldVariant = recordLine->getVariant(pFieldInfo->id());
+											}
 										}break;
 									case FUNC_ITEM:
 										{
@@ -302,8 +370,19 @@ namespace bo
 														breakError = true;
 														break;
 													}
+													const char * tablename = (const char *)pFunc->items->items[0]->table_name;
 													const char * fieldname = (const char *)pFunc->items->items[0]->item_handle;
-													fieldVariant = recordLine->getVariant(fieldname);
+													CTableInfo::pointer pTableInfo;
+													if (tablename==0)
+													{
+														fieldVariant = recordLine->getVariant(fieldname);
+													}else if (pTableInfoList.find(tablename,pTableInfo))
+													{
+														CFieldInfo::pointer pFieldInfo = pTableInfo->getFieldInfo(fieldname);
+														if (pFieldInfo.get()==0)
+															break;
+														fieldVariant = recordLine->getVariant(pFieldInfo->id());
+													}
 												}break;
 											case FUNCTION_DATE_FORMAT:
 												{
@@ -312,9 +391,20 @@ namespace bo
 														breakError = true;
 														break;
 													}
+													const char * tablename = (const char *)pFunc->items->items[0]->table_name;
 													const char * fieldname = (const char *)pFunc->items->items[0]->item_handle;
 													functionHandle = pFunc->items->items[1]->item_handle;
-													fieldVariant = recordLine->getVariant(fieldname);
+													CTableInfo::pointer pTableInfo;
+													if (tablename==0)
+													{
+														fieldVariant = recordLine->getVariant(fieldname);
+													}else if (pTableInfoList.find(tablename,pTableInfo))
+													{
+														CFieldInfo::pointer pFieldInfo = pTableInfo->getFieldInfo(fieldname);
+														if (pFieldInfo.get()==0)
+															break;
+														fieldVariant = recordLine->getVariant(pFieldInfo->id());
+													}
 												}break;
 											default:
 												break;
@@ -439,24 +529,52 @@ namespace bo
 
 							if (breakError)
 								break;
-							recordLine = rs->moveNext();
+							//recordLine = rs->moveNext();
 						}
 
 					}break;
 				case SQLCOM_DELETE:
 					{
-						tagTable * table = (tagTable*)sp->tables->items[0]->item_handle;
-						if (table == 0 || table->table_name == 0)
+						//tagTable * table = (tagTable*)sp->tables->items[0]->item_handle;
+						//if (table == 0 || table->table_name == 0)
+						//	break;
+						//CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
+						//if (tableInfo.get() == 0)
+						//	break;
+						CLockMap<tstring,CTableInfo::pointer> pTableInfoList;
+						CTableInfo::pointer pFirstTableInfo;
+						for (short i=0;i<sp->tables->itemcount; i++)
+						{
+							tagTable * table = (tagTable*)sp->tables->items[i]->item_handle;
+							if (table == 0 || table->table_name == 0)
+							{
+								pTableInfoList.clear();
+								break;
+							}
+							CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
+							if (tableInfo.get() == 0)
+							{
+								pTableInfoList.clear();
+								break;
+							}
+							if (pFirstTableInfo.get()==NULL)
+								pFirstTableInfo = tableInfo;
+							pTableInfoList.insert(table->table_name,tableInfo);
+							if (table->alias_name != 0)
+							{
+								pTableInfoList.insert(table->alias_name,tableInfo,false);
+							}
+						}
+						if (pTableInfoList.empty())
+						{
+							// ? error
 							break;
-						CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
-						if (tableInfo.get() == 0)
-							break;
-
+						}
 						// WHERES
 						std::list<std::list<CFieldCompare::pointer> > topwheres;
-						if (GetWheres(tableInfo, sp->wheres, topwheres))
+						if (GetWheres(pFirstTableInfo, pTableInfoList, sp->wheres, topwheres))
 						{
-							result = CDbService::deleters(tableInfo, topwheres);
+							result = CDbService::deleters(pFirstTableInfo, topwheres);
 						}
 
 					}break;
@@ -464,23 +582,48 @@ namespace bo
 					{
 						if (sp->values == 0) break;
 
-						tagTable * table = (tagTable*)sp->tables->items[0]->item_handle;
-						if (table == 0 || table->table_name == 0)
-							break;
-						CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
-						if (tableInfo.get() == 0)
-							break;
+						//tagTable * table = (tagTable*)sp->tables->items[0]->item_handle;
+						//if (table == 0 || table->table_name == 0)
+						//	break;
+						//CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
+						//if (tableInfo.get() == 0)
+						//	break;
+
+						CLockMap<tstring,CTableInfo::pointer> pTableInfoList;
+						CTableInfo::pointer pFirstTableInfo;
+						for (short i=0;i<sp->tables->itemcount; i++)
+						{
+							tagTable * table = (tagTable*)sp->tables->items[i]->item_handle;
+							if (table == 0 || table->table_name == 0)
+							{
+								pTableInfoList.clear();
+								break;
+							}
+							CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
+							if (tableInfo.get() == 0)
+							{
+								pTableInfoList.clear();
+								break;
+							}
+							if (pFirstTableInfo.get()==NULL)
+								pFirstTableInfo = tableInfo;
+							pTableInfoList.insert(table->table_name,tableInfo);
+							if (table->alias_name != 0)
+							{
+								pTableInfoList.insert(table->alias_name,tableInfo,false);
+							}
+						}
 
 						// VALUES
-						CRecordLine::pointer recordLine = CRecordLine::create(tableInfo);
-						if (!GetValues(tableInfo, sp->values, recordLine))
+						CRecordLine::pointer recordLine = CRecordLine::create(pFirstTableInfo);	// ???
+						if (!GetValues(pFirstTableInfo, sp->values, recordLine))
 							break;
 
 						// WHERES
 						std::list<std::list<CFieldCompare::pointer> > topwheres;
-						if (GetWheres(tableInfo, sp->wheres, topwheres))
+						if (GetWheres(pFirstTableInfo, pTableInfoList, sp->wheres, topwheres))
 						{
-							result = CDbService::update(tableInfo, topwheres, recordLine);
+							result = CDbService::update(pFirstTableInfo, topwheres, recordLine);
 						}
 					}break;
 				case SQLCOM_INSERT:
@@ -802,32 +945,48 @@ namespace bo
 		return FIELD_CONSTRAINT_UNKNOWN;
 	}
 
-	bool GetOrderBys(CTableInfo::pointer tableInfo, tagItems * itemOrderBys, std::vector<std::string> & outTopOrderBys)
+	bool GetOrderBys(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>& pTableInfoList, tagItems * itemOrderBys, std::vector<bo::uinteger> & outTopOrderBys)
 	{
 		if (itemOrderBys == 0) return true;
 		for (short i=0; i<itemOrderBys->itemcount; i++)
 		{
+			const char * pTableName = (const char*)itemOrderBys->items[i]->table_name;
 			const char * pOrderByField = (const char*)itemOrderBys->items[i]->item_handle;
-			if (pOrderByField == 0 || !tableInfo->existField(pOrderByField))
+
+			CTableInfo::pointer pTableInfo = tableInfo;
+			if (pTableName!=0 && !pTableInfoList.find(pTableName,pTableInfo))
 			{
 				return false;
 			}
-			outTopOrderBys.push_back(pOrderByField);
+			if (pOrderByField == 0)
+			{
+				return false;
+			}
+			CFieldInfo::pointer pFieldInfo = pTableInfo->getFieldInfo(pOrderByField);
+			if (pFieldInfo.get()==0)
+				return false;
+			outTopOrderBys.push_back(pFieldInfo->id());
 		}
 		return true;
 	}
-	bool GetWheres(CTableInfo::pointer tableInfo, tagItems * itemWheres, std::list<std::list<CFieldCompare::pointer> > & outTopWheres)
+	bool GetWheres(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>& pTableInfoList, tagItems * itemWheres, std::list<std::list<CFieldCompare::pointer> > & outTopWheres)
 	{
 		if (itemWheres == 0) return true;
 		std::list<CFieldCompare::pointer> wheres;
 		for (short i=0; i<itemWheres->itemcount; i++)
 		{
-			tagWhere * pWhere = (tagWhere*)itemWheres->items[i]->item_handle;
+			const tagWhere * pWhere = (tagWhere*)itemWheres->items[i]->item_handle;
+
+			CTableInfo::pointer pTableInfo = tableInfo;
+			if (pWhere->table_name!=0 && !pTableInfoList.find(pWhere->table_name,pTableInfo))
+			{
+				return false;
+			}
 
 			CFieldInfo::pointer fieldInfo;
 			if (pWhere->field_name != 0)
 			{
-				fieldInfo = tableInfo->getFieldInfo(pWhere->field_name);
+				fieldInfo = pTableInfo->getFieldInfo(pWhere->field_name);
 			}else
 			{
 				//fieldInfo = tableInfo->getFieldInfo(i);
@@ -853,18 +1012,35 @@ namespace bo
 					{
 						return false;
 					}
-					if (!ItemValue2Variant(itemValue, variant))
+					CFieldCompare::pointer pFieldCompare;
+					if (itemValue->table_name != 0 && itemValue->field_name != 0)
+					{
+						CTableInfo::pointer pTableInfo2;
+						if (!pTableInfoList.find(itemValue->table_name,pTableInfo2))
+						{
+							return false;
+						}
+						CFieldInfo::pointer fieldInfo2 = pTableInfo2->getFieldInfo(itemValue->field_name);
+						if (fieldInfo2.get() == 0)
+							return false;
+						pFieldCompare = CFieldCompare::create(pTableInfo,pTableInfo2,ToCompareType(pWhere->compare_type),fieldInfo,fieldInfo2,pWhere->where_level);
+					}else if (itemValue->table_name != 0 || itemValue->field_name != 0)
+					{
+						return false;
+					}else if (ItemValue2Variant(itemValue, variant))
+					{
+						pFieldCompare = CFieldCompare::create(pTableInfo,ToCompareType(pWhere->compare_type),fieldInfo,variant,pWhere->where_level);
+					}else
 					{
 						return false;
 					}
-					CFieldCompare::pointer pFieldCompare = CFieldCompare::create(ToCompareType(pWhere->compare_type),fieldInfo,variant,pWhere->where_level);
 					pFieldCompare->compareAnd(pWhere->and_where);
 					wheres.push_back(pFieldCompare);
 				}break;
 			case COMPARE_ISNULL:
 			case COMPARE_ISNOTNULL:
 				{
-					CFieldCompare::pointer pFieldCompare = CFieldCompare::create(ToCompareType(pWhere->compare_type),fieldInfo,pWhere->where_level);
+					CFieldCompare::pointer pFieldCompare = CFieldCompare::create(pTableInfo,ToCompareType(pWhere->compare_type),fieldInfo,pWhere->where_level);
 					pFieldCompare->compareAnd(pWhere->and_where);
 					wheres.push_back(pFieldCompare);
 				}break;

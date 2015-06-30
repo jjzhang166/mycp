@@ -1030,6 +1030,309 @@ namespace bo
 
 		return result;
 	}
+	bool CFieldVariant::isLike(const CFieldVariant::pointer& compare) const
+	{
+		bool result = false;
+		if (compare.get() == 0) return result;
+		if (VARTYPE != compare->VARTYPE) return result;
+
+		switch (VARTYPE)
+		{
+		case FT_BOOLEAN:
+			result = v.booleanVal == compare->v.booleanVal;
+			break;
+		case FT_TINYINT:
+			result = v.tinyintVal == compare->v.tinyintVal;
+			break;
+		case FT_UTINYINT:
+			result = v.utinyintVal == compare->v.utinyintVal;
+			break;
+		case FT_SMALLINT:
+			result = v.smallintVal == compare->v.smallintVal;
+			break;
+		case FT_USMALLINT:
+			result = v.usmallintVal == compare->v.usmallintVal;
+			break;
+		case FT_INTEGER:
+			result = v.integerVal == compare->v.integerVal;
+			break;
+		case FT_UINTEGER:
+			result = v.uintegerVal == compare->v.uintegerVal;
+			break;
+		case FT_BIGINT:
+			result = v.bigintVal == compare->v.bigintVal;
+			break;
+		case FT_UBIGINT:
+			result = v.ubigintVal == compare->v.ubigintVal;
+			break;
+		case FT_NUMERIC:
+			if (v.numericVal != 0 && compare->v.numericVal != 0)
+				result = compareNumeric(*v.numericVal, *compare->v.numericVal) == 0;
+			else
+				result = v.numericVal == compare->v.numericVal;
+			break;
+		case FT_FLOAT:
+			result = v.floatVal.value == compare->v.floatVal.value;
+			break;
+		case FT_REAL:
+			result = v.realVal == compare->v.realVal;
+			break;
+		case FT_DOUBLE:
+			result = v.doubleVal == compare->v.doubleVal;
+			break;
+		case FT_DATE:
+			result = v.dateVal == compare->v.dateVal;
+			break;
+		case FT_TIME:
+			result = v.timeVal == compare->v.timeVal;
+			break;
+		case FT_TIMESTAMP:
+			result = compareTimestamp(v.timestampVal, compare->v.timestampVal) == 0;
+			break;
+		case FT_CHAR:
+			{
+				result = isLike(v.charVal,compare->v.charVal);
+				//if (v.charVal.buffer == 0)
+				//	return compare->v.charVal.buffer==0?true:false;
+				//else if (compare->v.charVal.buffer==0)
+				//	return true;
+				//bool bLastLike = false;
+				//int nLikeIndex1 = 0;
+				//int nLikeIndex2 = 0;
+				//for (int i=0;i<compare->v.charVal.size;i++)
+				//{
+				//	const char pChar = compare->v.charVal.buffer[i];
+				//	if (pChar=='%')
+				//	{
+				//		if (i>nLikeIndex2)
+				//		{
+				//			if ((nLikeIndex1+(i-nLikeIndex2))>v.charVal.size)
+				//				return false;
+				//			char * lpszTemp = new char[i-nLikeIndex2+1];
+				//			strncpy(lpszTemp,compare->v.charVal.buffer+nLikeIndex2,i-nLikeIndex2);
+				//			lpszTemp[i-nLikeIndex2]='\0';
+				//			const char * find = strstr(v.charVal.buffer+nLikeIndex1,lpszTemp);
+				//			delete[] lpszTemp;
+				//			if (find==0)
+				//			{
+				//				return false;
+				//			}
+				//			nLikeIndex1 = (find-v.charVal.buffer)+(i-nLikeIndex2);
+				//		}
+				//		bLastLike = true;
+				//		nLikeIndex2 = i+1;
+				//	}else if (pChar=='_')
+				//	{
+				//		if (i>nLikeIndex2)
+				//		{
+				//			if ((nLikeIndex1+(i-nLikeIndex2))>(v.charVal.size-1))		// 1 = '_'
+				//				return false;
+				//			char * lpszTemp = new char[i-nLikeIndex2+1];
+				//			strncpy(lpszTemp,compare->v.charVal.buffer+nLikeIndex2,i-nLikeIndex2);
+				//			lpszTemp[i-nLikeIndex2]='\0';
+				//			const char * find = strstr(v.charVal.buffer+nLikeIndex1,lpszTemp);
+				//			delete[] lpszTemp;
+				//			if (find==0)
+				//			{
+				//				return false;
+				//			}
+				//			nLikeIndex1 = (find-v.charVal.buffer)+(i-nLikeIndex2)+1;	// 1 = '_'
+				//		}else
+				//		{
+				//			nLikeIndex1++;	// ++ = 1 ='_'
+				//		}
+				//		bLastLike = false;
+				//		nLikeIndex2 = i+1;
+				//	}
+				//}
+				//if (nLikeIndex1==v.charVal.size)
+				//	result = true;
+				//else
+				//	result = bLastLike;
+			}break;
+		case FT_VARCHAR:
+			result = isLike(v.varcharVal,compare->v.varcharVal);
+			break;
+		case FT_CLOB:
+			result = isLike(v.clobVal,compare->v.clobVal);
+			break;
+		case FT_NCHAR:
+			result = isLike(v.ncharVal,compare->v.ncharVal);
+			break;
+		case FT_NVARCHAR:
+			result = isLike(v.nvarcharVal,compare->v.nvarcharVal);
+			break;
+		case FT_BINARY:
+			result = isLike(v.lobVal,compare->v.lobVal);
+			break;
+		case FT_VARBINARY:
+			result = isLike(v.varlobVal,compare->v.varlobVal);
+			break;
+		default:
+			break;
+		}
+
+		return result;
+	}
+	bool CFieldVariant::isLike(const BUFFER& buffer, const BUFFER& compare) const
+	{
+		// XX% OR %XX%
+		// XX_ OR _XX_
+		// ~[_X%]
+		if (buffer.buffer == 0)
+			return compare.buffer==0?true:false;
+		else if (compare.buffer==0)
+			return true;
+		int nLastLike = 0;	// 0:unknown 1:'%' 2:'_'
+		unsigned int nLikeIndex1 = 0;
+		unsigned int nLikeIndex2 = 0;
+		for (unsigned int i=0;i<compare.size;i++)
+		{
+			const char pChar = compare.buffer[i];
+			if (pChar=='%')
+			{
+				if (i>nLikeIndex2)
+				{
+					if ((nLikeIndex1+(i-nLikeIndex2))>buffer.size)
+						return false;
+					char * lpszTemp = new char[i-nLikeIndex2+1];
+					strncpy(lpszTemp,compare.buffer+nLikeIndex2,i-nLikeIndex2);
+					lpszTemp[i-nLikeIndex2]='\0';
+					const char * find = strstr(buffer.buffer+nLikeIndex1,lpszTemp);
+					delete[] lpszTemp;
+					if (find==0)
+					{
+						return false;
+					}
+					if (nLastLike!=1)	// unknown OR '_'
+					{
+						if ((find-buffer.buffer)!=nLikeIndex1)
+						{
+							return false;
+						}
+					}
+					nLikeIndex1 = (find-buffer.buffer)+(i-nLikeIndex2);
+				}
+				nLastLike = 1;
+				nLikeIndex2 = i+1;
+			}else if (pChar=='_')
+			{
+				if (i>nLikeIndex2)
+				{
+					if ((nLikeIndex1+(i-nLikeIndex2))>(buffer.size-1))		// 1 = '_'
+						return false;
+					char * lpszTemp = new char[i-nLikeIndex2+1];
+					strncpy(lpszTemp,compare.buffer+nLikeIndex2,i-nLikeIndex2);
+					lpszTemp[i-nLikeIndex2]='\0';
+					const char * find = strstr(buffer.buffer+nLikeIndex1,lpszTemp);
+					delete[] lpszTemp;
+					if (find==0)
+					{
+						return false;
+					}
+					if (nLastLike!=1)	// unknown OR '_'
+					{
+						if ((find-buffer.buffer)!=nLikeIndex1)
+						{
+							return false;
+						}
+					}
+					nLikeIndex1 = (find-buffer.buffer)+(i-nLikeIndex2)+1;	// 1 = '_'
+				}else
+				{
+					nLikeIndex1++;	// ++ = 1 ='_'
+				}
+				nLastLike = 2;
+				nLikeIndex2 = i+1;
+			}
+		}
+		if (nLikeIndex1==buffer.size)
+			return true;
+		else if (nLastLike==0)
+			return strcmp(buffer.buffer,compare.buffer)==0?true:false;
+		else
+			return nLastLike==1?true:false;
+	}
+	bool CFieldVariant::isLike(const NBUFFER& buffer, const NBUFFER& compare) const
+	{
+		// XX% OR %XX%
+		// XX_ OR _XX_
+		// ~[_X%]
+		if (buffer.buffer == 0)
+			return compare.buffer==0?true:false;
+		else if (compare.buffer==0)
+			return true;
+		int nLastLike = 0;	// 0:unknown 1:'%' 2:'_'
+		unsigned int nLikeIndex1 = 0;
+		unsigned int nLikeIndex2 = 0;
+		for (unsigned int i=0;i<compare.size;i++)
+		{
+			const wchar_t pChar = compare.buffer[i];
+			if (pChar==L'%')
+			{
+				if (i>nLikeIndex2)
+				{
+					if ((nLikeIndex1+(i-nLikeIndex2))>buffer.size)
+						return false;
+					wchar_t * lpszTemp = new wchar_t[i-nLikeIndex2+1];
+					wcsncpy(lpszTemp,compare.buffer+nLikeIndex2,i-nLikeIndex2);
+					lpszTemp[i-nLikeIndex2]=L'\0';
+					const wchar_t * find = wcsstr(buffer.buffer+nLikeIndex1,lpszTemp);
+					delete[] lpszTemp;
+					if (find==0)
+					{
+						return false;
+					}
+					if (nLastLike!=1)	// unknown OR '_'
+					{
+						if ((find-buffer.buffer)!=nLikeIndex1)
+						{
+							return false;
+						}
+					}
+					nLikeIndex1 = (find-buffer.buffer)+(i-nLikeIndex2);
+				}
+				nLastLike = 1;
+				nLikeIndex2 = i+1;
+			}else if (pChar==L'_')
+			{
+				if (i>nLikeIndex2)
+				{
+					if ((nLikeIndex1+(i-nLikeIndex2))>(buffer.size-1))		// 1 = '_'
+						return false;
+					wchar_t * lpszTemp = new wchar_t[i-nLikeIndex2+1];
+					wcsncpy(lpszTemp,compare.buffer+nLikeIndex2,i-nLikeIndex2);
+					lpszTemp[i-nLikeIndex2]=L'\0';
+					const wchar_t * find = wcsstr(buffer.buffer+nLikeIndex1,lpszTemp);
+					delete[] lpszTemp;
+					if (find==0)
+					{
+						return false;
+					}
+					if (nLastLike!=1)	// unknown OR '_'
+					{
+						if ((find-buffer.buffer)!=nLikeIndex1)
+						{
+							return false;
+						}
+					}
+					nLikeIndex1 = (find-buffer.buffer)+(i-nLikeIndex2)+1;	// 1 = '_'
+				}else
+				{
+					nLikeIndex1++;	// ++ = 1 ='_'
+				}
+				nLastLike = 2;
+				nLikeIndex2 = i+1;
+			}
+		}
+		if (nLikeIndex1==buffer.size)
+			return true;
+		else if (nLastLike==0)
+			return wcscmp(buffer.buffer,compare.buffer)==0?true:false;
+		else
+			return nLastLike==1?true:false;
+	}
+
 	bool CFieldVariant::isNull(void) const
 	{
 		bool result = false;
@@ -1832,7 +2135,7 @@ namespace bo
 			{
 				FreeBuffer(&v.clobVal, false);
 				char lpszBuffer[24];
-				sprintf(lpszBuffer,"%d",value);
+				sprintf(lpszBuffer,"%f",value);
 				CopyBuffer(&v.clobVal, lpszBuffer, strlen(lpszBuffer));
 			}break;
 		case FT_NCHAR:

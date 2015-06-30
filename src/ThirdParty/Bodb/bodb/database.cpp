@@ -157,8 +157,8 @@ namespace bo
 
 				std::list<std::list<CFieldCompare::pointer> > topwheres;
 				std::list<CFieldCompare::pointer> wheres;
-				wheres.push_back(CFieldCompare::create(CFieldCompare::FCT_EQUAL, fieldOptionInfo, variantOption,0));
-				wheres.push_back(CFieldCompare::create(CFieldCompare::FCT_EQUAL, fieldValueInfo, variantValue,0));
+				wheres.push_back(CFieldCompare::create(tableInfo, CFieldCompare::FCT_EQUAL, fieldOptionInfo, variantOption,0));
+				wheres.push_back(CFieldCompare::create(tableInfo, CFieldCompare::FCT_EQUAL, fieldValueInfo, variantValue,0));
 				topwheres.push_back(wheres);
 				CResultSet::pointer rs = select(tableInfo, topwheres, false);
 				if (rs.get()!=NULL && !rs->empty())
@@ -546,7 +546,7 @@ namespace bo
 
 					std::list<std::list<CFieldCompare::pointer> > topwheres;
 					std::list<CFieldCompare::pointer> wheres;
-					wheres.push_back(CFieldCompare::create(CFieldCompare::FCT_EQUAL, fieldOptionInfo, pOptionVariant,0));
+					wheres.push_back(CFieldCompare::create(pTableInfo, CFieldCompare::FCT_EQUAL, fieldOptionInfo, pOptionVariant,0));
 					topwheres.push_back(wheres);
 					if (update(pTableInfo, topwheres, recordLine)==0)
 					{
@@ -600,22 +600,32 @@ namespace bo
 		CResultSet::pointer resultSet;
 		if (m_results.find(tableInfo.get(), resultSet, true))
 		{
-			CRecordLine::pointer recordLine = resultSet->moveFirst();
-			while (recordLine.get() != 0)
+			const CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList();
+			BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+			CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+			for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+			//CRecordLine::pointer recordLine = resultSet->moveFirst();
+			//while (recordLine.get() != 0)
 			{
+				CRecordLine::pointer recordLine = *pIterRecordList;
 				m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_DELETE, recordLine));
-				recordLine = resultSet->moveNext();
+				//recordLine = resultSet->moveNext();
 			}
 		}
 
 		// DROP FIELDINFO
-		CFieldInfo::pointer fieldInfo = tableInfo->moveFirst();
-		while (fieldInfo.get() != 0)
+		const CLockList<CFieldInfo::pointer> & pFieldList = tableInfo->fields();
+		BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pFieldList.mutex()));
+		CLockList<CFieldInfo::pointer>::const_iterator pIterField = pFieldList.begin();
+		for (; pIterField!=pFieldList.end(); pIterField++)
+		//CFieldInfo::pointer fieldInfo = tableInfo->moveFirst();
+		//while (fieldInfo.get() != 0)
 		{
+			CFieldInfo::pointer fieldInfo = *pIterField;
 			CModifyInfo::pointer modifyInfo = CModifyInfo::create(CModifyInfo::MIF_DELETE, fieldInfo);
 			modifyInfo->tableInfo(tableInfo);
 			m_modifys.add(modifyInfo);
-			fieldInfo = tableInfo->moveNext();
+			//fieldInfo = tableInfo->moveNext();
 		}
 
 		// DROP TABLEINFO
@@ -653,13 +663,18 @@ namespace bo
 			CResultSet::pointer resultSet;
 			if (m_results.find(tableInfo.get(), resultSet))
 			{
-				CRecordLine::pointer recordLine = resultSet->moveFirst();
-				while (recordLine.get() != 0)
+				const CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList();
+				BoostWriteLock wtLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+				CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+				for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+				//CRecordLine::pointer recordLine = resultSet->moveFirst();
+				//while (recordLine.get() != 0)
 				{
+					CRecordLine::pointer recordLine = *pIterRecordList;
 					recordLine->setNullDefaultVariant(fieldInfo->id());
 					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_DELETE, recordLine));
 					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_ADD, recordLine));
-					recordLine = resultSet->moveNext();
+					//recordLine = resultSet->moveNext();
 				}
 			}
 			return true;
@@ -679,11 +694,18 @@ namespace bo
 			if (m_results.find(tableInfo.get(), resultSet))
 			{
 				// delete value
-				CRecordLine::pointer recordLine = resultSet->moveFirst();
-				while (recordLine.get() != 0)
 				{
-					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_DELETE, recordLine));
-					recordLine = resultSet->moveNext();
+					const CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList();
+					BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+					CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+					for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+						//CRecordLine::pointer recordLine = resultSet->moveFirst();
+						//while (recordLine.get() != 0)
+					{
+						CRecordLine::pointer recordLine = *pIterRecordList;
+						m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_DELETE, recordLine));
+						//recordLine = resultSet->moveNext();
+					}
 				}
 				while (!m_modifys.empty())
 				{
@@ -701,12 +723,19 @@ namespace bo
 			// add value 
 			if (resultSet.get() != NULL)
 			{
-				CRecordLine::pointer recordLine = resultSet->moveFirst();
-				while (recordLine.get() != 0)
 				{
-					recordLine->delVariant(fieldInfo);
-					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_ADD, recordLine));
-					recordLine = resultSet->moveNext();
+					const CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList();
+					BoostWriteLock wtLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+					CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+					for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+						//CRecordLine::pointer recordLine = resultSet->moveFirst();
+						//while (recordLine.get() != 0)
+					{
+						CRecordLine::pointer recordLine = *pIterRecordList;
+						recordLine->delVariant(fieldInfo);
+						m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_ADD, recordLine));
+						//recordLine = resultSet->moveNext();
+					}
 				}
 				while (!m_modifys.empty())
 				{
@@ -735,14 +764,19 @@ namespace bo
 			CResultSet::pointer resultSet;
 			if (m_results.find(tableInfo.get(), resultSet))
 			{
-				CRecordLine::pointer recordLine = resultSet->moveFirst();
-				while (recordLine.get() != 0)
+				const CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList();
+				BoostWriteLock wtLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+				CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+				for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+				//CRecordLine::pointer recordLine = resultSet->moveFirst();
+				//while (recordLine.get() != 0)
 				{
 					// delete before
+					CRecordLine::pointer recordLine = *pIterRecordList;
 					//m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_UPDATE, recordLine));
 					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_DELETE, recordLine));
 					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_ADD, recordLine));
-					recordLine = resultSet->moveNext();
+					//recordLine = resultSet->moveNext();
 				}
 			}
 			return true;
@@ -846,12 +880,17 @@ namespace bo
 		CResultSet::pointer resultSet;
 		if (m_results.find(tableInfo.get(), resultSet))
 		{
-			CRecordLine::pointer recordLine = resultSet->moveFirst();
-			while (recordLine.get() != 0)
+			const CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList();
+			BoostWriteLock wtLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+			CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+			for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+			//CRecordLine::pointer recordLine = resultSet->moveFirst();
+			//while (recordLine.get() != 0)
 			{
+				CRecordLine::pointer recordLine = *pIterRecordList;
 				recordLine->setNullDefaultVariant(fieldInfo->id());
 				m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_UPDATE, recordLine));
-				recordLine = resultSet->moveNext();
+				//recordLine = resultSet->moveNext();
 			}
 		}
 
@@ -895,9 +934,14 @@ namespace bo
 
 		// build default variant
 		CTableInfo::pointer tableInfo = recordLine->tableInfo();
-		CFieldInfo::pointer fieldInfo =  tableInfo->moveFirst();
-		while (fieldInfo.get() != NULL)
-		{			
+		const CLockList<CFieldInfo::pointer> & pFieldList = tableInfo->fields();
+		BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pFieldList.mutex()));
+		CLockList<CFieldInfo::pointer>::const_iterator pIterField = pFieldList.begin();
+		for (; pIterField!=pFieldList.end(); pIterField++)
+		//CFieldInfo::pointer fieldInfo =  tableInfo->moveFirst();
+		//while (fieldInfo.get() != NULL)
+		{
+			CFieldInfo::pointer fieldInfo = *pIterField;
 			CFieldVariant::pointer variant = recordLine->getVariant(fieldInfo->id());
 			if (variant.get() == NULL)
 			{
@@ -960,7 +1004,7 @@ namespace bo
 				}
 			}
 
-			fieldInfo = tableInfo->moveNext();
+			//fieldInfo = tableInfo->moveNext();
 		}
 		if (!pCheckPkList.empty())
 		{
@@ -1038,10 +1082,16 @@ namespace bo
 		if (!m_results.find(tableInfo.get(), resultSet))
 			return 0;
 
+		std::vector<bo::uinteger> pRemoveList;
 		int result = 0;
-		CRecordLine::pointer recordLine = resultSet->moveFirst();
-		while (recordLine.get() != 0)
+		CLockList<CRecordLine::pointer>& pRecordList = resultSet->GetRecordList2();
+		BoostWriteLock wtLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+		CLockList<CRecordLine::pointer>::iterator pIterRecordList = pRecordList.begin();
+		for (; pIterRecordList!=pRecordList.end(); )
+		//CRecordLine::pointer recordLine = resultSet->moveFirst();
+		//while (recordLine.get() != 0)
 		{
+			CRecordLine::pointer recordLine = *pIterRecordList;
 			bool compareResult = true;
 
 			std::list<std::list<CFieldCompare::pointer> >::const_iterator iter;
@@ -1163,9 +1213,18 @@ namespace bo
 				result++;
 				if (!m_bFullMemory || tableInfo->type()==CTableInfo::TT_SYSTEM)
 					m_modifys.add(CModifyInfo::create(CModifyInfo::MIF_DELETE, recordLine));
-				recordLine = resultSet->deleteCurrent();
+				//recordLine = resultSet->deleteCurrent();
+				pRemoveList.push_back(recordLine->id());
+				pIterRecordList = pRecordList.erase(pIterRecordList);
 			}else
-				recordLine = resultSet->moveNext();
+			{
+				pIterRecordList++;
+				//recordLine = resultSet->moveNext();
+			}
+		}
+		for (size_t i=0; i<pRemoveList.size(); i++)
+		{
+			resultSet->RemoteRecord(pRemoveList[i]);
 		}
 		if (resultSet->empty())
 		{
@@ -1238,96 +1297,351 @@ namespace bo
 	}
 */
 	CResultSet::pointer CDatabase::select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct)
+	//CResultSet::pointer CDatabase::select(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>& pTableInfoList, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct)
 	{
 		if (!this->isopened()|| m_killed) return boNullResultSet;
 		BOOST_ASSERT (tableInfo.get() != 0);
 
-		CResultSet::pointer result = CResultSet::create(tableInfo);
-		CResultSet::pointer tableResultSet;
-		if (!m_results.find(tableInfo.get(), tableResultSet))
-			return result;
-
-		CRecordLine::pointer recordLine = tableResultSet->moveFirst();
-		while (recordLine.get() != 0)
+		CTableInfo::pointer pFirstTableInfo;
+		CLockMap<tstring,CTableInfo::pointer> pWhereTableList;
 		{
-			bool compareResult = true;
+			// 先取出所有 where 的 table info
 			std::list<std::list<CFieldCompare::pointer> >::const_iterator iter;
 			for (iter=wheres.begin(); iter!=wheres.end(); iter++)
 			{
-				bool compareResultSub = false;	// current compare result
-				bool compareAndSub = false;
-				short compareWhereLevel = 0;
-
 				const std::list<CFieldCompare::pointer> & wheresub = *iter;
 				std::list<CFieldCompare::pointer>::const_iterator itersub;
 				for (itersub=wheresub.begin(); itersub!=wheresub.end(); itersub++)
 				{
-					bool compareAnd = (*itersub)->compareAnd();
-					CFieldInfo::pointer compareField = (*itersub)->compareField();
-					CFieldVariant::pointer compareVariant = (*itersub)->compareVariant();
-					short nWhereLevel = (*itersub)->whereLevel();
-
-					// 2.0
-					if (itersub == wheresub.begin())
+					const CTableInfo::pointer& compareTable = (*itersub)->tableInfo();
+					if (pFirstTableInfo.get()==0)
+						pFirstTableInfo = compareTable;
+					//if (pTableInfoList.exist(compareTable->name()))
 					{
-						compareAndSub = compareAnd;
-					}else if (!compareResultSub && compareAnd && (compareWhereLevel == nWhereLevel || compareWhereLevel==0))
-					//}else if (!compareResultSub && compareAnd && (compareWhereLevel == nWhereLevel || nWhereLevel==0))
-					{
-						// FALSE
-						break;
-					}else if (compareResultSub && !compareAnd && compareWhereLevel == 0)
-					//}else if (compareResultSub && !compareAnd && nWhereLevel == 0)
-					{
-						// TRUE
-						break;
-					}else if (compareResultSub && !compareAnd && compareWhereLevel == nWhereLevel)
-					{
-						// TRUE
-						continue;
+						pWhereTableList.insert(compareTable->name(), compareTable, false);
 					}
-
-					/* 1.0
-					if (itersub == wheresub.begin())
+					const CTableInfo::pointer& compareTable2 = (*itersub)->tableInfo2();
+					if (compareTable2.get()!=0 /*&& pTableInfoList.exist(compareTable2->name())*/)
 					{
-						compareAndSub = compareAnd;
-					}else if (itersub != wheresub.begin() && !compareResultSub && compareAnd)
-					{
-						// FALSE
-						break;
-					}else if (compareResultSub && !compareAnd)
-					{
-						// TRUE
-						break;
+						pWhereTableList.insert(compareTable2->name(), compareTable2, false);
 					}
-					*/
-
-					CFieldVariant::pointer varField = recordLine->getVariant(compareField->id());
-					if (varField.get() == 0) return result;
-					compareResultSub = (*itersub)->doCompare(varField);
-					compareWhereLevel = nWhereLevel;
 				}
-
-				/* 1.0
-				if (iter!=wheres.begin() && !compareResult && compareAndSub)
-				{
-					// FALSE
-					break;
-				}else if (compareResult && !compareAndSub)
-				{
-					// TRUE
-					break;
-				}
-				*/
-				compareResult = compareResultSub;
-				break;	// 2.0
 			}
+		}
+		const bool bMutilTable = pWhereTableList.size()>1?true:false;
+		bo::uinteger nRecordId = 0;
 
-			if (compareResult)
+		CLockMap<void*, CResultSet::pointer> resultstemp1;
+		CLockMap<void*, CResultSet::pointer> resultstemp2;	// 关联表数据
+		CResultSet::pointer result;// = CResultSet::create(tableInfo);
+		CTableInfo::pointer pToDoTableInfo;
+		CTableInfo::pointer pTableInfo = pFirstTableInfo.get()==0?tableInfo:pFirstTableInfo;
+		while (true)
+		{
+			result = CResultSet::create(pTableInfo);
+			pWhereTableList.remove(pTableInfo->name());
+
+			CResultSet::pointer tableResultSet;
+			if (!resultstemp1.find(pTableInfo.get(),tableResultSet) && !m_results.find(pTableInfo.get(), tableResultSet))
 			{
-				result->addRecord(recordLine);
+				return result;
 			}
-			recordLine = tableResultSet->moveNext();
+
+			bool bCompareFinished = wheres.empty()?true:false;
+			std::vector<CRecordLine::pointer> pFinishedRecordLineTrueTempList;
+			//CRecordLine::pointer pFinishedRecordLineTrueTemp;
+			const CLockList<CRecordLine::pointer>& pRecordList = tableResultSet->GetRecordList();
+			BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+			CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+			for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+			//CRecordLine::pointer recordLine = tableResultSet->moveFirst();
+			//while (recordLine.get() != 0)
+			{
+				CRecordLine::pointer recordLine = *pIterRecordList;
+				bool compareResult = true;
+				std::list<std::list<CFieldCompare::pointer> >::const_iterator iter;
+				for (iter=wheres.begin(); iter!=wheres.end(); iter++)
+				{
+					bool compareResultSub = false;	// current compare result
+					bool compareAndSub = false;
+					short compareWhereLevel = 0;
+					bool bFirstCompare = true;
+
+					const std::list<CFieldCompare::pointer> & wheresub = *iter;
+					std::list<CFieldCompare::pointer>::const_iterator itersub;
+					for (itersub=wheresub.begin(); itersub!=wheresub.end(); itersub++)
+					{
+						const CFieldCompare::pointer& pFieldCompare = *itersub;
+						const bool compareAnd = (*itersub)->compareAnd();
+						const CTableInfo::pointer& compareTable = pFieldCompare->tableInfo();
+						const CTableInfo::pointer& compareTable2 = pFieldCompare->tableInfo2();
+						const CFieldInfo::pointer& compareField = pFieldCompare->compareField();
+						const CFieldInfo::pointer& compareField2 = pFieldCompare->compareField2();
+						//const CFieldVariant::pointer& compareVariant = pFieldCompare->compareVariant();
+						const short nWhereLevel = pFieldCompare->whereLevel();
+
+						if (resultstemp1.exist(compareTable.get()) && (compareTable2.get()==0 || resultstemp1.exist(compareTable2.get())))
+						//if (pFieldCompare->GetFinished())
+						{
+							// 当前 where 已经做过比较
+							continue;
+						}
+
+						// 2.0
+						if (bFirstCompare || itersub == wheresub.begin())
+						{
+							compareAndSub = compareAnd;
+						}else if (!compareResultSub && compareAnd && (compareWhereLevel == nWhereLevel || compareWhereLevel==0))	// AND
+						{
+							// FALSE
+							break;
+						}else if (compareResultSub && !compareAnd && compareWhereLevel == 0)										// OR
+						{
+							// TRUE
+							break;
+						}else if (compareResultSub && !compareAnd && compareWhereLevel == nWhereLevel)								// OR
+						{
+							// TRUE
+							continue;
+						}
+						if (compareTable.get() != pTableInfo.get())
+						{
+							// 不是当前比较 where table
+							CResultSet::pointer pFinishedResultSet;
+							if (compareTable2.get()!=0 && compareTable2.get()==pTableInfo.get() && compareField2.get()!=0 && resultstemp1.find(compareTable.get(),pFinishedResultSet))
+							{
+								// 找到前面已经比较成功结果
+								bFirstCompare = false;
+								bCompareFinished = true;
+								resultstemp2.insert(compareTable.get(),pFinishedResultSet,false);
+								const CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList();
+								BoostReadLock rdLockFinishedRecordList(const_cast<boost::shared_mutex&>(pFinishedRecordList.mutex()));
+								CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList = pFinishedRecordList.begin();
+								for (; pIterFinishedRecordList!=pFinishedRecordList.end(); pIterFinishedRecordList++)
+								//CRecordLine::pointer pFinishedRecordLine = pFinishedResultSet->moveFirst();
+								//while (pFinishedRecordLine.get() != 0)
+								{
+									// 跟前一个结果集比较
+									CRecordLine::pointer pFinishedRecordLine = *pIterFinishedRecordList;
+									CFieldVariant::pointer varField = recordLine->getVariant(compareField2->id());
+									if (pFinishedRecordLine->doCompareFieldVariant(compareField->id(),pFieldCompare->compareType(),varField))
+									{
+										// 比较成功
+										compareResultSub = true;
+										pFinishedRecordLineTrueTempList.push_back(pFinishedRecordLine);
+										//pFinishedRecordLineTrueTemp = pFinishedRecordLine;
+										pFinishedRecordLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+										//break;
+									}
+									//pFinishedRecordLine = pFinishedResultSet->moveNext();
+								}
+							}else
+							{
+								if (pToDoTableInfo.get()==0)
+									pToDoTableInfo = compareTable;
+							}
+							compareWhereLevel = nWhereLevel;
+							continue;
+						}else if (compareTable2.get()!=0 && compareField2.get()!=0 && compareTable2.get()!=compareTable.get())
+						{
+							// 当前 where 第二比较是其他 table
+							CResultSet::pointer pFinishedResultSet;
+							if (compareTable.get()==pTableInfo.get() && resultstemp1.find(compareTable2.get(),pFinishedResultSet))
+							{
+								// 找到前面已经比较成功结果
+								bFirstCompare = false;
+								bCompareFinished = true;
+								resultstemp2.insert(compareTable2.get(),pFinishedResultSet,false);
+								const CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList();
+								BoostReadLock rdLockFinishedRecordList(const_cast<boost::shared_mutex&>(pFinishedRecordList.mutex()));
+								CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList = pFinishedRecordList.begin();
+								for (; pIterFinishedRecordList!=pFinishedRecordList.end(); pIterFinishedRecordList++)
+								//CRecordLine::pointer pFinishedRecordLine = pFinishedResultSet->moveFirst();
+								//while (pFinishedRecordLine.get() != 0)
+								{
+									// 跟前一个结果集比较
+									CRecordLine::pointer pFinishedRecordLine = *pIterFinishedRecordList;
+									CFieldVariant::pointer varField = recordLine->getVariant(compareField->id());
+									if (pFinishedRecordLine->doCompareFieldVariant(compareField2->id(),pFieldCompare->compareType(),varField))
+									{
+										// 比较成功
+										compareResultSub = true;
+										pFinishedRecordLineTrueTempList.push_back(pFinishedRecordLine);
+										//pFinishedRecordLineTrueTemp = pFinishedRecordLine;
+										pFinishedRecordLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+										//break;
+									}
+									//pFinishedRecordLine = pFinishedResultSet->moveNext();
+								}
+							}else
+							{
+								if (pToDoTableInfo.get()==0)
+									pToDoTableInfo = compareTable2;
+							}
+							compareWhereLevel = nWhereLevel;
+							continue;
+						}
+
+						bFirstCompare = false;
+						CFieldVariant::pointer varField = recordLine->getVariant(compareField->id());
+						if (varField.get() == 0) return result;
+						compareResultSub = pFieldCompare->doCompare(varField);
+						compareWhereLevel = nWhereLevel;
+						//pFieldCompare->SetFinished();
+						bCompareFinished = true;
+					}
+
+					compareResult = compareResultSub;
+					break;	// 2.0
+				}
+
+				if (compareResult)
+				{
+					if (bMutilTable)
+					{
+						CRecordLine::pointer record2 = recordLine->Clone(++nRecordId);
+						//for (size_t i=0; i<pFinishedRecordLineTrueTempList.size(); i++)
+						//{
+						//	CRecordLine::pointer pLine =  pFinishedRecordLineTrueTempList[i];
+						//	pLine->AddRecordLine(record2,false);
+						//	if (i==0)
+						//		record2->AddRecordLine(pLine,false);
+						//}
+						//if (pFinishedRecordLineTrueTemp.get()!=0)
+						//{
+						//	record2->AddRecordLine(pFinishedRecordLineTrueTemp);
+						//}
+						result->addRecord(record2);
+
+						//CLockMap<void*,CRecordLine::pointer>::iterator pIterTrue =  pFinishedRecordLineTrueTempList.begin();
+						//for (; pIterTrue!=pFinishedRecordLineTrueTempList.end(); pIterTrue++)
+						//{
+						//	CRecordLine::pointer pLine = pIterTrue->second;
+						//	pLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+						//}
+					}else
+					{
+						result->addRecord(recordLine);
+					}
+
+				//}else if (bMutilTable && !pFinishedRecordLineTrueTempList.empty())
+				//{
+				//	// 前面找到的记录，最后比较失败；
+				//	for (size_t i=0; i<pFinishedRecordLineTrueTempList.size(); i++)
+				//	{
+				//		CRecordLine::pointer pLine =  pFinishedRecordLineTrueTempList[i];
+				//		pLine->m_nExtData &= ~RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+				//	}
+				}
+				if (!bCompareFinished)
+					break;
+			}
+			if (bMutilTable && !resultstemp2.empty())
+			{
+				// 有关联表数据；
+				if (result->empty())
+				{
+				}else
+				{
+					while (!resultstemp2.empty())
+					{
+						CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
+						CResultSet::pointer pFinishedResultSet = pIterResultsTemp->second;
+						const void * pTableInfoPoint = pIterResultsTemp->first;
+						resultstemp2.erase(pIterResultsTemp);
+
+						// 先清除比较失败数据；
+						CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList2();
+						CLockList<CRecordLine::pointer>::iterator pIterFinishedRecordList = pFinishedRecordList.begin();
+						for (; pIterFinishedRecordList!=pFinishedRecordList.end(); )
+						{
+							CRecordLine::pointer pFinishedRecordLine = *pIterFinishedRecordList;
+							if ((pFinishedRecordLine->m_nExtData&RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG)==0)
+							{
+								pIterFinishedRecordList = pFinishedRecordList.erase(pIterFinishedRecordList);
+							}else
+							{
+								pFinishedRecordLine->m_nExtData &= ~RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+								pIterFinishedRecordList++;
+							}
+						}
+
+						const CLockList<CRecordLine::pointer>& pFinishedRecordList1 = pFinishedResultSet->size()>result->size()?pFinishedResultSet->GetRecordList():result->GetRecordList();
+						const CLockList<CRecordLine::pointer>& pFinishedRecordList2 = pFinishedResultSet->size()>result->size()?result->GetRecordList():pFinishedResultSet->GetRecordList();
+						CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList1 = pFinishedRecordList1.begin();
+						for (; pIterFinishedRecordList1!=pFinishedRecordList1.end(); pIterFinishedRecordList1++)
+						{
+							CRecordLine::pointer pFinishedRecordLine1 = *pIterFinishedRecordList1;
+
+							CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList2 = pFinishedRecordList2.begin();
+							for (; pIterFinishedRecordList2!=pFinishedRecordList2.end(); pIterFinishedRecordList2++)
+							{
+								CRecordLine::pointer pFinishedRecordLine2 = *pIterFinishedRecordList2;
+								pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
+							}
+						}
+						if (pFinishedResultSet->size()>result->size())
+							result = pFinishedResultSet;
+						resultstemp1.insert((void*)pTableInfoPoint, result, true);	// 关联比较成功，记下临时result
+					}
+				}
+			}
+			//while (bMutilTable && !resultstemp2.empty())
+			//{
+			//	CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
+			//	resultstemp1.insert(pIterResultsTemp->first, result, true);	// 关联比较成功，记下临时result
+			//	resultstemp2.erase(pIterResultsTemp);
+			//}
+			//CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
+			//for (; pIterResultsTemp!=resultstemp2.end(); pIterResultsTemp++)
+			//{
+			//	CResultSet::pointer pFinishedResultSet = pIterResultsTemp->second;
+			//	CRecordLine::pointer pFinishedRecordLine = pFinishedResultSet->moveFirst();
+			//	while (pFinishedRecordLine.get() != 0)
+			//	{
+			//		// 删除比较 false 记录；
+			//		if ((pFinishedRecordLine->m_nExtData&RECORD_LINE_EXT_DATA_DELETE_FLAG)==RECORD_LINE_EXT_DATA_DELETE_FLAG)
+			//			pFinishedRecordLine = pFinishedResultSet->deleteCurrent();
+			//		else
+			//			pFinishedRecordLine = pFinishedResultSet->moveNext();
+			//	}
+			//}
+			//resultstemp2.clear();
+
+			if (bCompareFinished)
+			{
+				resultstemp1.insert(pTableInfo.get(), result);	// 记下临时result
+			}
+			if (pToDoTableInfo.get()!=0)
+			{
+				// 找到前面未比较表数据；
+				pTableInfo = pToDoTableInfo;
+				pToDoTableInfo.reset();
+				continue;
+			}
+			if (pWhereTableList.empty())
+			{
+				if (bMutilTable)
+				{
+					resultstemp1.remove(tableInfo.get());	// 去掉默认表数据
+					resultstemp1.remove(pTableInfo.get());	// 去掉当前表数据
+				}
+				break;
+			}
+			CLockMap<tstring,CTableInfo::pointer>::iterator pIter = pWhereTableList.begin();
+			pTableInfo = pIter->second;
+		}
+		while (bMutilTable && !resultstemp1.empty())
+		{
+			// 检查是否有未关联表数据，需要加到一起输出；
+			CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp1.begin();
+			CResultSet::pointer pResultSetTrueTemp = pIterResultsTemp->second;
+			resultstemp1.erase(pIterResultsTemp);
+			if (pResultSetTrueTemp.get()!=result.get())
+			{
+				// 没有关联表，（有多余表数据，需要加到一起输出）
+				// ??
+			}
 		}
 
 		return result;
@@ -1413,9 +1727,14 @@ namespace bo
 		if (!m_results.find(tableInfo.get(), tableResultSet))
 			return 0;
 
-		CRecordLine::pointer recordLine = tableResultSet->moveFirst();
-		while (recordLine.get() != 0)
+		const CLockList<CRecordLine::pointer>& pRecordList = tableResultSet->GetRecordList();
+		BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
+		CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
+		for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
+		//CRecordLine::pointer recordLine = tableResultSet->moveFirst();
+		//while (recordLine.get() != 0)
 		{
+			CRecordLine::pointer recordLine = *pIterRecordList;
 			bool compareResult = true;
 
 			std::list<std::list<CFieldCompare::pointer> >::const_iterator iter;
@@ -1535,9 +1854,14 @@ namespace bo
 			if (compareResult)
 			{
 				bool update = false;
-				CFieldInfo::pointer fieldInfoTable = tableInfo->moveFirst();
-				while (fieldInfoTable.get() != 0)
+				const CLockList<CFieldInfo::pointer> & pFieldList = tableInfo->fields();
+				BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pFieldList.mutex()));
+				CLockList<CFieldInfo::pointer>::const_iterator pIterField = pFieldList.begin();
+				for (; pIterField!=pFieldList.end(); pIterField++)
+				//CFieldInfo::pointer fieldInfoTable = tableInfo->moveFirst();
+				//while (fieldInfoTable.get() != 0)
 				{
+					CFieldInfo::pointer fieldInfoTable = *pIterField;
 					CFieldVariant::pointer updateFieldVariant = updateVal->getVariant(fieldInfoTable->id());
 					if (updateFieldVariant.get() != 0)
 					{
@@ -1545,7 +1869,7 @@ namespace bo
 						recordLine->updateVariant(fieldInfoTable, updateFieldVariant);
 					}
 
-					fieldInfoTable = tableInfo->moveNext();
+					//fieldInfoTable = tableInfo->moveNext();
 				}
 
 				if (update)
@@ -1556,7 +1880,7 @@ namespace bo
 				}
 			}
 
-			recordLine = tableResultSet->moveNext();
+			//recordLine = tableResultSet->moveNext();
 		}
 
 		return result;
@@ -1981,9 +2305,16 @@ namespace bo
 		CTableInfo::pointer tableInfo = recordLine->tableInfo();
 		BOOST_ASSERT (tableInfo.get() != 0);
 
-		CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
-		while (fieldVariant.get() != NULL)
+		const CLockMap<uinteger, CFieldVariant::pointer>& pVariantList = recordLine->GetVariantList();
+		AUTO_CONST_RLOCK(pVariantList);
+		CLockMap<uinteger, CFieldVariant::pointer>::const_iterator pIter = pVariantList.begin();
+		for (; pIter!=pVariantList.end(); pIter++)
+		//CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
+		//while (fieldVariant.get() != NULL)
 		{
+			const uinteger fieldId = pIter->first;;
+			CFieldVariant::pointer fieldVariant = pIter->second;
+
 			if (modifyFlag == CModifyInfo::MIF_UPDATE || modifyFlag == CModifyInfo::MIF_DELETE)
 			{
 				// Clear CPageHeadInfo.
@@ -1991,7 +2322,7 @@ namespace bo
 				if (tableInfo->m_recordfdois.find(recordLine->id(), recordDOIs, false))
 				{
 					CFieldDOIs::pointer fieldDOIs;
-					if (recordDOIs->m_dois.find(recordLine->getFieldId(), fieldDOIs, true))
+					if (recordDOIs->m_dois.find(fieldId, fieldDOIs, true))
 					{
 						while (true)
 						{
@@ -2085,12 +2416,11 @@ namespace bo
 				}
 				if (towriteBuffer==0)
 				{
-					fieldVariant = recordLine->moveNext();
+					//fieldVariant = recordLine->moveNext();
 					continue;
 				}
 
 				const uinteger recordId = recordLine->id();
-				const uinteger fieldId = recordLine->getFieldId();
 				while (towriteSize > writedSize)
 				{
 					const uinteger unwritesize = towriteSize - writedSize;
@@ -2227,7 +2557,7 @@ namespace bo
 					writedSize += writeSize;
 				}
 			}
-			fieldVariant = recordLine->moveNext();
+			//fieldVariant = recordLine->moveNext();
 		}
 		if (modifyFlag == CModifyInfo::MIF_DELETE)
 		{

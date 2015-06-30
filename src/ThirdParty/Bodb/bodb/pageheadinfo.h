@@ -66,6 +66,7 @@ namespace bo
 		static CPageHeadInfo::pointer create(void);
 		static CPageHeadInfo::pointer create(uinteger id, PageHeadType type, uinteger objectid);
 
+		void id(uinteger newv) {m_id = newv;}
 		uinteger id(void) const {return m_id;}
 		void type(PageHeadType newv) {m_type = newv;}
 		PageHeadType type(void) const {return m_type;}
