@@ -1639,6 +1639,11 @@ namespace bo
 			{
 				if (bMutilTable)
 				{
+					if (!m_pOutPutTableInfoList.exist(pTableInfo.get()))
+					{
+						// 不是当前输入表数据，更换默认表数据；
+						resultstemp1.find(tableInfo.get(),result,true);
+					}
 					resultstemp1.remove(tableInfo.get());	// 去掉默认表数据
 					resultstemp1.remove(pTableInfo.get());	// 去掉当前表数据
 				}
