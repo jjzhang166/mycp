@@ -154,7 +154,7 @@ namespace bo
 				case SQLCOM_SELECT:
 					{
 						CLockMap<tstring,CTableInfo::pointer> pTableInfoList;
-						CTableInfo::pointer pFirstTableInfo;
+						CSelectInfo pSelectInfo;
 						for (short i=0;i<sp->tables->itemcount; i++)
 						{
 							tagTable * table = (tagTable*)sp->tables->items[i]->item_handle;
@@ -169,8 +169,8 @@ namespace bo
 								pTableInfoList.clear();
 								break;
 							}
-							if (pFirstTableInfo.get()==NULL)
-								pFirstTableInfo = tableInfo;
+							if (pSelectInfo.m_pFirstTableInfo.get()==0)
+								pSelectInfo.m_pFirstTableInfo = tableInfo;
 							pTableInfoList.insert(table->table_name,tableInfo);
 							if (table->alias_name != 0)
 							{
@@ -184,20 +184,108 @@ namespace bo
 						}
 
 						// WHERES
-						std::list<std::list<CFieldCompare::pointer> > topwheres;
-						if (!GetWheres(pFirstTableInfo, pTableInfoList, sp->wheres, topwheres))
+						if (!GetWheres(pSelectInfo.m_pFirstTableInfo, pTableInfoList, sp->wheres, pSelectInfo.wheres))
 						{
 							break;
 						}
 						// ORDER BY
 						std::vector<bo::uinteger> orderbys;
-						if (!GetOrderBys(pFirstTableInfo, pTableInfoList, sp->orderbys, orderbys))
+						if (!GetOrderBys(pSelectInfo.m_pFirstTableInfo, pTableInfoList, sp->orderbys, orderbys))
 						{
 							break;
 						}
 
+						// 先获取输出表；
+						if (sp->items == 0)
+						{
+							//pSelectInfo.m_pOutPutTableInfoList.insert(pSelectInfo.m_pFirstTableInfo.get(), pSelectInfo.m_pFirstTableInfo);
+						}else
+						{
+							for (short i=0; i<sp->items->itemcount; i++)
+							{
+								enum_funciton_type functionType = FUNCTION_UNKNOWN;
+								void * functionHandle = NULL;
+								CFieldVariant::pointer fieldVariant;
+								switch (sp->items->items[i]->item_type)
+								{
+								case STRING_ITEM:
+									{
+										const char * tablename = (const char *)sp->items->items[i]->table_name;
+										//const char * fieldname = (const char *)sp->items->items[i]->item_handle;
+										CTableInfo::pointer pTableInfo;
+										if (tablename==0)
+										{
+											//pOutPutTableInfoList.insert(pFirstTableInfo.get(), pFirstTableInfo,false);
+										}else if (pTableInfoList.find(tablename,pTableInfo))
+										{
+											pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false);
+										}
+									}break;
+								case FUNC_ITEM:
+									{
+										tagFunc * pFunc = (tagFunc*)sp->items->items[i]->item_handle;
+										functionType = pFunc->function_type;
+										switch (functionType)
+										{
+										case FUNCTION_TO_INT:
+										case FUNCTION_SECOND:
+										case FUNCTION_MINUTE:
+										case FUNCTION_HOUR:
+										case FUNCTION_MONTH:
+										case FUNCTION_YEAR:
+										case FUNCTION_YDAY:
+										case FUNCTION_MDAY:
+										case FUNCTION_WDAY:
+											{
+												if (pFunc->items->itemcount != 1)
+												{
+													breakError = true;
+													break;
+												}
+												const char * tablename = (const char *)pFunc->items->items[0]->table_name;
+												//const char * fieldname = (const char *)pFunc->items->items[0]->item_handle;
+												CTableInfo::pointer pTableInfo;
+												if (tablename==0)
+												{
+													//pOutPutTableInfoList.insert(pFirstTableInfo.get(), pFirstTableInfo,false);
+												}else if (pTableInfoList.find(tablename,pTableInfo))
+												{
+													pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false);
+												}
+											}break;
+										case FUNCTION_DATE_FORMAT:
+											{
+												if (pFunc->items->itemcount != 2)
+												{
+													breakError = true;
+													break;
+												}
+												const char * tablename = (const char *)pFunc->items->items[0]->table_name;
+												//const char * fieldname = (const char *)pFunc->items->items[0]->item_handle;
+												functionHandle = pFunc->items->items[1]->item_handle;
+												CTableInfo::pointer pTableInfo;
+												if (tablename==0)
+												{
+													//pOutPutTableInfoList.insert(pFirstTableInfo.get(), pFirstTableInfo,false);
+												}else if (pTableInfoList.find(tablename,pTableInfo))
+												{
+													pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false);
+												}
+											}break;
+										default:
+											break;
+										}
+									}break;
+								default:
+									break;
+								}
+							}
+						}
+						if (breakError)
+							break;
+
 						const bool distinct = sp->parameter == (void*)1;
-						CResultSet::pointer rs = CDbService::select(pFirstTableInfo, topwheres, false);
+						CResultSet::pointer rs = CDbService::select(pSelectInfo, false);
 						rs->OrderBy(orderbys, sp->orderbydesc==1);
 						rs->LimitOffset(sp->offset, sp->limit);
 						result = rs->size();
@@ -308,13 +396,10 @@ namespace bo
 								AUTO_CONST_RLOCK(pVariantList);
 								CLockMap<uinteger, CFieldVariant::pointer>::const_iterator pIter = pVariantList.begin();
 								for (; pIter!=pVariantList.end(); pIter++)
-								//CFieldVariant::pointer fieldVariant = recordLine->moveFirst();
-								//while (fieldVariant.get() != 0)
 								{
 									CFieldVariant::pointer fieldVariant = pIter->second;
 									(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldcount++;
 									(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldvalues[(*outResultSet)->rsvalues[(*outResultSet)->rscount-1]->fieldcount-1] = fieldVariant->getValue();
-									//fieldVariant = recordLine->moveNext();
 								}
 							}else
 							{

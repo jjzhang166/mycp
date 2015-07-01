@@ -285,12 +285,12 @@ namespace bo
 				CFieldVariant::pointer variantPassword = CFieldVariant::create(fieldPasswordInfo->type());
 				variantPassword->setString(m_password.c_str(), m_password.size());
 
-				std::list<std::list<CFieldCompare::pointer> > topwheres;
+				CSelectInfo pSelectInfo(tableInfo);
 				std::list<CFieldCompare::pointer> wheres;
 				wheres.push_back(CFieldCompare::create(tableInfo, CFieldCompare::FCT_EQUAL, fieldAccountInfo, variantAccount,0));
 				wheres.push_back(CFieldCompare::create(tableInfo, CFieldCompare::FCT_EQUAL, fieldPasswordInfo, variantPassword,0));
-				topwheres.push_back(wheres);
-				CResultSet::pointer rs = CDbService::select(tableInfo, topwheres, false);
+				pSelectInfo.wheres.push_back(wheres);
+				CResultSet::pointer rs = CDbService::select(pSelectInfo, false);
 				if (rs.get() == NULL || rs->size() == 0)
 				{
 #ifdef USES_DEBUG
@@ -430,10 +430,11 @@ namespace bo
 		return m_curdb->select(tableName);
 	}
 
-	CResultSet::pointer CDbService::select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct)
+	CResultSet::pointer CDbService::select(const CSelectInfo& pSelectInfo, bool distinct)
+	//CResultSet::pointer CDbService::select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, const CLockMap<void*,CTableInfo::pointer>& pOutPutTableInfoList, bool distinct)
 	{
 		if (!isopen()) return boNullResultSet;
-		return m_curdb->select(tableInfo, wheres, distinct);
+		return m_curdb->select(pSelectInfo, distinct);
 	}
 
 	bool CDbService::insert(const CRecordLine::pointer& recordLine)

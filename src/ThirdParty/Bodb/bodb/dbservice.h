@@ -64,8 +64,8 @@ namespace bo
 		CTableInfo::pointer getTableInfo(const tstring & tablename);
 
 		CResultSet::pointer select(const tstring & tableName);
-		CResultSet::pointer select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct);
-		//CResultSet::pointer select(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>* pTableInfoList, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct);
+		CResultSet::pointer select(const CSelectInfo& pSelectInfo, bool distinct);
+		//CResultSet::pointer select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, const CLockMap<void*,CTableInfo::pointer>& pOutPutTableInfoList, bool distinct);
 
 		bool insert(const CRecordLine::pointer& recordLine);
 		int update(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, const CRecordLine::pointer& updateVal);

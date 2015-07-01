@@ -37,6 +37,19 @@
 
 namespace bo
 {
+	class CSelectInfo
+	{
+	public:
+		CTableInfo::pointer m_pFirstTableInfo;
+		std::list<std::list<CFieldCompare::pointer> > wheres;
+		CLockMap<void*,CTableInfo::pointer> m_pOutPutTableInfoList;
+		CSelectInfo(const CTableInfo::pointer& pFirstTableInfo)
+			: m_pFirstTableInfo(pFirstTableInfo)
+		{}
+		CSelectInfo(void)
+		{}
+	};
+
 	class CDatabase
 	{
 	public:
@@ -72,8 +85,8 @@ namespace bo
 		int deleters(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres);
 
 		CResultSet::pointer select(const tstring & tableName);
-		CResultSet::pointer select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct);
-		//CResultSet::pointer select(const CTableInfo::pointer& tableInfo, const CLockMap<tstring,CTableInfo::pointer>& pTableInfoList, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct);
+		CResultSet::pointer select(const CSelectInfo& pSelectInfo, bool distinct);
+		//CResultSet::pointer select(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, bool distinct);
 
 		//int update(CTableInfo::pointer tableInfo, const std::list<CFieldCompare::pointer> & wheres, CRecordLine::pointer updateVal);
 		int update(const CTableInfo::pointer& tableInfo, const std::list<std::list<CFieldCompare::pointer> > & wheres, const CRecordLine::pointer& updateVal);
