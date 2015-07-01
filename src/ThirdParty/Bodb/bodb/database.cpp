@@ -1574,10 +1574,12 @@ namespace bo
 						{
 							result1 = pFinishedResultSet;
 							result2 = result;
+							result = result1;
 						}else
 						{
-							result1 = pFinishedResultSet->size()>result->size()?pFinishedResultSet:result;
-							result2 = pFinishedResultSet->size()>result->size()?result:pFinishedResultSet;
+							result1 = pFinishedResultSet->size()>=result->size()?pFinishedResultSet:result;
+							result2 = pFinishedResultSet->size()>=result->size()?result:pFinishedResultSet;
+							result = result1;
 						}
 
 						const CLockList<CRecordLine::pointer>& pFinishedRecordList1 = result1->GetRecordList();
@@ -1602,32 +1604,11 @@ namespace bo
 					}
 				}
 			}
-			//while (bMutilTable && !resultstemp2.empty())
-			//{
-			//	CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
-			//	resultstemp1.insert(pIterResultsTemp->first, result, true);	// 关联比较成功，记下临时result
-			//	resultstemp2.erase(pIterResultsTemp);
-			//}
-			//CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
-			//for (; pIterResultsTemp!=resultstemp2.end(); pIterResultsTemp++)
-			//{
-			//	CResultSet::pointer pFinishedResultSet = pIterResultsTemp->second;
-			//	CRecordLine::pointer pFinishedRecordLine = pFinishedResultSet->moveFirst();
-			//	while (pFinishedRecordLine.get() != 0)
-			//	{
-			//		// 删除比较 false 记录；
-			//		if ((pFinishedRecordLine->m_nExtData&RECORD_LINE_EXT_DATA_DELETE_FLAG)==RECORD_LINE_EXT_DATA_DELETE_FLAG)
-			//			pFinishedRecordLine = pFinishedResultSet->deleteCurrent();
-			//		else
-			//			pFinishedRecordLine = pFinishedResultSet->moveNext();
-			//	}
-			//}
-			//resultstemp2.clear();
-
 			if (bCompareFinished)
 			{
 				resultstemp1.insert(pTableInfo.get(), result);	// 记下临时result
 			}
+
 			if (pToDoTableInfo.get()!=0)
 			{
 				// 找到前面未比较表数据；
@@ -1643,6 +1624,10 @@ namespace bo
 					{
 						// 不是当前输入表数据，更换默认表数据；
 						resultstemp1.find(tableInfo.get(),result,true);
+					//}else if (result->getTableInfo().get()!=tableInfo.get() && resultstemp1.exist(tableInfo.get()))
+					//{
+					//	// 使用默认表数据；
+					//	resultstemp1.find(tableInfo.get(),result,true);
 					}
 					resultstemp1.remove(tableInfo.get());	// 去掉默认表数据
 					resultstemp1.remove(pTableInfo.get());	// 去掉当前表数据
