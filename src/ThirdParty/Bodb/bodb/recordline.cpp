@@ -604,7 +604,7 @@ namespace bo
 
 	CRecordLine::CRecordLine(uinteger id, const CTableInfo::pointer& tableInfo)
 		: m_id(id), m_tableInfo(tableInfo)
-		, m_nExtData(0)
+		//, m_nExtData(0)
 	{
 		BOOST_ASSERT (m_tableInfo.get() != 0);
 		//m_curiter = m_variants.begin();

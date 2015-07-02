@@ -29,7 +29,7 @@
 
 namespace bo
 {
-#define RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG	0x1
+//#define RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG	0x1
 //#define RECORD_LINE_EXT_DATA_DELETE_FLAG		0x2
 
 	class CRecordLine
@@ -89,7 +89,8 @@ namespace bo
 		CTableInfo::pointer	tableInfo(void) const {return m_tableInfo;}
 		
 		usmallint getLineSize(void) const;
-		bo::uinteger m_nExtData;
+		//bo::uinteger m_nExtData;
+		CLockMap<void*,bool> m_pExtDataList;
 	public:
 		CRecordLine(uinteger id, const CTableInfo::pointer& tableInfo);
 		virtual ~CRecordLine(void);

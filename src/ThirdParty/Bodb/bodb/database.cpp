@@ -1352,7 +1352,6 @@ namespace bo
 			}
 
 			bool bCompareFinished = wheres.empty()?true:false;
-			//std::vector<CRecordLine::pointer> pFinishedRecordLineTrueTempList;
 			//CRecordLine::pointer pFinishedRecordLineTrueTemp;
 			const CLockList<CRecordLine::pointer>& pRecordList = tableResultSet->GetRecordList();
 			BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
@@ -1361,6 +1360,7 @@ namespace bo
 			//CRecordLine::pointer recordLine = tableResultSet->moveFirst();
 			//while (recordLine.get() != 0)
 			{
+				std::vector<CRecordLine::pointer> pFinishedRecordLineTrueTempList;
 				CRecordLine::pointer recordLine = *pIterRecordList;
 				bool compareResult = true;
 				std::list<std::list<CFieldCompare::pointer> >::const_iterator iter;
@@ -1431,9 +1431,11 @@ namespace bo
 									{
 										// 比较成功
 										compareResultSub = true;
-										//pFinishedRecordLineTrueTempList.push_back(pFinishedRecordLine);
+										pFinishedRecordLineTrueTempList.push_back(pFinishedRecordLine);
 										//pFinishedRecordLineTrueTemp = pFinishedRecordLine;
-										pFinishedRecordLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+										//pFinishedRecordLine->m_pExtDataList.insert(recordLine.get(),true,false);
+										//recordLine->m_pExtDataList.insert(pFinishedRecordLine.get(),true,false);
+										//pFinishedRecordLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
 										if (!m_pOutPutTableInfoList.exist(compareTable.get()))
 											break;
 									}
@@ -1468,9 +1470,9 @@ namespace bo
 									{
 										// 比较成功
 										compareResultSub = true;
-										//pFinishedRecordLineTrueTempList.push_back(pFinishedRecordLine);
+										pFinishedRecordLineTrueTempList.push_back(pFinishedRecordLine);
 										//pFinishedRecordLineTrueTemp = pFinishedRecordLine;
-										pFinishedRecordLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+										//pFinishedRecordLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
 										if (!m_pOutPutTableInfoList.exist(compareTable2.get()))
 											break;
 									}
@@ -1502,19 +1504,12 @@ namespace bo
 					if (bMutilTable)
 					{
 						CRecordLine::pointer record2 = recordLine->Clone(++nRecordId);
-						//for (size_t i=0; i<pFinishedRecordLineTrueTempList.size(); i++)
-						//{
-						//	CRecordLine::pointer pLine =  pFinishedRecordLineTrueTempList[i];
-						//	pLine->m_nExtData |= RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
-						//	//pLine->AddRecordLine(record2,false);
-						//	//if (i==0)
-						//	//	record2->AddRecordLine(pLine,false);
-						//}
-						//pFinishedRecordLineTrueTempList.clear();
-						//if (pFinishedRecordLineTrueTemp.get()!=0)
-						//{
-						//	record2->AddRecordLine(pFinishedRecordLineTrueTemp);
-						//}
+						for (size_t i=0; i<pFinishedRecordLineTrueTempList.size(); i++)
+						{
+							CRecordLine::pointer pLine =  pFinishedRecordLineTrueTempList[i];
+							pLine->m_pExtDataList.insert(record2.get(),true,false);
+							record2->m_pExtDataList.insert(pLine.get(),true,false);
+						}
 						result->addRecord(record2);
 					}else
 					{
@@ -1530,6 +1525,7 @@ namespace bo
 				//		pLine->m_nExtData &= ~RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
 				//	}
 				}
+				pFinishedRecordLineTrueTempList.clear();
 				if (!bCompareFinished)
 					break;
 			}
@@ -1553,14 +1549,22 @@ namespace bo
 						for (; pIterFinishedRecordList!=pFinishedRecordList.end(); )
 						{
 							CRecordLine::pointer pFinishedRecordLine = *pIterFinishedRecordList;
-							if ((pFinishedRecordLine->m_nExtData&RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG)==0)
+							if (pFinishedRecordLine->m_pExtDataList.empty())
 							{
 								pIterFinishedRecordList = pFinishedRecordList.erase(pIterFinishedRecordList);
 							}else
 							{
-								pFinishedRecordLine->m_nExtData &= ~RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
 								pIterFinishedRecordList++;
 							}
+
+							//if ((pFinishedRecordLine->m_nExtData&RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG)==0)
+							//{
+							//	pIterFinishedRecordList = pFinishedRecordList.erase(pIterFinishedRecordList);
+							//}else
+							//{
+							//	pFinishedRecordLine->m_nExtData &= ~RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
+							//	pIterFinishedRecordList++;
+							//}
 						}
 						const bool nExistResult = m_pOutPutTableInfoList.exist(result->getTableInfo().get());
 						const bool nExistFinished = m_pOutPutTableInfoList.exist(pFinishedResultSet->getTableInfo().get());
@@ -1593,8 +1597,12 @@ namespace bo
 							for (; pIterFinishedRecordList2!=pFinishedRecordList2.end(); pIterFinishedRecordList2++)
 							{
 								CRecordLine::pointer pFinishedRecordLine2 = *pIterFinishedRecordList2;
-								pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
-								//pFinishedRecordLine2->AddRecordLine(pFinishedRecordLine1,false);
+								if (pFinishedRecordLine1->m_pExtDataList.remove(pFinishedRecordLine2.get()))
+								{
+									pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
+								}
+								//pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
+								////pFinishedRecordLine2->AddRecordLine(pFinishedRecordLine1,false);
 							}
 						}
 						//if (pFinishedResultSet->size()>result->size())
