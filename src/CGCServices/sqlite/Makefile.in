@@ -34,7 +34,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = mysql
+subdir = sqlite
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -66,11 +66,10 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libMysqlService_la_DEPENDENCIES =  \
-	/mysql-connector-c-6.1.6-src/libmysql/libmysqlclient.a
-am__objects_1 = MysqlService.lo MysqlPool.lo
-am_libMysqlService_la_OBJECTS = $(am__objects_1)
-libMysqlService_la_OBJECTS = $(am_libMysqlService_la_OBJECTS)
+libSqliteService_la_DEPENDENCIES = /usr/local/lib/libsqlite3.a
+am__objects_1 = SqliteService.lo
+am_libSqliteService_la_OBJECTS = $(am__objects_1)
+libSqliteService_la_OBJECTS = $(am_libSqliteService_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -84,8 +83,8 @@ CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libMysqlService_la_SOURCES)
-DIST_SOURCES = $(libMysqlService_la_SOURCES)
+SOURCES = $(libSqliteService_la_SOURCES)
+DIST_SOURCES = $(libSqliteService_la_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -205,12 +204,16 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-lib_LTLIBRARIES = libMysqlService.la
-THESOURCES = MysqlService.cpp MysqlPool.cpp
-libMysqlService_la_SOURCES = $(THESOURCES)
+lib_LTLIBRARIES = libSqliteService.la
+THESOURCES = SqliteService.cpp
+libSqliteService_la_SOURCES = $(THESOURCES)
+libSqliteService_la_LIBADD = /usr/local/lib/libsqlite3.a
 
-#libMysqlService_la_LIBADD = /usr/lib/mysql/libmysqlclient.a
-libMysqlService_la_LIBADD = /mysql-connector-c-6.1.6-src/libmysql/libmysqlclient.a
+# **32 OK,need libmysqlclient.so.16
+#AM_CFLAGS=-fPIC -shared -Wall -L/usr/lib/mysql -lmysqlclient
+#AM_CXXFLAGS=-fPIC -shared -Wall -L/usr/lib/mysql -lmysqlclient
+
+# **64 OK,need libmysql.so.16
 AM_CFLAGS = -fPIC -shared -Wall
 AM_CXXFLAGS = -fPIC -shared -Wall
 all: all-am
@@ -226,9 +229,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu mysql/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu sqlite/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu mysql/Makefile
+	  $(AUTOMAKE) --gnu sqlite/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -278,8 +281,8 @@ clean-libLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
-libMysqlService.la: $(libMysqlService_la_OBJECTS) $(libMysqlService_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(libdir) $(libMysqlService_la_OBJECTS) $(libMysqlService_la_LIBADD) $(LIBS)
+libSqliteService.la: $(libSqliteService_la_OBJECTS) $(libSqliteService_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(libdir) $(libSqliteService_la_OBJECTS) $(libSqliteService_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -287,8 +290,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/MysqlPool.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/MysqlService.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SqliteService.Plo@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -518,20 +520,6 @@ uninstall-am: uninstall-libLTLIBRARIES
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-libLTLIBRARIES
 
-
-# **32 OK,need libmysqlclient.so.16
-#AM_CFLAGS=-fPIC -shared -Wall -L/usr/lib/mysql -lmysqlclient
-#AM_CXXFLAGS=-fPIC -shared -Wall -L/usr/lib/mysql -lmysqlclient
-
-# **64 OK,need libmysql.so.16
-#AM_CFLAGS=-fPIC -shared -Wall -L/usr/local/mysql/lib -lmysqlclient
-#AM_CXXFLAGS=-fPIC -shared -Wall -L/usr/local/mysql/lib -lmysqlclient
-
-#AM_CFLAGS=-fPIC -shared -Wall -Wl,-dn -L/usr/local/mysql/lib/ -lmysqlclient -Wl,-dy -lpthread -lm -ldl -lcrypt
-#AM_CXXFLAGS=-fPIC -shared -Wall -Wl,-dn -L/usr/local/mysql/lib/ -lmysqlclient -Wl,-dy -lpthread -lm -ldl -lcrypt
-
-#AM_CFLAGS=-fPIC -shared -Wall -Wl,-Bstatic -L/usr/local/mysql/lib/ -lmysqlclient -Wl,-Bdynamic 
-#AM_CXXFLAGS=-fPIC -shared -Wall -Wl,-Bstatic -L/usr/local/mysql/lib/ -lmysqlclient -Wl,-Bdynamic 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

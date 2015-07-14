@@ -371,12 +371,6 @@ private:
 		}catch(...)
 		{
 		}
-		//if (m_con)
-		//{
-		//	delete m_con;
-		//	m_con = NULL;
-		//}
-
 		m_results.clear();
 	}
 	virtual bool isopen(void) const

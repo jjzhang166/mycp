@@ -311,17 +311,7 @@ private:
 		m_tLastTime = time(0);
 		try
 		{
-			PRESULTSET resultset = 0;
-			m_bodbHandler->execsql(selectSql, &resultset);
-
-			cgc::bigint nRet = 0;
-			if (resultset != NULL)
-			{
-				nRet = (cgc::bigint)resultset->rscount;
-				bodb_free(resultset);
-				resultset = NULL;
-			}
-			return nRet;
+			return (cgc::bigint)m_bodbHandler->execsql(selectSql);
 		}catch(const std::exception& e)
 		{
 			CGC_LOG((cgc::LOG_ERROR, "%s; exception:%s\n", selectSql,e.what()));

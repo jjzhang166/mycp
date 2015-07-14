@@ -39,6 +39,7 @@ AC_OUTPUT( \
 	Namespace/Makefile \
 	String/Makefile \
 	mysql/Makefile \
+	sqlite/Makefile \
 	pg/Makefile \
 	Xml/Makefile \
 	Http/Makefile \

@@ -16008,7 +16008,7 @@ done
 
 
 
-ac_config_files="$ac_config_files Makefile Bodb/Makefile Configuration/Makefile FileSystem/Makefile Namespace/Makefile String/Makefile mysql/Makefile pg/Makefile Xml/Makefile Http/Makefile DateTime/Makefile"
+ac_config_files="$ac_config_files Makefile Bodb/Makefile Configuration/Makefile FileSystem/Makefile Namespace/Makefile String/Makefile mysql/Makefile sqlite/Makefile pg/Makefile Xml/Makefile Http/Makefile DateTime/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -17026,6 +17026,7 @@ do
     "Namespace/Makefile") CONFIG_FILES="$CONFIG_FILES Namespace/Makefile" ;;
     "String/Makefile") CONFIG_FILES="$CONFIG_FILES String/Makefile" ;;
     "mysql/Makefile") CONFIG_FILES="$CONFIG_FILES mysql/Makefile" ;;
+    "sqlite/Makefile") CONFIG_FILES="$CONFIG_FILES sqlite/Makefile" ;;
     "pg/Makefile") CONFIG_FILES="$CONFIG_FILES pg/Makefile" ;;
     "Xml/Makefile") CONFIG_FILES="$CONFIG_FILES Xml/Makefile" ;;
     "Http/Makefile") CONFIG_FILES="$CONFIG_FILES Http/Makefile" ;;
