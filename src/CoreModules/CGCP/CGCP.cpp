@@ -37,15 +37,20 @@ int main(int argc, char* argv[])
 #endif
 {
 	setlocale(LC_ALL, ".936");
+	const std::string sProgram = argv[0];
 	bool bService = false;
-	if(argc>1)
+	bool bProtect = false;
+	if (argc>1)
 	{
 		for (int i=1; i<argc; i++)
 		{
-			std::string sParam = argv[i];
+			const std::string sParam = argv[i];
 			if (sParam == "-S")
 			{
 				bService = true;
+			}else if (sParam == "-P")
+			{
+				bProtect = true;
 			}
 		}
 	}
@@ -65,6 +70,82 @@ int main(int argc, char* argv[])
 	fs::path currentPath( fs::initial_path());
 	m_sModulePath = currentPath.string();
 #endif
+	//printf("** program=%s,%d\n",sProgram.c_str(),(int)(bService?1:0));
+	const std::string sProtectDataFile = m_sModulePath + "/CGCP.protect";
+	char lpszBuffer[260];
+	if (bProtect)
+	{
+		int nErrorCount = 0;
+		while (true)
+		{
+#ifdef WIN32
+			Sleep(1000);
+#else
+			sleep(1);
+#endif
+			FILE * pfile = fopen(sProtectDataFile.c_str(),"r");
+			if (pfile==NULL)
+			{
+				if ((nErrorCount++)>=3)
+				{
+					// 3 second protect file not exist, exit protect.
+					break;
+				}
+			}else
+			{
+				nErrorCount = 0;
+				memset(lpszBuffer,0,sizeof(lpszBuffer));
+				fread(lpszBuffer,1,sizeof(lpszBuffer),pfile);
+				fclose(pfile);
+				const time_t tRunTime = cgc_atoi64(lpszBuffer);
+				if (tRunTime>0 && (time(0)-tRunTime)>=8)
+				{
+					const std::string sProtectLogFile = m_sModulePath + "/CGCP.protect.log";
+					FILE * pProtectLog = fopen(sProtectLogFile.c_str(),"a");
+					if (pProtectLog!=NULL)
+					{
+						const struct tm *newtime = localtime(&tRunTime);
+						char lpszDateDir[64];
+						sprintf(lpszDateDir,"%04d-%02d-%02d %02d:%02d:%02d\n",newtime->tm_year+1900,newtime->tm_mon+1,newtime->tm_mday,newtime->tm_hour,newtime->tm_min,newtime->tm_sec);
+						fwrite(lpszDateDir,1,strlen(lpszDateDir),pProtectLog);
+						fclose(pProtectLog);
+					}
+#ifdef WIN32
+					if (strstr(lpszBuffer,",1")!=NULL)
+						ShellExecute(NULL,"open",sProgram.c_str(),"-S",m_sModulePath.c_str(),SW_SHOW);
+					else
+						ShellExecute(NULL,"open",sProgram.c_str(),"",m_sModulePath.c_str(),SW_SHOW);
+#else
+					sprintf(lpszBuffer,"\"%s\" -S &",sProgram.c_str());
+					system(lpszBuffer);
+					//if (strstr(lpszBuffer,",1")!=NULL)
+					//	sprintf(lpszBuffer,"\"%s\" -S &",sProgram.c_str());
+					//else
+					//	sprintf(lpszBuffer,"\"%s\" &",sProgram.c_str());
+					//system(lpszBuffer);
+#endif
+					break;
+				}
+			}
+		}
+		return 0;
+	}else
+	{
+		FILE * pfile = fopen(sProtectDataFile.c_str(),"w");
+		if (pfile!=NULL)
+		{
+			sprintf(lpszBuffer,"%lld,%d",(cgc::bigint)time(0),(int)(bService?1:0));
+			fwrite(lpszBuffer,1,strlen(lpszBuffer),pfile);
+			fclose(pfile);
+#ifdef WIN32
+			ShellExecute(NULL,"open",sProgram.c_str(),"-P",m_sModulePath.c_str(),SW_HIDE);
+#else
+			sprintf(lpszBuffer,"\"%s\" -P &",sProgram.c_str());
+			system(lpszBuffer);
+#endif
+		}
+	}
+
 #if (USES_NEWVERSION)
 	std::string sModuleName = m_sModulePath;
 	sModuleName.append("/modules/");
@@ -140,7 +221,7 @@ int main(int argc, char* argv[])
 
 #ifdef _DEBUG
 	CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-	gApp->MyMain(bService);
+	gApp->MyMain(bService, sProtectDataFile);
 #else // _DEBUG
 
 #if defined(WIN32) && !defined(__MINGW_GCC)
@@ -190,7 +271,7 @@ int main(int argc, char* argv[])
 		}else if(_tcsicmp(_T("run"),argv[1]+1)==0)
 		{
 			CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-			gApp->MyMain(bService);
+			gApp->MyMain(bService, sProtectDataFile);
 		}else
 		{
 			std::cout << _T("-install install ") << cService.m_sServiceName.c_str() << std::endl;
@@ -204,15 +285,27 @@ int main(int argc, char* argv[])
 			cService.AddToErrorMessageLog(TEXT("Failed start server£¡"));
 
 			CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-			gApp->MyMain(bService);
+			gApp->MyMain(bService, sProtectDataFile);
 		}
 	}
 #else
 	CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-	gApp->MyMain(bService);
+	gApp->MyMain(bService, sProtectDataFile);
 #endif
 #endif // _DEBUG
 #endif // USES_NEWVERSION
+//	for (int i=0;i<30; i++)
+//	{
+//		if (boost::filesystem::remove(boost::filesystem::path(sProtectDataFile)))
+//		{
+//			break;
+//		}
+//#ifdef WIN32
+//		Sleep(100);
+//#else
+//		usleep(100000);
+//#endif
+//	}
 	return 0;
 }
 

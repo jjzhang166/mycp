@@ -160,24 +160,24 @@ namespace bo
 							tagTable * table = (tagTable*)sp->tables->items[i]->item_handle;
 							if (table == 0 || table->table_name == 0)
 							{
-								pTableInfoList.clear();
+								pTableInfoList.clear(false);
 								break;
 							}
 							CTableInfo::pointer tableInfo = CDbService::getTableInfo(table->table_name);
 							if (tableInfo.get() == 0)
 							{
-								pTableInfoList.clear();
+								pTableInfoList.clear(false);
 								break;
 							}
 							if (pSelectInfo.m_pFirstTableInfo.get()==0)
 								pSelectInfo.m_pFirstTableInfo = tableInfo;
-							pTableInfoList.insert(table->table_name,tableInfo);
+							pTableInfoList.insert(table->table_name,tableInfo,true,0,false);
 							if (table->alias_name != 0)
 							{
-								pTableInfoList.insert(table->alias_name,tableInfo,false);
+								pTableInfoList.insert(table->alias_name,tableInfo,false,0,false);
 							}
 						}
-						if (pTableInfoList.empty())
+						if (pTableInfoList.empty(false))
 						{
 							// ? error
 							break;
@@ -218,7 +218,7 @@ namespace bo
 											//pOutPutTableInfoList.insert(pFirstTableInfo.get(), pFirstTableInfo,false);
 										}else if (pTableInfoList.find(tablename,pTableInfo))
 										{
-											pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false);
+											pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false,0,false);
 										}
 									}break;
 								case FUNC_ITEM:
@@ -250,7 +250,7 @@ namespace bo
 													//pOutPutTableInfoList.insert(pFirstTableInfo.get(), pFirstTableInfo,false);
 												}else if (pTableInfoList.find(tablename,pTableInfo))
 												{
-													pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false);
+													pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false,0,false);
 												}
 											}break;
 										case FUNCTION_DATE_FORMAT:
@@ -269,7 +269,7 @@ namespace bo
 													//pOutPutTableInfoList.insert(pFirstTableInfo.get(), pFirstTableInfo,false);
 												}else if (pTableInfoList.find(tablename,pTableInfo))
 												{
-													pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false);
+													pSelectInfo.m_pOutPutTableInfoList.insert(pTableInfo.get(), pTableInfo,false,0,false);
 												}
 											}break;
 										default:
@@ -305,8 +305,6 @@ namespace bo
 						BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
 						CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
 						for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
-						//CRecordLine::pointer recordLine = rs->moveFirst();
-						//while (recordLine.get() != 0)
 						{
 							CRecordLine::pointer recordLine = *pIterRecordList;
 							if (distinct)

@@ -1322,12 +1322,12 @@ namespace bo
 						pFirstTableInfo = compareTable;
 					//if (pTableInfoList.exist(compareTable->name()))
 					{
-						pWhereTableList.insert(compareTable->name(), compareTable, false);
+						pWhereTableList.insert(compareTable->name(), compareTable, false, 0, false);
 					}
 					const CTableInfo::pointer& compareTable2 = (*itersub)->tableInfo2();
 					if (compareTable2.get()!=0 /*&& pTableInfoList.exist(compareTable2->name())*/)
 					{
-						pWhereTableList.insert(compareTable2->name(), compareTable2, false);
+						pWhereTableList.insert(compareTable2->name(), compareTable2, false, 0, false);
 					}
 				}
 			}
@@ -1357,8 +1357,6 @@ namespace bo
 			BoostReadLock rdLockRecordList(const_cast<boost::shared_mutex&>(pRecordList.mutex()));
 			CLockList<CRecordLine::pointer>::const_iterator pIterRecordList = pRecordList.begin();
 			for (; pIterRecordList!=pRecordList.end(); pIterRecordList++)
-			//CRecordLine::pointer recordLine = tableResultSet->moveFirst();
-			//while (recordLine.get() != 0)
 			{
 				std::vector<CRecordLine::pointer> pFinishedRecordLineTrueTempList;
 				CRecordLine::pointer recordLine = *pIterRecordList;
@@ -1384,7 +1382,7 @@ namespace bo
 						//const CFieldVariant::pointer& compareVariant = pFieldCompare->compareVariant();
 						const short nWhereLevel = pFieldCompare->whereLevel();
 
-						if (resultstemp1.exist(compareTable.get()) && (compareTable2.get()==0 || resultstemp1.exist(compareTable2.get())))
+						if (resultstemp1.exist(compareTable.get(),false) && (compareTable2.get()==0 || resultstemp1.exist(compareTable2.get(),false)))
 						//if (pFieldCompare->GetFinished())
 						{
 							// 当前 where 已经做过比较
@@ -1418,7 +1416,7 @@ namespace bo
 								bFirstCompare = false;
 								bCompareFinished = true;
 								compareResultSub = false;
-								resultstemp2.insert(compareTable.get(),pFinishedResultSet,false);
+								resultstemp2.insert(compareTable.get(),pFinishedResultSet,false,0,false);
 								const CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList();
 								BoostReadLock rdLockFinishedRecordList(const_cast<boost::shared_mutex&>(pFinishedRecordList.mutex()));
 								CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList = pFinishedRecordList.begin();
@@ -1457,7 +1455,7 @@ namespace bo
 								bFirstCompare = false;
 								bCompareFinished = true;
 								compareResultSub = false;
-								resultstemp2.insert(compareTable2.get(),pFinishedResultSet,false);
+								resultstemp2.insert(compareTable2.get(),pFinishedResultSet,false,0,false);
 								const CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList();
 								BoostReadLock rdLockFinishedRecordList(const_cast<boost::shared_mutex&>(pFinishedRecordList.mutex()));
 								CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList = pFinishedRecordList.begin();
@@ -1529,92 +1527,76 @@ namespace bo
 				if (!bCompareFinished)
 					break;
 			}
-			if (bMutilTable && !resultstemp2.empty())
+			if (bMutilTable && !resultstemp2.empty(false))
 			{
 				// 有关联表数据；
-				if (result->empty())
+				while (!resultstemp2.empty(false))
 				{
-				}else
-				{
-					while (!resultstemp2.empty())
+					CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
+					CResultSet::pointer pFinishedResultSet = pIterResultsTemp->second;
+					const void * pTableInfoPoint = pIterResultsTemp->first;
+					resultstemp2.erase(pIterResultsTemp);
+
+					// 先清除比较失败数据；
+					CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList2();
+					CLockList<CRecordLine::pointer>::iterator pIterFinishedRecordList = pFinishedRecordList.begin();
+					for (; pIterFinishedRecordList!=pFinishedRecordList.end(); )
 					{
-						CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp2.begin();
-						CResultSet::pointer pFinishedResultSet = pIterResultsTemp->second;
-						const void * pTableInfoPoint = pIterResultsTemp->first;
-						resultstemp2.erase(pIterResultsTemp);
-
-						// 先清除比较失败数据；
-						CLockList<CRecordLine::pointer>& pFinishedRecordList = pFinishedResultSet->GetRecordList2();
-						CLockList<CRecordLine::pointer>::iterator pIterFinishedRecordList = pFinishedRecordList.begin();
-						for (; pIterFinishedRecordList!=pFinishedRecordList.end(); )
+						CRecordLine::pointer pFinishedRecordLine = *pIterFinishedRecordList;
+						if (pFinishedRecordLine->m_pExtDataList.empty())
 						{
-							CRecordLine::pointer pFinishedRecordLine = *pIterFinishedRecordList;
-							if (pFinishedRecordLine->m_pExtDataList.empty())
-							{
-								pIterFinishedRecordList = pFinishedRecordList.erase(pIterFinishedRecordList);
-							}else
-							{
-								pIterFinishedRecordList++;
-							}
-
-							//if ((pFinishedRecordLine->m_nExtData&RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG)==0)
-							//{
-							//	pIterFinishedRecordList = pFinishedRecordList.erase(pIterFinishedRecordList);
-							//}else
-							//{
-							//	pFinishedRecordLine->m_nExtData &= ~RECORD_LINE_EXT_DATA_TRUE_RESULT_FLAG;
-							//	pIterFinishedRecordList++;
-							//}
-						}
-						const bool nExistResult = m_pOutPutTableInfoList.exist(result->getTableInfo().get());
-						const bool nExistFinished = m_pOutPutTableInfoList.exist(pFinishedResultSet->getTableInfo().get());
-						CResultSet::pointer result1;
-						CResultSet::pointer result2;
-						if (nExistResult && !nExistFinished)
-						{
-							result1 = result;
-							result2 = pFinishedResultSet;
-						}else if (!nExistResult && nExistFinished)
-						{
-							result1 = pFinishedResultSet;
-							result2 = result;
-							result = result1;
+							pIterFinishedRecordList = pFinishedRecordList.erase(pIterFinishedRecordList);
 						}else
 						{
-							result1 = pFinishedResultSet->size()>=result->size()?pFinishedResultSet:result;
-							result2 = pFinishedResultSet->size()>=result->size()?result:pFinishedResultSet;
-							result = result1;
+							pIterFinishedRecordList++;
 						}
-
-						const CLockList<CRecordLine::pointer>& pFinishedRecordList1 = result1->GetRecordList();
-						const CLockList<CRecordLine::pointer>& pFinishedRecordList2 = result2->GetRecordList();
-						CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList1 = pFinishedRecordList1.begin();
-						for (; pIterFinishedRecordList1!=pFinishedRecordList1.end(); pIterFinishedRecordList1++)
-						{
-							CRecordLine::pointer pFinishedRecordLine1 = *pIterFinishedRecordList1;
-
-							CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList2 = pFinishedRecordList2.begin();
-							for (; pIterFinishedRecordList2!=pFinishedRecordList2.end(); pIterFinishedRecordList2++)
-							{
-								CRecordLine::pointer pFinishedRecordLine2 = *pIterFinishedRecordList2;
-								if (pFinishedRecordLine1->m_pExtDataList.remove(pFinishedRecordLine2.get()))
-								{
-									pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
-								}
-								//pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
-								////pFinishedRecordLine2->AddRecordLine(pFinishedRecordLine1,false);
-							}
-						}
-						//if (pFinishedResultSet->size()>result->size())
-						//	result = pFinishedResultSet;
-						//resultstemp1.insert((void*)pTableInfoPoint, result, true);	// 关联比较成功，记下临时result
-						resultstemp1.insert((void*)pTableInfoPoint, result1, true);	// 关联比较成功，记下临时result
 					}
+					const bool nExistResult = m_pOutPutTableInfoList.exist(result->getTableInfo().get());
+					const bool nExistFinished = m_pOutPutTableInfoList.exist(pFinishedResultSet->getTableInfo().get());
+					CResultSet::pointer result1;
+					CResultSet::pointer result2;
+					if (nExistResult && !nExistFinished)
+					{
+						result1 = result;
+						result2 = pFinishedResultSet;
+					}else if (!nExistResult && nExistFinished)
+					{
+						result1 = pFinishedResultSet;
+						result2 = result;
+						result = result1;
+					}else
+					{
+						result1 = pFinishedResultSet->size()>=result->size()?pFinishedResultSet:result;
+						result2 = pFinishedResultSet->size()>=result->size()?result:pFinishedResultSet;
+						result = result1;
+					}
+
+					const CLockList<CRecordLine::pointer>& pFinishedRecordList1 = result1->GetRecordList();
+					const CLockList<CRecordLine::pointer>& pFinishedRecordList2 = result2->GetRecordList();
+					CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList1 = pFinishedRecordList1.begin();
+					for (; pIterFinishedRecordList1!=pFinishedRecordList1.end(); pIterFinishedRecordList1++)
+					{
+						CRecordLine::pointer pFinishedRecordLine1 = *pIterFinishedRecordList1;
+
+						CLockList<CRecordLine::pointer>::const_iterator pIterFinishedRecordList2 = pFinishedRecordList2.begin();
+						for (; pIterFinishedRecordList2!=pFinishedRecordList2.end(); pIterFinishedRecordList2++)
+						{
+							CRecordLine::pointer pFinishedRecordLine2 = *pIterFinishedRecordList2;
+							if (pFinishedRecordLine1->m_pExtDataList.remove(pFinishedRecordLine2.get()))
+							{
+								pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
+							}
+							//pFinishedRecordLine1->AddRecordLine(pFinishedRecordLine2, false);
+							////pFinishedRecordLine2->AddRecordLine(pFinishedRecordLine1,false);
+						}
+					}
+					//resultstemp1.insert((void*)pTableInfoPoint, result, true);	// 关联比较成功，记下临时result
+					resultstemp1.insert((void*)pTableInfoPoint, result1, true, 0, false);	// 关联比较成功，记下临时result
 				}
 			}
 			if (bCompareFinished)
 			{
-				resultstemp1.insert(pTableInfo.get(), result);	// 记下临时result
+				resultstemp1.insert(pTableInfo.get(), result, true, 0, false);	// 记下临时result
 			}
 
 			if (pToDoTableInfo.get()!=0)
@@ -1637,15 +1619,15 @@ namespace bo
 					//	// 使用默认表数据；
 					//	resultstemp1.find(tableInfo.get(),result,true);
 					}
-					resultstemp1.remove(tableInfo.get());	// 去掉默认表数据
-					resultstemp1.remove(pTableInfo.get());	// 去掉当前表数据
+					resultstemp1.remove(tableInfo.get(),false);	// 去掉默认表数据
+					resultstemp1.remove(pTableInfo.get(),false);	// 去掉当前表数据
 				}
 				break;
 			}
 			CLockMap<tstring,CTableInfo::pointer>::iterator pIter = pWhereTableList.begin();
 			pTableInfo = pIter->second;
 		}
-		while (bMutilTable && !resultstemp1.empty())
+		while (bMutilTable && !resultstemp1.empty(false))
 		{
 			// 检查是否有未关联表数据，需要加到一起输出；
 			CLockMap<void*, CResultSet::pointer>::iterator pIterResultsTemp = resultstemp1.begin();

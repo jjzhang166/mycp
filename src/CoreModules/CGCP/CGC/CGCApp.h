@@ -119,7 +119,10 @@ public:
 	virtual ~CGCApp(void);
 
 public:
-	int MyMain(bool bService = false);
+	int MyMain(bool bService = false, const std::string& sProtectDataFile="");
+
+	bool GetIsService(void) const {return m_bService;}
+	const tstring& GetProtectDataFile(void) const {return m_sProtectDataFile;}
 
 	bool isInited(void) const {return m_bInitedApp;}
 	bool isExitLog(void) const {return m_bExitLog;}
@@ -233,6 +236,8 @@ private:
 	boost::thread * m_pProcDataResend;
 	//CLockMap<short, cgcSeqInfo::pointer> m_mapSeqInfo;
 
+	bool m_bService;
+	tstring m_sProtectDataFile;
 	bool m_bInitedApp;
 	bool m_bStopedApp;
 	bool m_bExitLog;

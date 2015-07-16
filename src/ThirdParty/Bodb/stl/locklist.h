@@ -116,11 +116,16 @@ public:
 			std::list<T>::clear();
 		}
 	}
-	size_t size(void) const
+	size_t size(bool is_lock = true) const
 	{
-		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
-		size_t ret = std::list<T>::size();
-		return ret;
+		if (is_lock)
+		{
+			BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_mutex));
+			return std::list<T>::size();
+		}else
+		{
+			return std::list<T>::size();
+		}
 	}
 	bool empty(bool is_lock = false) const
 	{
@@ -133,7 +138,6 @@ public:
 			return std::list<T>::empty();
 		}
 	}
-
 public:
 	CLockList(void)
 	{

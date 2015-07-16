@@ -1,20 +1,34 @@
 #ifdef WIN32
 #pragma warning(disable:4267 4819 4996)
+#ifndef _WIN32_WINNT            // Specifies that the minimum required platform is Windows Vista.
+#define _WIN32_WINNT 0x0501     // Change this to the appropriate value to target other versions of Windows.
+#endif
+#include <winsock2.h>
+#include <windows.h>
 #endif // WIN32
 
 #include "CgcTcpClient.h"
 #include "cgcaddress.h"
-#include <boost/format.hpp>
+//#include <boost/format.hpp>
 
 namespace cgc
 {
-CgcTcpClient::CgcTcpClient(void)
+CgcTcpClient::CgcTcpClient(TcpClient_Callback* pCallback)
 : m_connectReturned(false)
 , m_bDisconnect(true)
+, m_bException(false)
+, m_pCallback(pCallback)
 , m_sReceiveData(_T(""))
 {
 }
-
+CgcTcpClient::CgcTcpClient(void)
+: m_connectReturned(false)
+, m_bDisconnect(true)
+, m_bException(false)
+, m_pCallback(NULL)
+, m_sReceiveData(_T(""))
+{
+}
 CgcTcpClient::~CgcTcpClient(void)
 {
 	stopClient();
@@ -44,7 +58,11 @@ std::string CgcTcpClient::GetHostIp(const char * lpszHostName,const char* lpszDe
 	}
 }
 
+#ifdef USES_OPENSSL
+int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort,boost::asio::ssl::context* ctx)
+#else
 int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort)
+#endif
 {
 	if (m_tcpClient.get() != 0) return 0;
 
@@ -73,12 +91,15 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	//CgcTcpClient::pointer clientHandler = boost::static_pointer_cast<CgcTcpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
 
 	m_tcpClient = TcpClient::create(clientHandler);
-
 	m_connectReturned = false;
 	// ?? bindPort
 	tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
+#ifdef USES_OPENSSL
+	m_tcpClient->connect(m_ipService->ioservice(), endpoint,ctx);
+#else
 	m_tcpClient->connect(m_ipService->ioservice(), endpoint);
-	m_ipService->start();
+#endif
+	m_ipService->start(shared_from_this());
 	while (!m_connectReturned)
 #ifdef WIN32
 		Sleep(100);
@@ -107,9 +128,13 @@ size_t CgcTcpClient::sendData(const unsigned char * data, size_t size)
 {
 	BOOST_ASSERT(m_tcpClient.get() != 0);
 
-	if (data == 0 || isInvalidate()) return 0;
+	if (IsDisconnection() || IsException() || data == 0 || isInvalidate()) return 0;
 
+	//const size_t s = m_tcpClient->write(data, size);
+	//m_tcpClient->async_read_some();
+	//return s;
 	return m_tcpClient->write(data, size);
+	//return m_tcpClient->write(data, size);
 }
 
 bool CgcTcpClient::isInvalidate(void) const
@@ -138,6 +163,10 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const Receiv
 	BOOST_ASSERT (data.get() != 0);
 
 	if (data->size() <= 0) return;
+	if (m_pCallback != NULL)
+		m_pCallback->OnReceiveData(data);
+	//unsigned char lpszBuffer[1024];
+	//memcpy(lpszBuffer,data->data(),data->size());
 	//m_tSendRecv = time(0);
 	//this->parseData(CCgcData::create(data->data(), data->size()));
 	m_sReceiveData.append(tstring((const char*)data->data(), data->size()));

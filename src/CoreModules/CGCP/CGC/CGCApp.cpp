@@ -76,6 +76,7 @@ CGCApp::CGCApp(const tstring & sPath)
 , m_tLastNewParserSotpTime(0), m_tLastNewParserHttpTime(0)
 
 {
+	m_bService = false;
 //#ifdef WIN32
 //	TCHAR chModulePath[MAX_PATH];
 //	memset(&chModulePath, 0, MAX_PATH);
@@ -147,6 +148,9 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 	// 1 秒检查一次，SESSION是否超时没有访问。自动清除无用SESSION
 	unsigned int theIndex = 0;
 	unsigned int theSecondIndex = 0;
+	char lpszBuffer[32];
+	const tstring sProtectDataFile = pCGCApp->GetProtectDataFile();
+	const int nIsService = pCGCApp->GetIsService()?1:0;
 	while (pCGCApp->isInited())
 	{
 #ifdef WIN32
@@ -158,13 +162,22 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 			continue;
 		try
 		{
-
 			pCGCApp->ProcCheckParserPool();
 			pCGCApp->ProcNotKeepAliveRmote();
 
 			if (((++theSecondIndex)%20)==19)	// 20秒处理一次
 			{
 				pCGCApp->ProcLastAccessedTime();
+			}
+			if (!sProtectDataFile.empty() && (theSecondIndex%2)==0)	// 2秒处理一次
+			{
+				FILE * pfile = fopen(sProtectDataFile.c_str(),"w");
+				if (pfile!=NULL)
+				{
+					sprintf(lpszBuffer,"%lld,%d",(cgc::bigint)time(0),nIsService);
+					fwrite(lpszBuffer,1,strlen(lpszBuffer),pfile);
+					fclose(pfile);
+				}
 			}
 
 //			if (((++theSecondIndex)%20)!=19) continue;	// 20秒处理一次
@@ -182,6 +195,22 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 		}catch(std::exception const &)
 		{
 		}catch(...){
+		}
+	}
+	if (!sProtectDataFile.empty())
+	{
+		for (int i=0;i<30; i++)
+		{
+			boost::system::error_code ec;
+			if (boost::filesystem::remove(boost::filesystem::path(sProtectDataFile),ec))
+			{
+				break;
+			}
+#ifdef WIN32
+			Sleep(100);
+#else
+			usleep(100000);
+#endif
 		}
 	}
 }
@@ -424,8 +453,10 @@ void kill_op(int signum,siginfo_t *info,void *myact)
 //}
 #endif
 
-int CGCApp::MyMain(bool bServcie)
+int CGCApp::MyMain(bool bService, const std::string& sProtectDataFile)
 {
+	m_bService = bService;
+	m_sProtectDataFile = sProtectDataFile;
 	AppInit(false);
 	AppStart();
 
@@ -457,7 +488,7 @@ int CGCApp::MyMain(bool bServcie)
 	//}
 	//if (m_pRsa.GetPrivatePwd().empty())
 	//	std::cout << "[ERROR]Generate SSL Key error.\n";
-	if (bServcie)
+	if (m_bService)
 	{
 		std::cout << "\n********************* App Help *********************\n";
 		std::cout << "App Service Running...\n";
@@ -491,7 +522,7 @@ int CGCApp::MyMain(bool bServcie)
 	while (m_bInitedApp && !theKilledApp)
 #endif
 	{
-		if (bServcie)
+		if (m_bService)
 		{
 #ifdef WIN32
 			Sleep(10);

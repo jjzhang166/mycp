@@ -18,6 +18,14 @@
 
 #include "CgcTcpClient.h"
 
+#define USES_OPENSSL
+#ifdef USES_OPENSSL
+#ifdef WIN32
+#pragma comment(lib, "libeay32.lib")  
+#pragma comment(lib, "ssleay32.lib") 
+#endif // WIN32
+#endif // USES_OPENSSL
+
 #ifdef WIN32
 #pragma warning(disable:4800)
 #include <windows.h>
@@ -73,7 +81,7 @@ public:
 protected:
 	virtual tstring serviceName(void) const {return _T("HTTPSERVICE");}
 
-	bool GetRequestInfo(const cgcValueInfo::pointer& inParam,tstring& pOutHost,tstring& pOutPort,tstring& pOutUrl,tstring& pOutHeader,tstring& pOutData) const
+	bool GetRequestInfo(const cgcValueInfo::pointer& inParam,tstring& pOutHost,tstring& pOutPort,tstring& pOutUrl,tstring& pOutHeader,tstring& pOutData, bool& pOutIsSSL) const
 	{
 		if (inParam.get() == NULL) return false;
 		if (inParam->getType() == cgcValueInfo::TYPE_MAP)
@@ -82,10 +90,15 @@ protected:
 			if (!inParam->getMap().find("host", varFind))
 				return false;
 			pOutHost = varFind->toString();
+			std::transform(pOutHost.begin(), pOutHost.end(), pOutHost.begin(), tolower);
+			if (pOutHost.find("https:")!=tstring::npos)
+				pOutIsSSL = true;
 			if (inParam->getMap().find("port", varFind))
 				pOutPort = varFind->toString();
 			else
-				pOutPort = "80";
+			{
+				pOutPort = pOutIsSSL?"443":"80";
+			}
 			if (!inParam->getMap().find("url", varFind))
 				return false;
 			pOutUrl = varFind->toString();
@@ -103,6 +116,10 @@ protected:
 			tstring::size_type find = sFullUrl.find("://");
 			if (find != tstring::npos)	// remove before http://
 			{
+				tstring sHttpHead = sFullUrl.substr(0,find);
+				std::transform(sHttpHead.begin(), sHttpHead.end(), sHttpHead.begin(), tolower);
+				if (sHttpHead=="https")
+					pOutIsSSL = true;
 				sFullUrl = sFullUrl.substr(find+3);	// www.entboost.com/abc.csp?xxx=bbb
 			}
 			// find url
@@ -132,7 +149,7 @@ protected:
 			}else
 			{
 				pOutHost = sFullUrl;
-				pOutPort = "80";
+				pOutPort = pOutIsSSL?"443":"80";
 			}
 			//printf("**** out-url=%s\n",pOutUrl.c_str());
 			//printf("**** out-host=%s\n",pOutHost.c_str());
@@ -142,12 +159,17 @@ protected:
 		{
 			// 0=url	// http://ip:port/abc.html?xxx=xxx
 			// 1=data	// for post data
+			// 2=header
 			const tstring sFullUrl = inParam->getVector()[0]->getStr();
-			if (!GetRequestInfo(CGC_VALUEINFO(sFullUrl),pOutHost,pOutPort,pOutUrl,pOutHeader,pOutData))
+			if (!GetRequestInfo(CGC_VALUEINFO(sFullUrl),pOutHost,pOutPort,pOutUrl,pOutHeader,pOutData,pOutIsSSL))
 				return false;
 			if (inParam->size()>=2)
 			{
 				pOutData = inParam->getVector()[1]->getStr();
+			}
+			if (inParam->size()>=3)
+			{
+				pOutHeader = inParam->getVector()[2]->getStr();
 			}
 			return true;
 		}else
@@ -165,7 +187,8 @@ protected:
 			tstring sUrl;		// "/abc.csp?p=v"
 			tstring sHeader;
 			tstring sData;
-			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData))
+			bool bIsSSL = false;
+			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL))
 				return false;
 			tstring sHostIp(sHost);
 			//tstring sHostIp = getipbyname(sHost.c_str());
@@ -179,29 +202,31 @@ protected:
 			sHttpRequest.append(sHost);
 			sHttpRequest.append(_T("\r\n"));
 			sHttpRequest.append(_T("User-Agent: MYCP HttpService/5.0\r\n"));
-			sHttpRequest.append(_T("Accept: */*\r\n"));
-			sHttpRequest.append(_T("Accept-Language: zh-cn,zh;q=0.5\r\n"));
-			sHttpRequest.append(_T("Accept-Charset: GB2312,utf-8;q=0.7,*;q=0.7\r\n"));
-			sHttpRequest.append(_T("Keep-Alive: 115\r\n"));
-			sHttpRequest.append(_T("Connection: keep-alive\r\n"));
+			//sHttpRequest.append(_T("Accept: */*\r\n"));
+			//sHttpRequest.append(_T("Accept-Language: zh-cn,zh;q=0.5\r\n"));
+			//sHttpRequest.append(_T("Accept-Charset: GB2312,utf-8;q=0.7,*;q=0.7\r\n"));
+			//sHttpRequest.append(_T("Keep-Alive: 115\r\n"));
+			//sHttpRequest.append(_T("Connection: keep-alive\r\n"));
+			sHttpRequest.append(_T("Connection: close\r\n"));
 			if (!sHeader.empty())
 				sHttpRequest.append(sHeader);
 			sHttpRequest.append(_T("\r\n"));
 
 			sHostIp.append(":");
 			sHostIp.append(sPort);			// default 80
-			return HttpRequest(sHostIp, sHttpRequest, outParam);
+			return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
 		}else if (function == "POST")
 		{
 			if (inParam.get() == NULL || outParam.get() == NULL) return false;
-			if (inParam->getType() != cgcValueInfo::TYPE_MAP) return false;
+			//if (inParam->getType() != cgcValueInfo::TYPE_MAP) return false;
 
 			tstring sHost;		// www.abc.com
 			tstring sPort;		// default 80
 			tstring sUrl;		// "/abc.csp?p=v"
 			tstring sHeader;
 			tstring sData;		// for POST command
-			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData))
+			bool bIsSSL = false;
+			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL))
 				return false;
 
 			//cgcValueInfo::pointer varFind;
@@ -229,9 +254,10 @@ protected:
 			sHttpRequest.append(sHost);
 			sHttpRequest.append(_T("\r\n"));
 			sHttpRequest.append(_T("User-Agent: MYCP HttpService/5.0\r\n"));
-			sHttpRequest.append(_T("Accept: */*\r\n"));
-			sHttpRequest.append(_T("Accept-Language: zh-cn,zh;q=0.5\r\n"));
-			sHttpRequest.append(_T("Accept-Charset: GB2312,utf-8;q=0.7,*;q=0.7\r\n"));
+			//sHttpRequest.append(_T("Accept: */*\r\n"));
+			//sHttpRequest.append(_T("Accept-Language: zh-cn,zh;q=0.5\r\n"));
+			//sHttpRequest.append(_T("Accept-Charset: GB2312,utf-8;q=0.7,*;q=0.7\r\n"));
+			sHttpRequest.append(_T("Connection: close\r\n"));
 			if (!sHeader.empty())
 				sHttpRequest.append(sHeader);
 			if (!sData.empty())
@@ -247,7 +273,7 @@ protected:
 
 			sHostIp.append(":");
 			sHostIp.append(sPort);			// default 80
-			return HttpRequest(sHostIp, sHttpRequest, outParam);
+			return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
 		}else
 		{
 			return false;
@@ -256,39 +282,50 @@ protected:
 	}
 
 	protected:
-		bool HttpRequest(const tstring & sHostIp, const tstring & sHttpRequest, cgcValueInfo::pointer outParam)
+		bool HttpRequest(bool bIsSSL, const tstring & sHostIp, const tstring & sHttpRequest, cgcValueInfo::pointer outParam)
 		{
 			bool result = false;
-			cgc::CgcTcpClient::pointer tcpClient = cgc::CgcTcpClient::create();
-			if (tcpClient->startClient(sHostIp, 0) == 0)
+			boost::asio::ssl::context * m_sslctx = NULL;
+			if (bIsSSL)
+			{
+				namespace ssl = boost::asio::ssl;
+				m_sslctx = new boost::asio::ssl::context (ssl::context::sslv23_client);	// OK
+				m_sslctx->set_default_verify_paths();
+				m_sslctx->set_options(ssl::context::verify_peer);
+				m_sslctx->set_verify_mode(ssl::verify_peer);
+				//m_sslctx->set_verify_callback(ssl::rfc2818_verification("smtp.163.com"));
+			}
+
+			cgc::CgcTcpClient::pointer tcpClient = cgc::CgcTcpClient::create(NULL);
+			if (tcpClient->startClient(sHostIp, 0, m_sslctx) == 0)
 			{
 				tcpClient->sendData((const unsigned char *)sHttpRequest.c_str(), sHttpRequest.size());
 				int counter = 0;
 				do
 				{
 #ifdef WIN32
+					Sleep(200);
+#else
+					usleep(200000);
+#endif
+				}while ((++counter < 5*30) && !tcpClient->IsDisconnection() && tcpClient->GetReceiveData().empty());	// 30S
+				tstring::size_type responseSize = tcpClient->GetReceiveData().size();
+				counter = 0;
+				while (++counter < 10 && responseSize > 0)	// wait more 5S
+				{
+#ifdef WIN32
 					Sleep(500);
 #else
 					usleep(500000);
-#endif
-				}while ((++counter < 2*30) && !tcpClient->IsDisconnection() && tcpClient->GetReceiveData().empty());	// 30S
-				tstring::size_type responseSize = tcpClient->GetReceiveData().size();
-				counter = 0;
-				while (++counter < 6 && responseSize > 0)	// wait more 6S
-				{
-#ifdef WIN32
-					Sleep(1000);
-#else
-					usleep(1000000);
 #endif
 					if (tcpClient->GetReceiveData().size() == responseSize)
 						break;
 					responseSize = tcpClient->GetReceiveData().size();
 				}
 				const tstring & sResponse = tcpClient->GetReceiveData();
+				//printf("**** Response=%s\n",sResponse.c_str());
 
 				// Transfer-Encoding: chunked
-
 
 				if (!sResponse.empty() && sResponse.size() > const_http_version.size())
 				{
@@ -301,19 +338,19 @@ protected:
 						if (find2 != tstring::npos)
 						{
 							tstring sHttpState = sResponse.substr(find+const_http_version.size()+1, find2 - find - const_http_version.size()-1);
-							outParam->operator +=(CGC_VALUEINFO(sHttpState));
+							outParam->addVector(CGC_VALUEINFO(sHttpState));
 						}
 					}
 					if (outParam->empty())
 					{
-						outParam->operator +=(CGC_VALUEINFO((tstring)"200"));
+						outParam->addVector(CGC_VALUEINFO((tstring)"200"));
 						//return false;
 					}
 
-					// 特殊处理，用于淘宝应用
-					find = sResponse.find("top-bodylength: ", const_http_version.size());
-					if (find == tstring::npos)
-					{
+//					// 特殊处理，用于淘宝应用
+//					find = sResponse.find("top-bodylength: ", const_http_version.size());
+//					if (find == tstring::npos)
+//					{
 						find = sResponse.find("Transfer-Encoding: chunked\r\n", const_http_version.size());
 						if (find != tstring::npos)
 						{
@@ -331,11 +368,11 @@ protected:
 							find = sResponse.find("\r\n\r\n", find+10);
 							// 后一回车开始位置
 							find = sResponse.find("\r\n", find+5);
-							tstring::size_type findend = sResponse.find("0\r\n", find+4);
+							const tstring::size_type findend = sResponse.find("\r\n0", find+2);
 							if (find != tstring::npos && findend != tstring::npos)
 							{
-								tstring sHttpData = sResponse.substr(find+2, findend-find-2);
-								outParam->operator +=(CGC_VALUEINFO(sHttpData));
+								const tstring sHttpData(sResponse.substr(find+2, findend-find-2));
+								outParam->addVector(CGC_VALUEINFO(sHttpData));
 							}else
 							{
 								//outParam->operator +=(CGC_VALUEINFO((tstring)""));
@@ -345,31 +382,31 @@ protected:
 							find = sResponse.find("\r\n\r\n", const_http_version.size());
 							if (find != tstring::npos)
 							{
-								tstring sHttpData = sResponse.substr(find+4);
-								outParam->operator +=(CGC_VALUEINFO(sHttpData));
+								const tstring sHttpData(sResponse.substr(find+4));
+								outParam->addVector(CGC_VALUEINFO(sHttpData));
 							}else
 							{
 								//outParam->operator +=(CGC_VALUEINFO((tstring)""));
 							}
 						}
-					}else
-					{
-						// 淘宝应用
-						find = sResponse.find("<?xml", const_http_version.size());
-						if (find != tstring::npos)
-						{
-							tstring::size_type find2 = sResponse.find("<!--top", find);
-							if (find2 == tstring::npos)
-							{
-								tstring sHttpData = sResponse.substr(find);
-								outParam->operator +=(CGC_VALUEINFO(sHttpData));
-							}else
-							{
-								tstring sHttpData = sResponse.substr(find, find2-find);
-								outParam->operator +=(CGC_VALUEINFO(sHttpData));
-							}
-						}
-					}
+//					}else
+//					{
+//						// 淘宝应用
+//						find = sResponse.find("<?xml", const_http_version.size());
+//						if (find != tstring::npos)
+//						{
+//							tstring::size_type find2 = sResponse.find("<!--top", find);
+//							if (find2 == tstring::npos)
+//							{
+//								tstring sHttpData = sResponse.substr(find);
+//								outParam->operator +=(CGC_VALUEINFO(sHttpData));
+//							}else
+//							{
+//								tstring sHttpData = sResponse.substr(find, find2-find);
+//								outParam->operator +=(CGC_VALUEINFO(sHttpData));
+//							}
+//						}
+//					}
 				}else
 				{
 					outParam->totype(cgcValueInfo::TYPE_STRING);
@@ -382,6 +419,8 @@ protected:
 			tcpClient->stopClient();
 			tcpClient.reset();
 
+			if (m_sslctx!=NULL)
+				delete m_sslctx;
 			return result;
 		}
 

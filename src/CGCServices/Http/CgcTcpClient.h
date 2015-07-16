@@ -24,38 +24,54 @@
 // include
 //#include "CgcBaseClient.h"
 #include <ThirdParty/Boost/asio/IoService.h>
+#include <ThirdParty/Boost/asio/boost_socket.h>
 #include <ThirdParty/Boost/asio/TcpClient.h>
 
 namespace cgc
 {
+class TcpClient_Callback
+{
+public:
+	typedef boost::shared_ptr<TcpClient_Callback> pointer;
+	virtual void OnReceiveData(const ReceiveBuffer::pointer& data) = 0;
+};
 
 class CgcTcpClient
 	: public TcpClient_Handler
+	, public IoService_Handler
 	, public boost::enable_shared_from_this<CgcTcpClient>
 {
 public:
 	typedef boost::shared_ptr<CgcTcpClient> pointer;
 
-	static CgcTcpClient::pointer create(void)
+	static CgcTcpClient::pointer create(TcpClient_Callback* pCallback)
 	{
-		return CgcTcpClient::pointer(new CgcTcpClient());
+		return CgcTcpClient::pointer(new CgcTcpClient(pCallback));
 	}
 
 	CgcTcpClient(void);
+	CgcTcpClient(TcpClient_Callback* pCallback);
 	virtual ~CgcTcpClient(void);
 
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
 
+#ifdef USES_OPENSSL
+	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort,boost::asio::ssl::context* ctx=NULL);
+#else
 	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort);
+#endif
 	virtual void stopClient(void);
 	virtual size_t sendData(const unsigned char * data, size_t size);
 	const tstring & GetReceiveData(void) const {return m_sReceiveData;}
 	void ClearData(void) {m_sReceiveData.clear();}
 	bool IsDisconnection(void) const {return m_bDisconnect;}
+	bool IsException(void) const {return m_bException;}
 
 private:
 	virtual bool isInvalidate(void) const;
 
+	// IoService_Handler
+	virtual void OnIoServiceException(void){m_bException = true;}
 	///////////////////////////////////////////////
 	// for TcpClient_Handler
 	virtual void OnConnected(const TcpClientPointer& tcpClient);
@@ -68,7 +84,9 @@ private:
 	TcpClient::pointer m_tcpClient;
 	bool m_connectReturned;
 	bool m_bDisconnect;
+	bool m_bException;
 
+	TcpClient_Callback* m_pCallback;
 	tstring m_sReceiveData;
 };
 
