@@ -23,7 +23,7 @@
 #include <string>
 
 namespace cgc{
-#define CGC_THREAD_STACK_MIN 1024*100	// 100K
+#define CGC_THREAD_STACK_MIN 1024*200	// 200K
 #define CGC_THREAD_STACK_MAX 1024000	// 1M
 
 	enum SOTP_PROTO_VERSION

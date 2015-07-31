@@ -106,7 +106,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_timeoutSeconds(3), m_timeoutResends(5)
 , m_currentPath(_T(""))
 , theProtoVersion(SOTP_PROTO_VERSION_20)
-, m_pRtpBufferPool(2*1024,3,5), m_pRtpMsgPool(2*1024,20,30), m_pRtpSession(false)
+, m_pRtpBufferPool(2*1024,0,5), m_pRtpMsgPool(2*1024,0,30), m_pRtpSession(false)
 , m_nSrcId(0), m_nRtpCbUserData(0), m_nTranSpeedLimit(64), m_nDefaultSleep1(50), m_nDefaultSleep2(500), m_nDefaultPackageSize(SOTP_RTP_MAX_PAYLOAD_LENGTH)
 
 {
@@ -1601,6 +1601,14 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 				if (!ret)
 					delete[] pSendData;
 			}
+		}else if (ppSotp.isActiveType())
+		{
+			if (!m_sSessionId.empty())
+			{
+				const std::string requestData = toSessionResult(ppSotp.getSotpVersion(),ppSotp.getProtoType(),ppSotp.getCallid(),0,ppSotp.getSid(),0,false,"");
+				sendData((const unsigned char*)requestData.c_str(), requestData.size());
+			}
+			return;
 		}
 
 		if (nResultValue == -103)

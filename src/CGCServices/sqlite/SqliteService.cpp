@@ -236,7 +236,7 @@ private:
 			const int rc = sqlite3_open(m_cdbcInfo->getDatabase().c_str(), &m_pSqlite);
 			if ( rc!=SQLITE_OK )  
 			{  
-				CGC_LOG((cgc::LOG_ERROR, "Can't open database: %s\n", sqlite3_errmsg(m_pSqlite)));
+				CGC_LOG((cgc::LOG_WARNING, "Can't open database: %s\n", sqlite3_errmsg(m_pSqlite)));
 				sqlite3_close(m_pSqlite);
 				m_pSqlite = 0;
 				return false;  
@@ -295,7 +295,7 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , exeSql, 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Can't execute SQL: (%s); %s\n", exeSql,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s); %s\n", exeSql,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -320,7 +320,7 @@ private:
 			const int rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg );
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Can't select SQL: (%s); %s\n", selectSql,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %s\n", selectSql,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -355,7 +355,7 @@ private:
 			const int rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg );
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Can't select SQL: (%s); %s\n", selectSql,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %s\n", selectSql,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -422,7 +422,7 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , "BEGIN;", 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Can't BEGIN: %s\n", zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't BEGIN: %s\n", zErrMsg));
 				sqlite3_free(zErrMsg);
 				return false;
 			}
@@ -442,7 +442,7 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , "COMMIT;", 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Can't COMMIT: %s\n", zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't COMMIT: %s\n", zErrMsg));
 				sqlite3_free(zErrMsg);
 				return false;
 			}
