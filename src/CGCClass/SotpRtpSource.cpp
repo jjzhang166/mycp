@@ -411,17 +411,17 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 		memcpy(&pFrame->m_pRtpHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
 		pFrame->m_nFirstSeq = pRtpDataHead.m_nSeq-pRtpDataHead.m_nIndex;	// *seq重头开始也正常
 		pFrame->m_nPacketNumber = (pRtpDataHead.m_nTotleLength+pRtpDataHead.m_nUnitLength-1)/pRtpDataHead.m_nUnitLength;
-		if (ts>0)
+		if (ts>0 && !m_bServerMode)
 		{
 #ifdef WIN32
-			// 1500 ms 是正常允许延迟
+			// 900 ms 是正常允许延迟
 			// min(1000,xx)ms 是FPS的间隔时间，最大 1000ms 1FPS
-			// min(3000,xx)ms 是计算包大小延迟时间，每20KB左右，增加1000ms 延迟，最大 3000ms
-			const short nOffset = 1500 + min(1000,((ts>m_nLastFrameTimestamp)?(ts-m_nLastFrameTimestamp):(m_nLastFrameTimestamp-ts)));
-			pFrame->m_nExpireTime = timeGetTime() + nOffset + min(3000,((pFrame->m_nPacketNumber/20)*1000));
+			// min(4500,xx)ms 是计算包大小延迟时间，每2KB左右，增加100ms 延迟，最大 4500ms
+			const short nOffset = 900 + min(1000,((ts>m_nLastFrameTimestamp)?(ts-m_nLastFrameTimestamp):(m_nLastFrameTimestamp-ts)));
+			pFrame->m_nExpireTime = timeGetTime() + nOffset + min(4500,((pFrame->m_nPacketNumber/2)*100));
 #else
-			const short nOffset = 1500 + std::min(1000,(int)((ts>m_nLastFrameTimestamp)?(ts-m_nLastFrameTimestamp):(m_nLastFrameTimestamp-ts)));
-			pFrame->m_nExpireTime = timeGetTime() + nOffset + std::min(3000,((pFrame->m_nPacketNumber/20)*1000));
+			const short nOffset = 900 + std::min(900,(int)((ts>m_nLastFrameTimestamp)?(ts-m_nLastFrameTimestamp):(m_nLastFrameTimestamp-ts)));
+			pFrame->m_nExpireTime = timeGetTime() + nOffset + std::min(4500,((pFrame->m_nPacketNumber/2)*100));
 #endif
 		}
 		//if (pRtpDataHead.m_nTotleLength>20*1024 || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I || pRtpDataHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO)

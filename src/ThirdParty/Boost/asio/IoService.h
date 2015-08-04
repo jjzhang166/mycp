@@ -70,6 +70,7 @@ private:
 	{
 		if (iopservice)
 		{
+			boost::system::error_code ec;
 			boost::asio::io_service & pService = iopservice->ioservice();
 			//boost::asio::io_service::work work(pService);	// 保证run不会退出
 			while (!iopservice->is_killed())
@@ -81,13 +82,13 @@ private:
 #else
 					usleep(2000);
 #endif
-					pService.poll();
+					pService.poll(ec);
 					continue;
-					boost::system::error_code ec;
-					pService.run(ec);
-					pService.reset();
-					printf("do_event_loop exit:%s=%d\n",ec.message().c_str(),ec.value());
-					break;
+					//boost::system::error_code ec;
+					//pService.run(ec);
+					//pService.reset();
+					//printf("do_event_loop exit:%s=%d\n",ec.message().c_str(),ec.value());
+					//break;
 				}catch (std::exception & e)
 				{
 					pService.reset();
@@ -101,6 +102,16 @@ private:
 					//{
 					//	continue;
 					//}
+					iopservice->on_exception();
+					break;
+				}catch(...)
+				{
+					pService.reset();
+#ifdef WIN32
+					printf("do_event_loop exception. lasterror=%d\n", GetLastError());
+#else
+					printf("do_event_loop exception. n");
+#endif
 					iopservice->on_exception();
 					break;
 				}

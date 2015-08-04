@@ -56,6 +56,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <ThirdParty/stl/lockmap.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/TcpAcceptor.h>
+#include <ThirdParty/Boost/asio/TcpClient.h>
 using namespace cgc;
 
 #include "../CgcRemoteInfo.h"
@@ -357,6 +358,67 @@ bool FileIsExist(const char* pFile)
 	fclose(f);
 	return true;
 }
+class CTcpTestConnect
+	: public TcpClient_Handler
+	, public boost::enable_shared_from_this<CTcpTestConnect>
+{
+public:
+	typedef boost::shared_ptr<CTcpTestConnect> pointer;
+	static CTcpTestConnect::pointer create(void)
+	{
+		return CTcpTestConnect::pointer(new CTcpTestConnect());
+	}
+
+	bool TestConnect(const char* sIp, int nPort)
+	{
+		bool bResult = false;
+		if (m_ipService.get()==NULL)
+			m_ipService = IoService::create();
+		if (m_tcpClient.get()==NULL)
+		{
+			m_tcpClient = TcpClient::create(shared_from_this());
+		}
+		tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp), nPort);
+		m_tcpClient->connect(m_ipService->ioservice(), endpoint);
+		m_ipService->start();
+
+		while (!m_connectReturned)
+#ifdef WIN32
+			Sleep(100);
+#else
+			usleep(100000);
+#endif
+		bResult = !m_bDisconnect;
+
+		m_tcpClient->disconnect();
+		m_ipService->stop();
+		m_tcpClient.reset();
+		m_ipService.reset();
+		//printf("**** OK\n");
+		return bResult;
+	}
+	CTcpTestConnect(void)
+		: m_connectReturned(false), m_bDisconnect(true)
+	{}
+	virtual ~CTcpTestConnect(void)
+	{
+		m_tcpClient.reset();
+		m_ipService.reset();
+	}
+private:
+	///////////////////////////////////////////////
+	// for TcpClient_Handler
+	virtual void OnConnected(const TcpClientPointer& tcpClient){m_connectReturned=true;m_bDisconnect=false;}
+	virtual void OnConnectError(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
+	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data){}
+	virtual void OnDisconnect(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
+
+	bool m_connectReturned;
+	bool m_bDisconnect;
+	IoService::pointer m_ipService;
+	TcpClient::pointer m_tcpClient;
+};
+
 /////////////////////////////////////////
 // CTcpServer
 class CTcpServer
@@ -486,7 +548,7 @@ public:
 			m_acceptor = TcpAcceptor::create();
 		m_ioservice->start(shared_from_this());
 #ifdef USES_OPENSSL
-		bool bisssl = (m_protocol & (int)PROTOCOL_SSL)==PROTOCOL_SSL;
+		const bool bisssl = (m_protocol & (int)PROTOCOL_SSL)==PROTOCOL_SSL;
 		if (bisssl)
 		{
 			namespace ssl = boost::asio::ssl;
@@ -623,7 +685,7 @@ protected:
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
-		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)
+		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)	// 这是管理线程；
 		{
 			const size_t nSize = m_listMgr.size();
 			if (nSize>(m_nCurrentThread+20))
@@ -634,7 +696,7 @@ protected:
 				{
 					m_nFindEventDataCount = 0;
 					const unsigned int nNewTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+(++m_nCurrentThread);
-					printf("**** TCPServer:NewTimerId=%d size=%d ****\n",nNewTimerId,nSize);
+					CGC_LOG((LOG_INFO, _T("**** TCPServer:NewTimerId=%d size=%d ****\n"),nNewTimerId,nSize));
 					theApplication->SetTimer(nNewTimerId, 10, shared_from_this());	// 10ms
 				}
 			}else
@@ -645,9 +707,39 @@ protected:
 				{
 					m_nNullEventDataCount = 0;
 					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;
-					printf("**** TCPServer:KillTimerId=%d ****\n",nKillTimerId);
+					CGC_LOG((LOG_INFO, _T("**** TCPServer:KillTimerId=%d ****\n"),nKillTimerId));
 					theApplication->KillTimer(nKillTimerId);
 					m_nCurrentThread--;
+				}
+
+				static unsigned int theIndex = 0;
+				if (nSize==0 && ((++theIndex)%100)==99)
+				{
+					// 没有收到数据
+					const time_t tNow = time(0);
+					static time_t theLastCheckTime = tNow;
+					if ((tNow-theLastCheckTime)>3*60)	// 3分钟没有收到数据，检查一次；
+					{
+						theLastCheckTime = tNow;
+						CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
+						if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort))
+						{
+							CGC_LOG((LOG_INFO, _T("**** CONNECT ERROR ****\n")));
+							static short theError = 0;
+							if ((++theError)>=2)
+							{
+								theError = 0;
+								OnIoServiceException();
+							}else
+							{
+								theLastCheckTime -= 2*60;	// ** 实现1分钟后，下次检查
+							}
+						//}else
+						//{
+						//	CGC_LOG((LOG_INFO, _T("**** CONNECT OK ****\n")));
+						}
+						pTestConnect.reset();
+					}
 				}
 			}
 			return;
@@ -719,9 +811,8 @@ protected:
 			}break;
 		case CCommEventData::CET_Exception:
 			{
-				if (!m_listMgr.empty())
+				//if (!m_listMgr.empty())
 				{
-
 					AUTO_WLOCK(m_listMgr);
 					CLockListPtr<CCommEventData*>::iterator pIter = m_listMgr.begin();
 					for (; pIter!=m_listMgr.end(); pIter++)
@@ -732,23 +823,26 @@ protected:
 					m_listMgr.clear(false,true);
 				}
 				m_mapCgcRemote.clear();
+				const bool bFirstStart = m_ioservice.get()==NULL?true:false;
 				m_acceptor.reset();
 				m_ioservice.reset();
 #ifdef USES_OPENSSL
-				bool bisssl = false;
-				if (this->m_sslctx)
+				const bool bisssl = (m_protocol & (int)PROTOCOL_SSL)==PROTOCOL_SSL;
+				if (this->m_sslctx!=NULL)
 				{
-					bisssl = true;
 					delete m_sslctx;
 					m_sslctx = NULL;
 				}
 #endif
+				if (!bFirstStart)
+				{
+					CGC_LOG((LOG_ERROR, _T("[*:%d] tcp server restart\n"),m_commPort));
 #ifdef WIN32
-				Sleep(1*1000);
+					Sleep(1000);
 #else
-				sleep(1);
+					sleep(1);
 #endif
-				printf("**** tcp server restart\n");
+				}
 				m_acceptor = TcpAcceptor::create();
 				m_ioservice = IoService::create();
 				m_ioservice->start(shared_from_this());
@@ -803,7 +897,7 @@ protected:
 	{
 		BOOST_ASSERT(pRemote != 0);
 		if (data->size() == 0 || pRemote == 0) return;
-		unsigned long nRemoteId = pRemote->getId();
+		const unsigned long nRemoteId = pRemote->getId();
 		//printf("******** OnRemoteRecv:%d\n%s\n%d\n",nRemoteId,data->data(),data->size());
 		if (m_commHandler.get() != NULL)
 		{
