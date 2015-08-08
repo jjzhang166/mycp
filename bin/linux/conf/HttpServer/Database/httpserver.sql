@@ -1,29 +1,25 @@
 
-
-CREATE DATABASE httpserver;
-
-USE httpserver;
-
 CREATE TABLE scriptitem_t
 (
 	filename 			VARCHAR(256),
-	code					VARCHAR(32),
-	sub						INT,
+	code					VARCHAR(64),
+	sub						SMALLINT,
 	itemtype			INT,
 	object1				INT,
 	object2				INT,
 	id						VARCHAR(32),
-	scopy					VARCHAR(12),
+	scopy					VARCHAR(16),
 	name					VARCHAR(32),
 	property			VARCHAR(32),
-	type					VARCHAR(12),
+	type					VARCHAR(16),
 	value					CLOB
 );
+CREATE INDEX scriptitem_t_idx_filename ON scriptitem_t(filename);
 
 CREATE TABLE cspfileinfo_t
 (
-	filename 			VARCHAR(256),
-	filesize			BIGINT UNSIGNED,
-	lasttime			BIGINT UNSIGNED
+	filename 			VARCHAR(256) PRIMARY KEY,
+	filesize			BIGINT,
+	lasttime			BIGINT
 );
 
