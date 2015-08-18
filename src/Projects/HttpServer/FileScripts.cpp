@@ -41,6 +41,7 @@ void string_replace(std::string & strBig, const std::string & strsrc, const std:
 CFileScripts::CFileScripts(const std::string& filename)
 : m_fileName(filename)
 , m_bCodeBegin(false)
+//, m_tRequestTime(0)
 
 {
 }

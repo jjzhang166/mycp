@@ -37,13 +37,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	return TRUE;
 }
 
-//#pragma comment(lib, "mysqlcppconn.lib")
-//#pragma comment(lib, "mysqlcppconn-static.lib")
-
 #endif // WIN32
 
 #include <CGCBase/cdbc.h>
 using namespace cgc;
+#include <boost/thread/shared_mutex.hpp>
 
 #if (USES_SQLITECDBC)
 
@@ -171,7 +169,7 @@ public:
 	typedef boost::shared_ptr<CSqliteCdbc> pointer;
 
 	CSqliteCdbc(const tstring& path)
-		: m_pSqlite(NULL), m_tLastTime(0)
+		: m_pSqlite(NULL), m_tLastTime(0), m_sAppConfPath(path)
 	{}
 	virtual ~CSqliteCdbc(void)
 	{
@@ -233,10 +231,23 @@ private:
 			//  rc = sqlite3_open(":memory:", &db);
 			//  ATTACH DATABASE ':memory:' AS aux1;
 			// 
-			const int rc = sqlite3_open(m_cdbcInfo->getDatabase().c_str(), &m_pSqlite);
+			tstring sDatabase = m_cdbcInfo->getDatabase();
+			if (sDatabase!=":memory:")
+			{
+#ifdef WIN32
+				sDatabase = convert(m_sAppConfPath.c_str(), CP_ACP, CP_UTF8);
+				sDatabase.append("\\");
+#else
+				sDatabase = m_sAppConfPath + "/";
+#endif
+				sDatabase.append(m_cdbcInfo->getDatabase());
+			}
+			//sqlite3_initialize()
+			//sqlite3_config(SQLITE_CONFIG_SERIALIZED)
+			const int rc = sqlite3_open(sDatabase.c_str(), &m_pSqlite);
 			if ( rc!=SQLITE_OK )  
 			{  
-				CGC_LOG((cgc::LOG_WARNING, "Can't open database: %s\n", sqlite3_errmsg(m_pSqlite)));
+				CGC_LOG((cgc::LOG_WARNING, "Can't open database: %s(%s)\n", sDatabase.c_str(),sqlite3_errmsg(m_pSqlite)));
 				sqlite3_close(m_pSqlite);
 				m_pSqlite = 0;
 				return false;  
@@ -292,13 +303,16 @@ private:
 		try
 		{
 			char *zErrMsg = 0;
+			boost::mutex::scoped_lock lock(m_mutex);
 			const int rc = sqlite3_exec( m_pSqlite , exeSql, 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
+				lock.unlock();
 				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s); %s\n", exeSql,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
+			ret = (cgc::bigint)sqlite3_changes(m_pSqlite);
 		}catch(...)
 		{
 			return -1;
@@ -456,14 +470,63 @@ private:
 	virtual bool rollback(void)
 	{
 		if (!isopen()) return false;
+		try
+		{
+			char *zErrMsg = 0;
+			const int rc = sqlite3_exec( m_pSqlite , "ROLLBACK;", 0, 0, &zErrMsg);
+			if ( rc!=SQLITE_OK )
+			{
+				CGC_LOG((cgc::LOG_WARNING, "Can't ROLLBACK: %s\n", zErrMsg));
+				sqlite3_free(zErrMsg);
+				return false;
+			}
+			return true;
+		}catch(...)
+		{
+			return false;
+		}
 		return false;
 	}
+	
+#ifdef WIN32
+	static std::string convert(const char * strSource, int sourceCodepage, int targetCodepage)
+	{
+		int unicodeLen = MultiByteToWideChar(sourceCodepage, 0, strSource, -1, NULL, 0);
+		if (unicodeLen <= 0) return "";
+
+		wchar_t * pUnicode = new wchar_t[unicodeLen];
+		memset(pUnicode,0,(unicodeLen)*sizeof(wchar_t));
+
+		MultiByteToWideChar(sourceCodepage, 0, strSource, -1, (wchar_t*)pUnicode, unicodeLen);
+
+		char * pTargetData = 0;
+		int targetLen = WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char*)pTargetData, 0, NULL, NULL);
+		if (targetLen <= 0)
+		{
+			delete[] pUnicode;
+			return "";
+		}
+
+		pTargetData = new char[targetLen];
+		memset(pTargetData, 0, targetLen);
+
+		WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char *)pTargetData, targetLen, NULL, NULL);
+
+		std::string result = pTargetData;
+		//	tstring result(pTargetData, targetLen);
+		delete[] pUnicode;
+		delete[] pTargetData;
+		return   result;
+	}
+#endif
 private:
 	sqlite3 * m_pSqlite;
+	boost::mutex m_mutex;
 
 	time_t m_tLastTime;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;
 	cgcCDBCInfo::pointer m_cdbcInfo;
+	tstring m_sAppConfPath;
 };
 
 const int ATTRIBUTE_NAME = 1;

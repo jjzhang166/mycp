@@ -53,27 +53,46 @@ public:
 	unsigned long getIpAddress(void) const {return m_nIpAddress;}
 	void size(int newv) {m_size = newv;}
 	int size(void) const {return m_size;}
-	void init(void)
+	int bufferSize(void) const {return m_nBufferSize;}
+	bool init(int capacity)
 	{
+		if (m_buffer==NULL)
+		{
+			m_nBufferSize = capacity+1;
+			m_buffer = new unsigned char[m_nBufferSize];
+			if (m_buffer==NULL)
+				return false;
+		}else if (m_nBufferSize<=capacity)
+		{
+			delete[] m_buffer;
+			m_buffer = NULL;
+			m_nBufferSize = capacity+1;
+			m_buffer = new unsigned char[m_nBufferSize];
+			if (m_buffer==NULL)
+				return false;
+		}
 		m_size = 0;
 		m_buffer[0] = '\0';
+		return true;
 	}
 private:
 	UdpEndPoint(size_t capacity)
-		: m_nId(0),m_nIpAddress(0),m_size(0)
+		: m_nId(0),m_nIpAddress(0),m_size(0),m_buffer(NULL),m_nBufferSize(0)
 	{
 		if (capacity == 0 || capacity > Max_UdpSocket_ReceiveSize)
 			capacity = Max_UdpSocket_ReceiveSize;
-		m_buffer = new unsigned char[capacity+1];
-		memset(m_buffer, 0,  capacity+1);
+		init(capacity);
+		//m_buffer = new unsigned char[m_nBufferSize];
+		//memset(m_buffer, 0,  m_nBufferSize);
 	}
 
 private:
 	unsigned long m_nId;
 	unsigned long m_nIpAddress;	// host byte order
 	udp::endpoint remote_endpoint;
-	unsigned char* m_buffer;//[Max_UdpSocket_ReceiveSize];
 	int m_size;
+	unsigned char* m_buffer;
+	int m_nBufferSize;
 };
 
 #endif // __UdpEndPoint_h__

@@ -44,10 +44,12 @@ public:
 	time_t getLastTime(void) const {return m_lastTime;}
 	void setLastTime(time_t v) {m_lastTime = v;}
 
+	time_t m_tRequestTime;
 	CCSPFileInfo(const std::string& filename, ubigint filesize, time_t lastTime)
 		: m_fileName(filename), m_fileSize(filesize), m_lastTime(lastTime)
-	{}
-
+	{
+		m_tRequestTime = time(0);
+	}
 private:
 	std::string m_fileName;
 	ubigint m_fileSize;
@@ -127,6 +129,7 @@ private:
 public:
 	CFileScripts(const std::string& filename);
 	virtual ~CFileScripts(void);
+	//time_t m_tRequestTime;
 };
 
 const CFileScripts::pointer NullFileScripts;

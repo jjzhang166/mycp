@@ -919,14 +919,14 @@ protected:
 			pEventData->setRemoteId(pCgcRemote->getRemoteId());
 			if (m_protocol & (int)PROTOCOL_HSOTP)
 			{
-				printf("****recv****\n%s\n",data->data());
+				//printf("****recv****\n%s\n",data->data());
 				const cgcParserHttp::pointer& pParserHttp = ((CcgcRemote*)pCgcRemote.get())->GetParserhttp();
 				if (pParserHttp.get()!=NULL)
 				{
 					if (((CcgcRemote*)pCgcRemote.get())->m_nRequestSize == data->size())
 					{
 						// 之前http post错误的真正内容
-						printf("****sotp****\n%s\n",data->data());
+						//printf("****sotp****\n%s\n",data->data());
 						((CcgcRemote*)pCgcRemote.get())->m_nRequestSize = 0;
 						pEventData->setRecvData(data->data(), data->size());
 						//}else if (m_nRequestSize==data->size()+((CcgcRemote*)pCgcRemote.get())->m_sPrevData.size())
@@ -940,7 +940,7 @@ protected:
 						bool parseResult = pParserHttp->doParse(data->data(), data->size());
 						if (parseResult)
 						{
-							printf("****sotp****%d\n%s\n",(int)pParserHttp->getHttpMethod(),pParserHttp->getContentData());
+							//printf("****sotp****%d\n%s\n",(int)pParserHttp->getHttpMethod(),pParserHttp->getContentData());
 							switch(pParserHttp->getHttpMethod())
 							{
 							case HTTP_OPTIONS:

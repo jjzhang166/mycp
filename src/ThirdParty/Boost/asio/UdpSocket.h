@@ -29,7 +29,19 @@ public:
 	typedef boost::shared_ptr<UdpSocket> pointer;
 	static UdpSocket::pointer create(size_t nBufferSize=8*1024) {return UdpSocket::pointer(new UdpSocket(nBufferSize));}
 
-	void setMaxBufferSize(size_t v = 8*1024) {m_maxbuffersize = v;}
+	void setMaxBufferSize(size_t v = 8*1024)
+	{
+		m_maxbuffersize = v;
+		UdpEndPoint::pointer pPoolData;
+		while (m_pool.front(pPoolData))
+		{
+			if (pPoolData->bufferSize()>=(m_maxbuffersize+1))
+			{
+				m_pool.add(pPoolData);
+				break;
+			}
+		}
+	}
 	void setPoolSize(size_t nInitPoolSize = 20, size_t nMaxPoolSize = 30)
 	{
 		m_nInitPoolSize = nInitPoolSize;
@@ -108,7 +120,7 @@ public:
 			UdpEndPoint::pointer endpoint;
 			if (!m_endpoints.front(endpoint))
 			{
-				if ((nIdleCount++)>500*2) // 2S
+				if ((nIdleCount++)>500*5) // 5S
 				{
 					nIdleCount = 0;
 					if (m_pool.size()>m_nInitPoolSize)
@@ -136,8 +148,8 @@ public:
 
 			if (m_pool.size()<m_nMaxPoolSize)
 			{
-				endpoint->init();
-				m_pool.add(endpoint);
+				if (endpoint->init(m_maxbuffersize))
+					m_pool.add(endpoint);
 			}
 		}
 	}

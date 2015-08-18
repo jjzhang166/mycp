@@ -39,12 +39,14 @@ public:
 
 	void setPropertys(cgcAttributes::pointer v) {m_propertys = v;}
 	cgcAttributes::pointer getPropertys(void) const {return m_propertys;}
+	bool m_bBuildDocumentRoot;
 
 	CVirtualHost(const tstring& host)
 		: m_host(host), m_serverName("")
 		, m_documentRoot(""), /*m_rootType(0), */m_index("index.csp")
+		, m_bBuildDocumentRoot(false)
 	{}
-	~CVirtualHost(void)
+	virtual ~CVirtualHost(void)
 	{
 		if (m_propertys.get() != NULL)
 		{

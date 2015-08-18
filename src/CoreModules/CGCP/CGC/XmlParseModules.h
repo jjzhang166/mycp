@@ -104,27 +104,26 @@ public:
 			BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root.log"))
 				Insert(v, MODULE_LOG);
 
-			int nDisable = pt.get("root.server.<xmlattr>.disable",0);
-			if (nDisable == 0)
-			{
-				BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root.server"))
-					Insert(v, MODULE_SERVER);
-			}else
-			{
-				printf("**** disable all server modules!!! ****\n");
-			}
 
 			BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root.parser"))
 				Insert(v, MODULE_PARSER);
 
-			nDisable = pt.get("root.app.<xmlattr>.disable",0);
-			if (nDisable == 0)
+			if (pt.get("root.app.<xmlattr>.disable",0) == 0)
 			{
 				BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root.app"))
 					Insert(v, MODULE_APP);
 			}else
 			{
 				printf("**** disable all app modules!!! ****\n");
+			}
+
+			if (pt.get("root.server.<xmlattr>.disable",0) == 0)
+			{
+				BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root.server"))
+					Insert(v, MODULE_SERVER);
+			}else
+			{
+				printf("**** disable all server modules!!! ****\n");
 			}
 
 			BOOST_FOREACH(const ptree::value_type &v, pt.get_child("root.communication"))

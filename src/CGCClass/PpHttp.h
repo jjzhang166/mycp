@@ -64,7 +64,8 @@ private:
 	size_t m_contentSize;
 	size_t m_receiveSize;
 
-	AttributesImpl m_pReqHeaders;
+	CLockMap<tstring,cgcParameter::pointer> m_pReqHeaders;
+	//AttributesImpl m_pReqHeaders;
 	tstring m_sMyCookieSessionId;
 	AttributesImpl m_pReqCookies;
 	AttributesImpl m_propertys;
@@ -144,7 +145,8 @@ protected:
 	virtual bool getCookies(std::vector<cgcKeyValue::pointer>& outCookies) const {return m_pReqCookies.getSPropertys(outCookies);}
 	// Head
 	virtual tstring getHeader(const tstring & header, const tstring& defaultValue) const;
-	virtual bool getHeaders(std::vector<cgcKeyValue::pointer>& outHeaders) const {return m_pReqHeaders.getSPropertys(outHeaders);}
+	virtual bool getHeaders(std::vector<cgcKeyValue::pointer>& outHeaders) const;
+	//virtual bool getHeaders(std::vector<cgcKeyValue::pointer>& outHeaders) const {return m_pReqHeaders.getSPropertys(outHeaders);}
 	// Parameter
 	virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const {return m_propertys.getProperty(paramName);}
 	bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const {return m_propertys.getProperty(paramName, outParameters);}

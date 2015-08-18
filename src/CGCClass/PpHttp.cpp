@@ -47,7 +47,8 @@ CPpHttp::~CPpHttp(void)
 {
 	//m_multiparts.clear();
 	m_propertys.cleanAllPropertys();
-	m_pReqHeaders.cleanAllPropertys();
+	m_pReqHeaders.clear();
+	//m_pReqHeaders.cleanAllPropertys();
 	m_pReqCookies.cleanAllPropertys();
 
 	//if (m_contentData)
@@ -88,8 +89,26 @@ tstring CPpHttp::getCookie(const tstring & name, const tstring& defaultValue) co
 
 tstring CPpHttp::getHeader(const tstring & header, const tstring& defaultValue) const
 {
-	const cgcValueInfo::pointer valueInfo = m_pReqHeaders.getProperty(header);
-	return valueInfo.get() == NULL ? defaultValue : valueInfo->getStr();
+	tstring sHeaderLower(header);
+	std::transform(sHeaderLower.begin(), sHeaderLower.end(), sHeaderLower.begin(), ::tolower);
+	cgcParameter::pointer pParameter;
+	return m_pReqHeaders.find(sHeaderLower,pParameter)?pParameter->getStr():defaultValue;
+	//const cgcValueInfo::pointer valueInfo = m_pReqHeaders.getProperty(sHeaderLower);
+	//return valueInfo.get() == NULL ? defaultValue : valueInfo->getStr();
+}
+
+bool CPpHttp::getHeaders(std::vector<cgcKeyValue::pointer>& outHeaders) const
+{
+	{
+		BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_pReqHeaders.mutex()));
+		CLockMap<tstring,cgcParameter::pointer>::const_iterator pIter = m_pReqHeaders.begin();
+		for (; pIter!=m_pReqHeaders.end(); pIter++)
+		{
+			const cgcParameter::pointer pParameter = pIter->second;
+			outHeaders.push_back(CGC_KEYVALUE(pParameter->getName(),CGC_VALUEINFO(pParameter->getStr())));
+		}
+		return m_pReqHeaders.empty(false)?false:true;
+	}
 }
 
 /////////////////////////////////////////////
@@ -198,7 +217,8 @@ void CPpHttp::init(void)
 	m_sCurrentParameterData = "";
 
 	m_propertys.cleanAllPropertys();
-	m_pReqHeaders.cleanAllPropertys();
+	m_pReqHeaders.clear();
+	//m_pReqHeaders.cleanAllPropertys();
 	m_pReqCookies.cleanAllPropertys();
 }
 
@@ -852,14 +872,19 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		if (findSearchEnd == NULL) break;
 
 		pOutHeader = true;
-		const tstring param(httpRequest, findSearch-httpRequest);
+		const tstring sParamReal(httpRequest, findSearch-httpRequest);
+		tstring param(sParamReal);
+		std::transform(param.begin(), param.end(), param.begin(), ::tolower);
 		const short nOffset = findSearch[1]==' '?2:1;	// 带空格2，不带空格1
 		tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
-		if (param != Http_ContentDisposition)
-			m_pReqHeaders.setProperty(param, CGC_VALUEINFO(value));
-		//printf("IsComplete: %s: %s\n",param.c_str(),value.c_str());
+		if (param != "content-disposition")	// Http_ContentDisposition
+		{
+			m_pReqHeaders.insert(param, CGC_PARAMETER(sParamReal,value),false);
+			//m_pReqHeaders.setProperty(param, CGC_VALUEINFO(value));
+		}
+		//printf("IsComplete: %s: %s\n",sParamReal.c_str(),value.c_str());
 
-		if (m_currentMultiPart.get() != NULL && param == Http_ContentDisposition)
+		if (m_currentMultiPart.get() != NULL && param == "content-disposition")	// Http_ContentDisposition
 		{
 			bool doContinue = false;
 			int leftIndexTemp = 0;
@@ -910,7 +935,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 
 			if (doContinue)
 				continue;
-		}else if (param == Http_ContentType)
+		}else if (param == "content-type")	// Http_ContentType
 		{
 			int leftIndexTemp = 0;
 			if (sotpCompare(value.c_str(), "multipart/form-data;", leftIndexTemp))
@@ -1016,7 +1041,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				httpRequest = find;
 				continue;
 			}
-		}else if (param == Http_ContentLength)
+		}else if (param == "content-length")	// Http_ContentLength
 		{
 			m_contentSize = atoi(value.c_str());
 			//printf("IsComplete: m_contentSize=%d\n",m_contentSize);
@@ -1085,7 +1110,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					}
 				}
 			}
-		}else if (param == Http_Cookie)
+		}else if (param == "cookie")	// Http_Cookie
 		{
 			while (!value.empty())
 			{
