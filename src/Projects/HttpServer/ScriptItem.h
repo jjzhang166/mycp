@@ -37,6 +37,7 @@ public:
 		CSP_Println		= 0x100		// 不要轻易改
 		, CSP_Write
 		, CSP_NewLine
+		, CSP_OutPrint
 		, CSP_Define			= 0x120
 
 		, CSP_Add				= 0x130

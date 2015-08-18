@@ -118,6 +118,7 @@ const std::string CSP_TAB_CDDE_COMMENT_END		= "*/";
 
 const std::string CSP_TAB_DEFINE				= "<csp:define";
 const std::string CSP_TAB_WRITE					= "<csp:write";
+const std::string CSP_TAB_OUT_PRINT				= "<csp:out.print";
 
 
 const std::string CSP_TAB_EQUAL					= "<csp:=";		// define
@@ -185,6 +186,7 @@ const std::string CSP_TAB_APP_ADD				= "<csp:app:add";
 const std::string CSP_TAB_APP_DEL				= "<csp:app:del";
 const std::string CSP_TAB_APP_INFO				= "<csp:app:info";
 
+const std::string CSP_TAB_METHOD_OUT_PRINT		= "out.print";
 const std::string CSP_TAB_METHOD_ECHO			= "echo";
 const std::string CSP_TAB_METHOD_FORWARD		= "forward";
 const std::string CSP_TAB_METHOD_LOCATION		= "location";

@@ -874,6 +874,85 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		{
 			response->println(scriptItem->getValue());
 		}break;
+	case CScriptItem::CSP_OutPrint:
+		{
+			if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Id)
+			{
+				cgcValueInfo::pointer value = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+				if (value.get() != NULL)
+				{
+					if (value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
+					{
+						int nIndex = atoi(scriptItem->getProperty().c_str());
+						const std::vector<cgcValueInfo::pointer>& vectors = value->getVector();
+						if (nIndex >=0 && nIndex < (int)vectors.size())
+						{
+							theApplication->log(LOG_INFO, vectors[nIndex]->getStrValue().c_str());
+						}else
+						{
+							//theApplication->log(LOG_INFO, "");
+						}
+					}else if (value->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty().empty())
+					{
+						const tstring & sIndex = scriptItem->getProperty();
+						cgcValueInfo::pointer findValue;
+						if (value->getMap().find(sIndex, findValue))
+						{
+							theApplication->log(LOG_INFO, findValue->getStrValue().c_str());
+						}else
+						{
+							//theApplication->log(LOG_INFO, "");
+						}
+					}else
+					{
+						theApplication->log(LOG_INFO, value->getStrValue().c_str());
+					}
+				}else
+				{
+					//if (getVariableType(scriptItem->getId()) != VARIABLE_REQUESTPARAM)
+					//	theApplication->log(LOG_INFO, "");
+				}
+			}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Name)
+			{
+				cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName());
+				if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT)
+				{
+					theApplication->log(LOG_INFO, "");
+					//response->write("null");
+					return 0;
+				}
+
+				cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+				if (var_property.get() == NULL)
+				{
+					//theApplication->log(LOG_INFO, "");
+					return 0;
+				}
+
+				cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
+				cgcAttributes::pointer appAttributes = serviceInterface->getAttributes();
+				if (appAttributes.get() == NULL)
+				{
+					//theApplication->log(LOG_INFO, "");
+					return 0;
+				}
+				cgcValueInfo::pointer value = appAttributes->getProperty(var_property->getStr());
+				if (value.get() != NULL)
+				{
+					theApplication->log(LOG_INFO, value->getStrValue().c_str());
+				}else
+				{
+					//theApplication->log(LOG_INFO, "");
+				}
+			}else
+			{
+				cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
+				if (var_value.get() != NULL)
+				{
+					theApplication->log(LOG_INFO, var_value->getStrValue().c_str());
+				}
+			}
+		}break;
 	case CScriptItem::CSP_Write:
 		{
 			if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Id)

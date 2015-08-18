@@ -1880,6 +1880,20 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 		{
 			return NULL;
 		}
+	}else if (sotpCompare(pLineBuffer, CSP_TAB_OUT_PRINT.c_str(), leftIndex))
+	{
+		leftIndex += CSP_TAB_OUT_PRINT.size();
+		CScriptItem::pointer scriptItemNew = CScriptItem::create(CScriptItem::CSP_OutPrint);
+		if (scriptItem.get() == NULL)
+			m_scripts.push_back(scriptItemNew);
+		else
+			scriptItem->m_subs.push_back(scriptItemNew);
+
+		int leftIndexTemp = 0;
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp))
+		{
+			return NULL;
+		}
 	}else if (sotpCompare(pLineBuffer, CSP_TAB_CODE_BEGIN.c_str(), leftIndex))
 	{
 		leftIndex += CSP_TAB_CODE_BEGIN.size();
@@ -1907,6 +1921,62 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 				pNextLineFind += 1;
 		}
 		return pNextLineFind;
+	}else if (m_bCodeBegin && sotpCompare(pLineBuffer, CSP_TAB_METHOD_OUT_PRINT.c_str(), leftIndex))
+	{
+		leftIndex += (CSP_TAB_METHOD_OUT_PRINT.size()+1);
+		char lpszBufferLine[1024];
+		size_t size = pgetstr<char>(lpszBufferLine, 1024, pLineBuffer+leftIndex, ';');
+		if (size <= 0)
+			return NULL;
+		leftIndex += (size+1);
+
+		int bufferSize = pstrtrim_left<char>(lpszBufferLine);
+		if (bufferSize <= 0)
+			return NULL;
+		bufferSize = pstrtrim_right<char>(lpszBufferLine);
+		if (bufferSize <= 0)
+			return NULL;
+
+		CScriptItem::pointer scriptItemNew = CScriptItem::create(CScriptItem::CSP_OutPrint);
+		if (scriptItem.get() == NULL)
+			m_scripts.push_back(scriptItemNew);
+		else
+			scriptItem->m_subs.push_back(scriptItemNew);
+
+		int leftIndexTemp = 0;
+		if (sotpCompare(lpszBufferLine, VTI_USER.c_str(), leftIndexTemp) ||
+			sotpCompare(lpszBufferLine, VTI_SYSTEM.c_str(), leftIndexTemp) ||
+			sotpCompare(lpszBufferLine, VTI_INITPARAM.c_str(), leftIndexTemp) ||
+			sotpCompare(lpszBufferLine, VTI_REQUESTPARAM.c_str(), leftIndexTemp) ||
+			sotpCompare(lpszBufferLine, VTI_HEADER.c_str(), leftIndexTemp) ||
+			sotpCompare(lpszBufferLine, VTI_TEMP.c_str(), leftIndexTemp)
+			//sotpCompare(lpszBufferLine, VTI_APP.c_str(), leftIndexTemp) ||
+			//sotpCompare(lpszBufferLine, VTI_DATASOURCE.c_str(), leftIndexTemp)
+			)
+		{
+			std::string sId(lpszBufferLine);
+			std::string::size_type nFindIndex1 = sId.find("[");
+			std::string sIndex("");
+			if (nFindIndex1 != std::string::npos)
+			{
+				sIndex = sId.substr(nFindIndex1+1, sId.size()-nFindIndex1-2);
+				trimstring(sIndex);
+				scriptItemNew->setProperty(sIndex);
+				lpszBufferLine[nFindIndex1] = '\0';
+			}
+
+			scriptItemNew->setOperateObject1(CScriptItem::CSP_Operate_Id);
+			scriptItemNew->setId(lpszBufferLine);
+		}else
+		{
+			if (lpszBufferLine[0] == '\'' && lpszBufferLine[bufferSize-1] =='\'')
+			{
+				std::string sValue(lpszBufferLine);
+				sValue = sValue.substr(1, bufferSize-2);
+				scriptItemNew->setValue(sValue);
+			}else
+				scriptItemNew->setValue(lpszBufferLine);
+		}
 	}else if (m_bCodeBegin && sotpCompare(pLineBuffer, CSP_TAB_METHOD_ECHO.c_str(), leftIndex))
 	{
 		leftIndex += (CSP_TAB_METHOD_ECHO.size()+1);
@@ -2551,6 +2621,20 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 				{
 					leftIndexTemp += leftIndexTemp2+CSP_TAB_WRITE.size();
 					CScriptItem::pointer scriptItemNew = CScriptItem::create(CScriptItem::CSP_Write);
+					if (scriptItem.get() == NULL)
+						m_scripts.push_back(scriptItemNew);
+					else
+						scriptItem->m_subs.push_back(scriptItemNew);
+
+					if (!getCSPObject(pBufferLineTemp+leftIndexTemp+1, scriptItemNew, leftIndexTemp2))
+					{
+						return NULL;
+					}
+					leftIndexTemp += leftIndexTemp2+1;
+				}else if (sotpCompare(pBufferLineTemp+leftIndexTemp, CSP_TAB_OUT_PRINT.c_str(), leftIndexTemp2))
+				{
+					leftIndexTemp += leftIndexTemp2+CSP_TAB_OUT_PRINT.size();
+					CScriptItem::pointer scriptItemNew = CScriptItem::create(CScriptItem::CSP_OutPrint);
 					if (scriptItem.get() == NULL)
 						m_scripts.push_back(scriptItemNew);
 					else
