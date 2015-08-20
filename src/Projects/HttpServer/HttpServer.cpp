@@ -655,6 +655,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 
 		CMycpHttpServer::pointer httpServer = CMycpHttpServer::pointer(new CMycpHttpServer(request, response));
+		httpServer->setSystem(theSystem);
 		httpServer->setApplication(theApplication);
 		httpServer->setFileSystemService(theFileSystemService);
 		httpServer->setServiceManager(theServiceManager);

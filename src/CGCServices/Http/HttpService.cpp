@@ -268,9 +268,10 @@ protected:
 				sHttpRequest.append(sContentLength);
 				sHttpRequest.append(_T("\r\n\r\n"));
 				sHttpRequest.append(sData.c_str());
+			}else
+			{
+				sHttpRequest.append(_T("\r\n"));
 			}
-			sHttpRequest.append(_T("\r\n"));
-
 			sHostIp.append(":");
 			sHostIp.append(sPort);			// default 80
 			return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);

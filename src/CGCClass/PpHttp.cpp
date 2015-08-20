@@ -1099,7 +1099,9 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 							////printf("=================\n%s\n================\n",m_contentData);
 							//m_queryString = m_contentData;
 							m_queryString = find;
-							m_postString = find;
+							if (m_queryString.size()>m_contentSize)
+								m_queryString = m_queryString.substr(0,m_contentSize);
+							m_postString = m_queryString;
 							//m_queryString = tstring(m_contentData, m_contentSize);
 							if (m_contentSize > m_receiveSize)
 							{

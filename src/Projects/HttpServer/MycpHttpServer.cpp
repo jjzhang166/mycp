@@ -54,7 +54,13 @@ CMycpHttpServer::~CMycpHttpServer(void)
 	m_pageParameters.reset();
 }
 
-void CMycpHttpServer::setApplication(cgcApplication::pointer v)
+void CMycpHttpServer::setSystem(const cgcSystem::pointer& v)
+{
+	assert (v.get() != NULL);
+	m_sysParameters = v->getInitParameters();
+}
+
+void CMycpHttpServer::setApplication(const cgcApplication::pointer& v)
 {
 	assert (v.get() != NULL);
 	theApplication = v;
@@ -600,8 +606,17 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 						m_pageParameters->setProperty(CSP_SYS_VAR_UPLOADFILES, var_value);
 					}
 				}
+			}else
+			{
+				assert (m_sysParameters.get() != NULL);
+				cgcValueInfo::pointer var_temp = m_sysParameters->getParameter(string.substr(VTI_INITPARAM.size()));
+				if (var_temp.get() != NULL)
+				{
+					var_value = var_temp->copy();
+					var_value->setAttribute(cgcValueInfo::ATTRIBUTE_READONLY);
+					m_pageParameters->setProperty(string, var_value);
+				}
 			}
-
 		}break;
 	case VARIABLE_TEMP:
 		{

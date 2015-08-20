@@ -50,6 +50,7 @@ public:
 
 private:
 	cgcAttributes::pointer m_pageParameters;	// page propertys
+	cgcParameterMap::pointer m_sysParameters;
 	cgcParameterMap::pointer m_initParameters;
 	cgcServiceInterface::pointer m_fileSystemService;
 	CVirtualHost::pointer m_virtualHost;	// virtual host
@@ -63,7 +64,8 @@ private:
 
 	tstring m_servletName;
 public:
-	void setApplication(cgcApplication::pointer v);
+	void setSystem(const cgcSystem::pointer& v);
+	void setApplication(const cgcApplication::pointer& v);
 	void setFileSystemService(cgcServiceInterface::pointer v) {m_fileSystemService = v;}
 	void setServiceManager(cgcServiceManager::pointer v) {theServiceManager = v;}
 	void setVirtualHost(CVirtualHost::pointer v) {m_virtualHost = v;}
