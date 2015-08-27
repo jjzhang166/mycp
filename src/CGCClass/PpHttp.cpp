@@ -139,7 +139,7 @@ void CPpHttp::write(const char * text, size_t size)
 		}
 		delete[] m_resultBuffer;
 
-		m_bodyBufferSize += (size > INCREASE_BODY_SIZE ? size : INCREASE_BODY_SIZE);
+		m_bodyBufferSize += (size > INCREASE_BODY_SIZE ? (size+INCREASE_BODY_SIZE) : INCREASE_BODY_SIZE);
 		m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
 		if (m_resultBuffer==NULL) // *
 			m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
