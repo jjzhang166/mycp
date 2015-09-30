@@ -94,8 +94,9 @@ public:
 		try
 		{
 			tcp::endpoint endpoint = m_connection->remote_endpoint();
-			unsigned short port = endpoint.port();
-			std::string address = endpoint.address().to_string();
+			const unsigned short port = endpoint.port();
+			boost::system::error_code ignored_error;
+			const std::string address(endpoint.address().to_string(ignored_error));
 			char bufferTemp[256];
 			memset(bufferTemp, 0, 256);
 			sprintf(bufferTemp, "%s:%d", address.c_str(), port);
@@ -107,11 +108,11 @@ public:
 #else
 			printf("CcgcRemote->remote_endpoint exception. %s\n", e.what());
 #endif
-		}
+		}catch(...)
+		{}
 		m_nRequestSize = 0;
 	}
-	virtual ~CcgcRemote(void){
-	}
+	virtual ~CcgcRemote(void){}
 	
 	void UpdateConnection(const TcpConnectionPointer& pConnection) {m_connection=pConnection;}
 	void SetServerPort(int v) {m_serverPort = v;}
@@ -143,11 +144,11 @@ private:
 			return "TCP";
 	}
 	virtual const tstring & getRemoteAddr(void) const {return m_sRemoteAddr;}
-	//boost::mutex m_sendMutex;
+	boost::mutex m_sendMutex;
 	virtual int sendData(const unsigned char * data, size_t size)
 	{
 		if (data == NULL || isInvalidate()) return -1;
-		//boost::mutex::scoped_lock lock(m_sendMutex);
+		boost::mutex::scoped_lock lock(m_sendMutex);
 		try
 		{
 #ifndef WIN32
@@ -297,9 +298,9 @@ private:
 				boost::system::error_code ignored_error;
 				boost::asio::write(*m_connection->socket(), boost::asio::buffer(data, size), boost::asio::transfer_all(), ignored_error);
 			}
-		}catch (std::exception& e)
+		}catch (std::exception&)
 		{
-			std::cerr << e.what() << std::endl;
+			//std::cerr << e.what() << std::endl;
 			return -2;
 		}catch(...)
 		{
@@ -314,14 +315,21 @@ private:
 		//	unsigned long nRemoteId = m_connection->getId();
 		//	printf("***************** invalidate:%d\n",nRemoteId);
 		//}
-		if (m_connection.get()!=NULL)
+		try
 		{
-			if (bClose)
+			if (m_connection.get()!=NULL)
 			{
-				boost::system::error_code error;
-				m_connection->lowest_layer().close(error);
+				if (bClose)
+				{
+					boost::system::error_code error;
+					m_connection->lowest_layer().close(error);
+				}
+				m_connection.reset();
 			}
-			m_connection.reset();
+		}catch (std::exception&)
+		{
+		}catch(...)
+		{
 		}
 		//if (m_connection.get() != NULL)
 		//{
@@ -329,7 +337,7 @@ private:
 		//	m_connection.reset();
 		//}
 	}
-	virtual bool isInvalidate(void) const {return m_connection.get() == 0;}
+	virtual bool isInvalidate(void) const {return m_connection.get() == 0?true:false;}
 
 };
 
@@ -378,7 +386,8 @@ public:
 		{
 			m_tcpClient = TcpClient::create(shared_from_this());
 		}
-		tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp), nPort);
+		boost::system::error_code ec;
+		tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp,ec), nPort);
 		m_tcpClient->connect(m_ipService->ioservice(), endpoint);
 		m_ipService->start();
 
@@ -904,12 +913,12 @@ protected:
 			cgcRemote::pointer pCgcRemote;
 			if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote))
 			{
-				printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
+				//printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
 				return;
 			}
 			if (pCgcRemote->isInvalidate())
 			{
-				printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
+				//printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
 				((CcgcRemote*)pCgcRemote.get())->UpdateConnection(pRemote);
 			}
 			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
@@ -978,7 +987,7 @@ protected:
 		BOOST_ASSERT(pRemote.get() != 0);
 		if (m_commHandler.get() != NULL)
 		{
-			unsigned long nRemoteId = pRemote->getId();
+			const unsigned long nRemoteId = pRemote->getId();
 			//printf("******** OnRemoteAccept:%d\n",nRemoteId);
 			cgcRemote::pointer pCgcRemote;
 			if (m_mapCgcRemote.find(nRemoteId, pCgcRemote))
@@ -1010,7 +1019,7 @@ protected:
 		if (m_commHandler.get() != NULL)
 		{
 			// 9=Bad file descriptor
-			unsigned long nRemoteId = pRemote->getId();
+			const unsigned long nRemoteId = pRemote->getId();
 			//printf("******** OnRemoteClose:%d\n",nRemoteId);
 			cgcRemote::pointer pCgcRemote;
 			if (m_mapCgcRemote.find(nRemoteId, pCgcRemote, true))
@@ -1040,7 +1049,8 @@ protected:
 				clock_gettime(CLOCK_REALTIME, &timeSpec);
 				timeSpec.tv_sec += 3;
 
-				int s = sem_timedwait(&m_semDoClose, &timeSpec);
+				sem_timedwait(&m_semDoClose, &timeSpec);
+				//int s = sem_timedwait(&m_semDoClose, &timeSpec);
 				//if (s == -1 || errno == EINTR)
 				////if (s == -1 && errno == EINTR)
 				//	break;

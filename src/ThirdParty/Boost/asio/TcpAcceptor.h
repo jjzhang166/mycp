@@ -34,18 +34,20 @@ public:
 
 		if (m_acceptor == NULL)
 			m_acceptor = new tcp::acceptor(ioservice, tcp::endpoint(tcp::v4(), tcpPort));
-		m_acceptor->set_option(boost::asio::socket_base::reuse_address(true));
+		boost::system::error_code ec;
+		m_acceptor->set_option(boost::asio::socket_base::reuse_address(true),ec);
 		//m_acceptor->set_option(boost::asio::socket_base::enable_connection_aborted(true));
 		//m_acceptor->set_option(boost::asio::socket_base::keep_alive(true));
-		m_acceptor->set_option(boost::asio::socket_base::send_buffer_size(64*1024));
-		m_acceptor->set_option(boost::asio::socket_base::receive_buffer_size(64*1024));
+		m_acceptor->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
+		m_acceptor->set_option(boost::asio::socket_base::receive_buffer_size(64*1024),ec);
 		start_accept();
 	}
 	void stop(void)
 	{
 		if (m_acceptor)
 		{
-			m_acceptor->close();
+			boost::system::error_code ec;
+			m_acceptor->close(ec);
 			delete m_acceptor;
 			m_acceptor = NULL;
 		}

@@ -110,7 +110,7 @@ private:
 #ifdef WIN32
 					printf("do_event_loop exception. lasterror=%d\n", GetLastError());
 #else
-					printf("do_event_loop exception. n");
+					printf("do_event_loop exception. \n");
 #endif
 					iopservice->on_exception();
 					break;

@@ -93,7 +93,8 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	m_tcpClient = TcpClient::create(clientHandler);
 	m_connectReturned = false;
 	// ?? bindPort
-	tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
+	boost::system::error_code ec;
+	tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str(),ec), nPort);
 #ifdef USES_OPENSSL
 	m_tcpClient->connect(m_ipService->ioservice(), endpoint,ctx);
 #else

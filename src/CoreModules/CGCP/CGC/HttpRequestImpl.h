@@ -79,6 +79,11 @@ private:
 		cgcValueInfo::pointer var = getParameter(sParamName);
 		return var.get()==NULL?sDefault:var->toString();
 	}
+	virtual tstring getParameterValue(const tstring & sParamName, const tstring& sDefault) const
+	{
+		cgcValueInfo::pointer var = getParameter(sParamName);
+		return var.get()==NULL?sDefault:var->toString();
+	}
 	virtual int getParameterValue(const tstring & sParamName, int nDefault) const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);

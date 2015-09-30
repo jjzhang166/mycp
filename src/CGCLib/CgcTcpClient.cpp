@@ -78,7 +78,8 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 	m_connectReturned = false;
 	// ?? bindPort
-	tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
+	boost::system::error_code ec;
+	tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str(),ec), nPort);
 	m_tcpClient->connect(m_ipService->ioservice(), endpoint);
 	m_ipService->start();
 	while (!m_connectReturned)
@@ -92,13 +93,13 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcTcpClient::stopClient(void)
 {
-	if (m_tcpClient.get() != 0)
-	{
-		m_tcpClient->disconnect();
-	}
 	if (m_ipService.get() != 0)
 	{
 		m_ipService->stop();
+	}
+	if (m_tcpClient.get() != 0)
+	{
+		m_tcpClient->disconnect();
 	}
 	m_tcpClient.reset();
 	m_ipService.reset();

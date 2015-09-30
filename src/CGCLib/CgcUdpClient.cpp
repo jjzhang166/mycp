@@ -80,13 +80,13 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcUdpClient::stopClient(void)
 {
-	if (m_udpClient.get() != 0)
-	{
-		m_udpClient->stop();
-	}
 	if (m_ipService.get() != 0)
 	{
 		m_ipService->stop();
+	}
+	if (m_udpClient.get() != 0)
+	{
+		m_udpClient->stop();
 	}
 	m_udpClient.reset();
 	m_ipService.reset();
@@ -138,9 +138,9 @@ bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 		if (m_ipRemote.getport()!=nPort || m_ipRemote.getip()!=sIp)
 		{
 			m_ipRemote.address(sIp,nPort);
-			m_endpointRemote.address(boost::asio::ip::address_v4::from_string(sIp.c_str()));
+			boost::system::error_code ec;
+			m_endpointRemote.address(boost::asio::ip::address_v4::from_string(sIp.c_str(),ec));
 			m_endpointRemote.port(nPort);
-			//m_endpointRemote = udp::endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str()), nPort);
 		}
 		if (m_udpClient.get()!=NULL && m_udpClient->socket()!=NULL)
 		{

@@ -24,7 +24,8 @@ public:
 
 	void close(void)
 	{
-		lowest_layer().close();
+		boost::system::error_code ec;
+		lowest_layer().close(ec);
 	}
 	typename T::lowest_layer_type& lowest_layer(void)
 	{
@@ -48,12 +49,13 @@ public:
     template <typename MutableBufferSequence>
     std::size_t read_some(const MutableBufferSequence& buffers)
     {
+		boost::system::error_code ec;
 #ifdef USES_OPENSSL
 		if(is_ssl()) 
-            return get_ssl_socket()->read_some(buffers);
+            return get_ssl_socket()->read_some(buffers,ec);
         else
 #endif
-            return get_socket()->read_some(buffers);
+            return get_socket()->read_some(buffers,ec);
     }
     
     template <typename MutableBufferSequence>
@@ -93,12 +95,13 @@ public:
     template <typename ConstBufferSequence>
     std::size_t write_some(const ConstBufferSequence& buffers)
     {
+		boost::system::error_code ec;
 #ifdef USES_OPENSSL
 		if(is_ssl())
-            return get_ssl_socket()->write_some(buffers);
+            return get_ssl_socket()->write_some(buffers,ec);
         else
 #endif
-            return get_socket()->write_some(buffers);
+            return get_socket()->write_some(buffers,ec);
     }
 //
 //   template <typename ConstBufferSequence>
@@ -115,23 +118,25 @@ public:
     template <typename ConstBufferSequence>
     std::size_t write(const ConstBufferSequence& buffers)
     {
+		boost::system::error_code ec;
 #ifdef USES_OPENSSL
 		if(is_ssl())
-            return get_ssl_socket()->write(buffers);
+            return get_ssl_socket()->write(buffers,ec);
         else
 #endif
-            return get_socket()->write(buffers);
+            return get_socket()->write(buffers,ec);
     }
 
     template <typename MutableBufferSequence, typename ReadHandler>
     void async_write_some(const MutableBufferSequence& buffers,BOOST_ASIO_MOVE_ARG(ReadHandler) handler)
     {    
+		boost::system::error_code ec;
 #ifdef USES_OPENSSL
 		if(is_ssl())
-            get_ssl_socket()->async_write_some(buffers,handler);
+            get_ssl_socket()->async_write_some(buffers,handler,ec);
         else
 #endif
-            get_socket()->async_write_some(buffers,handler);
+            get_socket()->async_write_some(buffers,handler,ec);
     }
 
 //	//template <typename ConnectHandler>

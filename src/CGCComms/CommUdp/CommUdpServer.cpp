@@ -94,8 +94,9 @@ public:
 	{
 		assert (m_handler != NULL);
 		assert (m_socket != NULL);
-		unsigned short port = m_endpoint.port();
-		std::string address = m_endpoint.address().to_string();
+		const unsigned short port = m_endpoint.port();
+		boost::system::error_code ignored_error;
+		const std::string address(m_endpoint.address().to_string(ignored_error));
 
 		char bufferTemp[256];
 		memset(bufferTemp, 0, 256);
@@ -140,9 +141,8 @@ private:
 			//boost::mutex::scoped_lock lock(m_sendMutex);
 			boost::system::error_code ignored_error;
 			m_socket->send_to(boost::asio::buffer(data, size), m_endpoint, 0, ignored_error);
-		}catch (std::exception& e)
+		}catch (std::exception&)
 		{
-			std::cerr << e.what() << std::endl;
 			return -2;
 		}catch(...)
 		{

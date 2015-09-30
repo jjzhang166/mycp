@@ -171,7 +171,8 @@ public:
 		{
 			printf("**** handle_handshake %s,%d\n",e.message().c_str(),e.value());
 			try{
-				m_socket->get_ssl_socket()->shutdown();
+				boost::system::error_code ec;
+				m_socket->get_ssl_socket()->shutdown(ec);
 			}catch (std::exception&)
 			{}
 			m_socket->close();
@@ -181,7 +182,7 @@ public:
 	void write_handler(const boost::system::error_code& ec)
      {
 		 if(ec)
-			 std::cout<< "·¢ËÍÊ§°Ü!" << std::endl;
+			 std::cout<< "Send data error!" << std::endl;
 		 //else
 			// std::cout<< *pstr << " ÒÑ·¢ËÍ" << std::endl;
 	}

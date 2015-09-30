@@ -157,10 +157,17 @@ private:
 
 #define CDBC_RESULTSET(r,row,field) CCDBCResultSet::pointer(new CCDBCResultSet(r,row,field))
 
+//const int escape_size = 1;
+//const std::string escape_in[] = {"''"};
+//const std::string escape_out[] = {"'"};
+
+//const int escape_size = 9;
+//const std::string escape_in[] = {"//","''","/[","]","/%","/$","/_","/(","/)"};
+//const std::string escape_out[] = {"/","'","[","]","%","$","_","(",")"};
+
 const int escape_size = 2;
 const std::string escape_in[] = {"&lsquo;","&mse0;"};
 const std::string escape_out[] = {"'","\\"};
-
 
 class CSqliteCdbc
 	: public cgcCDBCService
@@ -281,15 +288,15 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	static int sqlite_callback(
-		void* pv,    /* 由 sqlite3_exec() 的第四个参数传递而来 */
-		int argc,        /* 表的列数 */
-		char** argv,    /* 指向查询结果的指针数组, 可以由 sqlite3_column_text() 得到 */
-		char** col        /* 指向表头名的指针数组, 可以由 sqlite3_column_name() 得到 */
-		)
-	{
-		return 0;
-	}
+	//static int sqlite_callback(
+	//	void* pv,    /* 由 sqlite3_exec() 的第四个参数传递而来 */
+	//	int argc,        /* 表的列数 */
+	//	char** argv,    /* 指向查询结果的指针数组, 可以由 sqlite3_column_text() 得到 */
+	//	char** col        /* 指向表头名的指针数组, 可以由 sqlite3_column_name() 得到 */
+	//	)
+	//{
+	//	return 0;
+	//}
 	virtual cgc::bigint execute(const char * exeSql)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
@@ -304,11 +311,16 @@ private:
 		{
 			char *zErrMsg = 0;
 			boost::mutex::scoped_lock lock(m_mutex);
-			const int rc = sqlite3_exec( m_pSqlite , exeSql, 0, 0, &zErrMsg);
+			int rc = sqlite3_exec( m_pSqlite , exeSql, 0, 0, &zErrMsg);
+			if (rc==SQLITE_BUSY)
+			{
+				sqlite3_free(zErrMsg);
+				rc = sqlite3_exec( m_pSqlite , exeSql, 0, 0, &zErrMsg);
+			}
 			if ( rc!=SQLITE_OK )
 			{
 				lock.unlock();
-				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s); %s\n", exeSql,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s); %d=%s\n", exeSql,rc,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -331,10 +343,16 @@ private:
 			int nrow = 0, ncolumn = 0;  
 			char *zErrMsg = 0;
 			char **azResult = 0; //二维数组存放结果  
-			const int rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg );
+			//boost::mutex::scoped_lock lock(m_mutex);
+			int rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg);
+			if (rc==SQLITE_BUSY)
+			{
+				sqlite3_free(zErrMsg);
+				rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg);
+			}
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %s\n", selectSql,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rc,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -366,10 +384,16 @@ private:
 			char *zErrMsg = 0;
 			//const int rc = sqlite3_get_table( m_pSqlite , selectSql , 0, &nrow , &ncolumn , &zErrMsg );
 			char **azResult = 0; //二维数组存放结果  
-			const int rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg );
+			//boost::mutex::scoped_lock lock(m_mutex);
+			int rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg );
+			if (rc==SQLITE_BUSY)
+			{
+				sqlite3_free(zErrMsg);
+				rc = sqlite3_get_table( m_pSqlite , selectSql , &azResult , &nrow , &ncolumn , &zErrMsg );
+			}
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %s\n", selectSql,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rc,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
