@@ -7,8 +7,13 @@
 #include <openssl/bio.h>  
 #include <string>  
 #ifdef WIN32
-#pragma comment(lib, "libeay32.lib")  
-#pragma comment(lib, "ssleay32.lib")  
+#ifdef _DLL
+#pragma comment(lib, "libeay32.lib")
+#pragma comment(lib, "ssleay32.lib")
+#else
+#pragma comment(lib, "libeay32s.lib")
+#pragma comment(lib, "ssleay32s.lib")
+#endif
 #endif
 
 #define	RSA_BITS 2048

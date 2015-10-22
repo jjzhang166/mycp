@@ -319,7 +319,7 @@ void CGCApp::AppInit(bool bNTService)
 	m_pProcDataResend = new boost::thread(attrs,boost::bind(&do_dataresend, this));
 }
 
-void CGCApp::AppStart(void)
+void CGCApp::AppStart(int nWaitSeconds)
 {
 	if (!m_bStopedApp)
 	{
@@ -337,7 +337,9 @@ void CGCApp::AppStart(void)
 //	LoadAuthsConf();
 	LoadSystemParams();
 
-	for (int i=0; i<m_parseDefault.getWaitSleep(); i++)
+	nWaitSeconds += m_parseDefault.getWaitSleep();
+	//printf("****** nWaitSeconds=%d\n",nWaitSeconds);
+	for (int i=0; i<nWaitSeconds; i++)
 	{
 #ifdef WIN32
 		Sleep(1000);
@@ -453,12 +455,12 @@ void kill_op(int signum,siginfo_t *info,void *myact)
 //}
 #endif
 
-int CGCApp::MyMain(bool bService, const std::string& sProtectDataFile)
+int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDataFile)
 {
 	m_bService = bService;
 	m_sProtectDataFile = sProtectDataFile;
 	AppInit(false);
-	AppStart();
+	AppStart(nWaitSeconds);
 
 	//for (int i=0;i<20;i++)
 	//{
@@ -569,14 +571,14 @@ int CGCApp::MyMain(bool bService, const std::string& sProtectDataFile)
 			PrintHelp();
 		}else if (command.compare(_T("start")) == 0)
 		{
-			AppStart();
+			AppStart(0);
 		}else if (command.compare(_T("stop")) == 0)
 		{
 			AppStop();
 		}else if (command.compare(_T("restart")) == 0)
 		{
 			AppStop();
-			AppStart();
+			AppStart(0);
 		}else
 		{
 			std::cout << "ERROR CMD: ";
@@ -2075,7 +2077,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 
 		const tstring & sCallName = pcgcParser->getFunctionName();
 		tstring methodName(sCallName);
-		tstring sSessionId = pcgcParser->getSid();
+		tstring sSessionId(pcgcParser->getSid());
 		if (pRemoteSessionImpl == NULL && !sSessionId.empty())
 		{
 			//printf("**** ProcAppProto Session NULL sid=%s\n",sSessionId.c_str());
@@ -2158,7 +2160,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		}
 
 		ModuleItem::pointer pModuleItem;
-		if (pRemoteSessionImpl)
+		if (pRemoteSessionImpl!=NULL)
 		{
 			pModuleItem = pRemoteSessionImpl->getModuleItem("",true);	// ?GET DEFAULT
 			//printf("**** ProcAppProto pModuleItem=%d\n",(int)pModuleItem.get());
@@ -2176,6 +2178,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s', cid '%d', sign=\"%d\"\n"), sSessionId.c_str(), methodName.c_str(), nCallId, nSign);
 
 			///////////// app call /////////////////
+			int nApiLockSeconds = -1;
 			boost::mutex::scoped_lock * lockWait = NULL;
 			CModuleImpl * pModuleImpl = NULL;
 			cgcApplication::pointer applicationImpl;
@@ -2190,7 +2193,26 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			{
 				pModuleImpl = (CModuleImpl*)applicationImpl.get();
 				retCode = 0;
-				// lock state
+				//if (pModuleImpl->m_moduleLocks.isLock(methodName,nApiLockSeconds) && nApiLockSeconds>=0)
+				//{
+				//	// nApiLockSeconds=-1; lock(?)
+				//	// nApiLockSeconds>=0; lock return
+				//	printf("********* lock api %s, seconds=%d\n",methodName.c_str(),nApiLockSeconds);
+				//	const time_t tNow = time(0);
+				//	time_t tLastLockTime = 0;
+				//	pRemoteSessionImpl->m_tLockApiList.insert(methodName,tNow,false,&tLastLockTime);
+				//	if (tLastLockTime>0)
+				//	{
+				//		if (nApiLockSeconds==0 || (tLastLockTime+nApiLockSeconds)>=tNow)
+				//		{
+				//			printf("********* lock api %s, seconds=%d, %d waitting...\n",methodName.c_str(),nApiLockSeconds,(int)(tNow-tLastLockTime));
+				//			((CSotpRequestImpl*)requestImpl.get())->SetSessionApiLocked(true);
+				//		}else
+				//		{
+				//			pRemoteSessionImpl->m_tLockApiList.insert(methodName,tNow,true);
+				//		}
+				//	}
+				//}else
 				if (pModuleItem->getLockState() == ModuleItem::LS_WAIT)
 				{
 					// callref
@@ -2224,6 +2246,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 				try
 				{
 					((CSotpRequestImpl*)requestImpl.get())->setSession(remoteSessionImpl);
+					//((CSotpRequestImpl*)requestImpl.get())->SetApi(methodName);
 					((CSotpResponseImpl*)responseImpl.get())->setSession(remoteSessionImpl);
 					retCode = ProcLibMethod(pModuleItem, methodName, requestImpl, responseImpl);
 					m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' cid '%d', returnCode '%d'\n"), sSessionId.c_str(), nCallId, retCode);
@@ -2247,6 +2270,28 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			// unlock
 			if (lockWait)
 				delete lockWait;
+			
+			//if (((CSotpRequestImpl*)requestImpl.get())->GetIsInSessionApiLocked()==0)
+			//{
+			//	pRemoteSessionImpl->removeSessionApiLock(methodName);
+			//}
+			//if (retCode>=0)
+			//{
+			//	const int nInSessionApiLoekck = ((CSotpRequestImpl*)requestImpl.get())->GetIsInSessionApiLocked();
+			//	if (nInSessionApiLoekck==0 ||
+			//		(nInSessionApiLoekck>0 && retCode>=0))
+			//	{
+			//		pRemoteSessionImpl->removeSessionApiLock(methodName);
+			//	}
+			//}
+			//if (pRemoteSessionImpl!=NULL && nApiLockSeconds>=0)
+			//{
+			//	if (!requestImpl->isInSessionApiLocked() ||					// 未锁定，正常调用
+			//		(requestImpl->isInSessionApiLocked() && retCode>=0))	// 被锁定，正常调用
+			//	{
+			//		pRemoteSessionImpl->m_tLockApiList.remove(methodName);
+			//	}
+			//}
 		}
 	}else
 	{
@@ -2619,6 +2664,21 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 				m_logModuleImpl.log(LOG_WARNING, _T("'%s' authAccount, please setting '%s'\n"), moduleItem->getModule().c_str(), xmlFile.c_str());
 		}
 
+		//// lock apis
+		//{
+		//	tstring xmlFile(moduleImpl->getAppConfPath());
+		//	xmlFile.append(_T("/session-api-locks.xml"));
+
+		//	namespace fs = boost::filesystem;
+		//	boosttpath pathXmlFile(xmlFile);
+		//	boost::system::error_code ec;
+		//	if (fs::exists(pathXmlFile,ec))
+		//	{
+		//		pModuleImpl->m_moduleLocks.emptyLocks();
+		//		pModuleImpl->m_moduleLocks.load(xmlFile);
+		//	}
+		//}
+
 		// init parameter
 		tstring xmlFile(moduleImpl->getAppConfPath());
 		xmlFile.append(_T("/params.xml"));
@@ -2654,7 +2714,9 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 #else
 					FPCGC_Module_Free farProc_Free = (FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
 #endif
-					const int nMaxTryCount = m_parseDefault.getRetryCount()>10?10:m_parseDefault.getRetryCount();
+					const int nMaxTryCount = m_parseDefault.getRetryCount()==0?0x7fffffff:m_parseDefault.getRetryCount();
+					//printf("**** RetryCount=%d,%d\n",nMaxTryCount,m_parseDefault.getRetryCount());
+					//const int nMaxTryCount = m_parseDefault.getRetryCount()>10?10:m_parseDefault.getRetryCount();
 					for (int i=0;i<nMaxTryCount;i++)
 					{
 						m_logModuleImpl.log(LOG_INFO, _T("CGC_Module_Init '%s' retry %d...\n"), moduleItem->getName().c_str(),i+1);

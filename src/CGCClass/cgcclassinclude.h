@@ -26,6 +26,8 @@
 
 
 #ifdef WIN32
+
+#ifdef _DLL
 #ifdef _DEBUG
 
 #if (_MSC_VER == 1200)
@@ -55,6 +57,40 @@
 #endif
 
 #endif // _DEBUG
+
+#else
+
+#ifdef _DEBUG
+
+#if (_MSC_VER == 1200)
+#pragma comment(lib, "CGCClass60sd.lib")
+#elif (_MSC_VER == 1300)
+#pragma comment(lib, "CGCClass70sd.lib")
+#elif (_MSC_VER == 1310)
+#pragma comment(lib, "CGCClass71sd.lib")
+#elif (_MSC_VER == 1400)
+#pragma comment(lib, "CGCClass80sd.lib")
+#elif (_MSC_VER == 1500)
+#pragma comment(lib, "CGCClass90sd.lib")
+#endif
+
+#else // _DEBUG
+
+#if (_MSC_VER == 1200)
+#pragma comment(lib, "CGCClass60s.lib")
+#elif (_MSC_VER == 1300)
+#pragma comment(lib, "CGCClass70s.lib")
+#elif (_MSC_VER == 1310)
+#pragma comment(lib, "CGCClass71s.lib")
+#elif (_MSC_VER == 1400)
+#pragma comment(lib, "CGCClass80s.lib")
+#elif (_MSC_VER == 1500)
+#pragma comment(lib, "CGCClass90s.lib")
+#endif
+
+#endif // _DEBUG
+#endif
+
 #endif // WIN32
 
 #endif // __cgcclassinclude_h__

@@ -47,7 +47,7 @@ public:
 private:
 	virtual void Run(){
 		m_App->AppInit();
-		m_App->AppStart();
+		m_App->AppStart(0);
 	}
 	virtual void Stop(){
 		m_App->AppExit();

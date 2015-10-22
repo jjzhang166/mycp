@@ -121,6 +121,8 @@ public:
 			try
 			{
 				mysql_free_result(m_resultset);
+			}catch(std::exception&)
+			{
 			}catch(...)
 			{}
 			CMysqlPool::SinkPut(m_pSink);
@@ -185,6 +187,8 @@ protected:
 					record.push_back(CGC_VALUEINFO(s));
 				}
 			}
+		}catch(std::exception&)
+		{
 		}catch(...)
 		{
 			// ...
@@ -234,6 +238,8 @@ public:
 		//: m_driver(NULL), m_con(NULL)
 		//: m_mysql(NULL)
 		: m_tLastTime(0)
+		, m_nLastErrorCode(0), m_tLastErrorTime(0)
+
 	{}
 	virtual ~CMysqlCdbc(void)
 	{
@@ -330,6 +336,9 @@ private:
 				m_mysqlPool.PoolExit();
 				return false;
 			}
+		}catch(std::exception&)
+		{
+			return false;
 		}catch(...)
 		{
 			return false;
@@ -368,6 +377,8 @@ private:
 			//	m_mysql = NULL;
 			//	m_tLastTime = time(0);
 			//}
+		}catch(std::exception&)
+		{
 		}catch(...)
 		{
 		}
@@ -390,7 +401,16 @@ private:
 		cgc::bigint ret = 0;
 		try
 		{
-			pSink = m_mysqlPool.SinkGet();
+			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
+			{
+				return -1;
+			}
+			pSink = m_mysqlPool.SinkGet(m_nLastErrorCode);
+			if (pSink==NULL)
+			{
+				m_tLastErrorTime = time(0);
+				return -1;
+			}
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, exeSql))
 			{
@@ -507,12 +527,13 @@ private:
                   2020                  	                  CR_NET_PACKET_TOO_LARGE          
 				  */
 				//mysql_ping(nMysqlError); // mysql_ping需要定时做心跳
-				const unsigned int nMysqlError = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", exeSql,nMysqlError,mysql_error(pMysql)));
-				if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
-					nMysqlError==2013)		// CR_SERVER_LOST
+				m_tLastErrorTime = time(0);
+				m_nLastErrorCode = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", exeSql,m_nLastErrorCode,mysql_error(pMysql)));
+				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
+					//printf("******* Reconnect 888");
 					if (!pSink->Reconnect())
 					{
 						// **重连失败
@@ -534,6 +555,7 @@ private:
 					return -1;
 				}
 			}
+			m_nLastErrorCode = 0;
 			//CR_COMMANDS_OUT_OF_SYNC
 			//CR_SERVER_GONE_ERROR
 			//mysql_ping(
@@ -548,9 +570,20 @@ private:
 				mysql_free_result(result);
 			}while( !mysql_next_result( pMysql ) );
 			CMysqlPool::SinkPut(pSink);
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			//printf("******* Reconnect 999");
+			if (!pSink->Reconnect())
+			{
+				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+			}
+			CMysqlPool::SinkPut(pSink);
+			return -1;
 		}catch(...)
 		{
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			//printf("******* Reconnect aaa");
 			if (!pSink->Reconnect())
 			{
 				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
@@ -579,16 +612,26 @@ private:
 		cgc::bigint rows = 0;
 		try
 		{
-			pSink = m_mysqlPool.SinkGet();
+			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
+			{
+				return -1;
+			}
+			pSink = m_mysqlPool.SinkGet(m_nLastErrorCode);
+			if (pSink==NULL)
+			{
+				m_tLastErrorTime = time(0);
+				return -1;
+			}
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, selectSql))
 			{
-				const unsigned int nMysqlError = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,nMysqlError,mysql_error(pMysql)));
-				if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
-					nMysqlError==2013)		// CR_SERVER_LOST
+				m_tLastErrorTime = time(0);
+				m_nLastErrorCode = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
+				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
+					//printf("******* Reconnect 222");
 					if (!pSink->Reconnect())
 					{
 						// **重连失败
@@ -609,7 +652,33 @@ private:
 					CMysqlPool::SinkPut(pSink);
 					return -1;
 				}
+
+				//if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
+				//	nMysqlError==2013)		// CR_SERVER_LOST
+				//{
+				//	// **重新连接
+				//	if (!pSink->Reconnect())
+				//	{
+				//		// **重连失败
+				//		CMysqlPool::SinkPut(pSink);
+				//		return -1;
+				//	}
+				//	// **重连成功
+				//	pMysql = pSink->GetMYSQL();
+				//	if(mysql_query(pMysql, selectSql))
+				//	{
+				//		CMysqlPool::SinkPut(pSink);
+				//		return -1;
+				//	}
+				//	// **重新查询成功
+				//}else
+				//{
+				//	// **其他错误
+				//	CMysqlPool::SinkPut(pSink);
+				//	return -1;
+				//}
 			}
+			m_nLastErrorCode = 0;
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
 			rows = (cgc::bigint)mysql_num_rows(resultset);
 			if (rows > 0)
@@ -622,9 +691,20 @@ private:
 				resultset = NULL;
 				CMysqlPool::SinkPut(pSink);
 			}
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			//printf("******* Reconnect 333");
+			if (!pSink->Reconnect())
+			{
+				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+			}
+			CMysqlPool::SinkPut(pSink);
+			return -1;
 		}catch(...)
 		{
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			//printf("******* Reconnect 444");
 			if (!pSink->Reconnect())
 			{
 				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
@@ -659,6 +739,8 @@ private:
 		//}
 		//return resultset == NULL ? 0 : (int)resultset->rowsCount();
 	}
+	int m_nLastErrorCode;
+	time_t m_tLastErrorTime;
 	virtual cgc::bigint select(const char * selectSql)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
@@ -668,16 +750,26 @@ private:
 		cgc::bigint rows = 0;
 		try
 		{
-			pSink = m_mysqlPool.SinkGet();
+			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
+			{
+				return -1;
+			}
+			pSink = m_mysqlPool.SinkGet(m_nLastErrorCode);
+			if (pSink==NULL)
+			{
+				m_tLastErrorTime = time(0);
+				return -1;
+			}
 			MYSQL * pMysql = pSink->GetMYSQL();
 			if(mysql_query(pMysql, selectSql))
 			{
-				const unsigned int nMysqlError = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,nMysqlError,mysql_error(pMysql)));
-				if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
-					nMysqlError==2013)		// CR_SERVER_LOST
+				m_tLastErrorTime = time(0);
+				m_nLastErrorCode = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
+				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
+					//printf("******* Reconnect 555");
 					if (!pSink->Reconnect())
 					{
 						// **重连失败
@@ -698,15 +790,52 @@ private:
 					CMysqlPool::SinkPut(pSink);
 					return -1;
 				}
+
+				//if (nMysqlError==2006 ||	// CR_SERVER_GONE_ERROR
+				//	nMysqlError==2013)		// CR_SERVER_LOST
+				//{
+				//	// **重新连接
+				//	if (!pSink->Reconnect())
+				//	{
+				//		// **重连失败
+				//		CMysqlPool::SinkPut(pSink);
+				//		return -1;
+				//	}
+				//	// **重连成功
+				//	pMysql = pSink->GetMYSQL();
+				//	if(mysql_query(pMysql, selectSql))
+				//	{
+				//		CMysqlPool::SinkPut(pSink);
+				//		return -1;
+				//	}
+				//	// **重新查询成功
+				//}else
+				//{
+				//	// **其他错误
+				//	CMysqlPool::SinkPut(pSink);
+				//	return -1;
+				//}
 			}
+			m_nLastErrorCode = 0;
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
 			rows = (cgc::bigint)mysql_num_rows(resultset);
 			CMysqlPool::SinkPut(pSink);
 			mysql_free_result(resultset);
 			resultset = NULL;
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			//printf("******* Reconnect 666");
+			if (!pSink->Reconnect())
+			{
+				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+			}
+			CMysqlPool::SinkPut(pSink);
+			return -1;
 		}catch(...)
 		{
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			//printf("******* Reconnect 777");
 			if (!pSink->Reconnect())
 			{
 				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));

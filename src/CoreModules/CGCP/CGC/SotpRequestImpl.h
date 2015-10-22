@@ -38,14 +38,22 @@ class CSotpRequestImpl
 {
 private:
 	cgcParserSotp::pointer m_sotpParser;
+	//std::string m_sApi;
 
 public:
 	CSotpRequestImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser)
 		: CRequestImpl(pcgcRemote, pcgcParser)
 		, m_sotpParser(pcgcParser)
+		, m_nInSessionApiLocked(-1), m_bUnlockForce(false), m_bLockType(0)
 	{}
 	virtual ~CSotpRequestImpl(void)
-	{}
+	{
+		unlockSessionApi();
+	}
+
+	//void SetApi(const std::string& sApi) {m_sApi = sApi;}
+	//const std::string& GetApi(void) const {return m_sApi;}
+	//int GetIsInSessionApiLocked(void) const {return m_bInSessionApiLocked;}
 
 private:
 	// for attach
@@ -73,6 +81,29 @@ private:
 	virtual cgcSession::pointer getSession(void) const {return CRequestImpl::getSession();}
 	virtual const char * getContentData(void) const {return CRequestImpl::getContentData();}
 	virtual size_t getContentLength(void) const {return CRequestImpl::getContentLength();}
+	virtual bool lockSessionApi(int nLockType, int nLockSeconds=0, bool bUnlockForce=false){
+	//virtual bool isInSessionApiLocked(int nLockSeconds) {
+	
+		cgcSession::pointer pSession = getSession();
+		const bool bInSessionApiLocked = (pSession.get()!=NULL)?((CSessionImpl*)pSession.get())->lockSessionApi(nLockType,nLockSeconds):false;
+		m_nInSessionApiLocked = bInSessionApiLocked?1:0;
+		m_bUnlockForce = bUnlockForce;
+		m_bLockType = nLockType;
+		return bInSessionApiLocked;
+	}
+	virtual void unlockSessionApi(void){
+		if (m_nInSessionApiLocked==0 || m_bUnlockForce)
+		{
+			m_nInSessionApiLocked = -1;
+			m_bUnlockForce = false;
+			cgcSession::pointer pSession = getSession();
+			if (pSession.get()!=NULL)
+			{
+				((CSessionImpl*)pSession.get())->unlockSessionApi(m_bLockType);
+			}
+		}
+	}
+
 	virtual tstring getScheme(void) const {return CRequestImpl::getScheme();}
 	virtual int getProtocol(void) const {return CRequestImpl::getProtocol();}
 	virtual int getServerPort(void) const {return CRequestImpl::getServerPort();}
@@ -82,7 +113,10 @@ private:
 	virtual const tstring & getRemoteHost(void) const {return CRequestImpl::getRemoteHost();}
 	virtual tstring getRemoteAccount(void) const {return CRequestImpl::getRemoteAccount();}
 	virtual tstring getRemoteSecure(void) const {return CRequestImpl::getRemoteSecure();}
-
+private:
+	int m_nInSessionApiLocked;
+	bool m_bUnlockForce;
+	int m_bLockType;
 };
 
 #endif // _sotprequestimpl_head_included__

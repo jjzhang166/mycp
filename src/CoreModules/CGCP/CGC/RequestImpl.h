@@ -35,10 +35,12 @@ protected:
 	cgcAttributes::pointer m_attributes;
 	const char * m_pContentData;
 	size_t m_nContentLength;
+	bool m_bInSessionApiLocked;
 public:
 	CRequestImpl(cgcRemote::pointer pcgcRemote, cgcParserBase::pointer pcgcParser)
 		: m_cgcRemote(pcgcRemote), m_pcgcParser(pcgcParser)
 		, m_pContentData(NULL), m_nContentLength(0)
+		, m_bInSessionApiLocked(false)
 	{
 		BOOST_ASSERT (m_cgcRemote.get() != 0);
 		//BOOST_ASSERT (m_pcgcParser.get() != 0);
@@ -52,7 +54,7 @@ public:
 	void setSession(const cgcSession::pointer& session) {m_session = session;}
 	void setAttributes(const cgcAttributes::pointer& attributes) {m_attributes=attributes;}
 	void setContent(const char * pData, size_t nLength) {m_pContentData = pData; m_nContentLength = nLength;}
-
+	void SetSessionApiLocked(bool bInLocked) {m_bInSessionApiLocked = bInLocked;}
 protected:
 	virtual void setProperty(const tstring & propertyName, const tstring & propertyValue, bool clear)
 	{
@@ -96,6 +98,8 @@ protected:
 	virtual cgcSession::pointer getSession(void) const {return m_session;}
 	virtual const char * getContentData(void) const {return m_pContentData;}
 	virtual size_t getContentLength(void) const {return m_nContentLength;}
+	virtual bool lockSessionApi(int nLockApi, int nTimeoutSeconds=0, bool bUnlockForce=false) {return false;}
+	virtual void unlockSessionApi(void) {}
 
 	//virtual size_t getContentLength(void) const {return 0;}
 //	virtual const tstring & getContentType(void) const {return m_sContentType;}

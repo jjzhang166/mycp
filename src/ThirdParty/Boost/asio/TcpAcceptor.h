@@ -57,7 +57,7 @@ private:
 	void start_accept(void)
 	{
 		// 这里不做TRY CATCH，由IOSERVICE统一处理，有问题，会自动重启服务
-		//try
+		try
 		{
 			if (m_acceptor != NULL) 
 			{
@@ -79,14 +79,15 @@ private:
 						boost::asio::placeholders::error));
 				}
 			}
-//		}catch (std::exception & e)
-//		{
-//#ifdef WIN32
-//			printf("start_accept exception. %s, lasterror=%d\n", e.what(), GetLastError());
-//#else
-//			printf("start_accept exception. %s\n", e.what());
-//#endif
-		}
+		}catch (std::exception & e)
+		{
+#ifdef WIN32
+			printf("start_accept exception. %s, lasterror=%d\n", e.what(), GetLastError());
+#else
+			printf("start_accept exception. %s\n", e.what());
+#endif
+		}catch(...)
+		{}
 	}
 
 	void handle_accept(const TcpConnectionPointer& new_connection,

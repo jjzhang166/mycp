@@ -23,6 +23,8 @@
 #include "SotpClient.h"
 
 #ifdef WIN32
+#ifdef _DLL
+
 #ifdef _DEBUG
 
 #if (_MSC_VER == 1200)
@@ -52,7 +54,43 @@
 #endif
 
 #endif // _DEBUG
+
+#else	// _DLL
+
+#ifdef _DEBUG
+
+#if (_MSC_VER == 1200)
+#pragma comment(lib, "CGCLib60sd.lib")
+#elif (_MSC_VER == 1300)
+#pragma comment(lib, "CGCLib70sd.lib")
+#elif (_MSC_VER == 1310)
+#pragma comment(lib, "CGCLib71sd.lib")
+#elif (_MSC_VER == 1400)
+#pragma comment(lib, "CGCLib80sd.lib")
+#elif (_MSC_VER == 1500)
+#pragma comment(lib, "CGCLib90sd.lib")
+#endif
+
+#else // _DEBUG
+
+#if (_MSC_VER == 1200)
+#pragma comment(lib, "CGCLib60s.lib")
+#elif (_MSC_VER == 1300)
+#pragma comment(lib, "CGCLib70s.lib")
+#elif (_MSC_VER == 1310)
+#pragma comment(lib, "CGCLib71s.lib")
+#elif (_MSC_VER == 1400)
+#pragma comment(lib, "CGCLib80s.lib")
+#elif (_MSC_VER == 1500)
+#pragma comment(lib, "CGCLib90s.lib")
+#endif
+
+#endif // _DEBUG
+
+#endif // _DLL
+
 #endif // WIN32
+
 
 #endif // __CGCLib_h__
 

@@ -202,6 +202,7 @@ public:
 
 	void proc_Data(void)
 	{
+		TcpClientPointer pTcpClient = shared_from_this();
 		while (m_socket != 0)
 		{
 			ReceiveBuffer::pointer buffer;
@@ -218,7 +219,13 @@ public:
 			if (m_handler.get() != NULL)
 			{
 				//m_handler->OnReceiveData(*this, buffer);
-				m_handler->OnReceiveData(shared_from_this(), buffer);
+				try
+				{
+					m_handler->OnReceiveData(pTcpClient, buffer);
+				}catch(std::exception&)
+				{
+				}catch(...)
+				{}
 			}
 
 			if (m_unused.size() < m_unusedsize)

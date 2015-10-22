@@ -747,7 +747,7 @@ bool CgcBaseClient::sendOpenSession(short nMaxWaitSecons,unsigned long * pCallId
 		*pCallId = cid;
 	const unsigned short seq = getNextSeq();
 	// requestData
-	const std::string requestData = toOpenSesString(theProtoVersion,cid, seq, true, m_pRsaSrc.GetPublicKey());
+	const std::string requestData(toOpenSesString(theProtoVersion,cid, seq, true, m_pRsaSrc.GetPublicKey()));
 	// addSeqInfo
 	addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid);
 	// sendData

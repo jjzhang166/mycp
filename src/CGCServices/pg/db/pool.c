@@ -235,6 +235,7 @@ Sink*  sink_pool_get(void)
 	int i =0;
 	int nosinkcount = 0;
 	static int theminnumbercount = 0;
+	int nErrorCount = 0;
 	//printf("================ %d\n", sink_number);
 	while(1 && thecleanup==0) 
 	{
@@ -290,6 +291,9 @@ Sink*  sink_pool_get(void)
 			{
 				//printf("*********** sink_pool_add OK size:%d\n",sink_number);
 				return sink;
+			}else if ((nErrorCount++)>=3)
+			{
+				return NULL;
 			}
 		}
 		//等待一段时间

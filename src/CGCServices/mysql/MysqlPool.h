@@ -30,10 +30,10 @@ public:
 	std::string m_sDatabase;
 	std::string m_sCharset;
 
-	bool Connect(void);
+	bool Connect(int* pOutErrorCode = NULL);
 	bool IsConnect(void) const {return m_mysql==NULL?false:true;}
 	void Disconnect(void);
-	bool Reconnect(void);
+	bool Reconnect(int * pOutErrorCode=NULL);
 	time_t GetCloseTime(void) const {return m_nCloseTime;}
 
 	bool IsIdleAndSetBusy(void);
@@ -60,11 +60,12 @@ public:
 	int PoolInit(int nMin, int nMax,const char* lpHost,unsigned int nPort,const char* lpAccount,const char* lpSecure,const char* lpszDatabase,const char* lpCharset);
 	void PoolExit(void);
 
-	CMysqlSink* SinkGet(void);
+	CMysqlSink* SinkGet(int & pOutErrorCode);
 	static void SinkPut(CMysqlSink* pMysql);
+	static bool IsServerError(int nErrorCode);
 
 private:
-	CMysqlSink* SinkAdd(void);
+	CMysqlSink* SinkAdd(int * pOutErrorCode = NULL);
 	bool SinkDel(void);
 
 private:

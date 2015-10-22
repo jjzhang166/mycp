@@ -41,6 +41,8 @@ public:
 
 	virtual const char * getContentData(void) const =0;
 	virtual size_t getContentLength(void) const =0;
+	virtual bool lockSessionApi(int nLockApi, int nTimeoutSeconds=0, bool bUnlockForce=false) =0;
+	virtual void unlockSessionApi(void) =0;
 	
 	// TCP,UDP,RTP,...
 	virtual tstring getScheme(void) const = 0;

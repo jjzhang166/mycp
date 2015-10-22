@@ -194,8 +194,15 @@ public:
 			buffer->size(size);
 			//m_datas.add(buffer);
 			if (m_handler.get() != NULL)
-				m_handler->OnRemoteRecv(pOwner, buffer);
-
+			{
+				try
+				{
+					m_handler->OnRemoteRecv(pOwner, buffer);
+				}catch(std::exception&)
+				{
+				}catch(...)
+				{}
+			}
 			start_read();
 		}else
 		{

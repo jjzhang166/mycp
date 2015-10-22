@@ -25,14 +25,17 @@ bool CMysqlSink::Init(void)
 	return m_mysql!=NULL?true:false;
 }
 
-bool CMysqlSink::Connect(void)
+bool CMysqlSink::Connect(int* pOutErrorCode)
 {
 	if (!Init()) return false;
 
 	if (!mysql_real_connect(m_mysql, m_sHost.c_str(), m_sAccount.c_str(),
 		m_sSecure.c_str(), m_sDatabase.c_str(), m_nPort, NULL, CLIENT_MULTI_STATEMENTS))
 	{
-		printf("**** mysql_real_connect error.(%s)\n",mysql_error(m_mysql));
+		const unsigned int nMysqlError = mysql_errno(m_mysql);
+		if (pOutErrorCode!=NULL)
+			*pOutErrorCode = nMysqlError;
+		printf("**** mysql_real_connect error.(%d:%s)\n",nMysqlError,mysql_error(m_mysql));
 		mysql_close(m_mysql);
 		m_mysql = NULL;
 		return false;
@@ -64,10 +67,22 @@ void CMysqlSink::Disconnect(void)
 	}
 	m_nCloseTime = time(0);
 }
-bool CMysqlSink::Reconnect(void)
+bool CMysqlSink::Reconnect(int * pOutErrorCode)
 {
-	Disconnect();
-	return Connect();
+	try
+	{
+		Disconnect();
+#ifdef WIN32
+		Sleep(1000);
+#else
+		sleep(1);
+#endif
+		return Connect(pOutErrorCode);
+	}catch(std::exception&)
+	{
+	}catch(...)
+	{}
+	return false;
 }
 
 bool CMysqlSink::IsIdleAndSetBusy(void)
@@ -151,10 +166,11 @@ void CMysqlPool::PoolExit(void)
 	}
 }
 
-CMysqlSink* CMysqlPool::SinkGet(void)
+CMysqlSink* CMysqlPool::SinkGet(int & pOutErrorCode)
 {
 	int nosinkcount = 0;
 	static int theminnumbercount = 0;
+	int nErrorCount = 0;
 	while(true)
 	{
 		{
@@ -169,9 +185,12 @@ CMysqlSink* CMysqlPool::SinkGet(void)
 					if ((time(0)-pSink->GetCloseTime())>60)
 					{
 						// 超过一分钟，重新连接一次；
-						if (!pSink->Reconnect())
+						//printf("******* Reconnect 111");
+						if (!pSink->Reconnect(&pOutErrorCode))
 						{
 							SinkPut(pSink);
+							if (IsServerError(pOutErrorCode))
+								return NULL;
 							continue;
 						}
 						// **重新连接成功，继续下面
@@ -209,14 +228,17 @@ CMysqlSink* CMysqlPool::SinkGet(void)
 			}
 		}
 
-		if (m_nSinkSize==0 || (nosinkcount++)>25)	// 全部忙，并且等25次以上（25*10=250ms左右），增加一个数据库连接，（**25这个值不能太低，低了不好；**)
+		if (m_nSinkSize==0 || (nosinkcount++)>30)	// 全部忙，并且等25次以上（25*10=250ms左右），增加一个数据库连接，（**25这个值不能太低，低了不好；**)
 		{
 			nosinkcount = 0;	// 如果找不到还可以重新开始等
-			CMysqlSink* pSink = SinkAdd();
-			if (pSink)
+			CMysqlSink* pSink = SinkAdd(&pOutErrorCode);
+			if (pSink != NULL)
 			{
 				printf("*********** SinkAdd OK size:%d\n",m_nSinkSize);
 				return pSink;
+			}else if (IsServerError(pOutErrorCode) || (nErrorCount++)>=3)
+			{
+				return NULL;
 			}
 		}
 
@@ -238,7 +260,41 @@ void CMysqlPool::SinkPut(CMysqlSink* pMysql)
 	}
 }
 
-CMysqlSink* CMysqlPool::SinkAdd(void)
+bool CMysqlPool::IsServerError(int nMysqlError)
+{
+	switch (nMysqlError)
+	{
+	case 2002:	// CR_CONNECTION_ERROR
+	case 2003:	// CR_CONN_HOST_ERROR
+	case 2004:	// 不能创建TCP/IP套接字(%d) 
+	case 2005:	// 未知的MySQL服务器主机'%s' (%d) 
+	case 2006:	// MySQL服务器不可用。
+	case 2012:	// 服务器握手过程中出错
+	case 2013:	// 查询过程中丢失了与MySQL服务器的连接
+	case 2024:	// 连接到从服务器时出错
+	case 2025:	// 连接到主服务器时出错
+	case 2026:	// SSL连接错误
+	case 2048:	// 无效的连接句柄
+	case 1042:	// 
+	case 1044:	// 
+	case 1053:	// 
+	case 1081:
+	case 1158:
+	case 1159:
+	case 1160:
+	case 1161:
+	case 1189:	// 读取主连接时出现网络错误。
+	case 1190:	// 写入主连接时出现网络错误。
+	case 1218:	// 连接至主服务器%s时出错。
+	case 1255:	// 从服务器已停止。
+		return true;
+	default:
+		return false;
+	}
+	return false;
+}
+
+CMysqlSink* CMysqlPool::SinkAdd(int * pOutErrorCode)
 {
 	BoostWriteLock wtlock(m_mutex);
 	if (m_nSinkSize>=m_nSinkMax)
@@ -251,7 +307,8 @@ CMysqlSink* CMysqlPool::SinkAdd(void)
 	{
 		return NULL;
 	}
-	if (!pSink->Connect())
+	//printf("******* SinkAdd Cconnect %d\n",m_nSinkSize);
+	if (!pSink->Connect(pOutErrorCode))
 	{
 		pSink->SetIdle();
 		return NULL;

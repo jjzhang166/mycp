@@ -73,6 +73,8 @@ CSessionImpl::CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemot
 		m_sSessionId = lpBuf;
 	}
 
+	m_tLastSeqInfoTime = 0;
+
 	memset(&m_pReceiveSeqMasks,-1,sizeof(m_pReceiveSeqMasks));
 	//for (int i=0; i<MAX_SEQ_MASKS_SIZE; i++)
 	//	m_pReceiveSeqMasks[i] = -1;
@@ -89,6 +91,53 @@ CSessionImpl::~CSessionImpl(void)
 	m_pHoldResponseList.clear();
 	delPrevDatathread(true);
 }
+
+bool CSessionImpl::lockSessionApi(int nLockType, int nLockSeconds)
+{
+	const time_t tNow = time(0);
+	time_t tLastLockTime = 0;
+	m_tLockApiList.insert(nLockType,tNow,false,&tLastLockTime);
+	if (tLastLockTime>0)
+	{
+		if (nLockSeconds==0 || (tLastLockTime+nLockSeconds)>=tNow)
+		{
+			//printf("********* lock-type=%d, seconds=%d, %d waitting...\n",nLockType,nLockSeconds,(int)(tNow-tLastLockTime));
+			return true;
+		}else
+		{
+			m_tLockApiList.insert(nLockType,tNow,true);
+		}
+	}
+	return false;
+}
+void CSessionImpl::unlockSessionApi(int nLockType)
+{
+	//printf("********* unlockSessionApi lock-type=%d\n",nLockType);
+	m_tLockApiList.remove(nLockType);
+}
+//bool CSessionImpl::isInSessionApiLocked(const std::string& sApi, int nApiLockSeconds)
+//{
+//	const time_t tNow = time(0);
+//	time_t tLastLockTime = 0;
+//	m_tLockApiList.insert(sApi,tNow,false,&tLastLockTime);
+//	if (tLastLockTime>0)
+//	{
+//		if (nApiLockSeconds==0 || (tLastLockTime+nApiLockSeconds)>=tNow)
+//		{
+//			//printf("********* lock api %s, seconds=%d, %d waitting...\n",sApi.c_str(),nApiLockSeconds,(int)(tNow-tLastLockTime));
+//			return true;
+//		}else
+//		{
+//			m_tLockApiList.insert(sApi,tNow,true);
+//		}
+//	}
+//	return false;
+//}
+//void CSessionImpl::removeSessionApiLock(const std::string& sApi)
+//{
+//	//printf("********* removeSessionApiLock api %s\n",sApi.c_str());
+//	m_tLockApiList.remove(sApi);
+//}
 
 bool CSessionImpl::OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote)
 {
@@ -628,6 +677,11 @@ ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool
 
 bool CSessionImpl::ProcessDataResend(void)
 {
+	const time_t tNow = time(0);
+	if (m_tLastSeqInfoTime==0 || m_tLastSeqInfoTime==tNow)
+	//if (m_tLastSeqInfoTime==0 || (m_tLastSeqInfoTime+1)>=tNow)
+		return false;
+
 	BoostReadLock rdlock(m_mapSeqInfo.mutex());
 	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
 	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)
@@ -727,6 +781,7 @@ int CSessionImpl::onAddSeqInfo(const unsigned char * callData, unsigned int data
 		m_mapSeqInfo.insert(seq, pSeqInfo);
 	}
 	pSeqInfo->setSessionId(this->m_sSessionId);
+	m_tLastSeqInfoTime = time(0);
 	return 0;
 }
 
@@ -756,6 +811,7 @@ int CSessionImpl::onAddSeqInfo(unsigned char * callData, unsigned int dataSize, 
 		m_mapSeqInfo.insert(seq, pSeqInfo);
 	}
 	pSeqInfo->setSessionId(this->m_sSessionId);
+	m_tLastSeqInfoTime = time(0);
 	return 0;
 }
 
@@ -928,7 +984,8 @@ bool CSessionMgr::ProcDataResend(void)
 	{
 		cgcSession::pointer sessionImpl = pIter->second;
 		CSessionImpl * pSessionImpl = (CSessionImpl*)sessionImpl.get();
-		while (pSessionImpl->ProcessDataResend())
+		int nResendCount = 0;
+		while (pSessionImpl->ProcessDataResend() && (nResendCount++)<50)
 		{
 			continue;
 		}
@@ -939,7 +996,7 @@ bool CSessionMgr::ProcDataResend(void)
 void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidList)
 {
 	// lock
-	time_t now = time(0);
+	const time_t now = time(0);
 	//cgcSession::pointer pSessionImplTimeout;
 	std::vector<cgcSession::pointer> pRemoveList;
 	{

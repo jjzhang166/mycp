@@ -22,6 +22,7 @@
 
 #include "IncludeBase.h"
 #include "XmlParseParams.h"
+//#include "XmlParseLocks.h"
 #include <CGCClass/AttributesImpl.h>
 //#include "AttributesImpl.h"
 #include "TimerInfo.h"
@@ -43,6 +44,7 @@ private:
 
 	tstring m_sExecuteResult;
 public:
+	//XmlParseLocks m_moduleLocks;
 	XmlParseParams m_moduleParams;
 	std::string m_sTempFile;
 

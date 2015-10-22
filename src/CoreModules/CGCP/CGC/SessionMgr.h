@@ -113,12 +113,17 @@ private:
 	int m_pReceiveSeqMasks[MAX_SEQ_MASKS_SIZE];
 	CLockMap<unsigned short, cgcSeqInfo::pointer> m_mapSeqInfo;
 	tstring m_sUserAgent;	// FOR http
+	CLockMap<int,time_t> m_tLockApiList;
 public:
 	CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote,const cgcParserBase::pointer& pcgcParser);
 	virtual ~CSessionImpl(void);
 
 public:
 	bool IsKilled(void) const {return m_bKilled;}
+	bool lockSessionApi(int nLockType, int nLockSeconds=0);
+	void unlockSessionApi(int nLockType);
+	//bool isInSessionApiLocked(const std::string& sApi, int nLockSeconds);
+	//void removeSessionApiLock(const std::string& sApi);
 
 	// invoke module CGC_Session_Open()
 	bool OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote);
@@ -181,6 +186,7 @@ protected:
 	boost::mutex m_mutexReq;
 	unsigned short m_nCurrentSeq;
 	virtual unsigned short onGetNextSeq(void);
+	time_t m_tLastSeqInfoTime;
 	virtual int onAddSeqInfo(const unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign);
 	virtual int onAddSeqInfo(unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign);
 

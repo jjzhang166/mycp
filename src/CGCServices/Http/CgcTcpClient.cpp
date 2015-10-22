@@ -112,6 +112,7 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcTcpClient::stopClient(void)
 {
+	m_pCallback = NULL;
 	if (m_tcpClient.get() != 0)
 	{
 		//m_tcpClient->resetHandler();

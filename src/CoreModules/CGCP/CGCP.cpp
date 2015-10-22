@@ -37,20 +37,26 @@ int main(int argc, char* argv[])
 #endif
 {
 	setlocale(LC_ALL, ".936");
-	const std::string sProgram = argv[0];
+	const std::string sProgram(argv[0]);
 	bool bService = false;
 	bool bProtect = false;
+	int nWaitSeconds=0;
 	if (argc>1)
 	{
 		for (int i=1; i<argc; i++)
 		{
-			const std::string sParam = argv[i];
+			const std::string sParam(argv[i]);
 			if (sParam == "-S")
 			{
 				bService = true;
 			}else if (sParam == "-P")
 			{
 				bProtect = true;
+			}else if (sParam == "-W" && (i+1)<argc)
+			{
+				nWaitSeconds = atoi(argv[i+1]);
+				//printf("******* nWaitSeconds = %d\n",nWaitSeconds);
+				i++;
 			}
 		}
 	}
@@ -75,6 +81,7 @@ int main(int argc, char* argv[])
 	char lpszBuffer[260];
 	if (bProtect)
 	{
+		const time_t tStartTime = time(0);
 		int nErrorCount = 0;
 		while (true)
 		{
@@ -83,6 +90,9 @@ int main(int argc, char* argv[])
 #else
 			sleep(1);
 #endif
+			const time_t tCurrentTime = time(0);
+			if (tStartTime+10>tCurrentTime)
+				continue;
 			FILE * pfile = fopen(sProtectDataFile.c_str(),"r");
 			if (pfile==NULL)
 			{
@@ -98,7 +108,7 @@ int main(int argc, char* argv[])
 				fread(lpszBuffer,1,sizeof(lpszBuffer),pfile);
 				fclose(pfile);
 				const time_t tRunTime = cgc_atoi64(lpszBuffer);
-				if (tRunTime>0 && (time(0)-tRunTime)>=8)
+				if (tRunTime>0 && (tCurrentTime-tRunTime)>=8)
 				{
 					const std::string sProtectLogFile = m_sModulePath + "/CGCP.protect.log";
 					FILE * pProtectLog = fopen(sProtectLogFile.c_str(),"a");
@@ -112,17 +122,12 @@ int main(int argc, char* argv[])
 					}
 #ifdef WIN32
 					if (strstr(lpszBuffer,",1")!=NULL)
-						ShellExecute(NULL,"open",sProgram.c_str(),"-S",m_sModulePath.c_str(),SW_SHOW);
+						ShellExecute(NULL,"open",sProgram.c_str(),"-S -W 6",m_sModulePath.c_str(),SW_SHOW);
 					else
-						ShellExecute(NULL,"open",sProgram.c_str(),"",m_sModulePath.c_str(),SW_SHOW);
+						ShellExecute(NULL,"open",sProgram.c_str(),"-W 6",m_sModulePath.c_str(),SW_SHOW);
 #else
-					sprintf(lpszBuffer,"\"%s\" -S &",sProgram.c_str());
+					sprintf(lpszBuffer,"\"%s\" -S -W 6 &",sProgram.c_str());
 					system(lpszBuffer);
-					//if (strstr(lpszBuffer,",1")!=NULL)
-					//	sprintf(lpszBuffer,"\"%s\" -S &",sProgram.c_str());
-					//else
-					//	sprintf(lpszBuffer,"\"%s\" &",sProgram.c_str());
-					//system(lpszBuffer);
 #endif
 					break;
 				}
@@ -221,7 +226,7 @@ int main(int argc, char* argv[])
 
 #ifdef _DEBUG
 	CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-	gApp->MyMain(bService, sProtectDataFile);
+	gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 #else // _DEBUG
 
 #if defined(WIN32) && !defined(__MINGW_GCC)
@@ -271,7 +276,7 @@ int main(int argc, char* argv[])
 		}else if(_tcsicmp(_T("run"),argv[1]+1)==0)
 		{
 			CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-			gApp->MyMain(bService, sProtectDataFile);
+			gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 		}else
 		{
 			std::cout << _T("-install install ") << cService.m_sServiceName.c_str() << std::endl;
@@ -285,12 +290,12 @@ int main(int argc, char* argv[])
 			cService.AddToErrorMessageLog(TEXT("Failed start server£¡"));
 
 			CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-			gApp->MyMain(bService, sProtectDataFile);
+			gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 		}
 	}
 #else
 	CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
-	gApp->MyMain(bService, sProtectDataFile);
+	gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 #endif
 #endif // _DEBUG
 #endif // USES_NEWVERSION

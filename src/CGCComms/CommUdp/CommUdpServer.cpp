@@ -141,11 +141,15 @@ private:
 			//boost::mutex::scoped_lock lock(m_sendMutex);
 			boost::system::error_code ignored_error;
 			m_socket->send_to(boost::asio::buffer(data, size), m_endpoint, 0, ignored_error);
+			//const size_t nSize = m_socket->send_to(boost::asio::buffer(data, size), m_endpoint, 0, ignored_error);
+			//printf("********* m_socket->send_to = %d\n",nSize);
 		}catch (std::exception&)
 		{
+			//printf("********* m_socket->send_to exception 1\n");
 			return -2;
 		}catch(...)
 		{
+			//printf("********* m_socket->send_to exception 2\n");
 			return -2;
 		}
 		return 0;

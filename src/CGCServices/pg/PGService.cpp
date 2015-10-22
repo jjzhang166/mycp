@@ -115,6 +115,8 @@ public:
 			{
 				result_clean(m_sink, m_resultset);
 				sink_pool_put (m_sink);
+			}catch(std::exception&)
+			{
 			}catch(...)
 			{}
 			m_resultset = NULL;
@@ -167,11 +169,11 @@ protected:
 				const tstring s = result_get(m_sink, m_resultset, m_currentIndex, i);
 				record.push_back(CGC_VALUEINFO(s));
 			}
+		}catch(std::exception&)
+		{
 		}catch(...)
 		{
-			// ...
 		}
-
 		return CGC_VALUEINFO(record);
 	}
 
@@ -231,8 +233,11 @@ private:
 			{
 				// 主要用于整理数据库连接池；
 				Sink *sink = sink_pool_get();
-				sink_pool_put(sink);
+				if (sink!=NULL)
+					sink_pool_put(sink);
 			}
+		}catch(std::exception&)
+		{
 		}catch(...)
 		{
 		}
@@ -298,7 +303,9 @@ private:
 				printf("%s\n", "connect to database failed!, start failed!");
 				return false;
 			}
-
+		}catch(std::exception&)
+		{
+			return false;
 		}catch(...)
 		{
 			return false;
@@ -343,6 +350,8 @@ private:
 		{
 			m_tLastTime = time(0);
 			sink = sink_pool_get();
+			if (sink==NULL)
+				return -1;
 
 			Result * res = sink_exec (sink, exeSql);
 			const int state = result_state (sink, res);
@@ -362,6 +371,11 @@ private:
 				ret = cgc_atoi64(sAffectedRows);
 			result_clean (sink, res);
 			sink_pool_put (sink);
+		}catch(std::exception&)
+		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			return -1;
 		}catch(...)
 		{
 			sink_pool_put (sink);
@@ -382,6 +396,8 @@ private:
 		{
 			m_tLastTime = time(0);
 			sink = sink_pool_get();
+			if (sink==NULL)
+				return -1;
 
 			Result * res = sink_exec( sink, selectSql);
 			const int state = result_state (sink, res);
@@ -406,6 +422,11 @@ private:
 				result_clean(sink, res);
 				sink_pool_put (sink);
 			}
+		}catch(std::exception&)
+		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			return -1;
 		}catch(...)
 		{
 			sink_pool_put (sink);
@@ -425,6 +446,8 @@ private:
 		{
 			m_tLastTime = time(0);
 			sink = sink_pool_get();
+			if (sink==NULL)
+				return -1;
 
 			Result * res = sink_exec( sink, selectSql);
 			const int state = result_state (sink, res);
@@ -442,6 +465,11 @@ private:
 			rows = (cgc::bigint)result_rn(sink, res);
 			result_clean(sink, res);
 			sink_pool_put (sink);
+		}catch(std::exception&)
+		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			return -1;
 		}catch(...)
 		{
 			sink_pool_put (sink);

@@ -125,6 +125,8 @@ private:
 	virtual cgcSession::pointer getSession(void) const {return CRequestImpl::getSession();}
 	virtual const char * getContentData(void) const {return CRequestImpl::getContentData();}
 	virtual size_t getContentLength(void) const {return CRequestImpl::getContentLength();}
+	virtual bool lockSessionApi(int nLockApi, int nTimeoutSeconds=0, bool bUnlockForce=false) {return false;}
+	virtual void unlockSessionApi(void) {}
 	virtual tstring getScheme(void) const {return CRequestImpl::getScheme();}
 	virtual int getProtocol(void) const {return CRequestImpl::getProtocol();}
 	virtual int getServerPort(void) const {return CRequestImpl::getServerPort();}

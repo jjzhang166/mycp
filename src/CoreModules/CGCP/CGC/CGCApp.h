@@ -119,7 +119,7 @@ public:
 	virtual ~CGCApp(void);
 
 public:
-	int MyMain(bool bService = false, const std::string& sProtectDataFile="");
+	int MyMain(int nWaitSeconds,bool bService = false, const std::string& sProtectDataFile="");
 
 	bool GetIsService(void) const {return m_bService;}
 	const tstring& GetProtectDataFile(void) const {return m_sProtectDataFile;}
@@ -132,7 +132,7 @@ public:
 	void ProcCheckParserPool(void);
 
 	void AppInit(bool bNTService = true);
-	void AppStart(void);
+	void AppStart(int nWaitSeconds);
 	void AppStop(void);
 	void AppExit(void);
 	void PrintHelp(void);
