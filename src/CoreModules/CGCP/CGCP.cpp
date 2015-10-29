@@ -122,9 +122,9 @@ int main(int argc, char* argv[])
 					}
 #ifdef WIN32
 					if (strstr(lpszBuffer,",1")!=NULL)
-						ShellExecute(NULL,"open",sProgram.c_str(),"-S -W 6",m_sModulePath.c_str(),SW_SHOW);
+						ShellExecute(NULL,"open",sProgram.c_str(),"-run -S -W 6",m_sModulePath.c_str(),SW_SHOW);
 					else
-						ShellExecute(NULL,"open",sProgram.c_str(),"-W 6",m_sModulePath.c_str(),SW_SHOW);
+						ShellExecute(NULL,"open",sProgram.c_str(),"-run -W 6",m_sModulePath.c_str(),SW_SHOW);
 #else
 					sprintf(lpszBuffer,"\"%s\" -S -W 6 &",sProgram.c_str());
 					system(lpszBuffer);

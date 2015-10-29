@@ -619,7 +619,6 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 	m_contentLength = requestSize;
 
 	//printf("CPpHttp::IsComplete  size=%d\n",requestSize);
-
 	// Check HTTP Method
 	int leftIndex = 0;
 	if (sotpCompare(httpRequest, "GET", leftIndex))
@@ -702,7 +701,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 			m_queryString.append(httpRequest);
 			m_postString.append(httpRequest);
 			m_receiveSize += requestSize;
-			//if (m_receiveSize==m_contentSize)
+			if (m_receiveSize>=m_contentSize)
 			{
 				m_currentMultiPart.reset();
 				return true;

@@ -187,7 +187,7 @@ public:
 		if (m_socket == 0) return 0;
 		boost::system::error_code ec;
 #ifdef USES_OPENSSL
-		return m_socket->write_some(boost::asio::buffer(data, size),ec);
+		return boost::asio::write(*m_socket, boost::asio::buffer(data,size), boost::asio::transfer_all(), ec);
 #else
 		return boost::asio::write(*m_socket, boost::asio::buffer(data, size),ec);
 #endif
@@ -241,14 +241,20 @@ public:
 	{
 		if (m_socket == 0) return;
 
-		ReceiveBuffer::pointer newBuffer;
-		if (!m_unused.front(newBuffer))
-			newBuffer = ReceiveBuffer::create();
-		m_socket->async_read_some(boost::asio::buffer(const_cast<unsigned char*>(newBuffer->data()), m_maxbuffersize),
-			boost::bind(&TcpClient::read_some_handler,this, newBuffer,
-			boost::asio::placeholders::error,
-			boost::asio::placeholders::bytes_transferred)
-			);
+		try
+		{
+			ReceiveBuffer::pointer newBuffer;
+			if (!m_unused.front(newBuffer))
+				newBuffer = ReceiveBuffer::create();
+			m_socket->async_read_some(boost::asio::buffer(const_cast<unsigned char*>(newBuffer->data()), m_maxbuffersize),
+				boost::bind(&TcpClient::read_some_handler,this, newBuffer,
+				boost::asio::placeholders::error,
+				boost::asio::placeholders::bytes_transferred)
+				);
+		}catch(std::exception&)
+		{
+		}catch(...)
+		{}
 	}
 
 private:

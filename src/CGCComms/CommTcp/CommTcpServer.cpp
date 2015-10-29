@@ -380,30 +380,36 @@ public:
 	bool TestConnect(const char* sIp, int nPort)
 	{
 		bool bResult = false;
-		if (m_ipService.get()==NULL)
-			m_ipService = IoService::create();
-		if (m_tcpClient.get()==NULL)
+		try
 		{
-			m_tcpClient = TcpClient::create(shared_from_this());
-		}
-		boost::system::error_code ec;
-		tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp,ec), nPort);
-		m_tcpClient->connect(m_ipService->ioservice(), endpoint);
-		m_ipService->start();
+			if (m_ipService.get()==NULL)
+				m_ipService = IoService::create();
+			if (m_tcpClient.get()==NULL)
+			{
+				m_tcpClient = TcpClient::create(shared_from_this());
+			}
+			boost::system::error_code ec;
+			tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp,ec), nPort);
+			m_tcpClient->connect(m_ipService->ioservice(), endpoint);
+			m_ipService->start();
 
-		while (!m_connectReturned)
+			while (!m_connectReturned)
 #ifdef WIN32
-			Sleep(100);
+				Sleep(100);
 #else
-			usleep(100000);
+				usleep(100000);
 #endif
-		bResult = !m_bDisconnect;
+			bResult = !m_bDisconnect;
 
-		m_tcpClient->disconnect();
-		m_ipService->stop();
-		m_tcpClient.reset();
-		m_ipService.reset();
-		//printf("**** OK\n");
+			m_tcpClient->disconnect();
+			m_ipService->stop();
+			m_tcpClient.reset();
+			m_ipService.reset();
+			//printf("**** OK\n");
+		}catch (std::exception & e)
+		{
+		}catch(...)
+		{}	
 		return bResult;
 	}
 	CTcpTestConnect(void)
@@ -428,6 +434,25 @@ private:
 	TcpClient::pointer m_tcpClient;
 };
 
+class CRemoteWaitData
+{
+public:
+	typedef boost::shared_ptr<CRemoteWaitData> pointer;
+	static CRemoteWaitData::pointer create(void)
+	{
+		return CRemoteWaitData::pointer(new CRemoteWaitData());
+	}
+
+	CLockListPtr<CCommEventData*> m_listMgr;
+	CRemoteWaitData(void)
+	{
+	}
+	virtual ~CRemoteWaitData(void)
+	{
+		m_listMgr.clear();
+	}
+};
+
 /////////////////////////////////////////
 // CTcpServer
 class CTcpServer
@@ -450,6 +475,7 @@ private:
 	int m_commPort;
 	//int m_capacity;
 	int m_protocol;
+	bool m_nIsHttp;
 
 #ifdef USES_OPENSSL
 	boost::asio::ssl::context* m_sslctx;
@@ -479,7 +505,7 @@ private:
 	//unsigned long m_nCurrentRemoteId;
 public:
 	CTcpServer(int nIndex)
-		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0)
+		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0), m_nIsHttp(false)
 		, m_pCommEventDataPool(Max_ReceiveBuffer_ReceiveSize,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 #ifdef USES_OPENSSL
@@ -548,6 +574,7 @@ public:
 				m_commPort = lists[0]->getInt();
 			else
 				return false;
+			m_nIsHttp = (m_protocol & (int)PROTOCOL_HTTP)==PROTOCOL_HTTP;
 		}
 
 		//  handle_handshake session id context uninitialized,336433429
@@ -687,6 +714,8 @@ public:
 		theApplication->log(LOG_INFO, _T("**** [%s:%d] Stop succeeded ****\n"), serviceName().c_str(), m_commPort);
 	}
 
+	
+	CLockMap<unsigned long,CRemoteWaitData::pointer> m_pRecvRemoteIdWaitList;
 	CLockMap<unsigned long,bool> m_pRecvRemoteIdList;
 	//unsigned long m_nLastRemoteId;
 protected:
@@ -773,9 +802,21 @@ protected:
 			{
 				for (int i=0;i<50;i++)
 				{
+					CRemoteWaitData::pointer pHttpRemoteWaitData;
+					if (m_nIsHttp && m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pHttpRemoteWaitData) && !pHttpRemoteWaitData->m_listMgr.empty())
+					{
+#ifdef WIN32
+						Sleep(100);
+#else
+						usleep(100000);
+#endif // WIN32
+						continue;
+					}
+
 					if (!m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
-					//if (m_nLastRemoteId != pCommEventData->getRemoteId())
+					{
 						break;
+					}
 #ifdef WIN32
 					Sleep(100);
 #else
@@ -797,25 +838,68 @@ protected:
 			{
 				//m_nLastRemoteId = pCommEventData->getRemoteId();
 				//printf("******** m_commHandler->onRecvData:%d\n",pCommEventData->getRemoteId());
-				bool bishttp = (m_protocol & (int)PROTOCOL_HTTP)==PROTOCOL_HTTP;
-				if (bishttp)
+//				m_nIsHttp = (m_protocol & (int)PROTOCOL_HTTP)==PROTOCOL_HTTP;
+//				if (m_nIsHttp)
+//				{
+//					// ****HTTP预防分包
+//					// ****（以后要测试下，分超过二个包以上数据）
+//					//CRemoteWaitData::pointer pRemoteWaitData;
+//					//if (m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pRemoteWaitData))
+//					//{
+//					//	// 前面有等待，
+//					//	pRemoteWaitData->m_listMgr.add(pCommEventData);
+//					//	return;
+//					//}else if (m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
+//					//{
+//					//	pRemoteWaitData = CRemoteWaitData::create();
+//					//	CRemoteWaitData::pointer pExistData;
+//					//	m_pRecvRemoteIdWaitList.insert(pCommEventData->getRemoteId(),pRemoteWaitData,false,&pExistData);
+//					//	if (pExistData.get()!=NULL)
+//					//		pRemoteWaitData = pExistData;
+//					//	pRemoteWaitData->m_listMgr.add(pCommEventData);
+//					//	return;
+//					//}
+//
+////					for (int i=0;i<50;i++)
+////					{
+////						if (!m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
+////							break;
+////#ifdef WIN32
+////						Sleep(100);
+////#else
+////						usleep(100000);
+////#endif // WIN32
+////					}
+//				}
+				const unsigned long nRemoveId = pCommEventData->getRemoteId();
+				CRemoteWaitData::pointer pHttpRemoteWaitData;
+				if (m_nIsHttp && !m_pRecvRemoteIdWaitList.find(nRemoveId,pHttpRemoteWaitData))
 				{
-					// ****HTTP预防分包
-					// ****（以后要测试下，分超过二个包以上数据）
-					for (int i=0;i<50;i++)
-					{
-						if (!m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
-							break;
-#ifdef WIN32
-						Sleep(100);
-#else
-						usleep(100000);
-#endif // WIN32
-					}
+					pHttpRemoteWaitData = CRemoteWaitData::create();
+					CRemoteWaitData::pointer pExistData;
+					m_pRecvRemoteIdWaitList.insert(nRemoveId,pHttpRemoteWaitData,false,&pExistData);
+					if (pExistData.get()!=NULL)
+						pHttpRemoteWaitData = pExistData;
 				}
-				m_pRecvRemoteIdList.insert(pCommEventData->getRemoteId(), true);
-				m_commHandler->onRecvData(pCommEventData->getRemote(), pCommEventData->getRecvData(), pCommEventData->getRecvSize());
-				m_pRecvRemoteIdList.remove(pCommEventData->getRemoteId());
+				// ** 放统一列表
+				if (pHttpRemoteWaitData.get()!=NULL)
+					pHttpRemoteWaitData->m_listMgr.add(pCommEventData);
+				if (!m_pRecvRemoteIdList.insert(nRemoveId,true,false) && m_nIsHttp)	// *HTTP失败返回，其他失败不返回
+				{
+					return;
+				}
+				// ** 取第一个
+				if (pHttpRemoteWaitData.get()!=NULL)
+					pCommEventData = pHttpRemoteWaitData->m_listMgr.front();
+				while (pCommEventData != NULL)
+				{
+					m_commHandler->onRecvData(pCommEventData->getRemote(), pCommEventData->getRecvData(), pCommEventData->getRecvSize());
+					m_pCommEventDataPool.Set(pCommEventData);
+					pCommEventData = pHttpRemoteWaitData.get()==NULL?NULL:pHttpRemoteWaitData->m_listMgr.front();
+				}
+				m_pRecvRemoteIdList.remove(nRemoveId);
+				if (m_nIsHttp)
+					return;
 				//m_nLastRemoteId = 0;
 			}break;
 		case CCommEventData::CET_Exception:
