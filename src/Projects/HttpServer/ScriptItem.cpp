@@ -56,7 +56,7 @@ bool CScriptItem::isHtmlText(void) const
 	return m_operateObject1 == CSP_Operate_Value && m_itemType >= CSP_Println && m_itemType <= CSP_NewLine;
 }
 
-void CScriptItem::addHtmlText(CScriptItem::pointer scriptItem)
+void CScriptItem::addHtmlText(const CScriptItem::pointer& scriptItem)
 {
 	assert (scriptItem.get() != NULL);
 	assert (scriptItem->isHtmlText());

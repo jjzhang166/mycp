@@ -99,8 +99,9 @@ private:
 public:
 	bool parserCSPFile(const char * filename);
 
-	void addScript(CScriptItem::pointer v) {m_scripts.push_back(v);}
+	void addScript(const CScriptItem::pointer& v) {m_scripts.push_back(v);}
 	const std::vector<CScriptItem::pointer>& getScripts(void) const {return m_scripts;}
+	bool empty(void) const {return m_scripts.empty();}
 
 	void reset(void) {m_scripts.clear();}
 

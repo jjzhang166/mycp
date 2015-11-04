@@ -23,6 +23,7 @@
 #include "cgcService.h"
 #include "cgcHttpRequest.h"
 #include "cgcHttpResponse.h"
+#include "cgccdbcs.h"
 
 namespace cgc{
 
@@ -35,6 +36,7 @@ class cgcServiceManager
 public:
 	typedef boost::shared_ptr<cgcServiceManager> pointer;
 
+	virtual cgcCDBCInfo::pointer getCDBDInfo(const tstring& datasource) const = 0;
 	virtual cgcCDBCServicePointer getCDBDService(const tstring& datasource) = 0;
 	virtual void retCDBDService(cgcCDBCServicePointer& cdbcservice) = 0;
 

@@ -72,38 +72,37 @@ private:
 	virtual const tstring& getForwardFromURL(void) const {return m_httpParser->getForwardFromURL();}
 
 	virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const {return m_httpParser->getParameter(paramName);}
-	virtual bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const {return m_httpParser->getParameter(paramName, outParameters);}
+	//virtual bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const {return m_httpParser->getParameter(paramName, outParameters);}
 	virtual bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const {return m_httpParser->getParameters(outParameters);}
 	virtual tstring getParameterValue(const tstring & sParamName, const char * sDefault = "") const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?sDefault:var->toString();
+		return var.get()==NULL?sDefault:var->getStrValue();
 	}
 	virtual tstring getParameterValue(const tstring & sParamName, const tstring& sDefault) const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?sDefault:var->toString();
+		return var.get()==NULL?sDefault:var->getStrValue();
 	}
 	virtual int getParameterValue(const tstring & sParamName, int nDefault) const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?nDefault:atoi(var->toString().c_str());
+		return var.get()==NULL?nDefault:var->getIntValue();
 	}
 	virtual bigint getParameterValue(const tstring & sParamName, bigint bDefault) const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?bDefault:cgc_atoi64(var->toString().c_str());
-		//return var.get()==NULL?tDefault:var->getBigInt();
+		return var.get()==NULL?bDefault:var->getBigIntValue();
 	}
 	virtual bool getParameterValue(const tstring & sParamName, bool bDefault) const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?bDefault:var->getBoolean();
+		return var.get()==NULL?bDefault:var->getBooleanValue();
 	}
 	virtual double getParameterValue(const tstring & sParamName, double fDefault) const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?fDefault:atof(var->toString().c_str());
+		return var.get()==NULL?fDefault:var->getFloatValue();
 	}
 
 	virtual tstring getHeader(const tstring & headerName, const tstring & sDefault) const {return m_httpParser->getHeader(headerName, sDefault);}

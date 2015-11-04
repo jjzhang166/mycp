@@ -42,7 +42,7 @@ using namespace cgc;
 #include "XmlParseDSs.h"
 #include "md5.h"
 
-#define USES_BODB_SCRIPT
+//#define USES_BODB_SCRIPT
 
 #ifdef USES_BODB_SCRIPT
 cgcCDBCService::pointer theCdbcService;
@@ -123,11 +123,13 @@ public:
 			if ((theSecondIndex%(24*3600))==23*3600)	// 一天处理一次
 			{
 				std::vector<tstring> pRemoveFileNameList;
-				if (theCdbcService.get()!=NULL && !theIdleFileInfos.empty())
+				if (!theIdleFileInfos.empty())
 				{
 					// 删除超过10天没用文件数据；
 					const time_t tNow = time(0);
+#ifdef USES_BODB_SCRIPT
 					char sql[512];
+#endif
 					BoostReadLock rdlock(theIdleFileInfos.mutex());
 					CLockMap<tstring, CCSPFileInfo::pointer>::iterator pIter = theIdleFileInfos.begin();
 					for (; pIter!=theIdleFileInfos.end(); pIter++)
@@ -135,14 +137,21 @@ public:
 						CCSPFileInfo::pointer fileInfo = pIter->second;
 						if (fileInfo->m_tRequestTime==0 || (fileInfo->m_tRequestTime+(10*24*3600))<tNow)	// ** 10 days
 						{
-							const tstring sFileName = pIter->first;
+							const tstring sFileName(pIter->first);
 							pRemoveFileNameList.push_back(sFileName);
 							theFileInfos.remove(sFileName);
 							theFileScripts.remove(sFileName);
-							sprintf(sql, "DELETE FROM scriptitem_t WHERE filename='%s'", sFileName.c_str());
-							theCdbcService->execute(sql);
-							sprintf(sql, "DELETE FROM cspfileinfo_t WHERE filename='%s')",sFileName.c_str());
-							theCdbcService->execute(sql);
+#ifdef USES_BODB_SCRIPT
+							if (theCdbcService.get()!=NULL)
+							{
+								tstring sFileNameTemp(sFileName);
+								theCdbcService->escape_string_in(sFileNameTemp);
+								sprintf(sql, "DELETE FROM scriptitem_t WHERE filename='%s'", sFileNameTemp.c_str());
+								theCdbcService->execute(sql);
+								sprintf(sql, "DELETE FROM cspfileinfo_t WHERE filename='%s')",sFileNameTemp.c_str());
+								theCdbcService->execute(sql);
+							}
+#endif
 						}
 					}
 				}
@@ -288,7 +297,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	}
 	theDefaultHost->m_bBuildDocumentRoot = true;
 
-	theEnableDataSource = initParameters->getParameterValue("enable-datasource", 1)==1?true:false;
+	theEnableDataSource = initParameters->getParameterValue("enable-datasource", 0)==1?true:false;
 #ifdef USES_BODB_SCRIPT
 	if (theEnableDataSource)
 	{
@@ -300,6 +309,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 			return false;
 		}
 		// 
+		char selectSql[512];
 		int cdbcCookie = 0;
 		theCdbcService->select("SELECT filename,filesize,lasttime FROM cspfileinfo_t", cdbcCookie);
 		//printf("**** ret=%d,cookie=%d\n",ret,cdbcCookie);
@@ -309,12 +319,22 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 			//assert (record->getType() == cgcValueInfo::TYPE_VECTOR);
 			//assert (record->size() == 3);
 
-			cgcValueInfo::pointer var_filename = record->getVector()[0];
-			cgcValueInfo::pointer var_filesize = record->getVector()[1];
-			cgcValueInfo::pointer var_lasttime = record->getVector()[2];
-
-			CCSPFileInfo::pointer fileInfo = CSP_FILEINFO(var_filename->getStr(), var_filesize->getIntValue(), var_lasttime->getBigIntValue());
-			theFileInfos.insert(fileInfo->getFileName(), fileInfo);
+			tstring sfilename(record->getVector()[0]->getStr());
+			sprintf(selectSql, "SELECT code FROM scriptitem_t WHERE filename='%s' AND length(code)=3 LIMIT 1", sfilename.c_str());
+			if (theCdbcService->select(selectSql)==0)
+			{
+				theCdbcService->escape_string_out(sfilename);
+				cgcValueInfo::pointer var_filesize = record->getVector()[1];
+				cgcValueInfo::pointer var_lasttime = record->getVector()[2];
+				CCSPFileInfo::pointer fileInfo = CSP_FILEINFO(sfilename, var_filesize->getIntValue(), var_lasttime->getBigIntValue());
+				theFileInfos.insert(fileInfo->getFileName(), fileInfo, false);
+			}else
+			{
+				sprintf(selectSql, "DELETE FROM scriptitem_t WHERE filename='%s'", sfilename.c_str());
+				theCdbcService->execute(selectSql);
+				sprintf(selectSql, "DELETE FROM cspfileinfo_t WHERE filename='%s')",sfilename.c_str());
+				theCdbcService->execute(selectSql);
+			}
 
 			record = theCdbcService->next(cdbcCookie);
 		}
@@ -462,15 +482,15 @@ bool isCSPFile(const tstring& filename, tstring& outMimeType,bool& pOutImageOrBi
 	return false;
 }
 #ifdef USES_BODB_SCRIPT
-void insertScriptItem(const tstring& code, const tstring & sFileName, const CScriptItem::pointer& scriptItem, int sub = 0)
+void insertScriptItem(const tstring& code, const tstring & sFileNameTemp, const CScriptItem::pointer& scriptItem, int sub = 0)
 {
-	std::string sValue = scriptItem->getValue();
+	std::string sValue(scriptItem->getValue());
 	theCdbcService->escape_string_in(sValue);
 	const int sqlsize = sValue.size()+1000;
 	char * sql = new char[sqlsize];
 
 	sprintf(sql, "INSERT INTO scriptitem_t (filename,code,sub,itemtype,object1,object2,id,scopy,name,property,type,value) VALUES('%s','%s',%d,%d,%d,%d,'%s','%s','%s','%s','%s','%s')",
-				 sFileName.c_str(), code.c_str(), sub,(int)scriptItem->getItemType(),(int)scriptItem->getOperateObject1(),(int)scriptItem->getOperateObject2(),
+				 sFileNameTemp.c_str(), code.c_str(), sub,(int)scriptItem->getItemType(),(int)scriptItem->getOperateObject1(),(int)scriptItem->getOperateObject2(),
 				 scriptItem->getId().c_str(), scriptItem->getScope().c_str(),scriptItem->getName().c_str(), scriptItem->getProperty().c_str(),scriptItem->getType().c_str(), sValue.c_str());
 	theCdbcService->execute(sql);
 	delete[] sql;
@@ -479,20 +499,20 @@ void insertScriptItem(const tstring& code, const tstring & sFileName, const CScr
 	for (size_t i=0; i<scriptItem->m_subs.size(); i++)
 	{
 		CScriptItem::pointer subScriptItem = scriptItem->m_subs[i];
-		sprintf(bufferCode, "%s%03d", code.c_str(), i);
-		insertScriptItem(bufferCode, sFileName, subScriptItem, 1);
+		sprintf(bufferCode, "%s1%03d", code.c_str(), i);
+		insertScriptItem(bufferCode, sFileNameTemp, subScriptItem, 1);
 	}
 	for (size_t i=0; i<scriptItem->m_elseif.size(); i++)
 	{
 		CScriptItem::pointer subScriptItem = scriptItem->m_elseif[i];
-		sprintf(bufferCode, "%s%03d", code.c_str(), i);
-		insertScriptItem(bufferCode, sFileName, subScriptItem, 2);
+		sprintf(bufferCode, "%s2%03d", code.c_str(), i);
+		insertScriptItem(bufferCode, sFileNameTemp, subScriptItem, 2);
 	}
 	for (size_t i=0; i<scriptItem->m_else.size(); i++)
 	{
 		CScriptItem::pointer subScriptItem = scriptItem->m_else[i];
-		sprintf(bufferCode, "%s%03d", code.c_str(), i);
-		insertScriptItem(bufferCode, sFileName, subScriptItem, 3);
+		sprintf(bufferCode, "%s3%03d", code.c_str(), i);
+		insertScriptItem(bufferCode, sFileNameTemp, subScriptItem, 3);
 	}
 }
 #endif
@@ -517,14 +537,14 @@ void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTim
 extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	HTTP_STATUSCODE statusCode = STATUS_CODE_200;
-	const tstring sIfModifiedSince = request->getHeader("if-modified-since");	// for Last-Modified
-	const tstring sIfNoneMatch = request->getHeader("if-none-match");			// for ETag
+	const tstring sIfModifiedSince(request->getHeader("if-modified-since"));	// for Last-Modified
+	const tstring sIfNoneMatch(request->getHeader("if-none-match"));			// for ETag
 	// If-None-Match,ETag
 	//const tstring sIfRange = request->getHeader("If-Range");
 	//printf("************** If-Modified-Since: %s\n",sIfModifiedSince.c_str());
 	//printf("************** If-Range: %s\n",sIfRange.c_str());
 
-	const tstring host = request->getHost();
+	const tstring host(request->getHost());
 	//printf("**** host=%s\n",host.c_str());
 	CVirtualHost::pointer requestHost = theVirtualHosts.getVirtualHost(host);
 	if (requestHost.get() == NULL && theVirtualHosts.getHosts().size() > 1)
@@ -587,23 +607,25 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		sFileName.insert(0, "/");
 
 	// File not exist
-	tstring sFilePath = requestHost->getDocumentRoot() + sFileName;
-	//printf("**** FilePath=%s\n",sFilePath.c_str());
+	tstring sFilePath(requestHost->getDocumentRoot() + sFileName);
+	//printf("**** FilePath=%s,sFileName=%s\n",sFilePath.c_str(),sFileName.c_str());
 	namespace fs = boost::filesystem;
 	fs::path src_path(sFilePath);
 	if (!fs::exists(src_path))
 	{
+		//printf("**** HTTP Status 404 -1- %s\n",sFileName.c_str());
 		response->println("HTTP Status 404 - %s", sFileName.c_str());
 		return STATUS_CODE_404;
 	}else if (fs::is_directory(src_path))
 	{
 		// ??
+		//printf("**** HTTP Status 404 -2- %s\n",sFileName.c_str());
 		response->println("HTTP Status 404 - %s", sFileName.c_str());
 		return STATUS_CODE_404;
 	}
 
 	//printf(" **** doHttpServer: filename=%s\n",sFileName.c_str());
-	tstring sMimeType = "";
+	tstring sMimeType;
 	bool bIsImageOrBinary = false;
 	if (isCSPFile(sFilePath,sMimeType,bIsImageOrBinary))
 	{
@@ -622,8 +644,10 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 #ifdef USES_BODB_SCRIPT
 				if (theCdbcService.get()!=NULL)
 				{
+					tstring sFileNameTemp(sFileName);
+					theCdbcService->escape_string_in(sFileNameTemp);
 					char sql[512];
-					sprintf(sql, "INSERT INTO cspfileinfo_t (filename,filesize,lasttime) VALUES('%s',%d,%lld)",sFileName.c_str(), fileSize, (cgc::bigint)lastTime);
+					sprintf(sql, "INSERT INTO cspfileinfo_t (filename,filesize,lasttime) VALUES('%s',%d,%lld)",sFileNameTemp.c_str(), fileSize, (cgc::bigint)lastTime);
 					theCdbcService->execute(sql);
 				}
 #endif
@@ -639,8 +663,10 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 #ifdef USES_BODB_SCRIPT
 			if (theCdbcService.get()!=NULL)
 			{
+				tstring sFileNameTemp(sFileName);
+				theCdbcService->escape_string_in(sFileNameTemp);
 				char sql[512];
-				sprintf(sql, "UPDATE cspfileinfo_t SET filesize=%d,lasttime=%lld WHERE filename='%s')",fileSize, (cgc::bigint)lastTime, sFileName.c_str());
+				sprintf(sql, "UPDATE cspfileinfo_t SET filesize=%d,lasttime=%lld WHERE filename='%s'",fileSize, (cgc::bigint)lastTime, sFileNameTemp.c_str());
 				theCdbcService->execute(sql);
 			}
 #endif
@@ -653,7 +679,6 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			fileScript = CFileScripts::pointer(new CFileScripts(sFileName));
 			theFileScripts.insert(sFileName, fileScript,false);
 		}
-
 		CMycpHttpServer::pointer httpServer = CMycpHttpServer::pointer(new CMycpHttpServer(request, response));
 		httpServer->setSystem(theSystem);
 		httpServer->setApplication(theApplication);
@@ -664,6 +689,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		httpServer->setApps(theApps);
 		httpServer->setDSs(theDataSources);
 
+		//printf("**** buildCSPFile=%d\n",(int)(buildCSPFile?1:0));
 		if (buildCSPFile)
 		{
 			if (!fileScript->parserCSPFile(sFilePath.c_str())) return STATUS_CODE_404;
@@ -672,27 +698,31 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			if (theCdbcService.get()!=NULL)
 			{
 				char sql[512];
-				theCdbcService->escape_string_in(sFileName);
-				sprintf(sql, "DELETE FROM scriptitem_t WHERE filename='%s'", sFileName.c_str());
+				tstring sFileNameTemp(sFileName);
+				theCdbcService->escape_string_in(sFileNameTemp);
+				sprintf(sql, "DELETE FROM scriptitem_t WHERE filename='%s'", sFileNameTemp.c_str());
 				theCdbcService->execute(sql);
 
 				const std::vector<CScriptItem::pointer>& scripts = fileScript->getScripts();
+				//printf("**** buildCSPFile filename=%s, size=%d\n",sFileName.c_str(),(int)scripts.size());
+				char bufferCode[5];
 				for (size_t i=0; i<scripts.size(); i++)
 				{
 					CScriptItem::pointer scriptItem = scripts[i];
-					char bufferCode[4];
-					sprintf(bufferCode, "%03d", i);
-					insertScriptItem(bufferCode, sFileName, scriptItem);
+					sprintf(bufferCode, "%04d", i);
+					insertScriptItem(bufferCode, sFileNameTemp, scriptItem);
 				}
 			}
-		}else if (fileScript->getScripts().empty() && theCdbcService.get()!=NULL)
+		}else if (fileScript->empty() && theCdbcService.get()!=NULL)
 		{
 			char selectSql[512];
-			theCdbcService->escape_string_in(sFileName);
-			sprintf(selectSql, "SELECT code,sub,itemtype,object1,object2,id,scopy,name,property,type,value FROM scriptitem_t WHERE filename='%s' ORDER BY code", sFileName.c_str());
+			tstring sFileNameTemp(sFileName);
+			theCdbcService->escape_string_in(sFileNameTemp);
+			sprintf(selectSql, "SELECT code,sub,itemtype,object1,object2,id,scopy,name,property,type,value FROM scriptitem_t WHERE filename='%s' ORDER BY code", sFileNameTemp.c_str());
 
 			int cdbcCookie = 0;
-			theCdbcService->select(selectSql, cdbcCookie);
+			//theCdbcService->select(selectSql, cdbcCookie);
+			const cgc::bigint ret = theCdbcService->select(selectSql, cdbcCookie);
 			//printf("**** %lld=%s\n",ret,selectSql);
 			CLockMap<tstring, CScriptItem::pointer> codeScripts;
 			cgcValueInfo::pointer record = theCdbcService->first(cdbcCookie);
@@ -711,6 +741,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				cgcValueInfo::pointer var_property = record->getVector()[8];
 				cgcValueInfo::pointer var_type = record->getVector()[9];
 				cgcValueInfo::pointer var_value = record->getVector()[10];
+				//const int nvlen = record->getVector()[11]->getIntValue();
 
 				CScriptItem::pointer scriptItem = CScriptItem::pointer(new CScriptItem((CScriptItem::ItemType)var_itemtype->getIntValue()));
 				scriptItem->setOperateObject1((CScriptItem::OperateObject)var_object1->getIntValue());
@@ -721,15 +752,18 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				scriptItem->setProperty(var_property->getStr());
 				scriptItem->setType(var_type->getStr());
 
-				std::string sValue = var_value->getStr();
-				theCdbcService->escape_string_out(sValue);
-				scriptItem->setValue(sValue);
-
-				const tstring scriptCode = var_code->getStr();
-				const tstring parentCode = scriptCode.size()<=3?"":scriptCode.substr(0, scriptCode.size()-3);
+				std::string sValue(var_value->getStr());
+				if (!sValue.empty())
+				{
+					theCdbcService->escape_string_out(sValue);
+					scriptItem->setValue(sValue);
+				}
+				const tstring scriptCode(var_code->getStr());
+				const size_t nScriptCodeSize = scriptCode.size();
+				const tstring parentCode(nScriptCodeSize<=4?"":scriptCode.substr(0, nScriptCodeSize-4));
 				//printf("**** code=%s;parent_code=%s;value=%s\n",scriptCode.c_str(),parentCode.c_str(),sValue.c_str());
 				CScriptItem::pointer parentScriptItem;
-				if (codeScripts.find(parentCode, parentScriptItem))
+				if (!parentCode.empty() && codeScripts.find(parentCode, parentScriptItem))
 				{
 					const int nSub = var_sub->getIntValue();
 					if (nSub == 2)
@@ -742,17 +776,20 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				{
 					fileScript->addScript(scriptItem);
 				}
-				codeScripts.insert(scriptCode, scriptItem);
+				codeScripts.insert(scriptCode, scriptItem, false);
 
 				record = theCdbcService->next(cdbcCookie);
 			}
 			theCdbcService->reset(cdbcCookie);
+			if (fileScript->empty())
+				fileInfo->setFileSize(0);
 #endif
 		}
 
 		try
 		{
-			int ret = httpServer->doIt(fileScript);
+			//printf("**** doIt filename=%s, size=%d\n",sFileName.c_str(),(int)fileScript->getScripts().size());
+			const int ret = httpServer->doIt(fileScript);
 			if (ret == -1)
 				return STATUS_CODE_400;
 			statusCode = response->getStatusCode();
@@ -1075,5 +1112,6 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	//	stream.close();
 	}
 
+	//printf("**** return =%d\n",statusCode);
 	return statusCode;
 }

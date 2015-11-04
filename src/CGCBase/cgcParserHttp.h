@@ -61,7 +61,7 @@ public:
 
 	// Parameter
 	virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const = 0;
-	virtual bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const = 0;
+	//virtual bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const = 0;
 	virtual bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const = 0;
 
 	// Herder

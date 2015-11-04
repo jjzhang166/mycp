@@ -1150,6 +1150,11 @@ HTTP_STATUSCODE CGCApp::executeService(const tstring & serviceName, const tstrin
 	return result;
 }
 
+cgcCDBCInfo::pointer CGCApp::getCDBDInfo(const tstring& datasource) const
+{
+	cgcDataSourceInfo::pointer pDSInfo = m_cdbcs.getDataSourceInfo(datasource);
+	return pDSInfo.get()==NULL?cgcNullCDBCInfo:pDSInfo->getCDBCInfo();
+}
 cgcCDBCService::pointer CGCApp::getCDBDService(const tstring& datasource)
 {
 	cgcCDBCService::pointer result;

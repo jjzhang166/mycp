@@ -53,7 +53,7 @@ private:
 	tstring m_requestURL;		// "/path/file.csp?p=v&..."
 	tstring m_requestURI;		// "/path/file.csp"
 	tstring m_queryString;		// "p=v&..."
-	tstring m_postString;		// "p=v&..."
+	//tstring m_postString;		// "p=v&..."
 	tstring m_fileName;			// file.csp
 	unsigned int m_nRangeFrom;		// default 0=start
 	unsigned int m_nRangeTo;			// default 0=end
@@ -68,7 +68,8 @@ private:
 	//AttributesImpl m_pReqHeaders;
 	tstring m_sMyCookieSessionId;
 	AttributesImpl m_pReqCookies;
-	AttributesImpl m_propertys;
+	CLockMap<tstring,cgcValueInfo::pointer> m_propertys;
+	//AttributesImpl m_propertys;
 	CLockMap<tstring,cgcValueInfo::pointer> m_pResHeaders;
 	//std::vector<cgcKeyValue::pointer> m_pResHeaders;
 	tstring m_sResCookieSessionId;
@@ -148,9 +149,11 @@ protected:
 	virtual bool getHeaders(std::vector<cgcKeyValue::pointer>& outHeaders) const;
 	//virtual bool getHeaders(std::vector<cgcKeyValue::pointer>& outHeaders) const {return m_pReqHeaders.getSPropertys(outHeaders);}
 	// Parameter
-	virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const {return m_propertys.getProperty(paramName);}
-	bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const {return m_propertys.getProperty(paramName, outParameters);}
-	bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const {return m_propertys.getSPropertys(outParameters);}
+	virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const;
+	//virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const {return m_propertys.getProperty(paramName);}
+	//bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const {return m_propertys.getProperty(paramName, outParameters);}
+	virtual bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const;
+	//bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const {return m_propertys.getSPropertys(outParameters);}
 
 	/////////////////////////////////////////////
 	// Response

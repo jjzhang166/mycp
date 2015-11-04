@@ -18,16 +18,105 @@
 
 // CGCP.cpp : Defines the entry point for the console application.
 //
-#ifdef WIN32
-#endif // WIN32
-
 #include <stdio.h>
 #include "iostream"
 #include "CGC/CGCApp.h"
+#ifdef WIN32
+
+#else
+#include <sys/sysinfo.h>
+#include <time.h>
+#include <errno.h>
+#endif // WIN32
 
 #if (USES_NEWVERSION)
 typedef int (FAR *FPCGC_app_main)(const char * lpszPath);
 #endif
+
+
+#ifdef WIN32
+tstring theModulePath;
+#include "tlhelp32.h"
+#include "Psapi.h"
+#pragma comment(lib, "Psapi.lib")
+void KillCGCP(void)
+{
+	const DWORD nCurrentProcessId = GetCurrentProcessId();
+	const std::string strExeName(theModulePath);
+
+	TCHAR szPath[MAX_PATH];
+	Sleep(1000);
+	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);  
+	if (hProcessSnap==NULL) return;
+	PROCESSENTRY32 pe32;  
+	memset(&pe32,0,sizeof(pe32));
+	pe32.dwSize=sizeof(PROCESSENTRY32);  
+	bool bExistApp = false;
+	if (::Process32First(hProcessSnap,&pe32))  
+	{  
+		do  
+		{
+			if (nCurrentProcessId!=pe32.th32ProcessID)
+			{
+				std::string::size_type find = strExeName.find(pe32.szExeFile);
+				if (find != std::string::npos)
+				{
+					std::string sExePath(strExeName.substr(0,find));
+					find = sExePath.find(":\\");
+					if (find!=std::string::npos)
+						sExePath = sExePath.substr(find+2);
+
+					HANDLE hProcess = OpenProcess(SYNCHRONIZE|PROCESS_TERMINATE|PROCESS_QUERY_INFORMATION, FALSE, pe32.th32ProcessID);
+					//HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+					if(NULL != hProcess)
+					{
+						DWORD nSize = MAX_PATH;
+						memset(szPath,0,nSize);
+						GetProcessImageFileName(hProcess, szPath, MAX_PATH);
+						std::string sFindPath(szPath);
+						if (sFindPath.empty() || sFindPath.find(sExePath)!=std::string::npos)
+							TerminateProcess(hProcess, 0);
+						else
+							CloseHandle(hProcess);
+						//break;
+					}
+				}
+			}
+		}while(::Process32Next(hProcessSnap,&pe32));   
+	}
+	CloseHandle(hProcessSnap);
+
+	HWND hHwnd = FindWindow(NULL,"CGCP.exe");
+	if (hHwnd!=NULL)
+	{
+		DWORD dwWndProcessId = 0;
+		GetWindowThreadProcessId(hHwnd,&dwWndProcessId);
+		if (dwWndProcessId>0 && dwWndProcessId!=nCurrentProcessId)
+		{
+			HANDLE hProcess = OpenProcess(SYNCHRONIZE|PROCESS_TERMINATE, FALSE, dwWndProcessId);
+			if(NULL != hProcess)
+			{
+				TerminateProcess(hProcess, 0);
+			}
+		}
+	}
+}
+unsigned long GetSystemBootTime(void)
+{
+	return timeGetTime()/1000;
+}
+#else
+unsigned long GetSystemBootTime(void)
+{
+	struct sysinfo info;
+	struct tm *ptm = NULL;
+	if (sysinfo(&info)) {
+		return 0;
+	}
+	return info.uptime;
+}
+#endif
+
 
 #if defined(WIN32) && !defined(__MINGW_GCC)
 #include "SSNTService.h"
@@ -40,7 +129,7 @@ int main(int argc, char* argv[])
 	const std::string sProgram(argv[0]);
 	bool bService = false;
 	bool bProtect = false;
-	int nWaitSeconds=0;
+	//int nWaitSeconds=0;
 	if (argc>1)
 	{
 		for (int i=1; i<argc; i++)
@@ -52,32 +141,37 @@ int main(int argc, char* argv[])
 			}else if (sParam == "-P")
 			{
 				bProtect = true;
-			}else if (sParam == "-W" && (i+1)<argc)
-			{
-				nWaitSeconds = atoi(argv[i+1]);
-				//printf("******* nWaitSeconds = %d\n",nWaitSeconds);
-				i++;
+			//}else if (sParam == "-W" && (i+1)<argc)
+			//{
+			//	nWaitSeconds = atoi(argv[i+1]);
+			//	//printf("******* nWaitSeconds = %d\n",nWaitSeconds);
+			//	i++;
 			}
 		}
 	}
 
-	tstring m_sModulePath;
+	const unsigned long nSystemBootTime = GetSystemBootTime();
+	const int nWaitSeconds = nSystemBootTime<600?15:0;
+	//printf("**** nSystemBootTime=%d\n",(int)nSystemBootTime);
+
+	tstring sModulePath;
 #ifdef WIN32
 	TCHAR chModulePath[MAX_PATH];
 	memset(&chModulePath, 0, MAX_PATH);
 	::GetModuleFileName(NULL, chModulePath, MAX_PATH);
+	theModulePath = chModulePath;
 	TCHAR* temp = (TCHAR*)0;
 	temp = _tcsrchr(chModulePath, (unsigned int)'\\');
 	chModulePath[temp - chModulePath] = '\0';
 
-	m_sModulePath = chModulePath;
+	sModulePath = chModulePath;
 #else
 	namespace fs = boost::filesystem;
 	fs::path currentPath( fs::initial_path());
-	m_sModulePath = currentPath.string();
+	sModulePath = currentPath.string();
 #endif
 	//printf("** program=%s,%d\n",sProgram.c_str(),(int)(bService?1:0));
-	const std::string sProtectDataFile = m_sModulePath + "/CGCP.protect";
+	const std::string sProtectDataFile = sModulePath + "/CGCP.protect";
 	char lpszBuffer[260];
 	if (bProtect)
 	{
@@ -110,7 +204,7 @@ int main(int argc, char* argv[])
 				const time_t tRunTime = cgc_atoi64(lpszBuffer);
 				if (tRunTime>0 && (tCurrentTime-tRunTime)>=8)
 				{
-					const std::string sProtectLogFile = m_sModulePath + "/CGCP.protect.log";
+					const std::string sProtectLogFile = sModulePath + "/CGCP.protect.log";
 					FILE * pProtectLog = fopen(sProtectLogFile.c_str(),"a");
 					if (pProtectLog!=NULL)
 					{
@@ -121,12 +215,13 @@ int main(int argc, char* argv[])
 						fclose(pProtectLog);
 					}
 #ifdef WIN32
+					KillCGCP();
 					if (strstr(lpszBuffer,",1")!=NULL)
-						ShellExecute(NULL,"open",sProgram.c_str(),"-run -S -W 6",m_sModulePath.c_str(),SW_SHOW);
+						ShellExecute(NULL,"open",sProgram.c_str(),"-run -S",sModulePath.c_str(),SW_SHOW);
 					else
-						ShellExecute(NULL,"open",sProgram.c_str(),"-run -W 6",m_sModulePath.c_str(),SW_SHOW);
+						ShellExecute(NULL,"open",sProgram.c_str(),"",sModulePath.c_str(),SW_SHOW);
 #else
-					sprintf(lpszBuffer,"\"%s\" -S -W 6 &",sProgram.c_str());
+					sprintf(lpszBuffer,"\"%s\" -S &",sProgram.c_str());
 					system(lpszBuffer);
 #endif
 					break;
@@ -143,7 +238,7 @@ int main(int argc, char* argv[])
 			fwrite(lpszBuffer,1,strlen(lpszBuffer),pfile);
 			fclose(pfile);
 #ifdef WIN32
-			ShellExecute(NULL,"open",sProgram.c_str(),"-P",m_sModulePath.c_str(),SW_HIDE);
+			ShellExecute(NULL,"open",sProgram.c_str(),"-P",sModulePath.c_str(),SW_HIDE);
 #else
 			sprintf(lpszBuffer,"\"%s\" -P &",sProgram.c_str());
 			system(lpszBuffer);
@@ -152,7 +247,7 @@ int main(int argc, char* argv[])
 	}
 
 #if (USES_NEWVERSION)
-	std::string sModuleName = m_sModulePath;
+	std::string sModuleName = sModulePath;
 	sModuleName.append("/modules/");
 #ifdef WIN32
 #ifdef _DEBUG
@@ -212,7 +307,7 @@ int main(int argc, char* argv[])
 	fp = (FPCGC_app_main)dlsym(hModule, "app_main");
 #endif
 	if (fp)
-		fp(m_sModulePath.c_str());
+		fp(sModulePath.c_str());
 
 	//DWORD error = GetLastError();
 
@@ -225,7 +320,7 @@ int main(int argc, char* argv[])
 #else // USES_NEWVERSION
 
 #ifdef _DEBUG
-	CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
+	CGCApp::pointer gApp = CGCApp::create(sModulePath);
 	gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 #else // _DEBUG
 
@@ -275,7 +370,7 @@ int main(int argc, char* argv[])
 			}
 		}else if(_tcsicmp(_T("run"),argv[1]+1)==0)
 		{
-			CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
+			CGCApp::pointer gApp = CGCApp::create(sModulePath);
 			gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 		}else
 		{
@@ -289,12 +384,12 @@ int main(int argc, char* argv[])
 		{
 			cService.AddToErrorMessageLog(TEXT("Failed start server£¡"));
 
-			CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
+			CGCApp::pointer gApp = CGCApp::create(sModulePath);
 			gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 		}
 	}
 #else
-	CGCApp::pointer gApp = CGCApp::create(m_sModulePath);
+	CGCApp::pointer gApp = CGCApp::create(sModulePath);
 	gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 #endif
 #endif // _DEBUG

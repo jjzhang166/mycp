@@ -221,22 +221,27 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 			var_value = m_pageParameters->getProperty(string);
 			if (var_value.get() == NULL)
 			{
-				tstring strParamName(string.substr(VTI_REQUESTPARAM.size()));
-				std::vector<cgcValueInfo::pointer> vectors;
-				bool bGet = false;
-				if (request->getParameter(strParamName, vectors))
-				{
-					if (vectors.size() == 1)
-					{
-						var_value = vectors[0];
-					}else
-					{
-						var_value = CGC_VALUEINFO(vectors);
-					}
-				}else if (request->getAttributes().get() != NULL)
+				const tstring strParamName(string.substr(VTI_REQUESTPARAM.size()));
+				var_value = request->getParameter(strParamName);
+				if (var_value.get()==NULL && request->getAttributes().get() != NULL)
 				{
 					var_value = request->getProperty(strParamName);
 				}
+				//std::vector<cgcValueInfo::pointer> vectors;
+				//bool bGet = false;
+				//if (request->getParameter(strParamName, vectors))
+				//{
+				//	if (vectors.size() == 1)
+				//	{
+				//		var_value = vectors[0];
+				//	}else
+				//	{
+				//		var_value = CGC_VALUEINFO(vectors);
+				//	}
+				//}else if (request->getAttributes().get() != NULL)
+				//{
+				//	var_value = request->getProperty(strParamName);
+				//}
 				if (var_value.get() != NULL)
 				{
 					var_value->setAttribute(cgcValueInfo::ATTRIBUTE_READONLY);

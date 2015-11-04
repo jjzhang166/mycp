@@ -175,7 +175,7 @@ public:
 	const std::string& getType(void) const {return m_type;}
 
 	bool isHtmlText(void) const;
-	void addHtmlText(CScriptItem::pointer scriptItem);
+	void addHtmlText(const CScriptItem::pointer& scriptItem);
 	void validataHtmlText(std::string& htmlText) const;
 
 	static bool isInvalidateChar(char in);

@@ -165,6 +165,7 @@ private:
 	virtual int onRemoteClose(unsigned long remoteId, int nErrorCode);
 
 	// cgcServiceManager handler
+	virtual cgcCDBCInfo::pointer getCDBDInfo(const tstring& datasource) const;
 	virtual cgcCDBCService::pointer getCDBDService(const tstring& datasource);
 	virtual void retCDBDService(cgcCDBCServicePointer& cdbcservice);
 	virtual HTTP_STATUSCODE executeInclude(const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);

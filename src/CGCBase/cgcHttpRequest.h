@@ -58,7 +58,7 @@ public:
 	virtual const tstring& getForwardFromURL(void) const = 0;
 
 	virtual cgcValueInfo::pointer getParameter(const tstring & paramName) const = 0;
-	virtual bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const = 0;
+	//virtual bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const = 0;
 	virtual bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const = 0;
 	virtual tstring getParameterValue(const tstring & sParamName, const char * sDefault = "") const =0;
 	virtual tstring getParameterValue(const tstring & sParamName, const tstring & sDefault) const =0;
