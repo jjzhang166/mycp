@@ -32,7 +32,7 @@ const char * SERVERNAME		= "MYCP Http Server/1.0";
 
 CPpHttp::CPpHttp(void)
 : m_host("127.0.0.1"), m_account(""), m_secure(""), m_moduleName(""), m_functionName("doHttpFunc"), m_httpVersion("HTTP/1.1"),m_restVersion("v01"), m_contentLength(0), m_method(HTTP_NONE)
-, m_requestURL(""), m_requestURI(""), m_queryString(""),/*m_postString(""), */m_fileName("")
+, m_requestURL(""), m_requestURI(""), m_queryString(""),m_postString(""), m_fileName("")
 , m_nRangeFrom(0), m_nRangeTo(0)
 , m_keepAlive(true), m_keepAliveInterval(0), /*m_contentData(NULL), */m_contentSize(0),m_receiveSize(0)/*,m_nCookieExpiresMinute(0)*/
 , m_statusCode(STATUS_CODE_200), m_addDateHeader(false),m_addContentLength(true), m_sReqContentType(""), m_sResContentType("text/html"), m_sLocation("")
@@ -207,7 +207,7 @@ void CPpHttp::init(void)
 	m_requestURL = "";
 	m_requestURI = "";
 	m_queryString = "";
-	//m_postString = "";
+	m_postString = "";
 	m_fileName = "";
 	m_nRangeFrom = 0;
 	m_nRangeTo = 0;
@@ -641,16 +641,16 @@ void CPpHttp::GeRequestInfo(void)
 	const std::string::size_type nFind = m_sReqContentType.find("application/x-www-form-urlencoded");
 	const bool bUrlDecode = nFind != std::string::npos?true:false;
 	GetPropertys(m_queryString, bUrlDecode);
-	//if (!m_postString.empty() && m_postString!=m_queryString)
-	//	GetPropertys(m_postString, bUrlDecode);
+	if (!m_postString.empty() && m_postString!=m_queryString)
+		GetPropertys(m_postString, bUrlDecode);
 	if (bUrlDecode)
 	{
 		m_queryString = URLDecode(m_queryString.c_str());
-		//if (!m_postString.empty())
-		//	m_postString = URLDecode(m_postString.c_str());
+		if (!m_postString.empty())
+			m_postString = URLDecode(m_postString.c_str());
 	}
-	//if (m_method == HTTP_POST || !m_postString.empty())
-	//	m_queryString = m_postString;
+	if (m_method == HTTP_POST || !m_postString.empty())
+		m_queryString = m_postString;
 }
 
 bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader)
@@ -733,14 +733,14 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		{
 			m_currentMultiPart.reset();
 			m_queryString = httpRequest;
-			//m_postString = m_queryString;
+			m_postString = m_queryString;
 			m_receiveSize = requestSize;
 			return true;
 		}else if (m_contentSize >= (m_receiveSize + requestSize) && m_currentMultiPart->getBoundary().empty())
 		{
 			//strncpy(m_contentData+m_receiveSize,httpRequest,requestSize);
 			m_queryString.append(httpRequest);
-			//m_postString.append(httpRequest);
+			m_postString.append(httpRequest);
 			m_receiveSize += requestSize;
 			if (m_receiveSize>=m_contentSize)
 			{
@@ -755,7 +755,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		{
 			// 普通参数，前面有处理未完成数据；
 			m_queryString.append(httpRequest);
-			//m_postString.append(httpRequest);
+			m_postString.append(httpRequest);
 			m_receiveSize += requestSize;
 			findBoundary = true;
 			multipartyBoundary = m_currentMultiPart->getBoundary();
@@ -1177,7 +1177,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 							m_queryString = find;
 							if (m_queryString.size()>m_contentSize)
 								m_queryString = m_queryString.substr(0,m_contentSize);
-							//m_postString = m_queryString;
+							m_postString = m_queryString;
 							if (m_contentSize > m_receiveSize)
 							{
 								m_currentMultiPart = CGC_MULTIPART("");

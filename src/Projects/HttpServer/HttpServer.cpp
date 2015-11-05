@@ -676,6 +676,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		CFileScripts::pointer fileScript;
 		if (!theFileScripts.find(sFileName, fileScript))
 		{
+			buildCSPFile = true;
 			fileScript = CFileScripts::pointer(new CFileScripts(sFileName));
 			theFileScripts.insert(sFileName, fileScript,false);
 		}

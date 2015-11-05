@@ -189,7 +189,8 @@ public:
 #ifdef USES_OPENSSL
 		return boost::asio::write(*m_socket, boost::asio::buffer(data,size), boost::asio::transfer_all(), ec);
 #else
-		return boost::asio::write(*m_socket, boost::asio::buffer(data, size),ec);
+		return boost::asio::write(*m_socket, boost::asio::buffer(data,size), boost::asio::transfer_all(), ec);
+		//return boost::asio::write(*m_socket, boost::asio::buffer(data, size),ec);
 #endif
 	}
 

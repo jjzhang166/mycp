@@ -320,7 +320,8 @@ private:
 			if ( rc!=SQLITE_OK )
 			{
 				lock.unlock();
-				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s); %d=%s\n", exeSql,rc,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: %d=%s\n", rc,zErrMsg));
+				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s)\n", exeSql));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}

@@ -60,19 +60,18 @@ bool CFileScripts::parserCSPFile(const char * filename)
 		return false;
 	}
 	stream.seekg(0, std::ios::end);
-	int nTotal = stream.tellg();
+	const int nTotal = stream.tellg();
 	stream.seekg(0, std::ios::beg);
 
 	char * buffer = new char[nTotal+1];
 	memset(buffer, 0, nTotal+1);
 	stream.read(buffer, nTotal);
 	buffer[nTotal] = '\0';
+	stream.close();
 
 	m_scripts.clear();
-	bool ret = parserCSPContent(buffer);
+	const bool ret = parserCSPContent(buffer);
 	delete[] buffer;
-
-	stream.close();
 	return ret;
 }
 

@@ -12,7 +12,8 @@ CREATE TABLE scriptitem_t
 	name					VARCHAR(32),
 	property			VARCHAR(32),
 	type					VARCHAR(16),
-	value					CLOB
+	value					CLOB,
+	vlen					INT DEFAULT '0'
 );
 CREATE INDEX scriptitem_t_idx_filename ON scriptitem_t(filename);
 

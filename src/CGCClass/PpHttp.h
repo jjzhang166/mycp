@@ -53,7 +53,7 @@ private:
 	tstring m_requestURL;		// "/path/file.csp?p=v&..."
 	tstring m_requestURI;		// "/path/file.csp"
 	tstring m_queryString;		// "p=v&..."
-	//tstring m_postString;		// "p=v&..."
+	tstring m_postString;		// "p=v&..."
 	tstring m_fileName;			// file.csp
 	unsigned int m_nRangeFrom;		// default 0=start
 	unsigned int m_nRangeTo;			// default 0=end
