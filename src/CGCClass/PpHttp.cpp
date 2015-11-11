@@ -188,6 +188,7 @@ void CPpHttp::reset(void)
 	//m_nCookieExpiresMinute = 0;
 	m_pResCookies.clear();
 	m_sResContentType = "text/html";
+	m_sResCharset = "";
 	m_sLocation = "";
 	m_moduleName = "";
 	m_functionName = "";
@@ -273,11 +274,37 @@ void CPpHttp::setHeader(const tstring& name, const tstring& value)
 {
 	if (!name.empty())
 	{
+		std::string sStringTemp(name);
+		std::transform(sStringTemp.begin(), sStringTemp.end(), sStringTemp.begin(), ::tolower);
+		if (sStringTemp == "content-type")	// Http_ContentType
+		{
+			this->setContentType(value);
+			return;
+		}
 		//m_pResHeaders.remove(name);
 		m_pResHeaders.insert(name,CGC_VALUEINFO(value));
 		//m_pResHeaders.push_back(CGC_KEYVALUE(name,CGC_VALUEINFO(value)));
 	}
 }
+void CPpHttp::setContentType(const tstring& contentType)
+{
+	// application/json; charset=UTF-8;
+	m_sResContentType = contentType;
+	//std::string sStringTemp(m_sResContentType);
+	//std::transform(sStringTemp.begin(), sStringTemp.end(), sStringTemp.begin(), ::tolower);
+	//std::string::size_type find = sStringTemp.find("charset=");
+	//if (find==std::string::npos)
+	//{
+	//	m_sResCharset.clear();
+	//}else
+	//{
+	//	m_sResCharset = sStringTemp.substr(find+8);
+	//	find = m_sResCharset.find(";");
+	//	if (find!=std::string::npos)
+	//		m_sResCharset = m_sResCharset.substr(0,find);
+	//}
+}
+
 //void CPpHttp::setHeader(const tstring & header)
 //{
 //	if (!header.empty())
@@ -324,6 +351,58 @@ void CPpHttp::location(const tstring& url)
 	//printf("******* location(): =%s\n",m_sLocation.c_str());
 }
 
+inline std::string GetWeekdayName(int nWeekday)
+{
+	switch(nWeekday)
+	{
+	case 0:
+		return "Sun";
+	case 1:
+		return "Mon";
+	case 2:
+		return "Tue";
+	case 3:
+		return "Wed";
+	case 4:
+		return "Thu";
+	case 5:
+		return "Fri";
+	default:
+		return "Sta";
+	}
+}
+inline std::string GetMonthName(int nMonth)
+{
+	// = "Jan" | "Feb" | "Mar" | "Apr"| "May" | "Jun" | "Jul" | "Aug" | "Sep" | "Oct" | "Nov" | "Dec" 
+	switch(nMonth)
+	{
+	case 0:
+		return "Jan";
+	case 1:
+		return "Feb";
+	case 2:
+		return "Mar";
+	case 3:
+		return "Apr";
+	case 4:
+		return "May";
+	case 5:
+		return "Jun";
+	case 6:
+		return "Jul";
+	case 7:
+		return "Aug";
+	case 8:
+		return "Sep";
+	case 9:
+		return "Oct";
+	case 10:
+		return "Nov";
+	default:
+		return "Dec";
+	}
+}
+
 const char * CPpHttp::getHttpResult(size_t& outSize) const
 {
 	// Make Response
@@ -342,7 +421,7 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		CLockMap<tstring,cgcValueInfo::pointer>::const_iterator pIter = m_pResHeaders.begin();
 		for (;pIter!=m_pResHeaders.end();pIter++)
 		{
-			const tstring sKey = pIter->first;
+			const tstring sKey(pIter->first);
 			const cgcValueInfo::pointer pValue = pIter->second;
 			sprintf(m_pHeaderTemp,"%s: %s\r\n",sKey.c_str(),pValue->getStr().c_str());
 			//sHeaders.append(m_pHeaderTemp);
@@ -356,7 +435,7 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		CLockMap<tstring,cgcCookieInfo::pointer>::const_iterator pIter = m_pResCookies.begin();
 		for (;pIter!=m_pResCookies.end();pIter++)
 		{
-			const tstring sKey = pIter->first;
+			const tstring sKey(pIter->first);
 			const cgcCookieInfo::pointer pCookieInfo = pIter->second;
 			//const cgcValueInfo::pointer pValue = pIter->second;
 			sprintf(m_pCookieTemp,"%s=%s; path=%s",sKey.c_str(),pCookieInfo->m_sCookieValue.c_str(),pCookieInfo->m_sCookiePath.c_str());
@@ -371,10 +450,26 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 					ltime += pCookieInfo->m_tExpiresTime*60;
 					newtime = gmtime(&ltime);
 					char szDT[128];
-					strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+					//strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+					// Sat,03 May 2025 17:44:22 GMT
+					sprintf(szDT,"%s, %02d %s %d %02d:%02d:%02d GMT", GetWeekdayName(newtime->tm_wday).c_str(),newtime->tm_mday,
+						GetMonthName(newtime->tm_mon).c_str(),(newtime->tm_year+1900),newtime->tm_hour,newtime->tm_min,newtime->tm_sec);
 					sDTTemp = szDT;
+//					printf("**** DATE=%s\n",sDTTemp.c_str());
+//					printf("**** DATE1=%s,m_sResCharset=%s\n",szDT,m_sResCharset.c_str());
+//					if (m_sResCharset=="utf-8")
+//					{
+//#ifdef WIN32
+//						sDTTemp = CGC_ACP2UTF8(szDT);
+//#else
+//						CGC_XXX2UTF8("gb2312",szDT,strlen(szDT),sDTTemp);
+//#endif
+//					}else
+//					{
+//						sDTTemp = szDT;
+//					}
 				}
-				sprintf(m_pHeaderTemp, "Set-Cookie: %s; Expires=%s\r\n", m_pCookieTemp,sDTTemp.c_str());
+				sprintf(m_pHeaderTemp, "Set-Cookie: %s; expires=%s\r\n", m_pCookieTemp,sDTTemp.c_str());
 			}else
 			{
 				sprintf(m_pHeaderTemp, "Set-Cookie: %s\r\n", m_pCookieTemp);
@@ -395,8 +490,21 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 			time(&ltime);
 			newtime = gmtime(&ltime);
 			char szDT[128];
-			strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+			sprintf(szDT,"%s, %02d %s %d %02d:%02d:%02d GMT", GetWeekdayName(newtime->tm_wday).c_str(),newtime->tm_mday,
+				GetMonthName(newtime->tm_mon).c_str(),(newtime->tm_year+1900),newtime->tm_hour,newtime->tm_min,newtime->tm_sec);
 			sDTTemp = szDT;
+//			strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+//			if (m_sResCharset=="utf-8")
+//			{
+//#ifdef WIN32
+//				sDTTemp = CGC_ACP2UTF8(szDT);
+//#else
+//				CGC_XXX2UTF8("gb2312",szDT,strlen(szDT),sDTTemp);
+//#endif
+//			}else
+//			{
+//				sDTTemp = szDT;
+//			}
 		}
 		sprintf(m_pHeaderTemp, "Date: %s\r\n", sDTTemp.c_str());
 		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);

@@ -117,32 +117,44 @@ int CHttpResponseImpl::sendResponse(void)
 
 void CHttpResponseImpl::println(const char * format,...)
 {
-	char bufferTemp[MAX_FORMAT_SIZE+1];
-	memset(bufferTemp, 0, MAX_FORMAT_SIZE+1);
-	va_list   vl;
-	va_start(vl, format);
-	int len = vsnprintf(bufferTemp, MAX_FORMAT_SIZE, format, vl);
-	va_end(vl);
-	if (len > MAX_FORMAT_SIZE)
-		len = MAX_FORMAT_SIZE;
-	bufferTemp[len] = '\0';
-
-	m_cgcParser->println(bufferTemp, len);
+	try
+	{
+		char bufferTemp[MAX_FORMAT_SIZE+1];
+		memset(bufferTemp, 0, MAX_FORMAT_SIZE+1);
+		va_list   vl;
+		va_start(vl, format);
+		int len = vsnprintf(bufferTemp, MAX_FORMAT_SIZE, format, vl);
+		va_end(vl);
+		if (len > MAX_FORMAT_SIZE)
+			len = MAX_FORMAT_SIZE;
+		bufferTemp[len] = '\0';
+		m_cgcParser->println(bufferTemp, len);
+	}catch(std::exception const &)
+	{
+	}catch(...)
+	{
+	}
 }
 
 void CHttpResponseImpl::write(const char * format,...)
 {
-	char bufferTemp[MAX_FORMAT_SIZE+1];
-	memset(bufferTemp, 0, MAX_FORMAT_SIZE+1);
-	va_list   vl;
-	va_start(vl, format);
-	int len = vsnprintf(bufferTemp, MAX_FORMAT_SIZE, format, vl);
-	va_end(vl);
-	if (len > MAX_FORMAT_SIZE)
-		len = MAX_FORMAT_SIZE;
-	bufferTemp[len] = '\0';
-
-	m_cgcParser->write(bufferTemp, len);
+	try
+	{
+		char bufferTemp[MAX_FORMAT_SIZE+1];
+		memset(bufferTemp, 0, MAX_FORMAT_SIZE+1);
+		va_list   vl;
+		va_start(vl, format);
+		int len = vsnprintf(bufferTemp, MAX_FORMAT_SIZE, format, vl);
+		va_end(vl);
+		if (len > MAX_FORMAT_SIZE)
+			len = MAX_FORMAT_SIZE;
+		bufferTemp[len] = '\0';
+		m_cgcParser->write(bufferTemp, len);
+	}catch(std::exception const &)
+	{
+	}catch(...)
+	{
+	}
 }
 
 void CHttpResponseImpl::invalidate(void)

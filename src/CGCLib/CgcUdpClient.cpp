@@ -72,7 +72,7 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 		m_ipLocal = CCgcAddress(m_endpointLocal.address().to_string(), m_endpointLocal.port(), CCgcAddress::ST_UDP);
 	}catch (std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		//std::cerr << e.what() << std::endl;
 		return -2;
 	}
 	return 0;
@@ -94,7 +94,7 @@ void CgcUdpClient::stopClient(void)
 
 size_t CgcUdpClient::sendData(const unsigned char * data, size_t size)
 {
-	BOOST_ASSERT(m_udpClient.get() != 0);
+	//BOOST_ASSERT(m_udpClient.get() != 0);
 	if (data == NULL || isInvalidate()) return 0;
 
 	m_tSendRecv = time(0);

@@ -106,25 +106,35 @@ void CModuleImpl::log(LogLevel level, const char* format,...)
 	{
 		return;
 	}
-	char debugmsg[MAX_LOG_SIZE];
-	memset(debugmsg, 0, MAX_LOG_SIZE);
-	va_list   vl;
-	va_start(vl, format);
-	int len = vsnprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
-	va_end(vl);
-	if (len > MAX_LOG_SIZE)
-		len = MAX_LOG_SIZE;
-	else if (len<=0)
-		return;
-	debugmsg[len] = '\0';
+	try
+	{
+		char debugmsg[MAX_LOG_SIZE];
+		memset(debugmsg, 0, MAX_LOG_SIZE);
+		va_list   vl;
+		va_start(vl, format);
+		int len = vsnprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
+		va_end(vl);
+		if (len > MAX_LOG_SIZE)
+			len = MAX_LOG_SIZE;
+		else if (len<=0)
+			return;
+		debugmsg[len] = '\0';
 
-	if (m_logService.get() != NULL)
+		if (m_logService.get() != NULL)
+		{
+			m_logService->log2(level, debugmsg);
+		}else if (m_moduleParams.isLts())
+		{
+			std::cerr << debugmsg;
+		}
+	}catch(std::exception const &)
 	{
-		m_logService->log2(level, debugmsg);
-	}else if (m_moduleParams.isLts())
+		return;
+	}catch(...)
 	{
-		std::cerr << debugmsg;
+		return;
 	}
+
 }
 
 void CModuleImpl::log(LogLevel level, const wchar_t* format,...)

@@ -94,6 +94,7 @@ private:
 	bool m_addContentLength;
 	tstring m_sReqContentType;
 	tstring m_sResContentType;
+	tstring m_sResCharset;	// utf-8,gb2312,...
 	tstring m_sLocation;
 
 	char * m_resultBuffer;
@@ -176,7 +177,7 @@ protected:
 	virtual void setCookie(const tstring& name, const tstring& value);
 	virtual void setCookie(const cgcCookieInfo::pointer& pCookieInfo);
 	virtual void setHeader(const tstring& name, const tstring& value);
-	virtual void setContentType(const tstring& contentType) {m_sResContentType = contentType;}
+	virtual void setContentType(const tstring& contentType);
 	virtual const tstring& getContentType(void) const {return m_sResContentType;}
 	virtual const tstring& getReqContentType(void) const {return m_sReqContentType;}
 
@@ -213,6 +214,80 @@ public:
 	void setFileSystemService(cgcServiceInterface::pointer v) {m_fileSystemService = v;}
 };
 
+#ifdef WIN32
+inline std::string cgc_str_convert(const char * strSource, int sourceCodepage, int targetCodepage)
+{
+	int unicodeLen = MultiByteToWideChar(sourceCodepage, 0, strSource, -1, NULL, 0);
+	if (unicodeLen <= 0) return "";
+
+	wchar_t * pUnicode = new wchar_t[unicodeLen];
+	memset(pUnicode,0,(unicodeLen)*sizeof(wchar_t));
+
+	MultiByteToWideChar(sourceCodepage, 0, strSource, -1, (wchar_t*)pUnicode, unicodeLen);
+
+	char * pTargetData = 0;
+	int targetLen = WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char*)pTargetData, 0, NULL, NULL);
+	if (targetLen <= 0)
+	{
+		delete[] pUnicode;
+		return "";
+	}
+
+	pTargetData = new char[targetLen];
+	memset(pTargetData, 0, targetLen);
+
+	WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char *)pTargetData, targetLen, NULL, NULL);
+
+	std::string result(pTargetData);
+	//	tstring result(pTargetData, targetLen);
+	delete[] pUnicode;
+	delete[] pTargetData;
+	return   result;
+}
+inline std::string CGC_ACP2UTF8(const char* sString)
+{
+	return cgc_str_convert(sString,CP_ACP,CP_UTF8);
+}
+inline std::string CGC_UTF82ACP(const char* sString)
+{
+	return cgc_str_convert(sString,CP_UTF8,CP_ACP);
+}
+#else
+#include <iconv.h>
+inline int cgc_code_convert(const char *from_charset,const char *to_charset,const char *inbuf,size_t inlen,char *outbuf,size_t outlen)  
+{  
+	iconv_t cd;  
+	int rc;  
+	char **pin = (char**)&inbuf;  
+	char **pout = &outbuf;  
+
+	cd = iconv_open(to_charset,from_charset);  
+	if (cd==0)  
+		return -1;  
+	memset(outbuf,0,outlen);  
+	if (iconv(cd,pin,&inlen,pout,&outlen) == -1)  
+		return -1;  
+	iconv_close(cd);  
+	return 0;  
+}  
+inline int cgc_u2g(const char *inbuf,size_t inlen,char *outbuf,size_t outlen)  
+{  
+	return cgc_code_convert("utf-8","gb2312",inbuf,inlen,outbuf,outlen);  
+}  
+inline int cgc_g2u(const char *inbuf,size_t inlen,char *outbuf,size_t outlen)  
+{  
+	return cgc_code_convert("gb2312","utf-8",inbuf,inlen,outbuf,outlen);  
+}
+inline int CGC_XXX2UTF8(const char* from_charset, const char *inbuf,size_t inlen, std::string& pOut)
+{
+	char* pBuf = new char[inlen*2+1];
+	const int ret = cgc_code_convert(from_charset,"utf-8",inbuf,inlen,pBuf,inlen*2+1);
+	if (ret==0)
+		pOut = pBuf;
+	delete[] pBuf;
+	return ret;
+}
+#endif
 } // cgc namespace
 
 #endif // __pp_http_h__

@@ -382,17 +382,23 @@ protected:
 	{
 		if (!beginLog(level)) return;
 
-		char debugmsg[MAX_LOG_SIZE];
-		memset(debugmsg, 0, MAX_LOG_SIZE);
-		va_list   vl;
-		va_start(vl, format);
-		int len = vsnprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
-		va_end(vl);
-		if (len > MAX_LOG_SIZE)
-			len = MAX_LOG_SIZE;
-		debugmsg[len] = '\0';
-
-		afterLog(level, debugmsg);
+		try
+		{
+			char debugmsg[MAX_LOG_SIZE];
+			memset(debugmsg, 0, MAX_LOG_SIZE);
+			va_list   vl;
+			va_start(vl, format);
+			int len = vsnprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
+			va_end(vl);
+			if (len > MAX_LOG_SIZE)
+				len = MAX_LOG_SIZE;
+			debugmsg[len] = '\0';
+			afterLog(level, debugmsg);
+		}catch(std::exception const &)
+		{
+		}catch(...)
+		{
+		}
 	}
 	virtual void log(LogLevel level, const wchar_t * format,...)
 	{
@@ -400,15 +406,23 @@ protected:
 
 		wchar_t debugmsg[MAX_LOG_SIZE];
 		memset(debugmsg, 0, MAX_LOG_SIZE);
-		va_list   vl;
-		va_start(vl, format);
-		int len = vswprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
-		va_end(vl);
-		if (len > MAX_LOG_SIZE)
-			len = MAX_LOG_SIZE;
-		debugmsg[len] = L'\0';
-
-		std::string sMsg = W2Char(debugmsg);
+		try
+		{
+			va_list   vl;
+			va_start(vl, format);
+			int len = vswprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
+			va_end(vl);
+			if (len > MAX_LOG_SIZE)
+				len = MAX_LOG_SIZE;
+			debugmsg[len] = L'\0';
+		}catch(std::exception const &)
+		{
+			return;
+		}catch(...)
+		{
+			return;
+		}
+		const std::string sMsg(W2Char(debugmsg));
 		afterLog(level, sMsg.c_str());
 	}
 	virtual void log2(LogLevel level, const char * format)
@@ -419,7 +433,7 @@ protected:
 	virtual void log2(LogLevel level, const wchar_t * format)
 	{
 		if (!beginLog(level)) return;
-		const std::string sMsg = W2Char(format);
+		const std::string sMsg(W2Char(format));
 		afterLog(level, sMsg.c_str());
 	}
 	virtual bool isLogLevel(LogLevel level) const

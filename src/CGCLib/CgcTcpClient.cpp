@@ -107,8 +107,7 @@ void CgcTcpClient::stopClient(void)
 
 size_t CgcTcpClient::sendData(const unsigned char * data, size_t size)
 {
-	BOOST_ASSERT(m_tcpClient.get() != 0);
-
+	//BOOST_ASSERT(m_tcpClient.get() != 0);
 	if (data == 0 || isInvalidate()) return 0;
 	if (m_bDisconnect) return 0;
 

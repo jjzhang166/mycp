@@ -68,7 +68,7 @@ private:
 			m_handler->doSendData(data,size);
 		}catch (std::exception& e)
 		{
-			std::cerr << e.what() << std::endl;
+			//std::cerr << e.what() << std::endl;
 			return -2;
 		}catch(...)
 		{
@@ -348,7 +348,7 @@ int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bind
 		ret = startClient(sCgcServerAddr, bindPort, nThreadStackSize);
 	}catch (std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		//std::cerr << e.what() << std::endl;
 		return -1;
 	}catch(...)
 	{
@@ -455,7 +455,7 @@ void CgcBaseClient::StopClient(bool exitClient)
 		stopClient();
 	}catch (std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		//std::cerr << e.what() << std::endl;
 	}catch(...)
 	{
 	}
@@ -768,7 +768,7 @@ bool CgcBaseClient::sendOpenSession(short nMaxWaitSecons,unsigned long * pCallId
 		return true;
 	}catch (std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		//std::cerr << e.what() << std::endl;
 	}catch(...)
 	{}
 	return false;

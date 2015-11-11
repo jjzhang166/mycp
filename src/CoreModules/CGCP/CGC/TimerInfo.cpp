@@ -36,6 +36,8 @@ TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTim
 
 TimerInfo::~TimerInfo(void)
 {
+	if (m_timerThread != 0)
+		delete m_timerThread;
 }
 
 void TimerInfo::PauseTimer(void)
@@ -140,11 +142,10 @@ void TimerInfo::doRunTimer(void)
 		if (m_timerHandler.get() != NULL)
 		{
 			boost::mutex::scoped_lock * lock = NULL;
-			if (m_timerHandler->IsThreadSafe())
-				lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
-
 			try
 			{
+				if (m_timerHandler->IsThreadSafe())
+					lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
 				ftime(&m_tLastRunTime);
 				m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
 			}catch (const std::exception & e)
@@ -165,7 +166,15 @@ void TimerInfo::doRunTimer(void)
 	}
 	//ftime(&m_tLastRunTime);
 	
-	if (m_nElapse < 100) return;
+	if (m_nElapse < 100)
+	{
+#ifdef WIN32
+		Sleep(2);
+#else
+		usleep(2000);
+#endif
+		return;
+	}
 
 #ifdef WIN32
 	Sleep(m_nElapse > 300 ? 300 : (m_nElapse-5));
