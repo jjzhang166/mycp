@@ -79,29 +79,31 @@ class CcgcRemote
 {
 private:
 	CRemoteHandler * m_handler;
-	udp::endpoint m_endpoint;
+	//UdpEndPoint::pointer m_endpoint1;
+	udp::endpoint m_endpoint2;
 	unsigned long m_nRemoteId;
 	unsigned long m_nIpAddress;
-	//UdpEndPoint::pointer m_endpoint;
 	udp::socket * m_socket;
 	tstring m_sRemoteAddr;			// string of IP address
+	time_t m_tLastTime;
 
 public:
 	// ???
 	CcgcRemote(CRemoteHandler * handler, const UdpEndPoint::pointer& endpoint, udp::socket * socket)
-		: m_handler(handler), m_endpoint(endpoint->endpoint()), m_nRemoteId(endpoint->getId()),m_nIpAddress(endpoint->getIpAddress())
-		, m_socket(socket)
+		: m_handler(handler), /*m_endpoint1(endpoint), */m_nRemoteId(endpoint->getId()),m_nIpAddress(endpoint->getIpAddress()), m_socket(socket)
 	{
 		assert (m_handler != NULL);
 		assert (m_socket != NULL);
-		const unsigned short port = m_endpoint.port();
+		m_endpoint2 = endpoint->endpoint();
+		const unsigned short port = m_endpoint2.port();
 		boost::system::error_code ignored_error;
-		const std::string address(m_endpoint.address().to_string(ignored_error));
+		const std::string address(m_endpoint2.address().to_string(ignored_error));
 
 		char bufferTemp[256];
 		memset(bufferTemp, 0, 256);
 		sprintf(bufferTemp, "%s:%d", address.c_str(), port);
 		m_sRemoteAddr = bufferTemp;
+		m_tLastTime = time(0);
 
 //		const boost::asio::detail::sockaddr_in4_type *dt = (const boost::asio::detail::sockaddr_in4_type*)endpoint->endpoint().data();
 //#ifdef WIN32
@@ -119,10 +121,14 @@ public:
 
 	void SetRemote(const UdpEndPoint::pointer& endpoint)
 	{
-		m_endpoint = endpoint->endpoint();
+		//m_endpoint1 = endpoint;
+		m_endpoint2 = endpoint->endpoint();
 		m_nRemoteId = endpoint->getId();
 		m_nIpAddress = endpoint->getIpAddress();
 	}
+	//const UdpEndPoint::pointer& GetEndpoint(void) const {return m_endpoint1;}
+	void SetLastTime(time_t t) {m_tLastTime = t;}
+	time_t GetLastTime(void) const {return m_tLastTime;}
 
 private:
 	virtual int getProtocol(void) const {return m_handler->getProtocol();}
@@ -140,7 +146,7 @@ private:
 		{
 			//boost::mutex::scoped_lock lock(m_sendMutex);
 			boost::system::error_code ignored_error;
-			m_socket->send_to(boost::asio::buffer(data, size), m_endpoint, 0, ignored_error);
+			m_socket->send_to(boost::asio::buffer(data, size), m_endpoint2, 0, ignored_error);
 			//const size_t nSize = m_socket->send_to(boost::asio::buffer(data, size), m_endpoint, 0, ignored_error);
 			//printf("********* m_socket->send_to = %d\n",nSize);
 		}catch (std::exception&)
@@ -200,7 +206,7 @@ private:
 	IoService::pointer m_ioservice;
 	UdpSocket m_socket;
 	CLockMap<unsigned long, cgcRemote::pointer> m_mapCgcRemote;
-	int m_nDoCommEventCount;
+	unsigned int m_nDoCommEventCount;
 
 	CLockListPtr<CCommEventData*> m_listMgr;
 	CCommEventDataPool m_pCommEventDataPool;
@@ -215,8 +221,8 @@ public:
 		, m_nDoCommEventCount(0)
 		, m_pCommEventDataPool(8*1024,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
-
 	{
+		m_tNowTime = time(0);
 	}
 	virtual ~CUdpServer(void)
 	{
@@ -245,7 +251,8 @@ public:
 		// ??
 		//m_socket.setMaxBufferSize(10*1024);
 		//m_socket.setUnusedSize(0, false);
-		m_socket.setPoolSize(20,200);
+		m_socket.setPoolSize(20,500);
+		//m_socket.setAutoReturnPoolEndPoint(false);
 		if (m_ioservice.get() == NULL)
 			m_ioservice = IoService::create();
 		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
@@ -299,37 +306,44 @@ public:
 	unsigned long getId(void) const {return (unsigned long)this;}
 
 private:
-	bool eraseIsInvalidated(void)
+	void eraseIsInvalidated(void)
 	{
-		BoostReadLock rdlock(m_mapCgcRemote.mutex());
-		CLockMap<unsigned long, cgcRemote::pointer>::iterator pIter;
-		for (pIter=m_mapCgcRemote.begin(); pIter!=m_mapCgcRemote.end(); pIter++)
+		std::vector<unsigned long> pRemoveList;
 		{
-			cgcRemote::pointer pCgcRemote = pIter->second;
-			if (pCgcRemote->isInvalidate())
+			BoostReadLock rdlock(m_mapCgcRemote.mutex());
+			CLockMap<unsigned long, cgcRemote::pointer>::iterator pIter;
+			for (pIter=m_mapCgcRemote.begin(); pIter!=m_mapCgcRemote.end(); pIter++)
 			{
-				unsigned long nId = pIter->first;
-				rdlock.unlock();
-				m_mapCgcRemote.remove(nId);
-				return true;
+				cgcRemote::pointer pCgcRemote = pIter->second;
+				if (pCgcRemote->isInvalidate() ||
+					(((CcgcRemote*)pCgcRemote.get())->GetLastTime()+2*60)<this->m_tNowTime)	// 超过2分钟没有收到数据
+				{
+					unsigned long nId = pIter->first;
+					//printf("*********** remove id=%d\n",nId);
+					pRemoveList.push_back(nId);
+				}
 			}
 		}
-		return false;
+		for (size_t i=0;i<pRemoveList.size();i++)
+			m_mapCgcRemote.remove(pRemoveList[i]);
 	}
 
 	// cgcOnTimerHandler
 
+	time_t m_tNowTime;
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
 		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)
 		{
-			if (++m_nDoCommEventCount > 120000)
+			m_nDoCommEventCount++;
+			if ((m_nDoCommEventCount%500)==0)	// 5 second
 			{
-				if (!eraseIsInvalidated())
-				{
-					m_nDoCommEventCount = 0;
-				}
+				m_tNowTime = time(0);
+			}
+			if ((m_nDoCommEventCount%6000)==0)	// 1 minute
+			{
+				eraseIsInvalidated();
 			}
 			const size_t nSize = m_listMgr.size();
 			if (nSize>(m_nCurrentThread+20))
@@ -371,8 +385,11 @@ private:
 		switch (pCommEventData->getCommEventType())
 		{
 		case CCommEventData::CET_Recv:
-			m_commHandler->onRecvData(pCommEventData->getRemote(), pCommEventData->getRecvData(), pCommEventData->getRecvSize());
-			break;
+			{
+				//const UdpEndPoint::pointer& endpoint = ((CcgcRemote*)pCommEventData->getRemote().get())->GetEndpoint();
+				//m_commHandler->onRecvData(pCommEventData->getRemote(), endpoint->buffer(), endpoint->size());
+				m_commHandler->onRecvData(pCommEventData->getRemote(), pCommEventData->getRecvData(), pCommEventData->getRecvSize());
+			}break;
 		case CCommEventData::CET_Exception:
 			{
 				CGC_LOG((LOG_ERROR, _T("**** [%s:%d] CET_Exception ****\n"), serviceName().c_str(), m_commPort));
@@ -400,6 +417,7 @@ private:
 		default:
 			break;
 		}
+		//m_socket.retPoolEndPoint(((CcgcRemote*)pCommEventData->getRemote().get())->GetEndpoint());
 		m_pCommEventDataPool.Set(pCommEventData);
 		//delete pCommEventData;
 	}
@@ -424,8 +442,9 @@ private:
 
 		if (m_commHandler.get() != NULL)
 		{
+			//cgcRemote::pointer pCgcRemote = cgcRemote::pointer(new CcgcRemote((CRemoteHandler*)this, endpoint, m_socket.socket()));
+			//if (pCgcRemote.get()==NULL) return;
 			const u_long remoteAddrHash = endpoint->getId();	
-
 			cgcRemote::pointer pCgcRemote;
 			if (!m_mapCgcRemote.find(remoteAddrHash, pCgcRemote))
 			{
@@ -433,15 +452,17 @@ private:
 				m_mapCgcRemote.insert(remoteAddrHash, pCgcRemote);
 			}else if (pCgcRemote->isInvalidate())
 			{
-				//m_mapCgcRemote.remove(remoteAddrHash);
-				pCgcRemote = cgcRemote::pointer(new CcgcRemote((CRemoteHandler*)this, endpoint, m_socket.socket()));
-				m_mapCgcRemote.insert(remoteAddrHash, pCgcRemote, true);
+			//	pCgcRemote = cgcRemote::pointer(new CcgcRemote((CRemoteHandler*)this, endpoint, m_socket.socket()));
+			//	m_mapCgcRemote.insert(remoteAddrHash, pCgcRemote, true);
+			//}else
+			//{
+				((CcgcRemote*)pCgcRemote.get())->SetRemote(endpoint);
+				((CcgcRemote*)pCgcRemote.get())->SetLastTime(this->m_tNowTime);
 			}else
 			{
-				((CcgcRemote*)pCgcRemote.get())->SetRemote(endpoint);
+				((CcgcRemote*)pCgcRemote.get())->SetLastTime(this->m_tNowTime);
 			}
 
-			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
 			CCommEventData * pEventData = m_pCommEventDataPool.Get();
 			pEventData->setCommEventType(CCommEventData::CET_Recv);
 			pEventData->setRemote(pCgcRemote);

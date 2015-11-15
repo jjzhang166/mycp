@@ -49,6 +49,15 @@ public:
 		while (m_pool.size()<m_nInitPoolSize)
 			m_pool.add(UdpEndPoint::create(m_maxbuffersize));
 	}
+	inline void retPoolEndPoint(const UdpEndPoint::pointer& endpoint)
+	{
+		if (m_pool.size(false)<m_nMaxPoolSize)
+		{
+			if (endpoint->init(m_maxbuffersize))
+				m_pool.add(endpoint);
+		}
+	}
+	void setAutoReturnPoolEndPoint(bool v) {m_bAutoReturnPoolEndPoint = v;}
 
 	// udpPort == 0; ¶¯Ì¬
 	// nThtreadStackSize 100=100KB
@@ -124,7 +133,7 @@ public:
 				if ((nIdleCount++)>500*5) // 5S
 				{
 					nIdleCount = 0;
-					if (m_pool.size()>m_nInitPoolSize)
+					if (m_pool.size(false)>m_nInitPoolSize)
 						m_pool.front(endpoint);
 				}
 #ifdef WIN32
@@ -146,11 +155,9 @@ public:
 				}catch(...)
 				{}
 			}
-
-			if (m_pool.size()<m_nMaxPoolSize)
+			if (m_bAutoReturnPoolEndPoint)
 			{
-				if (endpoint->init(m_maxbuffersize))
-					m_pool.add(endpoint);
+				retPoolEndPoint(endpoint);
 			}
 		}
 	}
@@ -195,7 +202,7 @@ private:
 public:
 	UdpSocket(size_t nBufferSize=Max_UdpSocket_ReceiveSize)
 		: m_socket(NULL)
-		, m_proc_data(0),m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(50)
+		, m_proc_data(0),m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(50), m_bAutoReturnPoolEndPoint(true)
 	{
 	}
 	virtual ~UdpSocket(void)
@@ -212,6 +219,7 @@ private:
 	size_t m_nInitPoolSize;
 	size_t m_nMaxPoolSize;
 	CLockList<UdpEndPoint::pointer> m_pool;
+	bool m_bAutoReturnPoolEndPoint;
 };
 
 #endif // __UdpSocket_h__

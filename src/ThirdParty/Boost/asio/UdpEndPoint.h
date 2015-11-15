@@ -37,7 +37,7 @@ public:
 		if (address.is_v4())
 		{
 			m_nIpAddress = address.to_v4().to_ulong();
-			m_nId = m_nIpAddress + remote_endpoint.port();	// ? +port	
+			m_nId = m_nIpAddress*100 + remote_endpoint.port();	// ? +port	
 		}else
 		{
 			// ??? IPV6
