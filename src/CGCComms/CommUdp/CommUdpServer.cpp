@@ -255,7 +255,7 @@ public:
 		//m_socket.setAutoReturnPoolEndPoint(false);
 		if (m_ioservice.get() == NULL)
 			m_ioservice = IoService::create();
-		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
+		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this(),500);
 		m_ioservice->start(shared_from_this());
 
 		m_nCurrentThread = MIN_EVENT_THREAD;

@@ -51,7 +51,7 @@ public:
 	}
 	inline void retPoolEndPoint(const UdpEndPoint::pointer& endpoint)
 	{
-		if (m_pool.size(false)<m_nMaxPoolSize)
+		if (m_pool.size()<m_nMaxPoolSize)
 		{
 			if (endpoint->init(m_maxbuffersize))
 				m_pool.add(endpoint);
@@ -89,15 +89,14 @@ public:
 	{
 		udp::socket * pSocketTemp = m_socket;
 		m_socket = NULL;
-		if (pSocketTemp)
-			delete pSocketTemp;
-
 		if (m_proc_data)
 		{
 			m_proc_data->join();
 			delete m_proc_data;
 			m_proc_data = 0;
 		}
+		if (pSocketTemp)
+			delete pSocketTemp;
 
 		m_endpoints.clear();
 		m_pool.clear();
@@ -122,7 +121,7 @@ public:
 		}
 	}
 
-	void proc_Data(void)
+	bool proc_Data(void)
 	{
 		unsigned short nIdleCount = 0;
 		while (m_socket != 0)
@@ -133,7 +132,7 @@ public:
 				if ((nIdleCount++)>500*5) // 5S
 				{
 					nIdleCount = 0;
-					if (m_pool.size(false)>m_nInitPoolSize)
+					if (m_pool.size()>m_nInitPoolSize)
 						m_pool.front(endpoint);
 				}
 #ifdef WIN32
@@ -160,6 +159,7 @@ public:
 				retPoolEndPoint(endpoint);
 			}
 		}
+		return m_socket==NULL?false:true;
 	}
 
 private:
@@ -197,7 +197,17 @@ private:
 	static void do_proc_data(UdpSocket * owner)
 	{
 		BOOST_ASSERT (owner != 0);
-		owner->proc_Data();
+		while(true)
+		{
+			try
+			{
+				if (!owner->proc_Data())
+					break;
+			}catch(std::exception&)
+			{
+			}catch(...)
+			{}
+		}
 	}
 public:
 	UdpSocket(size_t nBufferSize=Max_UdpSocket_ReceiveSize)
