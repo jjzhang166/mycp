@@ -101,7 +101,10 @@ private:
 //			usleep(1000);
 //#endif
 			new_connection->SetReadSleep(this->m_nReadSleep);
-			new_connection->start();
+			static unsigned short static_id_index = 0;
+			char lpszId[24];
+			sprintf(lpszId, "%04d%03d%03d", (int)time(0)%2000,rand()%1000,(++static_id_index)%1000);
+			new_connection->start(atoi(lpszId));
 		}else
 		{
 			printf("handle_accept error: %d=%s\n", error.value(),error.message().c_str());

@@ -49,6 +49,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <time.h>
 #endif // WIN32
 
+//#define USES_PRINT_DEBUG
+
 // cgc head
 #include <CGCBase/comm.h>
 #include <CGCClass/cgcclassinclude.h>
@@ -151,6 +153,8 @@ private:
 		boost::mutex::scoped_lock lock(m_sendMutex);
 		try
 		{
+			//printf("******** sendData:%lu size=%d\n",m_remoteId,size);
+
 #ifndef WIN32
 			// 忽略broken pipe信號
 			//signal(SIGPIPE, SIG_IGN);
@@ -406,7 +410,7 @@ public:
 			m_tcpClient.reset();
 			m_ipService.reset();
 			//printf("**** OK\n");
-		}catch (std::exception & e)
+		}catch (const std::exception &)
 		{
 		}catch(...)
 		{}	
@@ -823,6 +827,11 @@ protected:
 					usleep(100000);
 #endif // WIN32
 				}
+				if (m_nIsHttp)
+				{
+					m_pRecvRemoteIdWaitList.remove(pCommEventData->getRemoteId());
+				}
+
 				//printf("**** CCommEventData::CET_Close: remoteid=%d\n",pCommEventData->getRemoteId());
 				//printf("**** CommTcpServer CET_Close, 111\n");
 				m_commHandler->onRemoteClose(pCommEventData->getRemoteId(),pCommEventData->GetErrorCode());
@@ -836,68 +845,43 @@ protected:
 			}break;
 		case CCommEventData::CET_Recv:
 			{
-				//m_nLastRemoteId = pCommEventData->getRemoteId();
-				//printf("******** m_commHandler->onRecvData:%d\n",pCommEventData->getRemoteId());
-//				m_nIsHttp = (m_protocol & (int)PROTOCOL_HTTP)==PROTOCOL_HTTP;
-//				if (m_nIsHttp)
-//				{
-//					// ****HTTP预防分包
-//					// ****（以后要测试下，分超过二个包以上数据）
-//					//CRemoteWaitData::pointer pRemoteWaitData;
-//					//if (m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pRemoteWaitData))
-//					//{
-//					//	// 前面有等待，
-//					//	pRemoteWaitData->m_listMgr.add(pCommEventData);
-//					//	return;
-//					//}else if (m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
-//					//{
-//					//	pRemoteWaitData = CRemoteWaitData::create();
-//					//	CRemoteWaitData::pointer pExistData;
-//					//	m_pRecvRemoteIdWaitList.insert(pCommEventData->getRemoteId(),pRemoteWaitData,false,&pExistData);
-//					//	if (pExistData.get()!=NULL)
-//					//		pRemoteWaitData = pExistData;
-//					//	pRemoteWaitData->m_listMgr.add(pCommEventData);
-//					//	return;
-//					//}
-//
-////					for (int i=0;i<50;i++)
-////					{
-////						if (!m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
-////							break;
-////#ifdef WIN32
-////						Sleep(100);
-////#else
-////						usleep(100000);
-////#endif // WIN32
-////					}
-//				}
-				const unsigned long nRemoveId = pCommEventData->getRemoteId();
-				CRemoteWaitData::pointer pHttpRemoteWaitData;
-				if (m_nIsHttp && !m_pRecvRemoteIdWaitList.find(nRemoveId,pHttpRemoteWaitData))
+				const unsigned long nRemoteId = pCommEventData->getRemoteId();
+				if (!m_pRecvRemoteIdList.insert(nRemoteId,true,false) && m_nIsHttp)	// *HTTP失败（前面已经在处理）返回，其他失败不返回
 				{
-					pHttpRemoteWaitData = CRemoteWaitData::create();
-					CRemoteWaitData::pointer pExistData;
-					m_pRecvRemoteIdWaitList.insert(nRemoveId,pHttpRemoteWaitData,false,&pExistData);
-					if (pExistData.get()!=NULL)
-						pHttpRemoteWaitData = pExistData;
-				}
-				// ** 放统一列表
-				if (pHttpRemoteWaitData.get()!=NULL)
-					pHttpRemoteWaitData->m_listMgr.add(pCommEventData);
-				if (!m_pRecvRemoteIdList.insert(nRemoveId,true,false) && m_nIsHttp)	// *HTTP失败返回，其他失败不返回
-				{
+					//m_pCommEventDataPool.Set(pCommEventData);	// *** 不能放进去
 					return;
 				}
-				// ** 取第一个
-				if (pHttpRemoteWaitData.get()!=NULL)
+				CRemoteWaitData::pointer pHttpRemoteWaitData;
+				if (m_nIsHttp)
+				{
+					if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
+					{
+						m_pCommEventDataPool.Set(pCommEventData);
+						m_pRecvRemoteIdList.remove(nRemoteId);
+						return;
+					}
+					// ** 取第一个
 					pCommEventData = pHttpRemoteWaitData->m_listMgr.front();
+				}
 				while (pCommEventData != NULL)
 				{
+#ifdef USES_PRINT_DEBUG
+					static FILE * f = NULL;
+					if (f==NULL)
+						f = fopen("c:\\http_on_data.txt","w");
+					if (f!=NULL)
+					{
+						char lpszBuf[100];
+						sprintf(lpszBuf,"**** index=%d, size=%d\r\n",pCommEventData->GetErrorCode(),pCommEventData->getRecvSize());
+						fwrite(lpszBuf,1,strlen(lpszBuf),f);
+						fflush(f);
+					}
+#endif
 					m_commHandler->onRecvData(pCommEventData->getRemote(), pCommEventData->getRecvData(), pCommEventData->getRecvSize());
 					m_pCommEventDataPool.Set(pCommEventData);
 					pCommEventData = pHttpRemoteWaitData.get()==NULL?NULL:pHttpRemoteWaitData->m_listMgr.front();
 				}
-				m_pRecvRemoteIdList.remove(nRemoveId);
+				m_pRecvRemoteIdList.remove(nRemoteId);
 				if (m_nIsHttp)
 					return;
 				//m_nLastRemoteId = 0;
@@ -991,7 +975,7 @@ protected:
 		BOOST_ASSERT(pRemote != 0);
 		if (data->size() == 0 || pRemote == 0) return;
 		const unsigned long nRemoteId = pRemote->getId();
-		//printf("******** OnRemoteRecv:%d\n%s\n%d\n",nRemoteId,data->data(),data->size());
+		//printf("******** OnRemoteRecv:%lu size=%d\n",nRemoteId,data->size());
 		if (m_commHandler.get() != NULL)
 		{
 			cgcRemote::pointer pCgcRemote;
@@ -1057,7 +1041,31 @@ protected:
 			{
 				pEventData->setRecvData(data->data(), data->size());
 			}
+			if (m_nIsHttp)
+			{
+				CRemoteWaitData::pointer pHttpRemoteWaitData;
+				if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
+				{
+					return;
+				}
+				pHttpRemoteWaitData->m_listMgr.add(pEventData);
+			}
+
 			//printf("******** m_listMgr.add:%d\n",nRemoteId);
+#ifdef USES_PRINT_DEBUG
+			static int theIndex = 0;
+			pEventData->SetErrorCode(theIndex++);
+			static FILE * f = NULL;
+			if (f==NULL)
+				f = fopen("c:\\http_remote_recv.txt","w");
+			if (f!=NULL)
+			{
+				char lpszBuf[100];
+				sprintf(lpszBuf,"**** index=%d, size=%d remoteid=%d\r\n",pEventData->GetErrorCode(),data->size(), nRemoteId);
+				fwrite(lpszBuf,1,strlen(lpszBuf),f);
+				fflush(f);
+			}
+#endif
 			m_listMgr.add(pEventData);
 		}
 	}
@@ -1072,6 +1080,11 @@ protected:
 		if (m_commHandler.get() != NULL)
 		{
 			const unsigned long nRemoteId = pRemote->getId();
+			if (m_nIsHttp)
+			{
+				m_pRecvRemoteIdWaitList.insert(nRemoteId,CRemoteWaitData::create(),false);
+			}
+
 			//printf("******** OnRemoteAccept:%d\n",nRemoteId);
 			cgcRemote::pointer pCgcRemote;
 			if (m_mapCgcRemote.find(nRemoteId, pCgcRemote))
@@ -1104,7 +1117,7 @@ protected:
 		{
 			// 9=Bad file descriptor
 			const unsigned long nRemoteId = pRemote->getId();
-			//printf("******** OnRemoteClose:%d\n",nRemoteId);
+			//printf("******** OnRemoteClose:%lu\n",nRemoteId);
 			cgcRemote::pointer pCgcRemote;
 			if (m_mapCgcRemote.find(nRemoteId, pCgcRemote, true))
 			{

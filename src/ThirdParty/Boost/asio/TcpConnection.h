@@ -95,17 +95,18 @@ public:
 	size_t GetReadSleep(void) const {return m_nReadSleep;}
 	void SetReadSleep(size_t v) {m_nReadSleep = v;}
 
-	bool start(void)
+	bool start(unsigned long nId)
 	{
 		boost::system::error_code error;
 		m_remoteEndPoint = m_socket->lowest_layer().remote_endpoint(error);
 		if (error)
 			return false;
 
-		static unsigned short static_id_index = 0;
-		char lpszId[24];
-		sprintf(lpszId, "%04d%03d%03d", (int)time(0)%2000,rand()%1000,(++static_id_index)%1000);
-		m_nId = atoi(lpszId);
+		//static unsigned short static_id_index = 0;
+		//char lpszId[24];
+		//sprintf(lpszId, "%04d%03d%03d", (int)time(0)%2000,rand()%1000,(++static_id_index)%1000);
+		//m_nId = atoi(lpszId);
+		m_nId = nId;
 		boost::asio::ip::address address = m_remoteEndPoint.address();
 		if (address.is_v4())
 		{

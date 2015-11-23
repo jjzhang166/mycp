@@ -53,18 +53,18 @@ void CHttpResponseImpl::setCgcParser(const cgcParserHttp::pointer& pcgcParser)
 
 void CHttpResponseImpl::lockResponse(void)
 {
-	if (m_bNotResponse)
-		return;
+	//if (m_bNotResponse)
+	//	return;
 	boost::mutex::scoped_lock * pLockTemp = new boost::mutex::scoped_lock(m_sendMutex);
 	m_pSendLock = pLockTemp;
 }
 
-int CHttpResponseImpl::sendResponse(void)
+int CHttpResponseImpl::sendResponse(bool bSendForce)
 {
 	try
 	{
 		if (isInvalidate() || m_cgcParser.get() == 0) return -1;
-		if (m_bNotResponse)
+		if (m_bNotResponse || (m_bResponseSended && !bSendForce))
 		{
 			// ** setNotResponse()已经保存，不需要重复处理；
 			//if (m_session.get() != NULL)
@@ -98,14 +98,12 @@ int CHttpResponseImpl::sendResponse(void)
 
 		size_t outSize = 0;
 		const char * responseData = m_cgcParser->getHttpResult(outSize);
-
 		if (pSendLockTemp)
 			delete pSendLockTemp;
-		int ret = m_cgcRemote->sendData((const unsigned char*)responseData, outSize);
+		const int ret = m_cgcRemote->sendData((const unsigned char*)responseData, outSize);
 		if (getStatusCode() != STATUS_CODE_206)
 			reset();
 		return ret;
-		//return m_cgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.size());
 	}catch (const std::exception &)
 	{
 	}catch (...)
@@ -166,8 +164,9 @@ void CHttpResponseImpl::invalidate(void)
 int CHttpResponseImpl::sendResponse(HTTP_STATUSCODE statusCode)
 {
 	setStatusCode(statusCode);
+	m_bResponseSended = true;
 	m_bNotResponse = false;
-	return this->sendResponse();
+	return this->sendResponse(true);
 }
 
 unsigned long CHttpResponseImpl::setNotResponse(int nHoldSecond)

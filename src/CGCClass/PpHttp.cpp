@@ -761,11 +761,27 @@ void CPpHttp::GeRequestInfo(void)
 		m_queryString = m_postString;
 }
 
+//#define USES_PRINT_DEBUG
+
 bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader)
 {
 	tstring multipartyBoundary = "";
 	const char * httpRequestOld = httpRequest;
 	m_contentLength = requestSize;
+#ifdef USES_PRINT_DEBUG
+	static int theIndex = 0;
+	static FILE * f = NULL;
+	if (f==NULL)
+		f = fopen("c:\\http_recv.txt","wb");
+	if (f!=NULL)
+	{
+		char lpszBuf[100];
+		sprintf(lpszBuf,"\r\n**** index=%d, size=%d\r\n",(theIndex++),requestSize);
+		fwrite(lpszBuf,1,strlen(lpszBuf),f);
+		fwrite(httpRequest,1,requestSize,f);
+		fflush(f);
+	}
+#endif
 
 	//printf("CPpHttp::IsComplete  size=%d\n",requestSize);
 	// Check HTTP Method

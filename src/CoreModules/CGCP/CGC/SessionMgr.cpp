@@ -334,25 +334,43 @@ void CSessionImpl::OnServerStop(void)
 
 void CSessionImpl::ProcHoldResponseTimeout(void)
 {
-	if (!m_pHoldResponseList.empty())
+	//if (!m_pHoldResponseList.empty())
+	//{
+	//	BoostWriteLock wtlock(m_pHoldResponseList.mutex());
+	//	CLockMap<unsigned long,CHoldResponseInfo::pointer>::iterator pIter = m_pHoldResponseList.begin();
+	//	for (; pIter!=m_pHoldResponseList.end(); pIter++)
+	//	{
+	//		CHoldResponseInfo::pointer pHoldResponse = pIter->second;
+	//		if (!pHoldResponse->IsExpireHold())
+	//		{
+	//			continue;
+	//		}
+	//		// 已经过期
+	//		//printf("**** ProcHoldResponseTimeout %d\n",(int)pHoldResponse->m_tExpireTime);
+	//		m_pHoldResponseList.erase(pIter);
+	//		if (m_pHoldResponseList.empty())
+	//			break;
+	//		else
+	//			pIter = m_pHoldResponseList.begin();
+	//	}
+	//}
+	std::vector<unsigned long> pRemoveList;
 	{
-		BoostWriteLock wtlock(m_pHoldResponseList.mutex());
+		BoostReadLock rdlock(m_pHoldResponseList.mutex());
 		CLockMap<unsigned long,CHoldResponseInfo::pointer>::iterator pIter = m_pHoldResponseList.begin();
 		for (; pIter!=m_pHoldResponseList.end(); pIter++)
 		{
 			CHoldResponseInfo::pointer pHoldResponse = pIter->second;
-			if (!pHoldResponse->IsExpireHold())
+			if (pHoldResponse->IsExpireHold())
 			{
-				continue;
+				// 已经过期
+				pRemoveList.push_back(pIter->first);
 			}
-			// 已经过期
-			//printf("**** ProcHoldResponseTimeout %d\n",(int)pHoldResponse->m_tExpireTime);
-			m_pHoldResponseList.erase(pIter);
-			if (m_pHoldResponseList.empty())
-				break;
-			else
-				pIter = m_pHoldResponseList.begin();
 		}
+	}
+	for (size_t i=0;i<pRemoveList.size();i++)
+	{
+		m_pHoldResponseList.remove(pRemoveList[i]);
 	}
 }
 

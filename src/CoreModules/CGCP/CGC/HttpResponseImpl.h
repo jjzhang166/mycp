@@ -41,7 +41,7 @@ public:
 	CHttpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserHttp::pointer& pcgcParser);
 	virtual ~CHttpResponseImpl(void);
 	
-	virtual int sendResponse(void);
+	int sendResponse(bool bSendForce = false);
 	bool getForward(void) const {return m_bForward;}
 	void setForward(bool v) {m_bForward = v;}
 
