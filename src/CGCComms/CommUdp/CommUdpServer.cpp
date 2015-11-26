@@ -284,8 +284,8 @@ public:
 	{
 		if (!m_bServiceInited) return;
 
-		for (unsigned int i=this->m_nIndex*MAX_EVENT_THREAD+1; i<=this->m_nIndex*MAX_EVENT_THREAD+m_nCurrentThread; i++)
-			theApplication->KillTimer(i);
+		for (int i=this->m_nIndex*MAX_EVENT_THREAD+1; i<=this->m_nIndex*MAX_EVENT_THREAD+m_nCurrentThread; i++)
+			theApplication->KillTimer((unsigned int)i);
 		//cgcObject::pointer eventPointer = theAppAttributes->removeAttribute(EVENT_ATTRIBUTE, this);
 		//CIDEvent * pIDEvent = (CIDEvent*)eventPointer.get();
 		//if (pIDEvent != NULL)
@@ -345,7 +345,7 @@ private:
 			{
 				eraseIsInvalidated();
 			}
-			const size_t nSize = m_listMgr.size();
+			const int nSize = (int)m_listMgr.size();
 			if (nSize>(m_nCurrentThread+20))
 			{
 				m_nNullEventDataCount = 0;

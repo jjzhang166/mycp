@@ -70,11 +70,12 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 #endif
 		m_endpointLocal = m_udpClient->socket()->local_endpoint();
 		m_ipLocal = CCgcAddress(m_endpointLocal.address().to_string(), m_endpointLocal.port(), CCgcAddress::ST_UDP);
-	}catch (std::exception& e)
+	}catch (const std::exception&)
 	{
 		//std::cerr << e.what() << std::endl;
 		return -2;
-	}
+	}catch(...)
+	{}
 	return 0;
 }
 

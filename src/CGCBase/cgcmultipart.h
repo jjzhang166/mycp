@@ -63,7 +63,7 @@ public:
 		const size_t writeSize = m_uploadFile->getFileSize() + size;
 		m_uploadFile->setFileSize(writeSize);
 		m_stream.clear();
-		m_stream.write(data, size);
+		m_stream.write(data, (std::streamsize)size);
 		m_stream.flush();
 		return true;
 	}

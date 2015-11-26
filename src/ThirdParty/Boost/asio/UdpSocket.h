@@ -35,7 +35,7 @@ public:
 		UdpEndPoint::pointer pPoolData;
 		while (m_pool.front(pPoolData))
 		{
-			if (pPoolData->bufferSize()>=(m_maxbuffersize+1))
+			if (pPoolData->bufferSize()>=(int)(m_maxbuffersize+1))
 			{
 				m_pool.add(pPoolData);
 				break;
@@ -53,7 +53,7 @@ public:
 	{
 		if (m_pool.size()<m_nMaxPoolSize)
 		{
-			if (endpoint->init(m_maxbuffersize))
+			if (endpoint->init((int)m_maxbuffersize))
 				m_pool.add(endpoint);
 		}
 	}
@@ -181,7 +181,7 @@ private:
 	void receive_handler(const UdpEndPoint::pointer& endpoint, const boost::system::error_code& error, std::size_t size)
 	{
 		endpoint->init2();
-		endpoint->size(size);
+		endpoint->size((int)size);
 		m_endpoints.add(endpoint);
 		//if (m_handler)
 		//	m_handler->OnReceiveData(*this, endpoint, size);

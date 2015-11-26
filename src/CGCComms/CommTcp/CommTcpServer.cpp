@@ -21,7 +21,7 @@
 // 
 
 #ifdef WIN32
-#pragma warning(disable:4267 4311 4996)
+#pragma warning(disable:4018 4267 4311 4996)
 #ifndef _WIN32_WINNT            // Specifies that the minimum required platform is Windows Vista.
 #define _WIN32_WINNT 0x0501     // Change this to the appropriate value to target other versions of Windows.
 #endif
@@ -370,6 +370,7 @@ bool FileIsExist(const char* pFile)
 	fclose(f);
 	return true;
 }
+//#define USES_PRINT_DEBUG
 class CTcpTestConnect
 	: public TcpClient_Handler
 	, public boost::enable_shared_from_this<CTcpTestConnect>
@@ -381,20 +382,33 @@ public:
 		return CTcpTestConnect::pointer(new CTcpTestConnect());
 	}
 
-	bool TestConnect(const char* sIp, int nPort)
+	bool TestConnect(const char* sIp, int nPort, bool bSsl)
 	{
 		bool bResult = false;
 		try
 		{
+			boost::asio::ssl::context * sslctx = NULL;
+			if (bSsl)
+			{
+				if (m_sslctx==NULL)
+				{
+					namespace ssl = boost::asio::ssl;
+					m_sslctx = new boost::asio::ssl::context (ssl::context::sslv23_client);	// OK
+					m_sslctx->set_default_verify_paths();
+					m_sslctx->set_options(ssl::context::verify_peer);
+					m_sslctx->set_verify_mode(ssl::verify_peer);
+					//m_sslctx->set_verify_callback(ssl::rfc2818_verification("smtp.163.com"));
+				}
+				sslctx = m_sslctx;
+			}
+
 			if (m_ipService.get()==NULL)
 				m_ipService = IoService::create();
 			if (m_tcpClient.get()==NULL)
-			{
 				m_tcpClient = TcpClient::create(shared_from_this());
-			}
 			boost::system::error_code ec;
 			tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp,ec), nPort);
-			m_tcpClient->connect(m_ipService->ioservice(), endpoint);
+			m_tcpClient->connect(m_ipService->ioservice(), endpoint, sslctx);
 			m_ipService->start();
 
 			while (!m_connectReturned)
@@ -405,10 +419,25 @@ public:
 #endif
 			bResult = !m_bDisconnect;
 
+#ifdef USES_PRINT_DEBUG
+			printf("**** %d TestConnect.... bResult=%d\n",nPort,(int)bResult?1:0);
+#endif
 			m_tcpClient->disconnect();
+#ifdef USES_PRINT_DEBUG
+			printf("**** %d TestConnect.... disconnect ok\n",nPort);
+#endif
 			m_ipService->stop();
+#ifdef USES_PRINT_DEBUG
+			printf("**** %d TestConnect.... stop ok\n",nPort);
+#endif
 			m_tcpClient.reset();
+#ifdef USES_PRINT_DEBUG
+			printf("**** %d TestConnect.... m_tcpClient.reset ok\n",nPort);
+#endif
 			m_ipService.reset();
+#ifdef USES_PRINT_DEBUG
+			printf("**** %d TestConnect.... m_ipService.reset ok finished\n",nPort);
+#endif
 			//printf("**** OK\n");
 		}catch (const std::exception &)
 		{
@@ -418,11 +447,17 @@ public:
 	}
 	CTcpTestConnect(void)
 		: m_connectReturned(false), m_bDisconnect(true)
+		, m_sslctx(NULL)
 	{}
 	virtual ~CTcpTestConnect(void)
 	{
 		m_tcpClient.reset();
 		m_ipService.reset();
+		if (m_sslctx!=0)
+		{
+			delete m_sslctx;
+			m_sslctx = 0;
+		}
 	}
 private:
 	///////////////////////////////////////////////
@@ -436,6 +471,8 @@ private:
 	bool m_bDisconnect;
 	IoService::pointer m_ipService;
 	TcpClient::pointer m_tcpClient;
+	boost::asio::ssl::context * m_sslctx;
+
 };
 
 class CRemoteWaitData
@@ -479,7 +516,9 @@ private:
 	int m_commPort;
 	//int m_capacity;
 	int m_protocol;
-	bool m_nIsHttp;
+	bool m_bIsHttp;
+	bool m_bIsSsl;
+	bool m_bCheckComm;
 
 #ifdef USES_OPENSSL
 	boost::asio::ssl::context* m_sslctx;
@@ -509,7 +548,7 @@ private:
 	//unsigned long m_nCurrentRemoteId;
 public:
 	CTcpServer(int nIndex)
-		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0), m_nIsHttp(false)
+		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0), m_bIsHttp(false), m_bIsSsl(false), m_bCheckComm(true)
 		, m_pCommEventDataPool(Max_ReceiveBuffer_ReceiveSize,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 #ifdef USES_OPENSSL
@@ -525,7 +564,7 @@ public:
 		sem_init(&m_semDoClose, 0, 0);
 		sem_init(&m_semDoStop, 0, 0);
 #endif // WIN32
-
+		//m_tNowTime = time(0);
 	}
 	virtual ~CTcpServer(void)
 	{
@@ -578,7 +617,8 @@ public:
 				m_commPort = lists[0]->getInt();
 			else
 				return false;
-			m_nIsHttp = (m_protocol & (int)PROTOCOL_HTTP)==PROTOCOL_HTTP;
+			m_bIsHttp = (m_protocol & (int)PROTOCOL_HTTP)==PROTOCOL_HTTP;
+			m_bIsSsl = (m_protocol & (int)PROTOCOL_SSL)==PROTOCOL_SSL;
 		}
 
 		//  handle_handshake session id context uninitialized,336433429
@@ -588,24 +628,25 @@ public:
 			m_acceptor = TcpAcceptor::create();
 		m_ioservice->start(shared_from_this());
 #ifdef USES_OPENSSL
-		const bool bisssl = (m_protocol & (int)PROTOCOL_SSL)==PROTOCOL_SSL;
-		if (bisssl)
+		if (m_bIsSsl)
 		{
 			namespace ssl = boost::asio::ssl;
 			m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
-			//m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::no_sslv2);
 			m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);	// verify_none
-			m_sslctx->set_verify_mode(ssl::verify_none);	// verify_none old:ok
-			m_sslctx->set_verify_depth(10);
+			boost::system::error_code error;
+			m_sslctx->set_verify_mode(ssl::verify_none,error);	// verify_none old:ok
+			m_sslctx->set_verify_depth(10,error);
 			//m_sslctx->set_verify_callback(boost::bind(&CTcpServer::verify_certificate, this, _1, _2));
 			if (!theSSLPasswd.empty())
 				m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
-			boost::system::error_code error;
 			// XXX.crt OK
 			//std::string m_sSSLCAFile = theApplication->getAppConfPath()+"/ssl/ca.crt";
 			m_sSSLPublicCrtFile = theApplication->getAppConfPath()+"/ssl/public.crt";
 			if (!FileIsExist(m_sSSLPublicCrtFile.c_str()))
+			{
+				m_bCheckComm = false;
 				m_sSSLPublicCrtFile.clear();
+			}
 			m_sSSLServerChainFile = theApplication->getAppConfPath()+"/ssl/server-chain.crt";
 			if (!FileIsExist(m_sSSLServerChainFile.c_str()))
 				m_sSSLServerChainFile.clear();
@@ -613,7 +654,10 @@ public:
 				m_sSSLServerChainFile = m_sSSLPublicCrtFile;
 			m_sSSLPrivateKeyFile = theApplication->getAppConfPath()+"/ssl/private.key";
 			if (!FileIsExist(m_sSSLPrivateKeyFile.c_str()))
+			{
+				m_bCheckComm = false;
 				m_sSSLPrivateKeyFile.clear();
+			}
 
 			// 不会报no shared cipher错误
 			//EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
@@ -630,20 +674,29 @@ public:
 			{
 				m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
 				if (error)
+				{
+					m_bCheckComm = false;
 					CGC_LOG((LOG_ERROR, _T("use_certificate_file(%s),error=%s;%d\n"),m_sSSLPublicCrtFile.c_str(),error.message().c_str(),error.value()));
+				}
 			}
 			if (!m_sSSLServerChainFile.empty())
 			{
 				m_sslctx->use_certificate_chain_file(m_sSSLServerChainFile,error);
 				if (error)
+				{
+					m_bCheckComm = false;
 					CGC_LOG((LOG_ERROR, _T("use_certificate_chain_file(%s),error=%s;%d\n"),m_sSSLServerChainFile.c_str(),error.message().c_str(),error.value()));
+				}
 			}
 			if (!m_sSSLPrivateKeyFile.empty())
 			{
 				// 没有设置use_private_key_file()；就会报"handle_handshake no shared cipher"错误
 				m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
 				if (error)
+				{
+					m_bCheckComm = false;
 					CGC_LOG((LOG_ERROR, _T("use_private_key_file(%s),error=%s;%d\n"),m_sSSLPrivateKeyFile.c_str(),error.message().c_str(),error.value()));
+				}
 			}
 			m_sslctx->add_verify_path(theApplication->getAppConfPath()+"/ssl",error);
 			//m_sslctx->set_default_verify_paths(error);	// 有问题
@@ -724,6 +777,7 @@ public:
 	//unsigned long m_nLastRemoteId;
 protected:
 	// cgcOnTimerHandler
+	//time_t m_tNowTime;
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
@@ -754,33 +808,36 @@ protected:
 					m_nCurrentThread--;
 				}
 
-				static unsigned int theIndex = 0;
-				if (nSize==0 && ((++theIndex)%100)==99)
+				if (m_bCheckComm)
 				{
-					// 没有收到数据
-					const time_t tNow = time(0);
-					static time_t theLastCheckTime = tNow;
-					if ((tNow-theLastCheckTime)>3*60)	// 3分钟没有收到数据，检查一次；
+					static unsigned int theIndex = 0;
+					theIndex++;
+					if ((theIndex%1000)==999)	// 10 second
 					{
-						theLastCheckTime = tNow;
-						CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
-						if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort))
+						const time_t m_tNowTime = time(0);
+						static time_t theLastCheckTime = m_tNowTime;
+						if (nSize>0)
 						{
-							CGC_LOG((LOG_INFO, _T("**** CONNECT ERROR ****\n")));
-							static short theError = 0;
-							if ((++theError)>=2)
+							theLastCheckTime = m_tNowTime;
+						}else if ((m_tNowTime-theLastCheckTime)>3*60)	// 3分钟没有收到数据，检查一次；
+						{
+							theLastCheckTime = m_tNowTime;
+							CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
+							if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
 							{
-								theError = 0;
-								OnIoServiceException();
-							}else
-							{
-								theLastCheckTime -= 2*60;	// ** 实现1分钟后，下次检查
+								static short theError = 0;
+								CGC_LOG((LOG_ERROR, _T("**** CONNECT ERROR %d ****\n"), m_bIsSsl));
+								if ((++theError)>=2)
+								{
+									theError = 0;
+									OnIoServiceException();
+								}else
+								{
+									theLastCheckTime -= 2*60;	// ** 实现1分钟后，下次检查
+								}
 							}
-						//}else
-						//{
-						//	CGC_LOG((LOG_INFO, _T("**** CONNECT OK ****\n")));
+							pTestConnect.reset();
 						}
-						pTestConnect.reset();
 					}
 				}
 			}
@@ -807,7 +864,7 @@ protected:
 				for (int i=0;i<50;i++)
 				{
 					CRemoteWaitData::pointer pHttpRemoteWaitData;
-					if (m_nIsHttp && m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pHttpRemoteWaitData) && !pHttpRemoteWaitData->m_listMgr.empty())
+					if (m_bIsHttp && m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pHttpRemoteWaitData) && !pHttpRemoteWaitData->m_listMgr.empty())
 					{
 #ifdef WIN32
 						Sleep(100);
@@ -827,7 +884,7 @@ protected:
 					usleep(100000);
 #endif // WIN32
 				}
-				if (m_nIsHttp)
+				if (m_bIsHttp)
 				{
 					m_pRecvRemoteIdWaitList.remove(pCommEventData->getRemoteId());
 				}
@@ -846,13 +903,13 @@ protected:
 		case CCommEventData::CET_Recv:
 			{
 				const unsigned long nRemoteId = pCommEventData->getRemoteId();
-				if (!m_pRecvRemoteIdList.insert(nRemoteId,true,false) && m_nIsHttp)	// *HTTP失败（前面已经在处理）返回，其他失败不返回
+				if (!m_pRecvRemoteIdList.insert(nRemoteId,true,false) && m_bIsHttp)	// *HTTP失败（前面已经在处理）返回，其他失败不返回
 				{
 					//m_pCommEventDataPool.Set(pCommEventData);	// *** 不能放进去
 					return;
 				}
 				CRemoteWaitData::pointer pHttpRemoteWaitData;
-				if (m_nIsHttp)
+				if (m_bIsHttp)
 				{
 					if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
 					{
@@ -882,7 +939,7 @@ protected:
 					pCommEventData = pHttpRemoteWaitData.get()==NULL?NULL:pHttpRemoteWaitData->m_listMgr.front();
 				}
 				m_pRecvRemoteIdList.remove(nRemoteId);
-				if (m_nIsHttp)
+				if (m_bIsHttp)
 					return;
 				//m_nLastRemoteId = 0;
 			}break;
@@ -904,7 +961,6 @@ protected:
 				m_acceptor.reset();
 				m_ioservice.reset();
 #ifdef USES_OPENSSL
-				const bool bisssl = (m_protocol & (int)PROTOCOL_SSL)==PROTOCOL_SSL;
 				if (this->m_sslctx!=NULL)
 				{
 					delete m_sslctx;
@@ -924,17 +980,17 @@ protected:
 				m_ioservice = IoService::create();
 				m_ioservice->start(shared_from_this());
 #ifdef USES_OPENSSL
-				if (bisssl)
+				if (m_bIsSsl)
 				{
 					namespace ssl = boost::asio::ssl;
 					//m_sslctx = new ssl::context(ssl::context::sslv23);
 					m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
 					m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);
-					m_sslctx->set_verify_mode(ssl::verify_none);
-					m_sslctx->set_verify_depth(10);
+					boost::system::error_code error;
+					m_sslctx->set_verify_mode(ssl::verify_none,error);
+					m_sslctx->set_verify_depth(10,error);
 					if (!theSSLPasswd.empty())
 						m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
-					boost::system::error_code error;
 					if (!m_sSSLPublicCrtFile.empty())
 						m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
 					m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
@@ -1041,7 +1097,7 @@ protected:
 			{
 				pEventData->setRecvData(data->data(), data->size());
 			}
-			if (m_nIsHttp)
+			if (m_bIsHttp)
 			{
 				CRemoteWaitData::pointer pHttpRemoteWaitData;
 				if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
@@ -1080,7 +1136,7 @@ protected:
 		if (m_commHandler.get() != NULL)
 		{
 			const unsigned long nRemoteId = pRemote->getId();
-			if (m_nIsHttp)
+			if (m_bIsHttp)
 			{
 				m_pRecvRemoteIdWaitList.insert(nRemoteId,CRemoteWaitData::create(),false);
 			}

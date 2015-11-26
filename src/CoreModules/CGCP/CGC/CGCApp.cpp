@@ -1311,7 +1311,7 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	cgcHttpResponse::pointer responseImpl(new CHttpResponseImpl(pcgcRemote, phttpParser));
 	((CHttpRequestImpl*)requestImpl.get())->setContent((const char*)recvData, dataSize);
 	HTTP_STATUSCODE statusCode = STATUS_CODE_200;
-	bool parseResult = phttpParser->doParse(recvData, dataSize);
+	const bool parseResult = phttpParser->doParse(recvData, dataSize);
 	if (!parseResult)
 	{
 		cgcMultiPart::pointer multiPart = phttpParser->getMultiPart();
@@ -1336,9 +1336,9 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			statusCode = phttpParser->getStatusCode();
 			if (statusCode==STATUS_CODE_200)
 				statusCode = STATUS_CODE_501;
-			m_logModuleImpl.log(LOG_WARNING, _T("ProcHttpData doParse false: state=%d:%d=%s\n"), (int)statusCode,dataSize,recvData);
+			m_logModuleImpl.log(LOG_WARNING, _T("ProcHttpData doParse false: state=%d:size=%d\n"), (int)statusCode,dataSize);
 		}
-	}else if (parseResult)
+	}else// if (parseResult)
 	{
 		// Parse OK.
 		//printf("******** doParse true:%d\n",pcgcRemote->getRemoteId());
@@ -1570,29 +1570,29 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 				GetLastError());
 			statusCode = STATUS_CODE_500;
 		}
-	}else
-	{
-		//if (pHttpSessionImpl)
-		//{
-		//	// 第一次处理不成功，保存未处理数据
-		//	if (!pHttpSessionImpl->isHasPrevData())
-		//	{
-		//		pHttpSessionImpl->delPrevDatathread(false);
-		//		pHttpSessionImpl->addPrevData((const char*)recvData);
+	//}else
+	//{
+	//	//if (pHttpSessionImpl)
+	//	//{
+	//	//	// 第一次处理不成功，保存未处理数据
+	//	//	if (!pHttpSessionImpl->isHasPrevData())
+	//	//	{
+	//	//		pHttpSessionImpl->delPrevDatathread(false);
+	//	//		pHttpSessionImpl->addPrevData((const char*)recvData);
 
-		//		// 创建一个超时处理线程
-		//		pHttpSessionImpl->newPrevDataThread();
-		//		statusCode = STATUS_CODE_100;
-		//	}else
-		//	{
-		//		//pHttpSessionImpl->addPrevData((const char*)recvData);
-		//		statusCode = STATUS_CODE_400;
-		//	}
-		//}else
-		{
-			// 之前没有SESSION，直接返回错误
-			statusCode = STATUS_CODE_400;
-		}
+	//	//		// 创建一个超时处理线程
+	//	//		pHttpSessionImpl->newPrevDataThread();
+	//	//		statusCode = STATUS_CODE_100;
+	//	//	}else
+	//	//	{
+	//	//		//pHttpSessionImpl->addPrevData((const char*)recvData);
+	//	//		statusCode = STATUS_CODE_400;
+	//	//	}
+	//	//}else
+	//	{
+	//		// 之前没有SESSION，直接返回错误
+	//		statusCode = STATUS_CODE_400;
+	//	}
 	}
 
 	//if (statusCode != STATUS_CODE_200)
@@ -1609,7 +1609,10 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	//if (statusCode == STATUS_CODE_413)
 	if (!requestImpl->isKeepAlive())
 	{
-		m_pNotKeepAliveRemoteList.add(CNotKeepAliveRemote::create(pcgcRemote));
+		if (statusCode != STATUS_CODE_200)	// STATUS_CODE_413
+			pcgcRemote->invalidate(true);
+		else
+			m_pNotKeepAliveRemoteList.add(CNotKeepAliveRemote::create(pcgcRemote));
 	}
 	
 	if (bCanSetParserToPool)

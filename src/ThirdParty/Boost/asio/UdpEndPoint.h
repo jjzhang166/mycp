@@ -81,7 +81,7 @@ private:
 	{
 		if (capacity == 0 || capacity > Max_UdpSocket_ReceiveSize)
 			capacity = Max_UdpSocket_ReceiveSize;
-		init(capacity);
+		init((int)capacity);
 		//m_buffer = new unsigned char[m_nBufferSize];
 		//memset(m_buffer, 0,  m_nBufferSize);
 	}

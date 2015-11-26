@@ -17,7 +17,7 @@
 */
 
 #ifdef WIN32
-#pragma warning(disable:4267 4819 4996)
+#pragma warning(disable:4267 4312 4819 4996)
 #endif // WIN32
 
 #include "../CGCBase/cgcdef.h"
@@ -66,7 +66,7 @@ private:
 		try
 		{
 			m_handler->doSendData(data,size);
-		}catch (std::exception& e)
+		}catch (const std::exception&)
 		{
 			//std::cerr << e.what() << std::endl;
 			return -2;
@@ -346,7 +346,7 @@ int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bind
 	try
 	{
 		ret = startClient(sCgcServerAddr, bindPort, nThreadStackSize);
-	}catch (std::exception& e)
+	}catch (const std::exception& )
 	{
 		//std::cerr << e.what() << std::endl;
 		return -1;
@@ -453,7 +453,7 @@ void CgcBaseClient::StopClient(bool exitClient)
 	try
 	{
 		stopClient();
-	}catch (std::exception& e)
+	}catch (const std::exception& )
 	{
 		//std::cerr << e.what() << std::endl;
 	}catch(...)
@@ -766,7 +766,7 @@ bool CgcBaseClient::sendOpenSession(short nMaxWaitSecons,unsigned long * pCallId
 		}
 		//return (sendSize == requestData.size()) ? 0 : 1;
 		return true;
-	}catch (std::exception& e)
+	}catch (const std::exception& )
 	{
 		//std::cerr << e.what() << std::endl;
 	}catch(...)
