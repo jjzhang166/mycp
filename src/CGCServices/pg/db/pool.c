@@ -237,7 +237,7 @@ Sink*  sink_pool_get(void)
 	static int theminnumbercount = 0;
 	int nErrorCount = 0;
 	//printf("================ %d\n", sink_number);
-	while(1 && thecleanup==0) 
+	while(thecleanup==0) 
 	{
 		//sink = sinks[random() % sink_number];
 		for (i =0; i< sink_number; ++i)

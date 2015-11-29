@@ -65,6 +65,10 @@ using namespace cgc;
 
 #include "../CgcRemoteInfo.h"
 
+int theThreadStackSize = 500;
+int theIoSendBufferSize = 64;
+int theIoReceiveBufferSize = 64;
+
 class CRemoteHandler
 {
 public:
@@ -255,7 +259,7 @@ public:
 		//m_socket.setAutoReturnPoolEndPoint(false);
 		if (m_ioservice.get() == NULL)
 			m_ioservice = IoService::create();
-		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this(),500);
+		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this(),theThreadStackSize,theIoSendBufferSize,theIoReceiveBufferSize);
 		m_ioservice->start(shared_from_this());
 
 		m_nCurrentThread = MIN_EVENT_THREAD;
@@ -482,6 +486,10 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 		return false;
 	}
 #endif // WIN32
+	cgcParameterMap::pointer theAppInitParameters = theApplication->getInitParameters();
+	theThreadStackSize = theAppInitParameters->getParameterValue("thread-stack-size", (int)500);
+	theIoSendBufferSize = theAppInitParameters->getParameterValue("send-buffer-size", (int)64);
+	theIoReceiveBufferSize = theAppInitParameters->getParameterValue("receive-buffer-size", (int)64);
 
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);

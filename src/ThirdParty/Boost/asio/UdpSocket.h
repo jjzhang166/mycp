@@ -61,7 +61,7 @@ public:
 
 	// udpPort == 0; ¶¯Ì¬
 	// nThtreadStackSize 100=100KB
-	void start(boost::asio::io_service & ioservice, unsigned short udpPort, const UdpSocket_Handler::pointer& handler, int nThreadStackSize=100)
+	void start(boost::asio::io_service & ioservice, unsigned short udpPort, const UdpSocket_Handler::pointer& handler, int nThreadStackSize=100,int nSendBuffer=64,int nReceiveBuff=64)
 	{
 		m_handler = handler;
 
@@ -72,8 +72,8 @@ public:
 			m_socket = new udp::socket(ioservice, pEndPoint);
 			//m_socket->bind(pEndPoint);	// exception
 			m_socket->set_option(boost::asio::socket_base::reuse_address(true),ec);
-			m_socket->set_option(boost::asio::socket_base::send_buffer_size(16*1024),ec);		// 8192
-			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(32*1024),ec);
+			m_socket->set_option(boost::asio::socket_base::send_buffer_size(nSendBuffer*1024),ec);		// 8192
+			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(nReceiveBuff*1024),ec);	// 32K
 		}
 
 		if (m_proc_data == 0)
@@ -84,6 +84,22 @@ public:
 			//m_proc_data = new boost::thread(boost::bind(&UdpSocket::do_proc_data, this));
 		}
 		start_receive();
+	}
+	void setiosendbuffsize(int nSendBuffer = 64)
+	{
+		if (m_socket != NULL)
+		{
+			boost::system::error_code ec;
+			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(nSendBuffer*1024),ec);		// 8192
+		}
+	}
+	void setioreceivebuffsize(int nReceiveBuff = 64)
+	{
+		if (m_socket != NULL)
+		{
+			boost::system::error_code ec;
+			m_socket->set_option(boost::asio::socket_base::send_buffer_size(nReceiveBuff*1024),ec);		// 8192
+		}
 	}
 	void stop(void)
 	{

@@ -26,6 +26,7 @@ namespace cgc
 {
 CgcUdpClient::CgcUdpClient(void)
 : CgcBaseClient(_T("UDP"))
+, m_nIoSendBufferSize(64), m_nIoReceiveBufferSize(64)
 
 {
 }
@@ -50,7 +51,7 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 		CgcUdpClient::pointer clientHandler = boost::static_pointer_cast<CgcUdpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
 
-		m_udpClient->start(m_ipService->ioservice(), bindPort, clientHandler, nThreadStackSize);
+		m_udpClient->start(m_ipService->ioservice(), bindPort, clientHandler, nThreadStackSize, m_nIoSendBufferSize, m_nIoReceiveBufferSize);
 		m_udpClient->socket()->connect(m_endpointRemote);
 		m_ipService->start();
 
@@ -158,6 +159,18 @@ bool CgcUdpClient::doSetConfig(int nConfig, unsigned int nInValue)
 		return false;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_IO_SEND_BUFFER_SIZE:
+		{
+			m_nIoSendBufferSize = nInValue;//(int)max(8,nInValue);
+			if (m_udpClient.get()!=NULL)
+				m_udpClient->setiosendbuffsize(m_nIoSendBufferSize);
+		}break;
+	case SOTP_CLIENT_CONFIG_IO_RECEIVE_BUFFER_SIZE:
+		{
+			m_nIoReceiveBufferSize = nInValue;//(int)max(8,nInValue);
+			if (m_udpClient.get()!=NULL)
+				m_udpClient->setioreceivebuffsize(m_nIoReceiveBufferSize);
+		}break;
 	case SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE:
 		{
 			if (m_udpClient.get()==NULL)
@@ -179,10 +192,15 @@ void CgcUdpClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 	CgcBaseClient::doGetConfig(nConfig,nOutValue);
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_IO_SEND_BUFFER_SIZE:
+		*nOutValue = (unsigned int)m_nIoSendBufferSize;
+		break;
+	case SOTP_CLIENT_CONFIG_IO_RECEIVE_BUFFER_SIZE:
+		*nOutValue = (unsigned int)m_nIoReceiveBufferSize;
+		break;
 	case SOTP_CLIENT_CONFIG_MAX_RECEIVE_BUFFER_SIZE:
-		{
-			*nOutValue = 0;
-		}break;
+		*nOutValue = 0;
+		break;
 	case SOTP_CLIENT_CONFIG_USES_SSL:
 		{
 

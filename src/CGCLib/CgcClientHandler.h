@@ -63,6 +63,8 @@ namespace cgc
 		, SOTP_CLIENT_CONFIG_CURRENT_INDEX					// for sid and ssl pwd,...
 		, SOTP_CLIENT_CONFIG_RTP_CB_USERDATA				// for OnRtpFrame
 		, SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT				// KB/S default 64KB/S
+		, SOTP_CLIENT_CONFIG_IO_SEND_BUFFER_SIZE	= 20	// default 64 KB
+		, SOTP_CLIENT_CONFIG_IO_RECEIVE_BUFFER_SIZE			// default 64 KB
 	};
 
 	class DoSotpClientHandler

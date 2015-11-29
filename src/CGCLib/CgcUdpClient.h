@@ -62,6 +62,8 @@ private:
 	UdpSocket::pointer m_udpClient;
 	udp::endpoint m_endpointLocal;
 	udp::endpoint m_endpointRemote;
+	int m_nIoSendBufferSize;
+	int m_nIoReceiveBufferSize;
 
 };
 
