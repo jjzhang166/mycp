@@ -57,6 +57,7 @@ public:
 	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId) const;
 
 	void ClearAll(void);
+	bool IsRoomEmpty(void) const;
 
 	CSotpRtpSession(bool bServerMode);
 	virtual ~CSotpRtpSession(void);

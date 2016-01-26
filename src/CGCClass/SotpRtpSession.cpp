@@ -43,6 +43,10 @@ void CSotpRtpSession::ClearAll(void)
 {
 	m_pRoomList.clear();
 }
+bool CSotpRtpSession::IsRoomEmpty(void) const
+{
+	return m_pRoomList.empty();
+}
 
 bool CSotpRtpSession::RegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback,void* pUserData)
 {

@@ -206,6 +206,8 @@ private:
 			start_receive();
 		}catch(std::exception&)
 		{
+		}catch(boost::exception&)
+		{
 		}catch(...)
 		{}
 	}

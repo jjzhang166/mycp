@@ -157,6 +157,9 @@ private:
 		{
 			//printf("********* m_socket->send_to exception 1\n");
 			return -2;
+		}catch (boost::exception&)
+		{
+			return -2;
 		}catch(...)
 		{
 			//printf("********* m_socket->send_to exception 2\n");
@@ -221,9 +224,9 @@ private:
 public:
 	CUdpServer(int nIndex)
 		: m_nIndex(nIndex),m_commPort(0), /*m_capacity(1), */m_protocol(0)
-		, m_socket(8*1024)
+		, m_socket(24*1024)
 		, m_nDoCommEventCount(0)
-		, m_pCommEventDataPool(8*1024,30,300)
+		, m_pCommEventDataPool(24*1024,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 	{
 		m_tNowTime = time(0);

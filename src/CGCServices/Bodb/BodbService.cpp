@@ -56,9 +56,26 @@ public:
 	{
 		return m_resltset == NULL ? -1 : m_resltset->rscount;
 	}
+	int cols(void) const
+	{
+		return (m_resltset==NULL || m_resltset->rsvalues==NULL) ? -1 : (int)m_resltset->rsvalues[0]->fieldcount;
+	}
 	cgc::bigint index(void) const
 	{
 		return m_currentIndex;
+	}
+	cgcValueInfo::pointer cols_name(void) const
+	{
+		if (m_resltset == NULL || m_resltset->rscount == 0 || m_resltset->rsvalues[0]->fieldcount) return cgcNullValueInfo;
+
+		char lpszFieldName[12];
+		std::vector<cgcValueInfo::pointer> record;
+		for (short i=0; i<m_resltset->rsvalues[0]->fieldcount; i++)
+		{
+			sprintf(lpszFieldName,"%d",i);
+			record.push_back(CGC_VALUEINFO(lpszFieldName));
+		}
+		return CGC_VALUEINFO(record);
 	}
 	cgcValueInfo::pointer index(cgc::bigint moveIndex)
 	{
@@ -248,7 +265,7 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual cgc::bigint execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
@@ -327,12 +344,21 @@ private:
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
+	virtual int cols(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
+	}
 	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
-
+	virtual cgcValueInfo::pointer cols_name(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
+	}
 	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
@@ -365,6 +391,22 @@ private:
 		{
 			cdbcResultSet->reset();
 		}
+	}
+
+	virtual int trans_begin(void)
+	{
+		//if (!isopen()) return 0;
+		return 0;
+	}
+	virtual bool trans_rollback(int nTransaction)
+	{
+		if (!isopen()) return false;
+		return false;
+	}
+	virtual cgc::bigint trans_commit(int nTransaction)
+	{
+		if (!isopen()) return -1;
+		return 0;
 	}
 
 private:

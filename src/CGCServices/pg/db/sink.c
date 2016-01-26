@@ -25,7 +25,7 @@ int register_sink_ops(const char *type, SinkOperations *sos)
 	hash = hash_table_new_full(str_hash, str_equal, free, 0);
     }
     
-    hash_table_insert(hash, strdup(type), sos);
+    hash_table_insert(hash, (void*)strdup(type), sos);
     return 0;
 }
 SinkOperations *get_sink_ops(const char *type)
@@ -199,12 +199,20 @@ void  trans_rollback(Sink* sink)
 	    result_clean(sink, result);
     }
 }
-void  trans_commit(Sink* sink)
+int  trans_commit(Sink* sink)
 {
     Result *result;
-    if(sink) {
-	result = sink_exec(sink, "commit");
-	if(result)
-	    result_clean(sink, result);
+	if(sink) {
+		result = sink_exec(sink, "commit");
+		if(result)
+		{
+			int ret = 0;
+			const char * sAffectedRows = result_affected_rows(sink,result);
+			if (sAffectedRows!=NULL)
+				ret = atoi(sAffectedRows);
+			result_clean(sink, result);
+			return ret;
+		}
     }
+	return -1;
 }

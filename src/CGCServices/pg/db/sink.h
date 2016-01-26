@@ -107,7 +107,7 @@ extern "C" {
     int     sink_is_busy(Sink*);
     int     trans_begin(Sink*);
     void    trans_rollback(Sink*);
-    void    trans_commit(Sink*);
+    int     trans_commit(Sink*);
 
     const char*  result_get   (Sink*, Result *, int row, int col);
     void         result_clean (Sink*, Result*);

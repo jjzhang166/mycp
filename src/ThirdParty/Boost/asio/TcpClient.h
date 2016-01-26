@@ -47,9 +47,9 @@ public:
 	void setMaxBufferSize(size_t v = Max_ReceiveBuffer_ReceiveSize) {m_maxbuffersize = v;}
 
 #ifdef USES_OPENSSL
-	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint,boost::asio::ssl::context* ctx=NULL)
+	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint,boost::asio::ssl::context* ctx=NULL, bool bReceiveData=true)
 #else
-	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint)
+	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint, bool bReceiveData=true)
 #endif
 	{
 		if (m_socket == NULL)
@@ -78,7 +78,7 @@ public:
 			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(64*1024),ec);
 #endif
 		}
-		if (m_proc_data == 0)
+		if (m_proc_data == 0 && bReceiveData)
 			m_proc_data = new boost::thread(boost::bind(&TcpClient::do_proc_data, this));
 
 #ifdef USES_OPENSSL
@@ -157,9 +157,11 @@ public:
 				X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 512);
 				//std::cout << "Verifying " << subject_name << "\n";  
 			}
-		}catch(std::exception&)
-		{
-		}catch(...)
+		}catch(const std::exception&)
+		{}
+		catch(const boost::exception&)
+		{}
+		catch(...)
 		{}
 		return true;
 		//return preverified;  
@@ -232,7 +234,7 @@ public:
 				try
 				{
 					m_handler->OnReceiveData(pTcpClient, buffer);
-				}catch(std::exception&)
+				}catch(const std::exception&)
 				{
 				}catch(...)
 				{}
@@ -249,7 +251,7 @@ public:
 	void setHandler(TcpClient_Handler::pointer v) {m_handler = v;}
 	void async_read_some(void)
 	{
-		if (m_socket == 0) return;
+		if (m_socket == 0 || m_proc_data==NULL) return;
 
 		try
 		{
@@ -261,7 +263,9 @@ public:
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred)
 				);
-		}catch(std::exception&)
+		}catch(const std::exception&)
+		{
+		}catch(const boost::exception&)
 		{
 		}catch(...)
 		{}
@@ -276,19 +280,19 @@ private:
 		if(!error)
 		{
 #ifdef USES_OPENSSL
-		if (m_socket->is_ssl())
-		{
-			m_socket->get_ssl_socket()->async_handshake(boost::asio::ssl::stream_base::client,boost::bind(&TcpClient::handle_handshake,
-				this,shared_from_this(),boost::asio::placeholders::error));
-			return;
-		}
+			if (m_socket->is_ssl())
+			{
+				m_socket->get_ssl_socket()->async_handshake(boost::asio::ssl::stream_base::client,boost::bind(&TcpClient::handle_handshake,
+					this,shared_from_this(),boost::asio::placeholders::error));
+				return;
+			}
 #endif
-		if (m_handler.get() != NULL)
-		{
-			//m_handler->OnConnected(*this);
-			m_handler->OnConnected(shared_from_this());
-		}
-		async_read_some();
+			if (m_handler.get() != NULL)
+			{
+				//m_handler->OnConnected(*this);
+				m_handler->OnConnected(shared_from_this());
+			}
+			async_read_some();
 		}else
 		{
 			m_socket->close();
@@ -310,7 +314,6 @@ private:
 			m_datas.add(newBuffer);
 			//if (m_handler)
 			//	m_handler->OnReceiveData(*this, newBuffer);
-
 			async_read_some();
 		}else
 		{

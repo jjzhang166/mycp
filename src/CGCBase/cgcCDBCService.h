@@ -44,7 +44,8 @@ public:
 	// INSERT, UPDATE, DELETE
 	// >=  0 : OK
 	// == -1 : ERROR
-	virtual cgc::bigint execute(const char * exeSql) = 0;
+	virtual cgc::bigint execute(const char * exeSql) {return execute(exeSql,0);}
+	virtual cgc::bigint execute(const char * exeSql, int nTransaction) = 0;
 
 	// SELECT
 	// outCookie > 0 : OK
@@ -53,10 +54,15 @@ public:
 
 	// Return ResultSet count
 	virtual cgc::bigint size(int cookie) const = 0;
+	// rows: -1=not exist
+	virtual cgc::bigint rows(int cookie) const {return this->size(cookie);}
+	// cols: -1=not exist
+	virtual int cols(int cookie) const = 0;
 
 	// Return current index.
 	virtual cgc::bigint index(int cookie) const = 0;
 
+	virtual cgcValueInfo::pointer cols_name(int cookie) const = 0;
 	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex) = 0;
 	virtual cgcValueInfo::pointer first(int cookie) = 0;
 	virtual cgcValueInfo::pointer next(int cookie) = 0;
@@ -64,6 +70,12 @@ public:
 	virtual cgcValueInfo::pointer last(int cookie) = 0;
 	virtual void reset(int cookie) = 0;
 
+	// * new version
+	virtual int trans_begin(void) {return 0;}
+	virtual bool trans_rollback(int nTransaction) {return false;}
+	virtual cgc::bigint trans_commit(int nTransaction) {return 0;}
+
+	// * old version
 	virtual bool auto_commit(bool autocommit) {return false;}
 	virtual bool commit(void) {return false;}
 	virtual bool rollback(void) {return false;}

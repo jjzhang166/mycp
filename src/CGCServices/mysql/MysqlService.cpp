@@ -63,14 +63,39 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	cgc::bigint size(void) const
-	{
-		return m_rows;
-	}
+	cgc::bigint size(void) const {return m_rows;}
+	cgc::bigint cols(void) const {return m_fields;}
 	cgc::bigint index(void) const
 	{
 		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
 		return m_currentIndex;
+	}
+	cgcValueInfo::pointer cols_name(void) const
+	{
+		if (m_resultset == NULL || m_rows == 0 || m_resultset->field_count==0) return cgcNullValueInfo;
+	
+		std::vector<cgcValueInfo::pointer> record;
+		try
+		{
+			char lpszFieldName[12];
+			for(unsigned int i=0; i<m_resultset->field_count; i++)
+			{
+				MYSQL_FIELD * pField = mysql_fetch_field(m_resultset);
+				if (pField!=NULL && pField->name!=NULL)
+					record.push_back(CGC_VALUEINFO(pField->name));
+				else
+				{
+					sprintf(lpszFieldName,"%d",i);
+					record.push_back(CGC_VALUEINFO(lpszFieldName));
+				}
+			}
+		}catch(std::exception&)
+		{
+		}catch(...)
+		{
+			// ...
+		}
+		return CGC_VALUEINFO(record);
 	}
 	cgcValueInfo::pointer index(cgc::bigint moveIndex)
 	{
@@ -392,20 +417,23 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual cgc::bigint execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		CMysqlSink* pSink = NULL;
+		CMysqlSink* pSink = (CMysqlSink*)nTransaction;
 		cgc::bigint ret = 0;
 		try
 		{
 			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
 			{
+				//if (nTransaction!=0)
+				//	trans_rollback(nTransaction);
 				return -1;
 			}
-			pSink = m_mysqlPool.SinkGet(m_nLastErrorCode);
+			if (nTransaction==0)
+				pSink = m_mysqlPool.SinkGet(m_nLastErrorCode);
 			if (pSink==NULL)
 			{
 				m_tLastErrorTime = time(0);
@@ -537,21 +565,30 @@ private:
 					if (!pSink->Reconnect())
 					{
 						// **重连失败
-						CMysqlPool::SinkPut(pSink);
+						if (nTransaction==0)
+							CMysqlPool::SinkPut(pSink);
+						//else
+						//	trans_rollback(nTransaction);
 						return -1;
 					}
 					// **重连成功
 					pMysql = pSink->GetMYSQL();
 					if(mysql_query(pMysql, exeSql))
 					{
-						CMysqlPool::SinkPut(pSink);
+						if (nTransaction==0)
+							CMysqlPool::SinkPut(pSink);
+						//else
+						//	trans_rollback(nTransaction);
 						return -1;
 					}
 					// **重新查询成功
 				}else
 				{
 					// **其他错误
-					CMysqlPool::SinkPut(pSink);
+					if (nTransaction==0)
+						CMysqlPool::SinkPut(pSink);
+					//else
+					//	trans_rollback(nTransaction);
 					return -1;
 				}
 			}
@@ -559,17 +596,20 @@ private:
 			//CR_COMMANDS_OUT_OF_SYNC
 			//CR_SERVER_GONE_ERROR
 			//mysql_ping(
-			ret = (cgc::bigint)mysql_affected_rows(pMysql);
-			MYSQL_RES * result = 0;
-			do
+			if (nTransaction==0)
 			{
-				if ( !(result = mysql_store_result(pMysql)))
+				ret = (cgc::bigint)mysql_affected_rows(pMysql);
+				MYSQL_RES * result = 0;
+				do
 				{
-					break;
-				} 
-				mysql_free_result(result);
-			}while( !mysql_next_result( pMysql ) );
-			CMysqlPool::SinkPut(pSink);
+					if ( !(result = mysql_store_result(pMysql)))
+					{
+						break;
+					} 
+					mysql_free_result(result);
+				}while( !mysql_next_result( pMysql ) );
+				CMysqlPool::SinkPut(pSink);
+			}
 		}catch(std::exception&)
 		{
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
@@ -578,7 +618,10 @@ private:
 			{
 				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
 			}
-			CMysqlPool::SinkPut(pSink);
+			if (nTransaction==0)
+				CMysqlPool::SinkPut(pSink);
+			//else
+			//	trans_rollback(nTransaction);
 			return -1;
 		}catch(...)
 		{
@@ -588,7 +631,10 @@ private:
 			{
 				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
 			}
-			CMysqlPool::SinkPut(pSink);
+			if (nTransaction==0)
+				CMysqlPool::SinkPut(pSink);
+			//else
+			//	trans_rollback(nTransaction);
 			return -1;
 		}
 		//try
@@ -850,12 +896,22 @@ private:
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
+	virtual int cols(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
+	}
+
 	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
-
+	virtual cgcValueInfo::pointer cols_name(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
+	}
 	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
@@ -890,16 +946,192 @@ private:
 		}
 	}
 
+	// * new version
+	virtual int trans_begin(void)
+	{
+		if (!isServiceInited()) return 0;
+		if (!open()) return 0;
+
+		CMysqlSink* pSink = NULL;
+		cgc::bigint ret = 0;
+		try
+		{
+			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
+			{
+				return 0;
+			}
+			pSink = m_mysqlPool.SinkGet(m_nLastErrorCode);
+			if (pSink==NULL)
+			{
+				m_tLastErrorTime = time(0);
+				return 0;
+			}
+			MYSQL * pMysql = pSink->GetMYSQL();
+			if (mysql_query(pMysql, "begin")!=0)
+			{
+				m_tLastErrorTime = time(0);
+				m_nLastErrorCode = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				if (CMysqlPool::IsServerError(m_nLastErrorCode))
+				{
+					// **重新连接
+					if (!pSink->Reconnect())
+					{
+						// **重连失败
+						CMysqlPool::SinkPut(pSink);
+						return 0;
+					}
+					// **重连成功
+					pMysql = pSink->GetMYSQL();
+					if(mysql_query(pMysql, "begin")!=0)
+					{
+						CMysqlPool::SinkPut(pSink);
+						return 0;
+					}
+					// **重新查询成功
+				}else
+				{
+					// **其他错误
+					CMysqlPool::SinkPut(pSink);
+					return 0;
+				}
+			}
+			m_nLastErrorCode = 0;
+			return (int)pSink;
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+		}
+		return 0;
+	}
+	virtual bool trans_rollback(int nTransaction)
+	{
+		if (!isServiceInited()) return false;
+		if (!open()) return false;
+
+		CMysqlSink* pSink = (CMysqlSink*)nTransaction;
+		if (pSink==NULL) return false;
+		bool result = false;
+		try
+		{
+			MYSQL * pMysql = pSink->GetMYSQL();
+			if (mysql_query(pMysql, "rollback")!=0)
+			{
+				m_tLastErrorTime = time(0);
+				m_nLastErrorCode = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				if (CMysqlPool::IsServerError(m_nLastErrorCode))
+				{
+					// **重新连接
+					if (!pSink->Reconnect())
+					{
+						// **重连失败
+						CMysqlPool::SinkPut(pSink);
+						return false;
+					}
+					// **重连成功
+					pMysql = pSink->GetMYSQL();
+					if(mysql_query(pMysql, "rollback")!=0)
+					{
+						CMysqlPool::SinkPut(pSink);
+						return false;
+					}
+					// **重新查询成功
+				}else
+				{
+					// **其他错误
+					CMysqlPool::SinkPut(pSink);
+					return false;
+				}
+			}
+			m_nLastErrorCode = 0;
+			result = true;
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+		}
+		CMysqlPool::SinkPut(pSink);
+		return result;
+	}
+	virtual cgc::bigint trans_commit(int nTransaction)
+	{
+		if (!isServiceInited()) return -1;
+		if (!open()) return -1;
+
+		CMysqlSink* pSink = (CMysqlSink*)nTransaction;
+		if (pSink==NULL) return -1;
+		cgc::bigint result = -1;
+		try
+		{
+			MYSQL * pMysql = pSink->GetMYSQL();
+			if (mysql_query(pMysql, "commit")!=0)
+			{
+				m_tLastErrorTime = time(0);
+				m_nLastErrorCode = mysql_errno(pMysql);
+				CGC_LOG((cgc::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				if (CMysqlPool::IsServerError(m_nLastErrorCode))
+				{
+					// **重新连接
+					if (!pSink->Reconnect())
+					{
+						// **重连失败
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重连成功
+					pMysql = pSink->GetMYSQL();
+					if(mysql_query(pMysql, "commit")!=0)
+					{
+						CMysqlPool::SinkPut(pSink);
+						return -1;
+					}
+					// **重新查询成功
+				}else
+				{
+					// **其他错误
+					CMysqlPool::SinkPut(pSink);
+					return -1;
+				}
+			}
+			m_nLastErrorCode = 0;
+			result = (cgc::bigint)mysql_affected_rows(pMysql);
+			MYSQL_RES * result = 0;
+			do
+			{
+				if ( !(result = mysql_store_result(pMysql)))
+				{
+					break;
+				} 
+				mysql_free_result(result);
+			}while( !mysql_next_result( pMysql ) );
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+		}
+		CMysqlPool::SinkPut(pSink);
+		return result;
+	}
+
 	virtual bool auto_commit(bool autocommit)
 	{
 		if (!isopen()) return false;
+		// mysql_query('begin');
 		return false;
-
 		//return mysql_autocommit(m_mysql, autocommit ? 1 : 0) == 1;
 	}
 	virtual bool commit(void)
 	{
 		if (!isopen()) return false;
+		//  mysql_query('commit');
 		return false;
 
 		//return mysql_commit(m_mysql) == 1;
@@ -907,6 +1139,7 @@ private:
 	virtual bool rollback(void)
 	{
 		if (!isopen()) return false;
+		//  mysql_query('rollback');
 		return false;
 
 		//return mysql_rollback(m_mysql) == 1;

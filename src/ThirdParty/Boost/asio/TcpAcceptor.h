@@ -86,6 +86,8 @@ private:
 #else
 			printf("start_accept exception. %s\n", e.what());
 #endif
+		}catch (boost::exception&)
+		{
 		}catch(...)
 		{}
 	}

@@ -55,14 +55,31 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	cgc::bigint size(void) const
-	{
-		return m_rows;
-	}
+	cgc::bigint size(void) const{return m_rows;}
+	cgc::bigint cols(void) const{return m_cols;}
 	cgc::bigint index(void) const
 	{
 		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
 		return m_currentIndex;
+	}
+	cgcValueInfo::pointer cols_name(void) const
+	{
+		if (m_resultset == NULL || m_rows == 0 || m_cols==0) return cgcNullValueInfo;
+
+		std::vector<cgcValueInfo::pointer> record;
+		try
+		{
+			for(int i=0; i<m_cols; i++)
+			{
+				const tstring s = result_fname(m_sink, m_resultset, i);
+				record.push_back(CGC_VALUEINFO(s));
+			}
+		}catch(std::exception&)
+		{
+		}catch(...)
+		{
+		}
+		return CGC_VALUEINFO(record);
 	}
 	cgcValueInfo::pointer index(int moveIndex)
 	{
@@ -339,17 +356,18 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual cgc::bigint execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		cgc::bigint ret = 0;
-		Sink *sink = NULL;
+		Sink *sink = (Sink*)nTransaction;
 		try
 		{
 			m_tLastTime = time(0);
-			sink = sink_pool_get();
+			if (nTransaction==0)
+				sink = sink_pool_get();
 			if (sink==NULL)
 				return -1;
 
@@ -361,24 +379,36 @@ private:
 				(state != RES_COPY_OUT))
 			{
 				result_clean(sink, res);
-				sink_pool_put (sink);
+				if (nTransaction==0)
+					sink_pool_put (sink);
+				//else
+				//	trans_rollback(nTransaction);
 				CGC_LOG((cgc::LOG_WARNING, "%s\n", exeSql));
 				return -1;
 			}
 			//ret = result_rn (sink, res);
-			const char * sAffectedRows = result_affected_rows(sink,res);
-			if (sAffectedRows!=NULL)
-				ret = cgc_atoi64(sAffectedRows);
-			result_clean (sink, res);
-			sink_pool_put (sink);
+			if (nTransaction==0)
+			{
+				const char * sAffectedRows = result_affected_rows(sink,res);
+				if (sAffectedRows!=NULL)
+					ret = cgc_atoi64(sAffectedRows);
+				result_clean (sink, res);
+				sink_pool_put (sink);
+			}
 		}catch(std::exception&)
 		{
-			sink_pool_put (sink);
+			if (nTransaction==0)
+				sink_pool_put (sink);
+			//else
+			//	trans_rollback(nTransaction);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}catch(...)
 		{
-			sink_pool_put (sink);
+			if (nTransaction==0)
+				sink_pool_put (sink);
+			//else
+			//	trans_rollback(nTransaction);
 			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}
@@ -484,10 +514,21 @@ private:
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
+	virtual int cols(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? (int)cdbcResultSet->cols() : -1;
+	}
+
 	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
+	}
+	virtual cgcValueInfo::pointer cols_name(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
 	}
 
 	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
@@ -523,10 +564,75 @@ private:
 			cdbcResultSet->reset();
 		}
 	}
+	virtual int trans_begin(void)
+	{
+		if (!isopen()) return 0;
+		Sink *sink = NULL;
+		try
+		{
+			sink = sink_pool_get();
+			if (sink==NULL)
+				return 0;
+
+			if (::trans_begin(sink)==0)
+			{
+				return (int)sink;
+			}
+		}catch(std::exception&)
+		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+		}catch(...)
+		{
+			sink_pool_put (sink);
+			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+		}
+		return 0;
+	}
+	virtual bool trans_rollback(int nTransaction)
+	{
+		if (!isopen()) return false;
+		Sink *sink = (Sink*)nTransaction;
+		if (sink==NULL) return false;
+		bool result = false;
+		try
+		{
+			::trans_rollback(sink);
+			result = true;
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+		}
+		sink_pool_put (sink);
+		return result;
+	}
+	virtual cgc::bigint trans_commit(int nTransaction)
+	{
+		if (!isopen()) return -1;
+		Sink *sink = (Sink*)nTransaction;
+		if (sink==NULL) return -1;
+		cgc::bigint result = -1;
+		try
+		{
+			result = ::trans_commit(sink);
+		}catch(std::exception&)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+		}catch(...)
+		{
+			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+		}
+		sink_pool_put (sink);
+		return result;
+	}
 
 	virtual bool auto_commit(bool autocommit)
 	{
 		if (!isopen()) return false;
+
 		return false;
 		//return mysql_autocommit(m_mysql, autocommit ? 1 : 0) == 1;
 	}
@@ -542,6 +648,7 @@ private:
 		return false;
 		//return mysql_rollback(m_mysql) == 1;
 	}
+
 private:
 	int m_nIndex;
 	bool m_isopen;

@@ -143,7 +143,10 @@ public:
 #else
 				printf("start_accept exception. %s\n", e.what());
 #endif
-			}
+			}catch (boost::exception &)
+			{}
+			catch(...)
+			{}
 			return true;
 		}
 #endif
@@ -170,11 +173,15 @@ public:
 			start_read();
 		}else
 		{
-			printf("**** handle_handshake %s,%d\n",e.message().c_str(),e.value());
+			//printf("**** handle_handshake %s,%d\n",e.message().c_str(),e.value());
 			try{
 				boost::system::error_code ec;
 				m_socket->get_ssl_socket()->shutdown(ec);
 			}catch (std::exception&)
+			{
+			}catch (boost::exception&)
+			{
+			}catch(...)
 			{}
 			m_socket->close();
 		}
@@ -200,6 +207,8 @@ public:
 				{
 					m_handler->OnRemoteRecv(pOwner, buffer);
 				}catch(std::exception&)
+				{
+				}catch(boost::exception&)
 				{
 				}catch(...)
 				{}

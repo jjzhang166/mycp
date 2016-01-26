@@ -45,7 +45,7 @@ inline unsigned long timeGetTime()
 
 CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
 : m_bServerMode(bServerMode), m_nRoomId(nRoomId), m_nSrcId(nSrcId), m_nParam(nParam)
-, m_tLastTime(0)
+, m_tLastTime(0), m_tLastCallbackTime(0)
 , m_nLastFrameTimestamp(0), m_nWaitForFrameSeq(-1), m_bWaitforNextKeyVideo(false), m_nLostData(0)
 , m_pReliableSendBuffer(NULL), m_nReliableBufferSize(0)
 , /*theLostSeqInfo1(1,6), */theLostSeqInfo2(15,25)//, theLostSeqInfo3(13,20)

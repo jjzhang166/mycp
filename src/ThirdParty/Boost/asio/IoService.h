@@ -70,7 +70,6 @@ private:
 	{
 		if (iopservice)
 		{
-			boost::system::error_code ec;
 			boost::asio::io_service & pService = iopservice->ioservice();
 			//boost::asio::io_service::work work(pService);	// 保证run不会退出
 			while (!iopservice->is_killed())
@@ -82,6 +81,7 @@ private:
 #else
 					usleep(2000);
 #endif
+					boost::system::error_code ec;
 					pService.poll(ec);
 					continue;
 					//boost::system::error_code ec;
@@ -93,9 +93,9 @@ private:
 				{
 					pService.reset();
 #ifdef WIN32
-					printf("do_event_loop exception. %s, lasterror=%d\n", e.what(), GetLastError());
+					printf("do_event_loop std::exception. %s, lasterror=%d\n", e.what(), GetLastError());
 #else
-					printf("do_event_loop exception. %s\n", e.what());
+					printf("do_event_loop std::exception. %s\n", e.what());
 #endif
 					//const std::string sMessage = e.what();
 					//if (sMessage.find("remote_endpoint: Transport endpoint is not connected")==0)
@@ -104,11 +104,21 @@ private:
 					//}
 					iopservice->on_exception();
 					break;
+				}catch(boost::exception&)
+				{
+					pService.reset();
+#ifdef WIN32
+					printf("do_event_loop boost::exception. lasterror=%d\n", GetLastError());
+#else
+					printf("do_event_loop boost::exception.\n");
+#endif
+					iopservice->on_exception();
+					break;
 				}catch(...)
 				{
 					pService.reset();
 #ifdef WIN32
-					printf("do_event_loop exception. lasterror=%d\n", GetLastError());
+					printf("do_event_loop ... exception. lasterror=%d\n", GetLastError());
 #else
 					printf("do_event_loop exception. \n");
 #endif

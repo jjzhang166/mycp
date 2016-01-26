@@ -233,14 +233,18 @@ void CGCApp::ProcLastAccessedTime(void)
 {
 	std::vector<std::string> sCloseSidList;
 	this->m_mgrSession.ProcLastAccessedTime(sCloseSidList);
-	for (size_t i=0; i<sCloseSidList.size(); i++)
+	if (!sCloseSidList.empty())
 	{
-		m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sCloseSidList[i].c_str());
+		for (size_t i=0; i<sCloseSidList.size(); i++)
+		{
+			m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sCloseSidList[i].c_str());
+		}
+		sCloseSidList.clear();
 	}
-	sCloseSidList.clear();
 
 	//static unsigned int nIndex = 0;
 	//if ((nIndex++)%2==1)	// 2*20=40秒处理一次；
+	std::vector<int> pRemoveList;
 	{
 		BoostReadLock rdlock(m_pRtpSession.mutex());
 		CLockMap<int,CSotpRtpSession::pointer>::iterator pIter = m_pRtpSession.begin();
@@ -248,8 +252,18 @@ void CGCApp::ProcLastAccessedTime(void)
 		{
 			CSotpRtpSession::pointer pRtpSession = pIter->second;
 			pRtpSession->CheckRegisterSourceLive(59, this, 0);
+			if (pRtpSession->IsRoomEmpty())
+			{
+				pRemoveList.push_back(pIter->first);
+			}
 		}
-		//m_pRtpSession.CheckRegisterSourceLive(59, this, 0);
+	}
+	if (!pRemoveList.empty())
+	{
+		for (size_t i=0; i<pRemoveList.size(); i++)
+		{
+			m_pRtpSession.remove(pRemoveList[i]);
+		}
 	}
 	//return false;
 	//// 检查mysessioninfo
@@ -430,6 +444,7 @@ void CGCApp::AppExit(void)
 	AppStop();
 }
 
+time_t theFreeModuleTime = 0;
 #ifndef WIN32
 bool theKilledApp = false;
 #include <signal.h>
@@ -439,6 +454,10 @@ void kill_op(int signum,siginfo_t *info,void *myact)
 {
 	printf("receive signal %d\n", signum);
 	//sleep(5);
+	if (theKilledApp && theFreeModuleTime>0 && (theFreeModuleTime+20)<time(0))
+	{
+		exit(0);
+	}
 	theKilledApp = true;
 }
 //void pipeSignalProc(int sig)
@@ -743,11 +762,11 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 
 #ifdef WIN32
 		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Source");
-		CGC_Rtp_UnRegister_Source fp2 = (CGC_Rtp_UnRegister_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_UnRegister_Source");
+		FPCGC_Rtp_UnRegister_Source fp2 = (FPCGC_Rtp_UnRegister_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_UnRegister_Source");
 		FPCGC_Rtp_Register_Sink fp3 = (FPCGC_Rtp_Register_Sink)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Sink");
 #else
 		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)dlsym(hModule, "CGC_Rtp_Register_Source");
-		CGC_Rtp_UnRegister_Source fp2 = (CGC_Rtp_UnRegister_Source)dlsym(hModule, "CGC_Rtp_UnRegister_Source");
+		FPCGC_Rtp_UnRegister_Source fp2 = (FPCGC_Rtp_UnRegister_Source)dlsym(hModule, "CGC_Rtp_UnRegister_Source");
 		FPCGC_Rtp_Register_Sink fp3 = (FPCGC_Rtp_Register_Sink)dlsym(hModule, "CGC_Rtp_Register_Sink");
 #endif
 		portApp->setFuncHandle1((void*)fp1);
@@ -758,7 +777,15 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 	FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)portApp->getFuncHandle1();
 	if (fp==NULL)
 		return false;
-	return fp(nRoomId, nSourceId, nParam);
+	try
+	{
+		return fp(nRoomId, nSourceId, nParam);
+	}catch (const std::exception&)
+	{
+	}catch (...)
+	{
+	}
+	return false;
 }
 void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
 {
@@ -768,10 +795,17 @@ void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc:
 	{
 		return;	// *
 	}
-	CGC_Rtp_UnRegister_Source fp = (CGC_Rtp_UnRegister_Source)portApp->getFuncHandle2();
+	FPCGC_Rtp_UnRegister_Source fp = (FPCGC_Rtp_UnRegister_Source)portApp->getFuncHandle2();
 	if (fp==NULL)
 		return;
-	fp(nRoomId, nSourceId, nParam);
+	try
+	{
+		fp(nRoomId, nSourceId, nParam);
+	}catch (const std::exception&)
+	{
+	}catch (...)
+	{
+	}
 }
 bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData)
 {
@@ -784,7 +818,15 @@ bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::big
 	FPCGC_Rtp_Register_Sink fp = (FPCGC_Rtp_Register_Sink)portApp->getFuncHandle3();
 	if (fp==NULL)
 		return false;
-	return fp(nRoomId, nSourceId, nDestId);
+	try
+	{
+		return fp(nRoomId, nSourceId, nDestId);
+	}catch (const std::exception&)
+	{
+	}catch (...)
+	{
+	}
+	return false;
 }
 
 tstring CGCApp::onGetSslPassword(const tstring& sSessionId) const
@@ -1283,6 +1325,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	bool findMultiPartEnd = false;
 	cgcParserHttp::pointer phttpParser;
 	bool bCanSetParserToPool = false;
+
+	// ???
 
 	cgcMultiPart::pointer currentMultiPart;
 	if (m_mapMultiParts.find(pcgcRemote->getRemoteId(), currentMultiPart))
@@ -1794,7 +1838,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				ProcCluProto(pRequestImpl, cwssRemote);
 			}*/else
 			{
-				m_logModuleImpl.log(LOG_ERROR, _T("invalidate cgc proto!\n"));
+				m_logModuleImpl.log(LOG_WARNING, _T("invalidate cgc proto!\n"));
 				//retCode = -115;
 			}
 		}catch(std::exception const &e)
@@ -1941,7 +1985,7 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 		retCode = (pRemoteSessionImpl == NULL) ? -103 : 0;
 	}else
 	{
-		m_logModuleImpl.log(LOG_ERROR, _T("invalidate cgc proto type \'%d\'!\n"), pcgcParser->getProtoType());
+		m_logModuleImpl.log(LOG_WARNING, _T("invalidate cgc proto type \'%d\'!\n"), pcgcParser->getProtoType());
 		retCode = -116;
 	}
 
@@ -2303,7 +2347,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		}
 	}else
 	{
-		m_logModuleImpl.log(LOG_ERROR, _T("invalidate cgc proto type \'%d\'!\n"), pcgcParser->getProtoType());
+		m_logModuleImpl.log(LOG_WARNING, _T("invalidate cgc proto type \'%d\'!\n"), pcgcParser->getProtoType());
 		retCode = -116;
 	}
 	if (!pResponseImpl->isResponseSended())
@@ -2921,6 +2965,7 @@ void CGCApp::FreeLibModules(unsigned int mt)
 		if ((mt & (int)moduleMT) != (int)moduleMT)
 			continue;
 
+		theFreeModuleTime = time(0);
 		try
 		{
 			FreeLibModule(application);
@@ -2933,6 +2978,7 @@ void CGCApp::FreeLibModules(unsigned int mt)
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' free exception\n"), application->getApplicationName().c_str());
 		}
+		theFreeModuleTime = 0;
 	}
 }
 
@@ -2974,6 +3020,7 @@ void CGCApp::FreeLibModule(const cgcApplication::pointer& moduleImpl)
 		if (pModuleImpl->getModuleState() != -1)
 		{
 			pModuleImpl->setModuleState(-1);
+			pModuleImpl->SetInited(false);
 			
 			// CGC_Module_Free
 			FPCGC_Module_Free farProc_Free = 0;

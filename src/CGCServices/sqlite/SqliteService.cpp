@@ -61,13 +61,30 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	cgc::bigint size(void) const
-	{
-		return m_rows;
-	}
+	cgc::bigint size(void) const {return m_rows;}
+	int cols(void) const {return (int)m_fields;}
+
 	cgc::bigint index(void) const
 	{
 		return m_currentIndex;
+	}
+	cgcValueInfo::pointer cols_name(void) const
+	{
+		if (m_resultset == NULL || m_rows == 0 || m_fields==0) return cgcNullValueInfo;
+		std::vector<cgcValueInfo::pointer> record;
+		try
+		{
+			const cgc::bigint offset = 0;
+			for (int i=0 ; i<m_fields; i++ )
+			{
+				const tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
+				record.push_back(CGC_VALUEINFO(s));
+			}
+		}catch(...)
+		{
+			// ...
+		}
+		return CGC_VALUEINFO(record);
 	}
 	cgcValueInfo::pointer index(cgc::bigint moveIndex)
 	{
@@ -297,7 +314,7 @@ private:
 	//{
 	//	return 0;
 	//}
-	virtual cgc::bigint execute(const char * exeSql)
+	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
@@ -323,11 +340,16 @@ private:
 				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: %d=%s\n", rc,zErrMsg));
 				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s)\n", exeSql));
 				sqlite3_free(zErrMsg);
+				//if (nTransaction!=0)
+				//	trans_rollback(nTransaction);
 				return -1;
 			}
-			ret = (cgc::bigint)sqlite3_changes(m_pSqlite);
+			if (nTransaction==0)
+				ret = (cgc::bigint)sqlite3_changes(m_pSqlite);
 		}catch(...)
 		{
+			//if (nTransaction!=0)
+			//	trans_rollback(nTransaction);
 			return -1;
 		}
 		return ret;
@@ -412,12 +434,22 @@ private:
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
+	virtual int cols(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
+	}
+
 	virtual cgc::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
-
+	virtual cgcValueInfo::pointer cols_name(int cookie) const
+	{
+		CCDBCResultSet::pointer cdbcResultSet;
+		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
+	}
 	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
@@ -450,6 +482,37 @@ private:
 		{
 			cdbcResultSet->reset();
 		}
+	}
+	// * new version
+	virtual int trans_begin(void)
+	{
+		if (auto_commit(false))
+			return 1;
+		return 0;
+	}
+	virtual bool trans_rollback(int nTransaction)
+	{
+		return rollback();
+	}
+	virtual cgc::bigint trans_commit(int nTransaction)
+	{
+		if (!isopen()) return false;
+		try
+		{
+			char *zErrMsg = 0;
+			const int rc = sqlite3_exec( m_pSqlite , "COMMIT;", 0, 0, &zErrMsg);
+			if ( rc!=SQLITE_OK )
+			{
+				CGC_LOG((cgc::LOG_WARNING, "Can't COMMIT: %s\n", zErrMsg));
+				sqlite3_free(zErrMsg);
+				return -1;
+			}
+			return (cgc::bigint)sqlite3_changes(m_pSqlite);
+		}catch(...)
+		{
+			return -1;
+		}
+		return -1;
 	}
 
 	virtual bool auto_commit(bool autocommit)

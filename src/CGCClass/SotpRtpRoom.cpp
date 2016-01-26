@@ -66,18 +66,22 @@ CSotpRtpSource::pointer CSotpRtpRoom::RegisterSource(cgc::bigint nSrcId, cgc::bi
 		}
 		pRtpSource->SetRemote(pcgcRemote);
 		pRtpSource->SetCallbackUserData(pUserData);
+		if (m_bServerMode && pCallback!=NULL)	// *
+			pRtpSource->SetLastCallbackTime();
 	}else
 	{
 		if (m_bServerMode && pCallback!=NULL)
 		{
 			if (pcgcRemote.get()==NULL)
 				return NullSotpRtpSource;
-			if (pRtpSource->GetRemoteId()!=pcgcRemote->getRemoteId())
+			if (pRtpSource->GetRemoteId()!=pcgcRemote->getRemoteId() || (pRtpSource->GetLastCallbackTime()+600)<time(0))
 			{
-				// remote id 不同，需要验证一次；
+				// remote id 不同（或者超过10分钟），需要验证一次；
 				if (!pCallback->onRegisterSource(this->GetRoomId(), nSrcId, nParam, pUserData))
 					return NullSotpRtpSource;
-				pRtpSource->SetRemote(pcgcRemote);
+				if (pRtpSource->GetRemoteId()!=pcgcRemote->getRemoteId())
+					pRtpSource->SetRemote(pcgcRemote);
+				pRtpSource->SetLastCallbackTime();
 			}else if (pRtpSource->isRemoteInvalidate())
 			{
 				// 更新remoteid
@@ -182,11 +186,11 @@ bool CSotpRtpRoom::UnRegisterAllSink(cgc::bigint nSrcId, const cgcRemote::pointe
 	}
 	return false;
 }
-bool CSotpRtpRoom::UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource, const cgcRemote::pointer& pcgcRemote)
+bool CSotpRtpRoom::UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource, const cgcRemote::pointer& pcgcRemote, bool bUnRegisterAllSinkForce)
 {
 	if (m_bServerMode)
 	{
-		if (pcgcRemote.get()==NULL || pcgcRemote->getRemoteId()!=pRtpSrcSource->GetRemoteId())
+		if (!bUnRegisterAllSinkForce && (pcgcRemote.get()==NULL || pcgcRemote->getRemoteId()!=pRtpSrcSource->GetRemoteId()))
 			return false;
 	}else
 	{
@@ -275,7 +279,7 @@ void CSotpRtpRoom::CheckRegisterSourceLive(time_t tNow,short nExpireSecond, CSot
 			{
 				if (pCallback!=NULL)
 					pCallback->onUnRegisterSource(this->GetRoomId(), pRtpSrcSource->GetSrcId(), pRtpSrcSource->GetParam(), pUserData==NULL?pRtpSrcSource->GetCallbackUserData():pUserData);
-				UnRegisterAllSink(pRtpSrcSource, pRtpSrcSource->GetRemote());
+				UnRegisterAllSink(pRtpSrcSource, pRtpSrcSource->GetRemote(), true);
 				pRemoveList.push_back(pRtpSrcSource->GetSrcId());
 			}
 		}

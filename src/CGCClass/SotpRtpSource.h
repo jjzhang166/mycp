@@ -314,6 +314,8 @@ public:
 	cgc::bigint GetParam(void) const {return m_nParam;}
 	void SetLastTime(time_t v = time(0)) {m_tLastTime = v;}
 	time_t GetLastTime(void) const {return m_tLastTime;}
+	void SetLastCallbackTime(time_t v = time(0)) {m_tLastCallbackTime = v;}
+	time_t GetLastCallbackTime(void) const {return m_tLastCallbackTime;}
 
 	void SetCallbackUserData(void * v) {m_pCallbackUserData = v;}
 	void * GetCallbackUserData(void) const {return m_pCallbackUserData;}
@@ -362,6 +364,7 @@ private:
 	cgc::bigint m_nSrcId;
 	cgc::bigint m_nParam;
 	time_t m_tLastTime;
+	time_t m_tLastCallbackTime;
 	cgcRemote::pointer m_pRemote;
 	//CLockMap<cgc::bigint,bool> m_pSinkSendList;
 	CLockMap<cgc::bigint,bool> m_pSinkRecvList;

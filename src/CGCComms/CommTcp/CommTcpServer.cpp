@@ -110,7 +110,8 @@ public:
 #else
 			printf("CcgcRemote->remote_endpoint exception. %s\n", e.what());
 #endif
-		}catch(...)
+		}catch (boost::exception &)
+		{}catch(...)
 		{}
 		m_nRequestSize = 0;
 	}
@@ -306,6 +307,9 @@ private:
 		{
 			//std::cerr << e.what() << std::endl;
 			return -2;
+		}catch (boost::exception&)
+		{
+			return -2;
 		}catch(...)
 		{
 			return -2;
@@ -331,6 +335,8 @@ private:
 				m_connection.reset();
 			}
 		}catch (std::exception&)
+		{
+		}catch (boost::exception&)
 		{
 		}catch(...)
 		{
@@ -408,15 +414,19 @@ public:
 				m_tcpClient = TcpClient::create(shared_from_this());
 			boost::system::error_code ec;
 			tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp,ec), nPort);
-			m_tcpClient->connect(m_ipService->ioservice(), endpoint, sslctx);
+			m_tcpClient->connect(m_ipService->ioservice(), endpoint, sslctx, false);
 			m_ipService->start();
 
-			while (!m_connectReturned)
+			for (int i=0;i<50;i++)	// * 5S
+			{
+				if (m_connectReturned || !theApplication->isInited())
+					break;
 #ifdef WIN32
 				Sleep(100);
 #else
 				usleep(100000);
 #endif
+			}
 			bResult = !m_bDisconnect;
 
 #ifdef USES_PRINT_DEBUG
@@ -440,6 +450,8 @@ public:
 #endif
 			//printf("**** OK\n");
 		}catch (const std::exception &)
+		{
+		}catch (const boost::exception &)
 		{
 		}catch(...)
 		{}	
@@ -755,6 +767,12 @@ public:
 #else
 		sem_post(&m_semDoStop);
 #endif
+		m_listMgr.clear();
+		m_pRecvRemoteIdWaitList.clear();
+		m_pCommEventDataPool.Clear();
+		m_mapCgcRemote.clear();
+		m_acceptor.reset();
+		m_ioservice.reset();
 #ifdef USES_OPENSSL
 		if (m_sslctx)
 		{
@@ -762,11 +780,6 @@ public:
 			m_sslctx = NULL;
 		}
 #endif
-		m_acceptor.reset();
-		m_listMgr.clear();
-		m_pCommEventDataPool.Clear();
-		m_mapCgcRemote.clear();
-		m_ioservice.reset();
 		m_bServiceInited = false;
 		theApplication->log(LOG_INFO, _T("**** [%s:%d] Stop succeeded ****\n"), serviceName().c_str(), m_commPort);
 	}
@@ -945,6 +958,7 @@ protected:
 			}break;
 		case CCommEventData::CET_Exception:
 			{
+
 				//if (!m_listMgr.empty())
 				{
 					AUTO_WLOCK(m_listMgr);
@@ -967,6 +981,8 @@ protected:
 					m_sslctx = NULL;
 				}
 #endif
+				if (!theApplication->isInited())
+					break;
 				if (!bFirstStart)
 				{
 					CGC_LOG((LOG_ERROR, _T("[*:%d] tcp server restart\n"),m_commPort));
