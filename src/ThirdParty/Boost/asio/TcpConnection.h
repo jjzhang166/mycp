@@ -38,6 +38,7 @@ private:
 	unsigned long m_nIpAddress;	// host byte order
 	//tcp::socket m_socket;
 	boost_socket_base<tcp::socket>* m_socket;
+	tcp::endpoint m_localEndPoint;
 	tcp::endpoint m_remoteEndPoint;
 	TcpConnection_Handler::pointer m_handler;
 	//bool m_killed;
@@ -88,6 +89,12 @@ public:
 	tcp::socket::lowest_layer_type& lowest_layer(void) {return m_socket->lowest_layer();}
 	//tcp::socket& socket(void) {return m_socket;}
 	const tcp::endpoint& remote_endpoint(void) const {return m_remoteEndPoint;}
+	const tcp::endpoint& local_endpoint(void) const {return m_localEndPoint;}
+	std::string server_address(void) const
+	{
+		boost::system::error_code error;
+		return m_localEndPoint.address().to_string(error);
+	}
 	unsigned long getId(void) const {return m_nId;}
 	unsigned long getIpAddress(void) const {return m_nIpAddress;}
 	//void setUnusedSize(size_t v = 10) {m_unusedsize = v;}
@@ -98,6 +105,7 @@ public:
 	bool start(unsigned long nId)
 	{
 		boost::system::error_code error;
+		m_localEndPoint = m_socket->lowest_layer().local_endpoint(error);
 		m_remoteEndPoint = m_socket->lowest_layer().remote_endpoint(error);
 		if (error)
 			return false;

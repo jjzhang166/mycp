@@ -350,6 +350,11 @@ namespace cgc{
 
 	const std::string Http_Cookie				= "Cookie";
 	const std::string Http_CookieSessionId		= "MYSESSIONID";
+
+	// MYCP Variants
+	const std::string $MYCP_ROOT_PATH			= "$MYCP_ROOT_PATH";
+	const std::string $MYCP_CONF_PATH			= "$MYCP_CONF_PATH";
+	const std::string $MYCP_THIRDPARTH_PATH		= "$MYCP_THIRDPARTH_PATH";
 }
 
 #endif // __cgcdef_head__

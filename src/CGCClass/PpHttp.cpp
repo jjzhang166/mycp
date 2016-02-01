@@ -414,8 +414,13 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		const_cast<CPpHttp*>(this)->m_pCookieTemp = new char[1024*4];
 	// get all headers
 	//std::string sHeaders;
-	sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\nContent-Type: %s\r\n",
-		cgcGetStatusCode(m_statusCode).c_str(), m_sResContentType.c_str());
+	if (m_sResContentType.empty())
+	{
+		sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\n",cgcGetStatusCode(m_statusCode).c_str());
+	}else
+	{
+		sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\nContent-Type: %s\r\n",cgcGetStatusCode(m_statusCode).c_str(), m_sResContentType.c_str());
+	}
 	size_t nHeadSize = strlen(m_pHeaderBufferTemp);
 	{
 		CLockMap<tstring,cgcValueInfo::pointer>::const_iterator pIter = m_pResHeaders.begin();
@@ -757,11 +762,31 @@ void CPpHttp::GeRequestInfo(void)
 		if (!m_postString.empty())
 			m_postString = URLDecode(m_postString.c_str());
 	}
-	if (m_method == HTTP_POST || !m_postString.empty())
+	if ((m_method == HTTP_POST&&m_queryString.empty()) || !m_postString.empty())
 		m_queryString = m_postString;
 }
 
 //#define USES_PRINT_DEBUG
+
+inline bool FindHttpHeader(const char * httpRequest, const char ** pOutFind1, const char ** pOutFind2, short* pOutFind1Offset)
+{
+	int nOffset = 0;
+	*pOutFind1 = NULL;
+	while (httpRequest[nOffset]!='\0')
+	{
+		if (*pOutFind1==NULL && httpRequest[nOffset]==':')
+		{
+			*pOutFind1 = httpRequest+nOffset;
+			*pOutFind1Offset = httpRequest[nOffset+1]==' '?2:1;
+		}else if (httpRequest[nOffset]=='\r' && httpRequest[nOffset+1]=='\n')
+		{
+			*pOutFind2 = httpRequest+nOffset;
+			return *pOutFind1==NULL?false:true;
+		}
+		nOffset++;
+	}
+	return false;
+}
 
 bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOutHeader)
 {
@@ -1057,18 +1082,36 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				}
 			}
 		}
-		findSearch = strstr(httpRequest, ":");
-		if (findSearch == NULL) break;
 
-		findSearchEnd = strstr(findSearch+1, "\r\n");
-		if (findSearchEnd == NULL) break;
-
-		pOutHeader = true;
+		short nOffset = 1;	// 带空格2，不带空格1
+		if (!FindHttpHeader(httpRequest,&findSearch,&findSearchEnd,&nOffset)) break;
 		const tstring sParamReal(httpRequest, findSearch-httpRequest);
 		tstring param(sParamReal);
 		std::transform(param.begin(), param.end(), param.begin(), ::tolower);
-		const short nOffset = findSearch[1]==' '?2:1;	// 带空格2，不带空格1
 		tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
+
+		//findSearchEnd = strstr(httpRequest, "\r\n");
+		//if (findSearchEnd == NULL) break;
+		//const std::string sLine(httpRequest,findSearchEnd-httpRequest);
+		//const std::string::size_type findParam = sLine.find(":");
+		//if (findParam==std::string::npos) break;
+		//const tstring sParamReal(sLine.substr(0,findParam));
+		//tstring param(sParamReal);
+		//std::transform(param.begin(), param.end(), param.begin(), ::tolower);
+		//const short nOffset = sLine.c_str()[findParam+1]==' '?2:1;	// 带空格2，不带空格1
+		//tstring value(sLine.substr(findParam+nOffset));
+
+		//findSearch = strstr(httpRequest, ":");
+		//if (findSearch == NULL) break;
+		//findSearchEnd = strstr(findSearch+1, "\r\n");
+		//if (findSearchEnd == NULL) break;
+		//const tstring sParamReal(httpRequest, findSearch-httpRequest);
+		//tstring param(sParamReal);
+		//std::transform(param.begin(), param.end(), param.begin(), ::tolower);
+		//const short nOffset = findSearch[1]==' '?2:1;	// 带空格2，不带空格1
+		//tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
+
+		pOutHeader = true;
 		if (param != "content-disposition")	// Http_ContentDisposition
 		{
 			m_pReqHeaders.insert(param, CGC_PARAMETER(sParamReal,value),false);

@@ -37,11 +37,11 @@ public:
 	{}
 	~XmlParseHosts(void)
 	{
-		m_virtualHost.clear();
+		clear();
 	}
 
 public:
-	void clear(void) {m_virtualHost.clear();}
+	void clear(void) {m_virtualHost.clear();m_pFastcgiList.clear();}
 	void addVirtualHst(const tstring& host, CVirtualHost::pointer virtualHost)
 	{
 		if (virtualHost.get() != NULL)
@@ -53,6 +53,11 @@ public:
 		return m_virtualHost.find(host, result) ? result : NullVirtualHost;
 	}
 	const CLockMap<tstring, CVirtualHost::pointer>& getHosts(void) const {return m_virtualHost;}
+	CFastcgiInfo::pointer getFastcgiInfo(const tstring& name) const
+	{
+		CFastcgiInfo::pointer result;
+		return m_pFastcgiList.find(name, result) ? result : NullFastcgiInfo;
+	}
 
 	void load(const tstring & filename)
 	{
@@ -89,10 +94,29 @@ private:
 			//virtualHost->setRootType(roottype);
 			virtualHost->setIndex(index);
 			m_virtualHost.insert(host, virtualHost);
+		}else if (v.first.compare("fastcgi") == 0)
+		{
+			int disable = v.second.get("disable", 0);
+			if (disable == 1) return;
+
+			std::string name = v.second.get("script_name", "");
+			if (name.empty()) return;
+			std::string url = v.second.get("fastcgi_pass", "");
+			std::string index = v.second.get("fastcgi_index", "");
+			std::transform(name.begin(), name.end(), name.begin(), tolower);
+			CFastcgiInfo::pointer pFastcgiInfo = CFastcgiInfo::create(name,url);
+			pFastcgiInfo->m_sFastcgiIndex = v.second.get("fastcgi_index", "");
+			pFastcgiInfo->m_sFastcgiPath = v.second.get("fastcgi_path", "");
+			pFastcgiInfo->m_nResponseTimeout = v.second.get("fastcgi_response_timeout", 30);
+			pFastcgiInfo->m_nMinProcess = v.second.get("fastcgi_min_process", 5);
+			pFastcgiInfo->m_nMaxProcess = v.second.get("fastcgi_max_process", 20);
+			pFastcgiInfo->m_nMaxRequestRestart = v.second.get("fastcgi_max_requests", 500);
+			m_pFastcgiList.insert(name,pFastcgiInfo);
 		}
 	}
 
 	CLockMap<tstring, CVirtualHost::pointer> m_virtualHost;
+	CLockMap<tstring, CFastcgiInfo::pointer> m_pFastcgiList;
 
 };
 

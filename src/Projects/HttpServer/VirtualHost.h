@@ -67,4 +67,35 @@ const CVirtualHost::pointer NullVirtualHost;
 
 #define VIRTUALHOST_INFO(h) CVirtualHost::pointer(new CVirtualHost(h))
 
+class CFastcgiInfo
+{
+public:
+	typedef boost::shared_ptr<CFastcgiInfo> pointer;
+	static CFastcgiInfo::pointer create(const std::string& sName, const std::string& sUrl)
+	{
+		return CFastcgiInfo::pointer(new CFastcgiInfo(sName, sUrl));
+	}
+	std::string m_sScriptName;	// php,...
+	std::string m_sFastcgiPass;	// 127.0.0.1:9000
+	std::string m_sFastcgiIndex;	// index.php
+	std::string m_sFastcgiPath;		// php-cgi.exe
+	int m_nResponseTimeout;
+	int m_nMinProcess;
+	int m_nMaxProcess;
+	int m_nMaxRequestRestart;
+
+	std::string m_sFcgiPassIp;
+	int m_nFcgiPassPort;
+	int m_nCurrentFcgiPassPortIndex;
+
+	CFastcgiInfo(void){}
+	CFastcgiInfo(const std::string& sName, const std::string& sPass)
+		: m_sScriptName(sName), m_sFastcgiPass(sPass)
+		, m_nResponseTimeout(30)
+		, m_nMinProcess(5), m_nMaxProcess(20), m_nMaxRequestRestart(500)
+		, m_nFcgiPassPort(0), m_nCurrentFcgiPassPortIndex(0)
+	{}
+};
+const CFastcgiInfo::pointer NullFastcgiInfo;
+
 #endif // __VirtualHost_h__

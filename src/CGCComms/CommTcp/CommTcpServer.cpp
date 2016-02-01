@@ -77,6 +77,7 @@ class CcgcRemote
 private:
 	CRemoteHandler * m_handler;
 	TcpConnectionPointer m_connection;
+	tstring m_sServerAddr;			// string of IP address
 	tstring m_sRemoteAddr;			// string of IP address
 	unsigned long m_commId;
 	unsigned long m_remoteId;
@@ -95,14 +96,15 @@ public:
 
 		try
 		{
-			tcp::endpoint endpoint = m_connection->remote_endpoint();
-			const unsigned short port = endpoint.port();
+			tcp::endpoint remoteEndpoint = m_connection->remote_endpoint();
+			const unsigned short port = remoteEndpoint.port();
 			boost::system::error_code ignored_error;
-			const std::string address(endpoint.address().to_string(ignored_error));
+			const std::string address(remoteEndpoint.address().to_string(ignored_error));
 			char bufferTemp[256];
 			memset(bufferTemp, 0, 256);
 			sprintf(bufferTemp, "%s:%d", address.c_str(), port);
 			m_sRemoteAddr = bufferTemp;
+			m_sServerAddr = m_connection->server_address();
 		}catch (std::exception & e)
 		{
 #ifdef WIN32
@@ -131,6 +133,7 @@ public:
 private:
 	virtual int getProtocol(void) const {return m_protocol;}
 	virtual int getServerPort(void) const {return m_serverPort;}
+	virtual const std::string& getServerAddr(void) const {return m_sServerAddr;}
 	virtual unsigned long getCommId(void) const {return m_commId;}
 	virtual unsigned long getRemoteId(void) const {return m_connection.get() == 0 ? 0 : m_connection->getId();}
 	virtual unsigned long getIpAddress(void) const {return m_connection.get()==NULL?0:m_connection->getIpAddress();}

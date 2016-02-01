@@ -18,7 +18,8 @@
 
 //#define USES_HDCID 1
 #ifdef WIN32
-#include <Windows.h>
+//#include <winsock2.h>
+//#include <Windows.h>
 #else //WIN32
 #include "dlfcn.h"
 unsigned long GetLastError(void)
@@ -1319,14 +1320,93 @@ void CGCApp::CheckHttpParserPool(void)
 	}
 }
 
-
+//void CGCApp::OnReceiveData(const ReceiveBuffer::pointer& data)
+//{
+//	printf("******** OnReceiveData size=%d\n",data->size());
+//	if (data->size()>=FCGI_HEADER_LEN)
+//	{
+//		FCGI_Header header;
+//		memcpy(&header,data->data(),8);
+//		
+//		if(header.version != FCGI_VERSION_1) {
+//			return ;//FCGX_UNSUPPORTED_VERSION;
+//		}
+//		int requestId =        (header.requestIdB1 << 8)
+//			+ header.requestIdB0;
+//		int contentLen = (header.contentLengthB1 << 8)
+//			+ header.contentLengthB0;
+//		int paddingLen = header.paddingLength;
+//
+//		printf("******** RequestId=%d,type=%d,contentLen=%d\n",requestId,(int)header.type,contentLen);
+//
+//		if (header.type == FCGI_STDOUT)
+//		{
+//			printf("********\n%s\n", data->data()+8);
+//		}else if (header.type == FCGI_STDERR)
+//		{
+//			printf("********\n%s\n", data->data()+8);
+//		}else if (header.type == FCGI_END_REQUEST)
+//		{
+//		}
+//
+//	}
+//
+//}
+//static FCGI_Header MakeHeader(
+//        int type,
+//        int requestId,
+//        int contentLength,
+//        int paddingLength)
+//{
+//    FCGI_Header header;
+//    //ASSERT(contentLength >= 0 && contentLength <= FCGI_MAX_LENGTH);
+//    //ASSERT(paddingLength >= 0 && paddingLength <= 0xff);
+//    header.version = FCGI_VERSION_1;
+//    header.type             = (unsigned char) type;
+//    header.requestIdB1      = (unsigned char) ((requestId     >> 8) & 0xff);
+//    header.requestIdB0      = (unsigned char) ((requestId         ) & 0xff);
+//    header.contentLengthB1  = (unsigned char) ((contentLength >> 8) & 0xff);
+//    header.contentLengthB0  = (unsigned char) ((contentLength     ) & 0xff);
+//    header.paddingLength    = (unsigned char) paddingLength;
+//    header.reserved         =  0;
+//    return header;
+//}
+//static unsigned char* FCGI_BuildNameValueBody(int nRequestId, const char *name,int nameLen,const char *value,int valueLen, int * pOutSize)
+//{
+//	unsigned char* lpszBuffer = new unsigned char[FCGI_HEADER_LEN+8+nameLen+valueLen];
+//	int nOffset = FCGI_HEADER_LEN;
+//	if (nameLen < 0x80) {
+//		lpszBuffer[nOffset] = (unsigned char) nameLen;
+//		nOffset += 1;
+//	} else {
+//		lpszBuffer[nOffset]   = (unsigned char) ((nameLen >> 24) | 0x80);
+//		lpszBuffer[nOffset+1] = (unsigned char) (nameLen >> 16);
+//		lpszBuffer[nOffset+2] = (unsigned char) (nameLen >> 8);
+//		lpszBuffer[nOffset+3] = (unsigned char) nameLen;
+//		nOffset += 4;
+//	}
+//	if (valueLen < 0x80) {
+//		lpszBuffer[nOffset] = (unsigned char) valueLen;
+//		nOffset += 1;
+//	} else {
+//		lpszBuffer[nOffset]   = (unsigned char) ((valueLen >> 24) | 0x80);
+//		lpszBuffer[nOffset+1] = (unsigned char) (valueLen >> 16);
+//		lpszBuffer[nOffset+2] = (unsigned char) (valueLen >> 8);
+//		lpszBuffer[nOffset+3] = (unsigned char) valueLen;
+//		nOffset += 4;
+//	}
+//	const FCGI_Header header = MakeHeader(FCGI_PARAMS,nRequestId,nOffset-FCGI_HEADER_LEN+nameLen+valueLen,0);
+//	memcpy(lpszBuffer,&header, FCGI_HEADER_LEN);
+//	memcpy(lpszBuffer+nOffset,name, nameLen);
+//	memcpy(lpszBuffer+(nOffset+nameLen),value, valueLen);
+//	*pOutSize = nOffset+nameLen+valueLen;
+//	return lpszBuffer;
+//}
 HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote)
 {
 	bool findMultiPartEnd = false;
 	cgcParserHttp::pointer phttpParser;
 	bool bCanSetParserToPool = false;
-
-	// ???
 
 	cgcMultiPart::pointer currentMultiPart;
 	if (m_mapMultiParts.find(pcgcRemote->getRemoteId(), currentMultiPart))

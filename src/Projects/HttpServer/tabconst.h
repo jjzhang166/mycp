@@ -244,4 +244,25 @@ const std::string CSP_TAB_OBJECT_PROPERTY		= "property";
 const std::string CSP_TAB_OBJECT_EQUAL			= "=";
 const std::string CSP_TAB_OBJECT_END			= "/>";
 
+const std::string FASTCGI_PARAM_SCRIPT_FILENAME		= "SCRIPT_FILENAME";
+const std::string FASTCGI_PARAM_HTTP_COOKIE			= "HTTP_COOKIE";
+const std::string FASTCGI_PARAM_HTTP_USER_AGENT		= "HTTP_USER_AGENT";
+const std::string FASTCGI_PARAM_REMOTE_ADDR			= "REMOTE_ADDR";
+const std::string FASTCGI_PARAM_REMOTE_PORT			= "REMOTE_PORT";
+const std::string FASTCGI_PARAM_SERVER_ADDR			= "SERVER_ADDR";
+const std::string FASTCGI_PARAM_SERVER_PORT			= "SERVER_PORT";
+const std::string FASTCGI_PARAM_SERVER_NAME			= "SERVER_NAME";		// MYCP
+const std::string FASTCGI_PARAM_SERVER_SOFTWARE		= "SERVER_SOFTWARE";	// MYCP/1.1
+const std::string FASTCGI_PARAM_SERVER_PROTOCOL		= "SERVER_PROTOCOL";
+const std::string FASTCGI_PARAM_SCRIPT_NAME			= "SCRIPT_NAME";
+const std::string FASTCGI_PARAM_REQUEST_URI			= "REQUEST_URI";
+const std::string FASTCGI_PARAM_DOCUMENT_URI		= "DOCUMENT_URI";
+const std::string FASTCGI_PARAM_DOCUMENT_ROOT		= "DOCUMENT_ROOT";
+const std::string FASTCGI_PARAM_QUERY_STRING		= "QUERY_STRING";
+const std::string FASTCGI_PARAM_REQUEST_METHOD		= "REQUEST_METHOD";
+const std::string FASTCGI_PARAM_CONTENT_TYPE		= "CONTENT_TYPE";
+const std::string FASTCGI_PARAM_CONTENT_LENGTH		= "CONTENT_LENGTH";
+const std::string FASTCGI_PARAM_PATH_INFO			= "PATH_INFO";
+const std::string FASTCGI_PARAM_GATEWAY_INTERFACE	= "GATEWAY_INTERFACE";
+
 #endif // __tabconst__head__

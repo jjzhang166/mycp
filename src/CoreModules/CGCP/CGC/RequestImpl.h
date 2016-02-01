@@ -107,6 +107,7 @@ protected:
 
 	virtual int getProtocol(void) const {return m_cgcRemote->getProtocol();}
 	virtual int getServerPort(void) const {return m_cgcRemote->getServerPort();}
+	virtual const tstring & getServerAddr(void) const {return m_cgcRemote->getServerAddr();}
 	virtual unsigned long getRemoteId(void) const {return m_cgcRemote->getRemoteId();}
 	virtual unsigned long getIpAddress(void) const {return m_cgcRemote->getIpAddress();}
 	virtual const tstring & getRemoteAddr(void) const {return m_cgcRemote->getRemoteAddr();}

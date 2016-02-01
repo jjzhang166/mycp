@@ -34,12 +34,13 @@ public:
 
 	virtual int getProtocol(void) const = 0;
 	virtual int getServerPort(void) const = 0;
+	virtual const tstring & getServerAddr(void) const = 0;	// ip
 	virtual unsigned long getCommId(void) const = 0;
 	virtual unsigned long getRemoteId(void) const = 0;
 	virtual unsigned long getIpAddress(void) const = 0;
 
 	virtual tstring getScheme(void) const = 0;
-	virtual const tstring & getRemoteAddr(void) const = 0;
+	virtual const tstring & getRemoteAddr(void) const = 0;	// ip:port
 	virtual const tstring & getRemoteHost(void) const {return getRemoteAddr();}
 
 	virtual int sendData(const unsigned char * data, size_t size) = 0;

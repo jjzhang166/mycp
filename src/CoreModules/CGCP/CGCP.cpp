@@ -22,6 +22,9 @@
 #include "iostream"
 #include "CGC/CGCApp.h"
 #ifdef WIN32
+#include <Windows.h>
+#include <MMSystem.h>
+#include <ShellApi.h>
 
 #else
 #include <sys/sysinfo.h>
@@ -151,7 +154,7 @@ int main(int argc, char* argv[])
 	}
 
 	const unsigned long nSystemBootTime = GetSystemBootTime();
-	const int nWaitSeconds = nSystemBootTime<600?15:0;
+	const int nWaitSeconds = nSystemBootTime<300?10:0;
 	//printf("**** nSystemBootTime=%d\n",(int)nSystemBootTime);
 
 	tstring sModulePath;

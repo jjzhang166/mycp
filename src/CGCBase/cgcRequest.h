@@ -49,6 +49,7 @@ public:
 
 	virtual int getProtocol(void) const = 0;
 	virtual int getServerPort(void) const = 0;
+	virtual const tstring & getServerAddr(void) const = 0;	// IP format.
 
 	virtual unsigned long getRemoteId(void) const = 0;
 	virtual unsigned long getIpAddress(void) const = 0;		// host byte order

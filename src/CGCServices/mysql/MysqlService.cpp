@@ -248,9 +248,13 @@ private:
 
 #define CDBC_RESULTSET(s,r) CCDBCResultSet::pointer(new CCDBCResultSet(s,r))
 
-const int escape_size = 2;
-const std::string escape_in[] = {"&lsquo;","&mse0;"};
-const std::string escape_out[] = {"'","\\"};
+const int escape_in_size = 2;
+const int escape_out_size = 4;	// ?ºÊ»›æ…∞Ê±æ
+const std::string escape_in[] = {"\'","\\\\","&lsquo;","&pge0;"};
+const std::string escape_out[] = {"'","\\","'","\\"};
+//const int escape_size = 2;
+//const std::string escape_in[] = {"&lsquo;","&mse0;"};
+//const std::string escape_out[] = {"'","\\"};
 
 
 class CMysqlCdbc
@@ -314,12 +318,12 @@ private:
 
 	virtual void escape_string_in(std::string & str)
 	{
-		for (int i=0; i<escape_size; i++)
+		for (int i=0; i<escape_in_size; i++)
 			replace(str, escape_out[i], escape_in[i]);
 	}
 	virtual void escape_string_out(std::string & str)
 	{
-		for (int i=0; i<escape_size; i++)
+		for (int i=0; i<escape_out_size; i++)
 			replace(str, escape_in[i], escape_out[i]);
 	}
 

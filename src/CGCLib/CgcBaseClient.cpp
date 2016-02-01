@@ -53,10 +53,12 @@ public:
 private:
 	virtual int getProtocol(void) const {return 0;}
 	virtual int getServerPort(void) const {return 0;}
+	virtual const tstring & getServerAddr(void) const {return m_sServerAddr;}
 	virtual unsigned long getCommId(void) const {return 0;}
 	virtual unsigned long getRemoteId(void) const {return 0;}
 	virtual unsigned long getIpAddress(void) const {return 0;}
 	virtual tstring getScheme(void) const {return _T("BASE");}
+	tstring m_sServerAddr;
 	tstring m_sRemoteAddr;
 	virtual const tstring & getRemoteAddr(void) const {return m_sRemoteAddr;}
 	//boost::mutex m_sendMutex;

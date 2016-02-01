@@ -75,6 +75,7 @@ public:
 	virtual unsigned long getCommId(void) const = 0;
 	virtual int getProtocol(void) const = 0;
 	virtual int getServerPort(void) const = 0;
+	virtual const std::string& getServerAddr(void) const = 0;
 };
 ////////////////////////////////////////
 // CcgcRemote
@@ -137,6 +138,7 @@ public:
 private:
 	virtual int getProtocol(void) const {return m_handler->getProtocol();}
 	virtual int getServerPort(void) const {return m_handler->getServerPort();}
+	virtual const std::string& getServerAddr(void) const {return m_handler->getServerAddr();}
 	virtual unsigned long getCommId(void) const {return m_handler->getCommId();}
 	virtual unsigned long getRemoteId(void) const {return m_nRemoteId;}
 	virtual unsigned long getIpAddress(void) const {return m_nIpAddress;}
@@ -207,6 +209,7 @@ public:
 private:
 	int m_nIndex;
 	int m_commPort;
+	std::string m_sServerAddr;
 	//int m_capacity;
 	int m_protocol;
 
@@ -263,6 +266,10 @@ public:
 		if (m_ioservice.get() == NULL)
 			m_ioservice = IoService::create();
 		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this(),theThreadStackSize,theIoSendBufferSize,theIoReceiveBufferSize);
+		udp::endpoint local_endpoint = m_socket.socket()->local_endpoint();
+		boost::system::error_code ignored_error;
+		m_sServerAddr = local_endpoint.address().to_string(ignored_error);
+
 		m_ioservice->start(shared_from_this());
 
 		m_nCurrentThread = MIN_EVENT_THREAD;
@@ -307,7 +314,7 @@ public:
 		m_mapCgcRemote.clear();
 		m_ioservice.reset();
 		m_bServiceInited = false;
-		CGC_LOG((LOG_INFO, _T("**** [%s:%d] Stop succeeded ****\n"), serviceName().c_str(), m_commPort));
+		CGC_LOG((LOG_INFO, _T("**** [*:%d] Stop succeeded ****\n"), m_commPort));
 	}
 
 	unsigned long getId(void) const {return (unsigned long)this;}
@@ -399,7 +406,7 @@ private:
 			}break;
 		case CCommEventData::CET_Exception:
 			{
-				CGC_LOG((LOG_ERROR, _T("**** [%s:%d] CET_Exception ****\n"), serviceName().c_str(), m_commPort));
+				CGC_LOG((LOG_ERROR, _T("**** [*:%d] CET_Exception ****\n"), m_commPort));
 				if (!m_listMgr.empty())
 				{
 					m_listMgr.clear();
@@ -419,7 +426,7 @@ private:
 				m_ioservice = IoService::create();
 				m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
 				m_ioservice->start(shared_from_this());
-				CGC_LOG((LOG_INFO, _T("**** [%s:%d] Restart OK ****\n"), serviceName().c_str(), m_commPort));
+				CGC_LOG((LOG_INFO, _T("**** [*:%d] Restart OK ****\n"), m_commPort));
 			}break;
 		default:
 			break;
@@ -433,6 +440,7 @@ private:
 	virtual unsigned long getCommId(void) const {return getId();}
 	virtual int getProtocol(void) const {return m_protocol;}
 	virtual int getServerPort(void) const {return m_commPort;}
+	virtual const std::string& getServerAddr(void) const {return m_sServerAddr;}
 
 	// IoService_Handler
 	virtual void OnIoServiceException(void)

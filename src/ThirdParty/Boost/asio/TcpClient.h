@@ -45,6 +45,7 @@ public:
 
 	void setUnusedSize(size_t v = 10) {m_unusedsize = v;}
 	void setMaxBufferSize(size_t v = Max_ReceiveBuffer_ReceiveSize) {m_maxbuffersize = v;}
+	void setDisconnectWaittingData(int nWaittingTime) {m_nDisconnectWaittingData = nWaittingTime;}
 
 #ifdef USES_OPENSSL
 	void connect(boost::asio::io_service& io_service, tcp::endpoint& endpoint,boost::asio::ssl::context* ctx=NULL, bool bReceiveData=true)
@@ -193,6 +194,7 @@ public:
 		return m_socket != NULL && m_socket->is_open();
 		//return m_socket.is_open();
 	}
+	bool is_empty_data(void) const {return m_datas.empty();}
 	size_t write(const unsigned char * data, size_t size)
 	{
 		if (m_socket == 0) return 0;
@@ -221,9 +223,9 @@ public:
 			if (!m_datas.front(buffer))
 			{
 #ifdef WIN32
-				Sleep(10);
+				Sleep(5);
 #else
-				usleep(10000);
+				usleep(5000);
 #endif
 				continue;
 			}
@@ -319,7 +321,22 @@ private:
 		{
 			// ??
 			if (m_handler.get() != NULL)
-				m_handler->OnDisconnect(shared_from_this(), error);
+			{
+				if (m_nDisconnectWaittingData>0)
+				{
+					for (int i=0;i<m_nDisconnectWaittingData*50;i++)
+					{
+#ifdef WIN32
+						Sleep(20);
+#else
+						usleep(20000);
+#endif
+						if (m_datas.empty())
+							break;
+					}
+					m_handler->OnDisconnect(shared_from_this(), error);
+				}
+			}
 			m_socket->close();
 		}
 	}
@@ -340,6 +357,7 @@ public:
 		, m_handler(handler)
 		, m_proc_data(0)
 		, m_unusedsize(10), m_maxbuffersize(Max_ReceiveBuffer_ReceiveSize)
+		, m_nDisconnectWaittingData(6)
 	{
 	}
 	virtual ~TcpClient(void)
@@ -360,6 +378,7 @@ private:
 	size_t m_unusedsize;
 	size_t m_maxbuffersize;
 	//tstring m_sSSLPassword;
+	int m_nDisconnectWaittingData;	// default 6
 };
 
 #endif // __TcpClient_h__

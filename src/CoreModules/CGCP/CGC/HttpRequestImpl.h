@@ -129,6 +129,7 @@ private:
 	virtual tstring getScheme(void) const {return CRequestImpl::getScheme();}
 	virtual int getProtocol(void) const {return CRequestImpl::getProtocol();}
 	virtual int getServerPort(void) const {return CRequestImpl::getServerPort();}
+	virtual const tstring & getServerAddr(void) const {return CRequestImpl::getServerAddr();}
 	virtual unsigned long getRemoteId(void) const {return CRequestImpl::getRemoteId();}
 	virtual unsigned long getIpAddress(void) const {return CRequestImpl::getIpAddress();}
 	virtual const tstring & getRemoteAddr(void) const {return CRequestImpl::getRemoteAddr();}

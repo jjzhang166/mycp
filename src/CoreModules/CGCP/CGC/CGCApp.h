@@ -22,6 +22,8 @@
 
 #define CGC_IMPORTS 1
 
+//#define USES_OPENSSL
+//#include "CgcTcpClient.h"
 #include "IncludeBase.h"
 #include <CGCBase/cgcSeqInfo.h>
 
@@ -105,6 +107,7 @@ class CGCApp
 	, public cgcCommHandler
 	, public cgcParserCallback
 	, public CSotpRtpCallback	// for sotp rtp
+	//, public cgc::TcpClient_Callback	// for tcp
 	, public boost::enable_shared_from_this<CGCApp>
 {
 public:
@@ -192,6 +195,8 @@ private:
 	void GetHttpParserPool(cgcParserHttp::pointer& phttpParser);
 	void SetHttpParserPool(const cgcParserHttp::pointer& phttpParser);
 	void CheckHttpParserPool(void);
+	//cgc::CgcTcpClient::pointer m_pFastCgiServer;
+	//virtual void OnReceiveData(const ReceiveBuffer::pointer& data);
 	HTTP_STATUSCODE ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote);
 	HTTP_STATUSCODE ProcHttpAppProto(const cgcHttpRequest::pointer& pRequestImpl,const cgcHttpResponse::pointer& pResponseImpl,const cgcParserHttp::pointer& pcgcParser);
 	HTTP_STATUSCODE ProcHttpLibMethod(const ModuleItem::pointer& moduleItem,const tstring& sMethodName,const cgcHttpRequest::pointer& pRequest,const cgcHttpResponse::pointer& pResponse);
