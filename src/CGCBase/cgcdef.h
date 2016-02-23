@@ -354,7 +354,7 @@ namespace cgc{
 	// MYCP Variants
 	const std::string $MYCP_ROOT_PATH			= "$MYCP_ROOT_PATH";
 	const std::string $MYCP_CONF_PATH			= "$MYCP_CONF_PATH";
-	const std::string $MYCP_THIRDPARTH_PATH		= "$MYCP_THIRDPARTH_PATH";
+	const std::string $MYCP_THIRDPARTY_PATH		= "$MYCP_THIRDPARTY_PATH";
 }
 
 #endif // __cgcdef_head__

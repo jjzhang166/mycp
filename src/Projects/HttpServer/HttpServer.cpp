@@ -209,7 +209,8 @@ public:
 			{
 				// ps -ef|grep '127.0.0.1:9000' | awk '{print $2}' | xargs kill
 				char lpszBuffer[256];
-				sprintf(lpszBuffer,"ps -ef|grep '%s' | awk '{print $2}' | xargs kill",m_sFastcgiPass.c_str());
+				sprintf(lpszBuffer,"ps -ef|grep -v 'grep'|grep '%s' | awk '{print $2}' | xargs kill",m_sFastcgiPass.c_str());
+				//sprintf(lpszBuffer,"ps -ef|grep '%s' | awk '{print $2}' | xargs kill",m_sFastcgiPass.c_str());
 				system(lpszBuffer);
 			}
 #endif
@@ -325,7 +326,8 @@ public:
 	{
 		int nPid = 0;
 		char lpszCmd[128];
-		sprintf(lpszCmd,"ps -ef|grep '%s' | awk '{print $2}'",lpszName);
+		sprintf(lpszCmd,"ps -ef|grep -v 'grep'|grep '%s' | awk '{print $2}'",lpszName);
+		//sprintf(lpszCmd,"ps -ef|grep '%s' | awk '{print $2}'",lpszName);
 		FILE * f = popen(lpszCmd, "r");
 		if (f==NULL)
 			return -1;
@@ -420,7 +422,10 @@ public:
 		if (thePHPFastcgiInfo->m_sFastcgiPath.empty())
 			sprintf(lpszBuffer,"php-cgi -b %s -c \"/etc/php.ini\" &",pRequestPassInfo->GetFastcgiPass().c_str());
 		else
-			sprintf(lpszBuffer,"\"%s/php-cgi\" -b %s -c \"%s/php.ini\"",thePHPFastcgiInfo->m_sFastcgiPath.c_str(),pRequestPassInfo->GetFastcgiPass().c_str(),thePHPFastcgiInfo->m_sFastcgiPath.c_str());
+		{
+			sprintf(lpszBuffer,"cd \"%s\" ; ./php-cgi -b %s -c php.ini &",thePHPFastcgiInfo->m_sFastcgiPath.c_str(),pRequestPassInfo->GetFastcgiPass().c_str());
+			//sprintf(lpszBuffer,"cd \"%s\" && ./php-cgi -b %s -c php.ini &",thePHPFastcgiInfo->m_sFastcgiPath.c_str(),pRequestPassInfo->GetFastcgiPass().c_str());
+		}
 		system(lpszBuffer);
 		for (int i=0;i<100;i++)	// 2S
 		{
@@ -884,6 +889,27 @@ static unsigned char* FCGI_BuildParamsBody(int nRequestId, const char *name,int 
 	return lpszBuffer;
 }
 
+class CContentTypeInfo
+{
+public:
+	typedef boost::shared_ptr<CContentTypeInfo> pointer;
+	static CContentTypeInfo::pointer create(const tstring& sContentType, bool bDownload, SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN)
+	{
+		return CContentTypeInfo::pointer(new CContentTypeInfo(sContentType, bDownload, nScriptFileType));
+	}
+	tstring m_sContentType;
+	bool m_bDownload;
+	SCRIPT_FILE_TYPE m_nScriptFileType;
+
+	CContentTypeInfo(const tstring& sContentType, bool bDownload, SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN)
+		: m_sContentType(sContentType), m_bDownload(bDownload), m_nScriptFileType(nScriptFileType)
+	{}
+	CContentTypeInfo(void)
+		: m_bDownload(false), m_nScriptFileType(SCRIPT_FILE_TYPE_UNKNOWN)
+	{}
+};
+
+CLockMap<tstring,CContentTypeInfo::pointer> theContentTypeInfoList;
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
 	theFileSystemService = theServiceManager->getService("FileSystemService");
@@ -931,7 +957,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	if (thePHPFastcgiInfo.get()!=NULL)
 	{
 		const std::string sThirdParth = theSystem->getServerPath() + "/thirdparty";
-		cgc::replace_string(thePHPFastcgiInfo->m_sFastcgiPath,$MYCP_THIRDPARTH_PATH,sThirdParth);
+		cgc::replace_string(thePHPFastcgiInfo->m_sFastcgiPath,$MYCP_THIRDPARTY_PATH,sThirdParth);
 		const std::string::size_type find = thePHPFastcgiInfo->m_sFastcgiPass.find(":",1);
 		if (find!=std::string::npos)
 		{
@@ -944,7 +970,9 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 		KillAllProcess("php-cgi.exe");
 #else
 		char lpszBuffer[256];
-		sprintf(lpszBuffer,"ps -e|grep php-cgi | awk '{print $1}' | xargs kill");
+		sprintf(lpszBuffer,"ps -e|grep -v 'grep'|grep php-cgi | awk '{print $1}' | xargs kill");
+		system(lpszBuffer);
+		sprintf(lpszBuffer,"chmod +x \"%s/php-cgi\"",thePHPFastcgiInfo->m_sFastcgiPath.c_str());
 		system(lpszBuffer);
 #endif
 	}
@@ -1002,6 +1030,85 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 		}
 	}
 	theDefaultHost->m_bBuildDocumentRoot = true;
+
+	theContentTypeInfoList.insert("ai",CContentTypeInfo::create("application/postscript",true));
+	theContentTypeInfoList.insert("eps",CContentTypeInfo::create("application/postscript",true));
+	theContentTypeInfoList.insert("exe",CContentTypeInfo::create("application/octet-stream",true));
+	theContentTypeInfoList.insert("hlp",CContentTypeInfo::create("application/mshelp",true));
+	theContentTypeInfoList.insert("chm",CContentTypeInfo::create("application/mshelp",true));
+	theContentTypeInfoList.insert("doc",CContentTypeInfo::create("application/msword",true));	// application/vnd.ms-word
+	theContentTypeInfoList.insert("dotx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.template",true));
+	theContentTypeInfoList.insert("docm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.document",true));
+	theContentTypeInfoList.insert("docx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.document",true));
+	theContentTypeInfoList.insert("odt",CContentTypeInfo::create("application/vnd.oasis.opendocument.text",true));
+	theContentTypeInfoList.insert("xls",CContentTypeInfo::create("application/vnd.ms-excel",true));
+	theContentTypeInfoList.insert("xla",CContentTypeInfo::create("application/vnd.ms-excel",true));
+	theContentTypeInfoList.insert("xltx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.template",true));
+	theContentTypeInfoList.insert("xlsm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",true));
+	theContentTypeInfoList.insert("xlsx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",true));
+	theContentTypeInfoList.insert("ppt",CContentTypeInfo::create("application/vnd.ms-powerpoint",true));
+	theContentTypeInfoList.insert("potx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.template",true));
+	theContentTypeInfoList.insert("pptm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.presentation",true));
+	theContentTypeInfoList.insert("ppsx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.slideshow",true));
+	theContentTypeInfoList.insert("pptx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.presentation",true));
+	theContentTypeInfoList.insert("pps",CContentTypeInfo::create("application/vnd.ms-powerpoint",true));
+	theContentTypeInfoList.insert("pdf",CContentTypeInfo::create("application/pdf",false));
+	theContentTypeInfoList.insert("xml",CContentTypeInfo::create("application/xml",false));
+	theContentTypeInfoList.insert("swf",CContentTypeInfo::create("application/x-shockwave-flash",false));
+	theContentTypeInfoList.insert("cab",CContentTypeInfo::create("application/x-shockwave-flash",false));
+	// archives
+	theContentTypeInfoList.insert("gz",CContentTypeInfo::create("application/x-gzip",true));
+	theContentTypeInfoList.insert("tgz",CContentTypeInfo::create("application/x-gzip",true));
+	theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true));
+	theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true));
+	theContentTypeInfoList.insert("tbz",CContentTypeInfo::create("application/x-bzip2",true));
+	theContentTypeInfoList.insert("zip",CContentTypeInfo::create("application/zip",true));
+	theContentTypeInfoList.insert("rar",CContentTypeInfo::create("application/x-rar",true));
+	theContentTypeInfoList.insert("tar",CContentTypeInfo::create("application/x-tar",true));
+	theContentTypeInfoList.insert("7z",CContentTypeInfo::create("application/x-7z-compressed",true));
+	// texts
+	theContentTypeInfoList.insert("csp",CContentTypeInfo::create("text/csp",false,SCRIPT_FILE_TYPE_CSP));
+	theContentTypeInfoList.insert("txt",CContentTypeInfo::create("text/plain",false));
+	theContentTypeInfoList.insert("php",CContentTypeInfo::create("text/x-php",false,SCRIPT_FILE_TYPE_PHP));
+	theContentTypeInfoList.insert("shtml",CContentTypeInfo::create("text/html",false));
+	theContentTypeInfoList.insert("html",CContentTypeInfo::create("text/html",false));
+	theContentTypeInfoList.insert("htm",CContentTypeInfo::create("text/html",false));
+	theContentTypeInfoList.insert("js",CContentTypeInfo::create("text/javascript",false));
+	theContentTypeInfoList.insert("css",CContentTypeInfo::create("text/css",false));
+	theContentTypeInfoList.insert("rtf",CContentTypeInfo::create("text/rtf",true));
+	theContentTypeInfoList.insert("rtfd",CContentTypeInfo::create("text/rtfd",true));
+	theContentTypeInfoList.insert("py",CContentTypeInfo::create("text/x-python",false));
+	theContentTypeInfoList.insert("java",CContentTypeInfo::create("text/x-java-source",false));
+	theContentTypeInfoList.insert("rb",CContentTypeInfo::create("text/x-ruby",false));
+	theContentTypeInfoList.insert("sh",CContentTypeInfo::create("text/x-shellscript",false));
+	theContentTypeInfoList.insert("pl",CContentTypeInfo::create("text/x-perl",false));
+	theContentTypeInfoList.insert("sql",CContentTypeInfo::create("text/x-sql",false));
+	// images
+	theContentTypeInfoList.insert("bmp",CContentTypeInfo::create("image/x-ms-bmp",false));
+	theContentTypeInfoList.insert("jpg",CContentTypeInfo::create("image/jpeg",false));
+	theContentTypeInfoList.insert("jpeg",CContentTypeInfo::create("image/jpeg",false));
+	theContentTypeInfoList.insert("gif",CContentTypeInfo::create("image/gif",false));
+	theContentTypeInfoList.insert("png",CContentTypeInfo::create("image/png",false));
+	theContentTypeInfoList.insert("tif",CContentTypeInfo::create("image/tiff",false));
+	theContentTypeInfoList.insert("tiff",CContentTypeInfo::create("image/tiff",false));
+	theContentTypeInfoList.insert("tga",CContentTypeInfo::create("image/x-targa",true));
+	//audio
+	theContentTypeInfoList.insert("mp3",CContentTypeInfo::create("audio/mpeg",false));
+	theContentTypeInfoList.insert("mid",CContentTypeInfo::create("audio/midi",false));
+	theContentTypeInfoList.insert("ogg",CContentTypeInfo::create("audio/ogg",false));
+	theContentTypeInfoList.insert("mp4a",CContentTypeInfo::create("audio/mp4",false));
+	theContentTypeInfoList.insert("wav",CContentTypeInfo::create("audio/wav",false));
+	theContentTypeInfoList.insert("wma",CContentTypeInfo::create("audio/x-ms-wma",false));
+	// video
+	theContentTypeInfoList.insert("avi",CContentTypeInfo::create("video/x-msvideo",true));
+	theContentTypeInfoList.insert("dv",CContentTypeInfo::create("video/x-dv",true));
+	theContentTypeInfoList.insert("mp4",CContentTypeInfo::create("video/mp4",true));
+	theContentTypeInfoList.insert("mpeg",CContentTypeInfo::create("video/mpeg",true));
+	theContentTypeInfoList.insert("mpg",CContentTypeInfo::create("video/mpeg",true));
+	theContentTypeInfoList.insert("mov",CContentTypeInfo::create("video/quicktime",true));
+	theContentTypeInfoList.insert("wm",CContentTypeInfo::create("video/x-ms-wmv",true));
+	theContentTypeInfoList.insert("flv",CContentTypeInfo::create("video/x-flv",true));
+	theContentTypeInfoList.insert("mkv",CContentTypeInfo::create("video/x-matroska",true));
 
 	//theFastcgiPHPServer = initParameters->getParameterValue("fast_cgi_php_server");
 	theEnableDataSource = initParameters->getParameterValue("enable-datasource", 0)==1?true:false;
@@ -1095,6 +1202,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		theAppAttributes.reset();
 	}
 
+	theContentTypeInfoList.clear();
 #ifdef USES_BODB_SCRIPT
 	theServiceManager->retCDBDService(theCdbcService);
 #endif
@@ -1115,7 +1223,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		KillAllProcess("php-cgi.exe");
 #else
 		char lpszBuffer[256];
-		sprintf(lpszBuffer,"ps -e|grep php-cgi | awk '{print $1}' | xargs kill");
+		sprintf(lpszBuffer,"ps -e|grep -v 'grep'|grep php-cgi | awk '{print $1}' | xargs kill");
 		system(lpszBuffer);
 #endif
 		thePHPFastcgiInfo.reset();
@@ -1149,62 +1257,77 @@ void GetScriptFileType(const tstring& filename, tstring& outMimeType,bool& pOutI
 	pOutImageOrBinary = true;
 	tstring ext(filename.substr(find+1));
 	std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
-	if (ext == "csp")
+	CContentTypeInfo::pointer pContentTypeInfo;
+	if (theContentTypeInfoList.find(ext,pContentTypeInfo))
 	{
-		pOutScriptFileType = SCRIPT_FILE_TYPE_CSP;
+		pOutScriptFileType = pContentTypeInfo->m_nScriptFileType;
+		outMimeType = pContentTypeInfo->m_sContentType;
 		pOutImageOrBinary = false;
-		return;
-	}else if (ext == "php")
-	{
-		pOutScriptFileType = SCRIPT_FILE_TYPE_PHP;
-		pOutImageOrBinary = false;
-		return;
-	}else if (ext == "gif")
-		outMimeType = "image/gif";
-	else if(ext == "jpeg" || ext == "jpg" || ext == "jpe")
-		outMimeType = "image/jpeg";
-	else if(ext == "htm" || ext == "html" || ext == "shtml")
-	{
-		pOutImageOrBinary = false;
-		outMimeType = "text/html";
-	}else if(ext == "js")
-	{
-		pOutImageOrBinary = false;
-		outMimeType = "text/javascript";
-	}else if(ext == "css")
-	{
-		pOutImageOrBinary = false;
-		outMimeType = "text/css";
-	}else if(ext == "txt")
-	{
-		pOutImageOrBinary = false;
-		outMimeType = "text/plain";
-	}else if(ext == "xls" || ext == "xla")
-		outMimeType = "application/msexcel";
-	else if(ext == "hlp" || ext == "chm")
-		outMimeType = "application/mshelp";
-	else if(ext == "ppt" || ext == "ppz" || ext == "pps" || ext == "pot")
-		outMimeType = "application/mspowerpoint";
-	else if(ext == "doc" || ext == "dot")
-		outMimeType = "application/msword";
-	else if(ext == "exe")
-		outMimeType = "application/octet-stream";
-	else if(ext == "pdf")
-		outMimeType = "application/pdf";
-	else if(ext == "rtf")
-		outMimeType = "application/rtf";
-	else if(ext == "zip")
-		outMimeType = "application/zip";
-	else if(ext == "jar")
-		outMimeType = "application/java-archive";
-	else if(ext == "swf" || ext == "cab")
-		outMimeType = "application//x-shockwave-flash";
-	else if(ext == "mp3")
-		outMimeType = "audio/mpeg";
-	else if(ext == "wav")
-		outMimeType = "audio/x-wav";
-	else
-		pOutImageOrBinary = false;
+	}
+	//if (ext == "csp")
+	//{
+	//	pOutScriptFileType = SCRIPT_FILE_TYPE_CSP;
+	//	pOutImageOrBinary = false;
+	//	return;
+	//}else if (ext == "php")
+	//{
+	//	pOutScriptFileType = SCRIPT_FILE_TYPE_PHP;
+	//	pOutImageOrBinary = false;
+	//	return;
+	//}else if (ext == "gif")
+	//	outMimeType = "image/gif";
+	//else if(ext == "jpeg" || ext == "jpg" || ext == "jpe")
+	//	outMimeType = "image/jpeg";
+	//else if(ext == "htm" || ext == "html" || ext == "shtml")
+	//{
+	//	pOutImageOrBinary = false;
+	//	outMimeType = "text/html";
+	//}else if(ext == "js")
+	//{
+	//	pOutImageOrBinary = false;
+	//	outMimeType = "text/javascript";
+	//}else if(ext == "css")
+	//{
+	//	pOutImageOrBinary = false;
+	//	outMimeType = "text/css";
+	//}else if(ext == "txt")
+	//{
+	//	pOutImageOrBinary = false;
+	//	outMimeType = "text/plain";
+	//}else if(ext == "xls" || ext == "xla")
+	//	outMimeType = "application/msexcel";
+	//else if(ext == "hlp" || ext == "chm")
+	//	outMimeType = "application/mshelp";
+	////else if(ext == "ppt" || ext == "ppz" || ext == "pps" || ext == "pot")
+	////	outMimeType = "application/mspowerpoint";
+	//else if(ext == "ppt")
+	//	outMimeType = "application/vnd.ms-powerpoint";
+	//else if(ext == "potx")
+	//	outMimeType = "application/vnd.openxmlformats-officedocument.presentationml.template";
+	//else if(ext == "pptm")
+	//	outMimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+	//else if(ext == "pptm")
+	//	outMimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+	//else if(ext == "doc" || ext == "dot")
+	//	outMimeType = "application/msword";
+	//else if(ext == "exe")
+	//	outMimeType = "application/octet-stream";
+	//else if(ext == "pdf")
+	//	outMimeType = "application/pdf";
+	//else if(ext == "rtf")
+	//	outMimeType = "application/rtf";
+	//else if(ext == "zip")
+	//	outMimeType = "application/zip";
+	//else if(ext == "jar")
+	//	outMimeType = "application/java-archive";
+	//else if(ext == "swf" || ext == "cab")
+	//	outMimeType = "application//x-shockwave-flash";
+	//else if(ext == "mp3")
+	//	outMimeType = "audio/mpeg";
+	//else if(ext == "wav")
+	//	outMimeType = "audio/x-wav";
+	//else
+	//	pOutImageOrBinary = false;
 
 	//return false;
 }
@@ -1247,7 +1370,7 @@ void insertScriptItem(const tstring& code, const tstring & sFileNameTemp, const 
 const int const_one_hour_seconds = 60*60;
 const int const_one_day_seconds = 24*const_one_hour_seconds;
 const int const_memory_size = 50*1024*1024;		// max 50MB
-const int const_max_size = 35*1024*1024;		// max 35MB	// 30
+const int const_max_size = 50*1024*1024;		// max 50MB	// 50
 
 void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTime, bool bIsImageOrBinary)
 {
@@ -1592,7 +1715,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo = theTimerHandler->GetFastcgiRequestInfo(nScriptFileType,response);
 		const int nRequestId = pFastcgiRequestInfo->GetRequestId();
-		printf("**** nRequestId=%d\n",nRequestId);
+		//printf("**** nRequestId=%d\n",nRequestId);
 		cgc::CgcTcpClient::pointer& m_pFastCgiServer = pFastcgiRequestInfo->m_pFastCgiServer;
 		if (m_pFastCgiServer.get()==NULL || m_pFastCgiServer->IsDisconnection())
 		{
@@ -1785,7 +1908,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				m_pFastCgiServer->sendData((const unsigned char*)&header,FCGI_HEADER_LEN);
 
 				const int const_send_buffer = DEFAULT_SEND_BUFFER_SIZE;
-				int nPaddingLength = 0;
+				//int nPaddingLength = 0;
 				for (size_t i=0;i<outFils.size();i++)
 				{
 					const std::string& sBoundaryHead = pBoundaryHeadList[i];
@@ -1847,14 +1970,16 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		{
 			if (pFastcgiRequestInfo->GetResponseState()==REQUEST_INFO_STATE_FCGI_DISCONNECTED)
 				return STATUS_CODE_200;
+			else if (!theApplication->isInited())
+				break;
 #ifdef WIN32
 			Sleep(10);
 #else
 			usleep(10000);
 #endif
 		}
-		header = MakeHeader(FCGI_ABORT_REQUEST,nRequestId,0,0);
-		m_pFastCgiServer->sendData((const unsigned char*)&header,FCGI_HEADER_LEN);
+		//header = MakeHeader(FCGI_ABORT_REQUEST,nRequestId,0,0);
+		//m_pFastCgiServer->sendData((const unsigned char*)&header,FCGI_HEADER_LEN);
 		CRequestPassInfo::pointer pRequestPassInfo = pFastcgiRequestInfo->GetRequestPassInfo();
 		if (pRequestPassInfo->GetProcessId()>0)
 		{

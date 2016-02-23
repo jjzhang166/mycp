@@ -824,38 +824,38 @@ protected:
 					m_nCurrentThread--;
 				}
 
-				if (m_bCheckComm)
-				{
-					static unsigned int theIndex = 0;
-					theIndex++;
-					if ((theIndex%1000)==999)	// 10 second
-					{
-						const time_t m_tNowTime = time(0);
-						static time_t theLastCheckTime = m_tNowTime;
-						if (nSize>0)
-						{
-							theLastCheckTime = m_tNowTime;
-						}else if ((m_tNowTime-theLastCheckTime)>3*60)	// 3分钟没有收到数据，检查一次；
-						{
-							theLastCheckTime = m_tNowTime;
-							CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
-							if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
-							{
-								static short theError = 0;
-								CGC_LOG((LOG_ERROR, _T("**** CONNECT ERROR %d ****\n"), m_bIsSsl));
-								if ((++theError)>=2)
-								{
-									theError = 0;
-									OnIoServiceException();
-								}else
-								{
-									theLastCheckTime -= 2*60;	// ** 实现1分钟后，下次检查
-								}
-							}
-							pTestConnect.reset();
-						}
-					}
-				}
+				//if (m_bCheckComm)
+				//{
+				//	static unsigned int theIndex = 0;
+				//	theIndex++;
+				//	if ((theIndex%1000)==999)	// 10 second
+				//	{
+				//		const time_t m_tNowTime = time(0);
+				//		static time_t theLastCheckTime = m_tNowTime;
+				//		if (nSize>0)
+				//		{
+				//			theLastCheckTime = m_tNowTime;
+				//		}else if ((m_tNowTime-theLastCheckTime)>3*60)	// 3分钟没有收到数据，检查一次；
+				//		{
+				//			theLastCheckTime = m_tNowTime;
+				//			CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
+				//			if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
+				//			{
+				//				static short theError = 0;
+				//				CGC_LOG((LOG_ERROR, _T("**** CONNECT ERROR %d ****\n"), m_bIsSsl));
+				//				if ((++theError)>=2)
+				//				{
+				//					theError = 0;
+				//					OnIoServiceException();
+				//				}else
+				//				{
+				//					theLastCheckTime -= 2*60;	// ** 实现1分钟后，下次检查
+				//				}
+				//			}
+				//			pTestConnect.reset();
+				//		}
+				//	}
+				//}
 			}
 			return;
 		}

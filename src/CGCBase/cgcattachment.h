@@ -98,7 +98,8 @@ public:
 			memset(m_data, 0, m_bufferSize);
 		}
 		m_len = nAttachSize;
-		memcpy(m_data, pAttachData, m_len);
+		if (m_data!=pAttachData)
+			memcpy(m_data, pAttachData, m_len);
 	}
 	void setAttach2(unsigned char * pAttachData, unsigned int nAttachSize)
 	{
