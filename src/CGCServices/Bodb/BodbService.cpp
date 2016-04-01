@@ -220,13 +220,17 @@ public:
 private:
 	virtual tstring serviceName(void) const {return _T("BODBCDBC");}
 
-	virtual void escape_string_in(std::string & str)
+	virtual void escape_string_in(tstring & str)
 	{
-		bo::bodb_escape_string_in(str);
+		std::string sTemp(str.c_str());
+		bo::bodb_escape_string_in(sTemp);
+		str = sTemp;
 	}
-	virtual void escape_string_out(std::string & str)
+	virtual void escape_string_out(tstring & str)
 	{
-		bo::bodb_escape_string_out(str);
+		std::string sTemp(str.c_str());
+		bo::bodb_escape_string_out(sTemp);
+		str = sTemp;
 	}
 	virtual bool open(const cgcCDBCInfo::pointer& cdbcInfo)
 	{

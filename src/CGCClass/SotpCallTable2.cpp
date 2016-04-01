@@ -791,7 +791,7 @@ std::string SotpCallTable2::GetParametersString(SOTP_PROTO_VERSION nVersion) con
 //		tstring sT(parameter.getValue());
 //		tstring sParamValueGb2312 = cgcString::Convert(sT, CP_UTF8, CP_ACP);
 #endif
-		result.append(sParam);
+		result.append(sParam.c_str());
 		//index++;
 	}
 	return result;

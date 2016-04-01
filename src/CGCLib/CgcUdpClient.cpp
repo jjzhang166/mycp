@@ -113,7 +113,7 @@ bool CgcUdpClient::isInvalidate(void) const
 bool CgcUdpClient::setRemoteAddr(const tstring & sRemoteAddr)
 {
 	if (sRemoteAddr.empty()) return false;
-	if (m_ipRemote.address()==sRemoteAddr)
+	if (sRemoteAddr==m_ipRemote.address())
 		return true;
 	std::vector<std::string> pList;
 	if (CgcBaseClient::ParseString(sRemoteAddr.c_str(),":",pList)==2)

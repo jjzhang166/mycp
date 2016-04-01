@@ -205,9 +205,11 @@ private:
 #define CDBC_RESULTSET(sink, res, rows) CCDBCResultSet::pointer(new CCDBCResultSet(sink, res, rows))
 
 const int escape_in_size = 2;
-const int escape_out_size = 4;	// ?ºÊ»›æ…∞Ê±æ
-const std::string escape_in[] = {"''","\\\\","&lsquo;","&pge0;"};
-const std::string escape_out[] = {"'","\\","'","\\"};
+const tstring escape_in[] = {"''","\\\\"};
+const tstring escape_out[] = {"'","\\"};
+const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
+const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
+const tstring escape_old_out[] = {"'","\\"};
 //const std::string escape_in[] = {"&lsquo;","&pge0;"};
 //const std::string escape_out[] = {"'","\\"};
 
@@ -263,12 +265,12 @@ private:
 		}
 	}
 
-	static const std::string & replace(std::string & strSource, const std::string & strFind, const std::string &strReplace)
+	static const tstring & replace(tstring & strSource, const tstring & strFind, const tstring &strReplace)
 	{
-		tstring::size_type pos=0;
-		tstring::size_type findlen=strFind.size();
-		tstring::size_type replacelen=strReplace.size();
-		while ((pos=strSource.find(strFind, pos)) != tstring::npos)
+		std::string::size_type pos=0;
+		std::string::size_type findlen=strFind.size();
+		std::string::size_type replacelen=strReplace.size();
+		while ((pos=strSource.find(strFind, pos)) != std::string::npos)
 		{
 			strSource.replace(pos, findlen, strReplace);
 			pos += replacelen;
@@ -276,15 +278,15 @@ private:
 		return strSource;
 	}
 
-	virtual void escape_string_in(std::string & str)
+	virtual void escape_string_in(tstring & str)
 	{
 		for (int i=0; i<escape_in_size; i++)
 			replace(str, escape_out[i], escape_in[i]);
 	}
-	virtual void escape_string_out(std::string & str)
+	virtual void escape_string_out(tstring & str)
 	{
-		for (int i=0; i<escape_out_size; i++)
-			replace(str, escape_in[i], escape_out[i]);
+		for (int i=0; i<escape_old_out_size; i++)
+			replace(str, escape_old_in[i], escape_old_out[i]);
 	}
 	
 	virtual bool open(const cgcCDBCInfo::pointer& cdbcInfo)
@@ -302,8 +304,8 @@ private:
 		try
 		{
 			tstring sHost = m_cdbcInfo->getHost();
-			tstring::size_type find = sHost.find(_T(":"));
-			if (find == tstring::npos)
+			std::string::size_type find = sHost.find(_T(":"));
+			if (find == std::string::npos)
 				return false;
 			tstring sDbHost = sHost.substr(0, find);
 			int nDbPort = atoi(sHost.substr(find+1).c_str());

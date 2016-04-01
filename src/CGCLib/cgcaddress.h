@@ -21,7 +21,7 @@
 #define __cgcaddress_h__
 
 //#include "../ThirdParty/stl/stldef.h"
-#include <string>
+#include "../CGCBase/cgcSmartString.h"
 
 class CCgcAddress
 {
@@ -44,7 +44,7 @@ public:
 		return *this;
 	}
 
-	void address(const std::string & sAddress) {
+	void address(const tstring & sAddress) {
 		const std::string::size_type find = sAddress.find(":");
 		if (find != std::string::npos)
 		{
@@ -52,11 +52,11 @@ public:
 			m_port = atoi(sAddress.substr(find+1).c_str());
 		}
 	}
-	void address(const std::string & ip, unsigned short port) {
+	void address(const tstring & ip, unsigned short port) {
 		m_ip = ip;
 		m_port = port;
 	}
-	std::string address(void) const {
+	tstring address(void) const {
 		char buffer[32];
 		sprintf(buffer, "%s:%d", m_ip.c_str(), (int)m_port);
 		return buffer;
@@ -64,7 +64,7 @@ public:
 	void socketType(SocketType newv) {m_socketType = newv;}
 	SocketType socketType(void) const {return m_socketType;}
 
-	const std::string& getip(void) const {return m_ip;}
+	const tstring& getip(void) const {return m_ip;}
 	unsigned short getport(void) const {return m_port;}
 
 	void reset(void)
@@ -83,12 +83,12 @@ protected:
 	}
 
 public:
-	CCgcAddress(const std::string & sAddress="127.0.0.1:8010", SocketType socketType = ST_UDP)
+	CCgcAddress(const tstring & sAddress="127.0.0.1:8010", SocketType socketType = ST_UDP)
 		: m_port(0), m_socketType(socketType)
 	{
 		address(sAddress);
 	}
-	CCgcAddress(const std::string & ip, unsigned short port, SocketType socketType)
+	CCgcAddress(const tstring & ip, unsigned short port, SocketType socketType)
 		: m_ip(ip), m_port(port),m_socketType(socketType)
 	{
 		//address(ip, port);
@@ -96,7 +96,7 @@ public:
 	virtual ~CCgcAddress(void)
 	{}
 private:
-	std::string	m_ip;
+	tstring	m_ip;
 	unsigned short m_port;
 	SocketType m_socketType;
 };

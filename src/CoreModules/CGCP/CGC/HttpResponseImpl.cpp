@@ -23,6 +23,7 @@
 CHttpResponseImpl::CHttpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserHttp::pointer& pcgcParser)
 : m_cgcRemote(pcgcRemote)
 , m_cgcParser(pcgcParser)
+, m_pParserHttpHandler(NULL)
 , m_bResponseSended(false)
 , m_bNotResponse(false)
 , m_nHoldSecond(-1)
@@ -35,6 +36,11 @@ CHttpResponseImpl::CHttpResponseImpl(const cgcRemote::pointer& pcgcRemote, const
 
 CHttpResponseImpl::~CHttpResponseImpl(void)
 {
+	if (m_pParserHttpHandler!=NULL)
+	{
+		//printf("onReturnParserHttp\n");
+		m_pParserHttpHandler->onReturnParserHttp(m_cgcParser);
+	}
 	if (m_pSendLock)
 		delete m_pSendLock;
 }
@@ -45,11 +51,11 @@ void CHttpResponseImpl::setCgcRemote(const cgcRemote::pointer& pcgcRemote)
 	BOOST_ASSERT (m_cgcRemote.get() != 0);
 }
 
-void CHttpResponseImpl::setCgcParser(const cgcParserHttp::pointer& pcgcParser)
-{
-	m_cgcParser = pcgcParser;
-	BOOST_ASSERT (m_cgcParser.get() != 0);
-}
+//void CHttpResponseImpl::setCgcParser(const cgcParserHttp::pointer& pcgcParser)
+//{
+//	m_cgcParser = pcgcParser;
+//	BOOST_ASSERT (m_cgcParser.get() != 0);
+//}
 
 void CHttpResponseImpl::lockResponse(void)
 {

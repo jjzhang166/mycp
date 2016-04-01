@@ -203,7 +203,7 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 		for (int i=0;i<30; i++)
 		{
 			boost::system::error_code ec;
-			if (boost::filesystem::remove(boost::filesystem::path(sProtectDataFile),ec))
+			if (boost::filesystem::remove(boost::filesystem::path(sProtectDataFile.c_str()),ec))
 			{
 				break;
 			}
@@ -295,7 +295,7 @@ void CGCApp::AppInit(bool bNTService)
 	tstring xmlFile(m_sModulePath);
 	xmlFile.append(_T("/conf/params.xml"));
 	namespace fs = boost::filesystem;
-	boosttpath pathXmlFile(xmlFile);
+	boosttpath pathXmlFile(xmlFile.c_str());
 	if (fs::exists(pathXmlFile))
 	{
 		m_logModuleImpl.m_moduleParams.load(xmlFile);
@@ -554,7 +554,7 @@ int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDa
 			continue;
 		}
 		std::wcout << _T("CMD:");
-		tstring command;
+		std::string command;
 		try
 		{
 			std::getline(std::cin, command);
@@ -613,12 +613,16 @@ int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDa
 
 void CGCApp::LoadDefaultConf(void)
 {
-	m_parseDefault.load(m_sModulePath + _T("/conf/default.xml"));
+	tstring xmlFile(m_sModulePath);
+	xmlFile.append("/conf/default.xml");
+	m_parseDefault.load(xmlFile.c_str());
 
 	m_logModuleImpl.log(LOG_DEBUG, _T("Server Name = '%s'\n"), m_parseDefault.getCgcpName().c_str());
 	//m_logModuleImpl.log(LOG_DEBUG, _T("Server Address = '%s'\n"), m_parseDefault.getCgcpAddr().c_str());
 
-	m_parsePortApps.load(m_sModulePath + _T("/conf/port-apps.xml"));
+	xmlFile = m_sModulePath.c_str();
+	xmlFile.append("/conf/port-apps.xml");
+	m_parsePortApps.load(xmlFile);
 
 #ifdef USES_HDCID
 	tstring iniLicenseFile(m_sModulePath);
@@ -719,13 +723,12 @@ void CGCApp::LoadSystemParams(void)
 	// init parameter
 	tstring xmlFile(m_sModulePath);
 	xmlFile.append(_T("/conf/params.xml"));
-	m_systemParams.load(xmlFile);
+	m_systemParams.load(xmlFile.c_str());
 	m_logModuleImpl.log(LOG_DEBUG, _T("SystemParams = %d\n"), m_systemParams.getParameters()->size());
 
-	xmlFile = m_sModulePath;
-	xmlFile.append(_T("/conf/cdbcs.xml"));
+	xmlFile = m_sModulePath + "/conf/cdbcs.xml";
 	namespace fs = boost::filesystem;
-	boosttpath pathXmlFile(xmlFile);
+	boosttpath pathXmlFile(xmlFile.c_str());
 	if (boost::filesystem::exists(pathXmlFile))
 	{
 		m_cdbcs.load(xmlFile);
@@ -733,9 +736,8 @@ void CGCApp::LoadSystemParams(void)
 		m_logModuleImpl.log(LOG_DEBUG, _T("DataSources = %d\n"), m_cdbcs.m_dsInfos.size());
 	}
 
-	xmlFile = m_sModulePath;
-	xmlFile.append(_T("/conf/web.xml"));
-	pathXmlFile = boosttpath(xmlFile);
+	xmlFile = m_sModulePath + "/conf/web.xml";
+	pathXmlFile = boosttpath(xmlFile.c_str());
 	if (boost::filesystem::exists(pathXmlFile))
 	{
 		m_parseWeb.load(xmlFile);
@@ -839,6 +841,16 @@ tstring CGCApp::onGetSslPassword(const tstring& sSessionId) const
 	}
 	CSessionImpl * pSessionImpl = (CSessionImpl*)sessionImpl.get();
 	return pSessionImpl->GetSslPassword();
+}
+
+void CGCApp::onReturnParserSotp(cgcParserSotp::pointer cgcParser)
+{
+	SetSotpParserPool(cgcParser);
+}
+
+void CGCApp::onReturnParserHttp(cgcParserHttp::pointer cgcParser)
+{
+	SetHttpParserPool(cgcParser);
 }
 
 int CGCApp::onRemoteAccept(const cgcRemote::pointer& pcgcRemote)
@@ -1622,6 +1634,12 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 
 		try
 		{
+			if (bCanSetParserToPool)
+			{
+				bCanSetParserToPool = false;
+				((CHttpResponseImpl*)responseImpl.get())->SetParserHttpHandler(this);
+			}
+
 			if (sessionImpl.get() != NULL)
 			{
 				if (phttpParser->getKeepAlive() > 0)
@@ -1867,6 +1885,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 
 	//printf("**** doParse ok=%d\n",parseResult?1:0);
 
+	bool bCanSetParserToPool = true;
 	if (parseResult)
 	{
 		// 成功解析
@@ -1883,7 +1902,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 			}
 			if (pcgcParser->isNeedAck())
 			{
-				const tstring responseData = pcgcParser->getAckResult(seq);
+				const tstring responseData(pcgcParser->getAckResult(seq));
 				pcgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.length());
 			}
 			size_t nContentLength = dataSize;
@@ -1909,7 +1928,8 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				ProcSesProto(requestImpl, pcgcParser, pcgcRemote, sessionImpl);
 			}else if (pcgcParser->isAppProto())
 			{
-				cgcSotpResponse::pointer responseImpl(new CSotpResponseImpl(pcgcRemote, pcgcParser, pSessionImpl));
+				bCanSetParserToPool = false;
+				cgcSotpResponse::pointer responseImpl(new CSotpResponseImpl(pcgcRemote, pcgcParser, pSessionImpl,this));
 				responseImpl->setEncoding(m_parseDefault.getDefaultEncoding());
 				((CSotpResponseImpl*)responseImpl.get())->setSession(sessionImpl);
 				ProcAppProto(requestImpl, responseImpl, pcgcParser, sessionImpl);
@@ -1955,13 +1975,14 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		}else
 		{
 			// 之前没有SESSION，直接返回XML错误
-			CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pSessionImpl);
+			CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pSessionImpl,NULL);
 			responseImpl.SetEncoding(m_parseDefault.getDefaultEncoding());
 			responseImpl.sendAppCallResult(-112);
 		}
 	}
 
-	SetSotpParserPool(pcgcParser);
+	if (bCanSetParserToPool)
+		SetSotpParserPool(pcgcParser);
 	return parseResult ? 0 : -1;
 }
 
@@ -2069,7 +2090,7 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 		retCode = -116;
 	}
 
-	CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pRemoteSessionImpl);
+	CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pRemoteSessionImpl,NULL);
 	responseImpl.setSession(remoteSessionImpl);
 	responseImpl.SetEncoding(m_parseDefault.getDefaultEncoding());
 	// **暂时不需要返回public key
@@ -2589,7 +2610,7 @@ void CGCApp::OpenLibrarys(void)
 			{
 				// **多次打开，新建临时文件
 				namespace fs = boost::filesystem;
-				boosttpath pathFileFrom(sModuleName);
+				boosttpath pathFileFrom(sModuleName.c_str());
 				char lpszBuffer[255];
 				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
 				sTempFile = lpszBuffer;
@@ -2758,7 +2779,7 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			xmlFile.append(_T("/methods.xml"));
 
 			namespace fs = boost::filesystem;
-			boosttpath pathXmlFile(xmlFile);
+			boosttpath pathXmlFile(xmlFile.c_str());
 			boost::system::error_code ec;
 			if (boost::filesystem::exists(pathXmlFile,ec))
 			{
@@ -2780,7 +2801,7 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			xmlFile.append(_T("/auths.xml"));
 
 			namespace fs = boost::filesystem;
-			boosttpath pathXmlFile(xmlFile);
+			boosttpath pathXmlFile(xmlFile.c_str());
 			boost::system::error_code ec;
 			if (fs::exists(pathXmlFile,ec))
 			{
@@ -2816,7 +2837,7 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 		xmlFile.append(_T("/params.xml"));
 
 		namespace fs = boost::filesystem;
-		boosttpath pathXmlFile(xmlFile);
+		boosttpath pathXmlFile(xmlFile.c_str());
 		boost::system::error_code ec;
 		if (fs::exists(pathXmlFile,ec))
 		{

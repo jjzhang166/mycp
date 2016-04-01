@@ -38,7 +38,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <CGCBase/httpapp.h>
 using namespace cgc;
 
-extern "C" HTTP_STATUSCODE CGC_API doGET(const cgcHttpRequest::pointer & request, cgcHttpResponse::pointer response)
+//extern "C" HTTP_STATUSCODE CGC_API doGET(const cgcHttpRequest::pointer & request, cgcHttpResponse::pointer response)
+extern "C" HTTP_STATUSCODE CGC_API doGET(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	cgcSession::pointer session = request->getSession();
 

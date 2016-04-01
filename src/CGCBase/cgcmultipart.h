@@ -32,18 +32,18 @@ class cgcMultiPart
 public:
 	typedef boost::shared_ptr<cgcMultiPart> pointer;
 
-	const std::string& getBoundary(void) const {return m_boundary;}
+	const tstring& getBoundary(void) const {return m_boundary;}
 
 
-	void setName(const std::string& v) {m_uploadFile->setName(v);}
-	const std::string& getName(void) const {return m_uploadFile->getName();}
-	void setFileName(const std::string& v) {m_uploadFile->setFileName(v);}
-	const std::string& getFileName(void) const {return m_uploadFile->getFileName();}
-	void setContentType(const std::string& v) {m_uploadFile->setContentType(v);}
+	void setName(const tstring& v) {m_uploadFile->setName(v);}
+	const tstring& getName(void) const {return m_uploadFile->getName();}
+	void setFileName(const tstring& v) {m_uploadFile->setFileName(v);}
+	const tstring& getFileName(void) const {return m_uploadFile->getFileName();}
+	void setContentType(const tstring& v) {m_uploadFile->setContentType(v);}
 
 	cgcUploadFile::pointer getUploadFile(void) const {return m_uploadFile;}
 
-	bool open(const std::string & savepath)
+	bool open(const tstring & savepath)
 	{
 		if (m_stream.is_open()) return true;
 
@@ -84,7 +84,7 @@ public:
 	void setParser(cgcParserBase::pointer v) {m_parser = v;}
 	cgcParserBase::pointer getParser(void) const {return m_parser;}
 
-	cgcMultiPart(const std::string& boundary)
+	cgcMultiPart(const tstring& boundary)
 		: m_boundary(boundary)
 	{
 		m_uploadFile = CGC_UPLOADFILE();
@@ -94,7 +94,7 @@ public:
 		close();
 	}
 private:
-	std::string m_boundary;
+	tstring m_boundary;
 	cgcUploadFile::pointer m_uploadFile;
 	tfstream m_stream;
 	cgcParserBase::pointer	m_parser;

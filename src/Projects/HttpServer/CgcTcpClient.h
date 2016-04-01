@@ -23,6 +23,7 @@
 //
 // include
 //#include "CgcBaseClient.h"
+#include <CGCBase/cgcSmartString.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
 #include <ThirdParty/Boost/asio/TcpClient.h>

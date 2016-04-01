@@ -108,6 +108,8 @@ class CGCApp
 	, public cgcParserCallback
 	, public CSotpRtpCallback	// for sotp rtp
 	//, public cgc::TcpClient_Callback	// for tcp
+	, public CParserSotpHandler
+	, public CParserHttpHandler
 	, public boost::enable_shared_from_this<CGCApp>
 {
 public:
@@ -161,6 +163,11 @@ private:
 	//virtual tstring onGetSslPrivateKey(void) const {return m_pRsa.GetPrivateKey();}
 	//virtual tstring onGetSslPrivatePwd(void) const {return m_pRsa.GetPrivatePwd();}
 	virtual tstring onGetSslPassword(const tstring& sSessionId) const;
+
+	// CParserSotpHandler
+	virtual void onReturnParserSotp(cgcParserSotp::pointer cgcParser);
+	// CParserHttpHandler
+	virtual void onReturnParserHttp(cgcParserHttp::pointer cgcParser);
 
 	// cgcCommHandler handler
 	virtual int onRemoteAccept(const cgcRemote::pointer& pcgcRemote);

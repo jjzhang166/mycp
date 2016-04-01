@@ -23,7 +23,11 @@
 #pragma warning(disable:4996)
 
 #include <vector>
-#include <string.h>
+//#ifdef USES_CGC_STRING
+//#include "cgcstring.h"
+//typedef cgcString tstring;
+//#endif
+//#include <string.h>
 #include <boost/shared_ptr.hpp>
 #include "../ThirdParty/stl/lockmap.h"
 #include "cgcobject.h"
@@ -1058,7 +1062,7 @@ namespace cgc{
 		}
 		return *this;
 	}
-	inline std::string cgcValueInfo::toString(void) const
+	inline tstring cgcValueInfo::toString(void) const
 	{
 		switch (m_type)
 		{
@@ -1066,7 +1070,7 @@ namespace cgc{
 			{
 				char buffer[12];
 				sprintf(buffer, "%d", u.m_int);
-				return std::string(buffer);
+				return tstring(buffer);
 			}
 		case TYPE_BIGINT:
 			{
@@ -1076,7 +1080,7 @@ namespace cgc{
 #else
 				sprintf(buffer, "%lld", u.m_bigint);
 #endif
-				return std::string(buffer);
+				return tstring(buffer);
 			}
 //		case TYPE_TIME:
 //			{
@@ -1086,7 +1090,7 @@ namespace cgc{
 //#else
 //				sprintf(buffer, "%ld", u.m_time);
 //#endif
-//				return std::string(buffer);
+//				return tstring(buffer);
 //			}
 		case TYPE_BOOLEAN:
 			return u.m_boolean ? "true" : "false";
@@ -1094,13 +1098,13 @@ namespace cgc{
 			{
 				char buffer[30];
 				sprintf(buffer, "%f", u.m_float);
-				return std::string(buffer);
+				return tstring(buffer);
 			}
 		case TYPE_POINTER:
 			{
 				char buffer[32];
 				sprintf(buffer, "pointer:%p", u.m_pointer);
-				return std::string(buffer);
+				return tstring(buffer);
 			}
 		case TYPE_STRING:
 			return m_str;
@@ -1108,13 +1112,13 @@ namespace cgc{
 			{
 				char buffer[32];
 				sprintf(buffer, "object:%p", m_object.get());
-				return std::string(buffer);
+				return tstring(buffer);
 			}
 		case TYPE_VALUEINFO:
-			return (m_valueInfo.get()  == NULL) ? std::string("") :  m_valueInfo->toString();
+			return (m_valueInfo.get()  == NULL) ? tstring("") :  m_valueInfo->toString();
 		case TYPE_VECTOR:
 			{
-				std::string result = "";
+				tstring result = "";
 				for (size_t i=0; i<m_vector.size(); i++)
 				{
 					if (!result.empty())
@@ -1125,7 +1129,7 @@ namespace cgc{
 			}break;
 		case TYPE_MAP:
 			{
-				std::string result = "";
+				tstring result = "";
 				CLockMap<tstring, cgcValueInfo::pointer>::const_iterator iter;
 				for (iter=m_map.begin(); iter!=m_map.end(); iter++)
 				{
@@ -1139,7 +1143,7 @@ namespace cgc{
 			}break;
 		case TYPE_BUFFER:
 			{
-				std::string result = "";
+				tstring result = "";
 				if (u.m_buffer.nSize>0 && u.m_buffer.pBuffer != 0)
 				{
 					result = tstring((const char*)u.m_buffer.pBuffer,u.m_buffer.nSize);
@@ -1150,7 +1154,7 @@ namespace cgc{
 			break;
 		}
 
-		return std::string("");
+		return tstring("");
 	}
 	inline tstring cgcValueInfo::typeString(void) const
 	{

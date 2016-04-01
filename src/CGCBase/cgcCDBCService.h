@@ -32,8 +32,8 @@ class cgcCDBCService
 public:
 	typedef boost::shared_ptr<cgcCDBCService> pointer;
 
-	virtual void escape_string_in(std::string & str) = 0;
-	virtual void escape_string_out(std::string & str) = 0;
+	virtual void escape_string_in(tstring & str) = 0;
+	virtual void escape_string_out(tstring & str) = 0;
 
 	virtual bool open(const cgcCDBCInfo::pointer& cdbcInfo) = 0;
 	virtual bool open(void) = 0;

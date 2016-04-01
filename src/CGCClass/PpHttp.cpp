@@ -274,7 +274,7 @@ void CPpHttp::setHeader(const tstring& name, const tstring& value)
 {
 	if (!name.empty())
 	{
-		std::string sStringTemp(name);
+		tstring sStringTemp(name);
 		std::transform(sStringTemp.begin(), sStringTemp.end(), sStringTemp.begin(), ::tolower);
 		if (sStringTemp == "content-type")	// Http_ContentType
 		{
@@ -319,15 +319,16 @@ void CPpHttp::forward(const tstring& url)
 	reset();
 
 	//m_requestURL = url.empty() ? "/" : url;
-	const tstring::size_type find = m_requestURL.rfind("/");
+	const std::string::size_type find = m_requestURL.rfind("/");
 	if (url.empty())
 		m_requestURL = "/";
-	else if (find==tstring::npos || url.substr(0,1)=="/" || url.substr(0,3)=="www" || url.substr(0,4)=="http")
+	else if (find==std::string::npos || url.substr(0,1)=="/" || url.substr(0,3)=="www" || url.substr(0,4)=="http")
 		m_requestURL = url;
 	else
 	{
-		std::string sTemp = m_requestURL.substr(0,find+1);
-		m_requestURL = sTemp+url;
+		const std::string sTemp = m_requestURL.substr(0,find+1);
+		m_requestURL = sTemp;
+		m_requestURL.append(url);
 	}
 	//printf("******* m_forwardFromURL=%s\n",m_forwardFromURL.c_str());
 	//printf("******* forward(): =%s\n",m_requestURL.c_str());
@@ -338,15 +339,16 @@ void CPpHttp::location(const tstring& url)
 {
 	// /eb/login.html?type=config/config.csp
 	//printf("******* location(): url=%s\n",url.c_str());
-	const tstring::size_type find = m_requestURL.rfind("/");
+	const std::string::size_type find = m_requestURL.rfind("/");
 	if (url.empty())
 		m_sLocation = "/";
-	else if (find==tstring::npos || url.substr(0,1)=="/" || url.substr(0,3)=="www" || url.substr(0,4)=="http")
+	else if (find==std::string::npos || url.substr(0,1)=="/" || url.substr(0,3)=="www" || url.substr(0,4)=="http")
 		m_sLocation = url;
 	else
 	{
-		std::string sTemp = m_requestURL.substr(0,find+1);
-		m_sLocation = sTemp+url;
+		const std::string sTemp = m_requestURL.substr(0,find+1);
+		m_sLocation = sTemp;
+		m_sLocation.append(url);
 	}
 	//printf("******* location(): =%s\n",m_sLocation.c_str());
 }
@@ -595,12 +597,12 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 		{
 			//Range: bytes=500-      表示读取该文件的500-999字节，共500字节。
 			//Range: bytes=500-599   表示读取该文件的500-599字节，共100字节。
-			tstring::size_type find = sRange.find("bytes=");
-			if (find != tstring::npos)
+			std::string::size_type find = sRange.find("bytes=");
+			if (find != std::string::npos)
 			{
 				m_nRangeFrom = atoi(sRange.substr(find+6).c_str());
 				find = sRange.find("-",7);
-				if (find != tstring::npos)
+				if (find != std::string::npos)
 					m_nRangeTo = atoi(sRange.substr(find+1).c_str());
 			}
 		}
@@ -614,8 +616,8 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 				if (len > 0)
 				{
 					authorization = std::string(buffer, len);
-					tstring::size_type find = authorization.find(":");
-					if (find != tstring::npos)
+					std::string::size_type find = authorization.find(":");
+					if (find != std::string::npos)
 					{
 						m_account = authorization.substr(0, find);
 						m_secure = authorization.substr(find+1);
@@ -635,34 +637,34 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 void CPpHttp::GeServletInfo(void)
 {
 	short nfindsize = 6;	// "/rest."
-	tstring::size_type findServlet1 = m_requestURL.find("/rest.");
-	if (findServlet1==tstring::npos)
+	std::string::size_type findServlet1 = m_requestURL.find("/rest.");
+	if (findServlet1==std::string::npos)
 	{
 		nfindsize = 9;		// "/servlet."
 		findServlet1 = m_requestURL.find("/servlet.");
 	}
-	if (findServlet1 != tstring::npos)
+	if (findServlet1 != std::string::npos)
 	{
-		tstring::size_type findServlet2 = 0;
+		std::string::size_type findServlet2 = 0;
 		if (nfindsize == 6)
 		{
 			// 支持版本号
 			// 格式：/rest.vvv.module.func?
 			findServlet2 = m_requestURL.find(".", nfindsize+1);
-			if (findServlet2 != tstring::npos)
+			if (findServlet2 != std::string::npos)
 			{
 				m_restVersion = m_requestURL.substr(nfindsize,findServlet2-nfindsize);
 				nfindsize = findServlet2+1;	// **必须放后面
 			}
 		}
 		findServlet2 = m_requestURL.find("?", nfindsize+1);
-		if (findServlet2 == tstring::npos)
+		if (findServlet2 == std::string::npos)
 			m_moduleName = m_requestURL.substr(nfindsize, m_requestURL.size()-findServlet1-nfindsize);
 		else
 			m_moduleName = m_requestURL.substr(nfindsize, findServlet2-findServlet1-nfindsize);
 
 		findServlet2 = m_moduleName.find(".");
-		if (findServlet2 != tstring::npos)
+		if (findServlet2 != std::string::npos)
 		{
 			m_functionName = "do";
 			m_functionName.append(m_moduleName.substr(findServlet2+1, m_moduleName.size()-findServlet2-1));
@@ -680,7 +682,7 @@ void CPpHttp::GetPropertys(const std::string& sString, bool bUrlDecode)
 	do
 	{
 		// Get [parameter=value]
-		tstring::size_type findParameter = sString.find("&", find+1);
+		std::string::size_type findParameter = sString.find("&", find+1);
 		if (findParameter == std::string::npos)
 		{
 			parameter = sString.substr(find, sString.size()-find);
@@ -743,7 +745,7 @@ void CPpHttp::GeRequestInfo(void)
 		{
 			m_requestURI = m_requestURL.substr(0, find);
 			m_queryString = m_requestURL.substr(find+1);
-			const tstring::size_type findFileName = m_requestURI.rfind("/");
+			const std::string::size_type findFileName = m_requestURI.rfind("/");
 			if (findFileName != std::string::npos)
 			{
 				m_fileName = m_requestURI.substr(findFileName+1);
@@ -1088,7 +1090,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		const tstring sParamReal(httpRequest, findSearch-httpRequest);
 		tstring param(sParamReal);
 		std::transform(param.begin(), param.end(), param.begin(), ::tolower);
-		tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
+		std::string value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
 
 		//findSearchEnd = strstr(httpRequest, "\r\n");
 		//if (findSearchEnd == NULL) break;
@@ -1134,8 +1136,8 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 			while (!value.empty())
 			{
 				tstring valuetemp;
-				tstring::size_type find = value.find(";");
-				if (find == tstring::npos)
+				std::string::size_type find = value.find(";");
+				if (find == std::string::npos)
 				{
 					valuetemp = value;
 					value.clear();
@@ -1157,9 +1159,9 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				{
 					tstring filename(valuetemp.substr(leftIndexTemp+10, valuetemp.size()-leftIndexTemp-11));
 					find = filename.rfind("\\");
-					if (find == tstring::npos)
+					if (find == std::string::npos)
 						find = filename.rfind("/");
-					if (find != tstring::npos)
+					if (find != std::string::npos)
 						filename = filename.substr(find+1);
 					m_currentMultiPart->setFileName(filename);
 					if (m_currentMultiPart->getUploadFile()->getFileName().empty())
@@ -1216,10 +1218,10 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				if (theTempSavePath.empty())
 				{
 					char tempSavePath[256];
-					//tstring::size_type findpath = theUpload.getTempPath().find("/");
-					//if (findpath == tstring::npos)
+					//std::string::size_type findpath = theUpload.getTempPath().find("/");
+					//if (findpath == std::string::npos)
 					//	findpath = theUpload.getTempPath().find("\\");
-					//if (findpath == tstring::npos)
+					//if (findpath == std::string::npos)
 					{
 						//sprintf(tempSavePath, "%s/%s", theApplication->getAppConfPath().c_str(), theUpload.getTempPath().c_str());
 #ifdef WIN32

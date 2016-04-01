@@ -133,7 +133,7 @@ public:
 private:
 	virtual int getProtocol(void) const {return m_protocol;}
 	virtual int getServerPort(void) const {return m_serverPort;}
-	virtual const std::string& getServerAddr(void) const {return m_sServerAddr;}
+	virtual const tstring& getServerAddr(void) const {return m_sServerAddr;}
 	virtual unsigned long getCommId(void) const {return m_commId;}
 	virtual unsigned long getRemoteId(void) const {return m_connection.get() == 0 ? 0 : m_connection->getId();}
 	virtual unsigned long getIpAddress(void) const {return m_connection.get()==NULL?0:m_connection->getIpAddress();}
@@ -369,7 +369,7 @@ const int ATTRIBUTE_NAME	= 1;
 //	int m_nCapacity;
 //};
 cgcAttributes::pointer theAppAttributes;
-std::string theSSLPasswd;
+tstring theSSLPasswd;
 
 bool FileIsExist(const char* pFile)
 {
@@ -656,18 +656,21 @@ public:
 				m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
 			// XXX.crt OK
 			//std::string m_sSSLCAFile = theApplication->getAppConfPath()+"/ssl/ca.crt";
-			m_sSSLPublicCrtFile = theApplication->getAppConfPath()+"/ssl/public.crt";
+			m_sSSLPublicCrtFile = theApplication->getAppConfPath().c_str();
+			m_sSSLPublicCrtFile.append("/ssl/public.crt");
 			if (!FileIsExist(m_sSSLPublicCrtFile.c_str()))
 			{
 				m_bCheckComm = false;
 				m_sSSLPublicCrtFile.clear();
 			}
-			m_sSSLServerChainFile = theApplication->getAppConfPath()+"/ssl/server-chain.crt";
+			m_sSSLServerChainFile = theApplication->getAppConfPath().c_str();
+			m_sSSLServerChainFile.append("/ssl/server-chain.crt");
 			if (!FileIsExist(m_sSSLServerChainFile.c_str()))
 				m_sSSLServerChainFile.clear();
 			else if (!m_sSSLPublicCrtFile.empty())
 				m_sSSLServerChainFile = m_sSSLPublicCrtFile;
-			m_sSSLPrivateKeyFile = theApplication->getAppConfPath()+"/ssl/private.key";
+			m_sSSLPrivateKeyFile = theApplication->getAppConfPath().c_str();
+			m_sSSLPrivateKeyFile.append("/ssl/private.key");
 			if (!FileIsExist(m_sSSLPrivateKeyFile.c_str()))
 			{
 				m_bCheckComm = false;
@@ -713,7 +716,8 @@ public:
 					CGC_LOG((LOG_ERROR, _T("use_private_key_file(%s),error=%s;%d\n"),m_sSSLPrivateKeyFile.c_str(),error.message().c_str(),error.value()));
 				}
 			}
-			m_sslctx->add_verify_path(theApplication->getAppConfPath()+"/ssl",error);
+			tstring sTempFile = theApplication->getAppConfPath() + "/ssl";
+			m_sslctx->add_verify_path(sTempFile.c_str(),error);
 			//m_sslctx->set_default_verify_paths(error);	// ÓĞÎÊÌâ
 			//m_sslctx->load_verify_file("/eb/www.entboost.com/www.entboost.com.crt",ignored_error);
 			//printf("** load_verify_file,error=%s;%d\n",ignored_error.message().c_str(),ignored_error.value());
@@ -1017,7 +1021,8 @@ protected:
 						m_sslctx->use_certificate_chain_file(m_sSSLServerChainFile,error);
 					if (!m_sSSLPrivateKeyFile.empty())
 						m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
-					m_sslctx->add_verify_path(theApplication->getAppConfPath()+"/ssl",error);
+					tstring sTempFile = theApplication->getAppConfPath() + "/ssl";
+					m_sslctx->add_verify_path(sTempFile.c_str(),error);
 					m_acceptor->set_ssl_ctx(m_sslctx);
 				}
 #endif

@@ -519,7 +519,7 @@ int CgcBaseClient::sendVerifyClusterSvr(unsigned long * pCallId)
 
 tstring CgcBaseClient::onGetSslPassword(const tstring& sSessionId) const
 {
-	return m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+	return (m_pCurrentIndexInfo.get()==NULL)?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
 }
 
 #ifndef max
@@ -1549,7 +1549,7 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 					if (m_pCurrentIndexInfo.get()!=NULL)
 					{
 						//m_pCurrentIndexInfo->m_sSessionId = m_sSessionId;
-						m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword;
+						m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword.c_str();
 					}
 					//
 					// save client info
@@ -1583,7 +1583,7 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 				m_sSslPassword = GetSaltString(24);
 			if (m_pCurrentIndexInfo.get()!=NULL)
 			{
-				m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword;
+				m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword.c_str();
 			}
 			const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
 			const unsigned short seq = getNextSeq();
@@ -1750,7 +1750,7 @@ void CgcBaseClient::Serialize(bool isStoring, tfstream& ar)
 
 	if (isStoring)
 	{
-		tstring::size_type len = 0;
+		std::string::size_type len = 0;
 		//int size = 0;
 
 		// ? SOTP/2.0
@@ -1766,23 +1766,23 @@ void CgcBaseClient::Serialize(bool isStoring, tfstream& ar)
 */
 		// m_sAppName
 		len = m_sAppName.length();
-		ar.write((const TCHAR*)(&len), sizeof(tstring::size_type));
+		ar.write((const TCHAR*)(&len), sizeof(std::string::size_type));
 		ar.write(m_sAppName.c_str(), len);
 
 		// m_sAccount
 		len = m_sAccount.length();
-		ar.write((const TCHAR*)(&len), sizeof(tstring::size_type));
+		ar.write((const TCHAR*)(&len), sizeof(std::string::size_type));
 		ar.write(m_sAccount.c_str(), len);
 
 		// m_sPasswd
 		len = m_sPasswd.length();
-		ar.write((const TCHAR*)(&len), sizeof(tstring::size_type));
+		ar.write((const TCHAR*)(&len), sizeof(std::string::size_type));
 		ar.write(m_sPasswd.c_str(), len);
 
 	}else
 	{
 		TCHAR * buffer = 0;
-		tstring::size_type len = 0;
+		std::string::size_type len = 0;
 		//int size = 0;
 
 		// ? SOTP/2.0
@@ -1796,7 +1796,7 @@ void CgcBaseClient::Serialize(bool isStoring, tfstream& ar)
 		}
 */
 		// m_sAppName
-		ar.read((TCHAR*)(&len), sizeof(tstring::size_type));
+		ar.read((TCHAR*)(&len), sizeof(std::string::size_type));
 		buffer = new TCHAR[len+1];
 		ar.read(buffer, len);
 		buffer[len] = '\0';
@@ -1804,7 +1804,7 @@ void CgcBaseClient::Serialize(bool isStoring, tfstream& ar)
 		delete []buffer;
 
 		// m_sAccount
-		ar.read((TCHAR*)(&len), sizeof(tstring::size_type));
+		ar.read((TCHAR*)(&len), sizeof(std::string::size_type));
 		buffer = new TCHAR[len+1];
 		ar.read(buffer, len);
 		buffer[len] = '\0';
@@ -1812,7 +1812,7 @@ void CgcBaseClient::Serialize(bool isStoring, tfstream& ar)
 		delete []buffer;
 
 		// m_sPasswd
-		ar.read((TCHAR*)(&len), sizeof(tstring::size_type));
+		ar.read((TCHAR*)(&len), sizeof(std::string::size_type));
 		buffer = new TCHAR[len+1];
 		ar.read(buffer, len);
 		buffer[len] = '\0';

@@ -75,7 +75,7 @@ public:
 	virtual unsigned long getCommId(void) const = 0;
 	virtual int getProtocol(void) const = 0;
 	virtual int getServerPort(void) const = 0;
-	virtual const std::string& getServerAddr(void) const = 0;
+	virtual const tstring& getServerAddr(void) const = 0;
 };
 ////////////////////////////////////////
 // CcgcRemote
@@ -138,7 +138,7 @@ public:
 private:
 	virtual int getProtocol(void) const {return m_handler->getProtocol();}
 	virtual int getServerPort(void) const {return m_handler->getServerPort();}
-	virtual const std::string& getServerAddr(void) const {return m_handler->getServerAddr();}
+	virtual const tstring& getServerAddr(void) const {return m_handler->getServerAddr();}
 	virtual unsigned long getCommId(void) const {return m_handler->getCommId();}
 	virtual unsigned long getRemoteId(void) const {return m_nRemoteId;}
 	virtual unsigned long getIpAddress(void) const {return m_nIpAddress;}
@@ -209,7 +209,7 @@ public:
 private:
 	int m_nIndex;
 	int m_commPort;
-	std::string m_sServerAddr;
+	tstring m_sServerAddr;
 	//int m_capacity;
 	int m_protocol;
 
@@ -440,7 +440,7 @@ private:
 	virtual unsigned long getCommId(void) const {return getId();}
 	virtual int getProtocol(void) const {return m_protocol;}
 	virtual int getServerPort(void) const {return m_commPort;}
-	virtual const std::string& getServerAddr(void) const {return m_sServerAddr;}
+	virtual const tstring& getServerAddr(void) const {return m_sServerAddr;}
 
 	// IoService_Handler
 	virtual void OnIoServiceException(void)

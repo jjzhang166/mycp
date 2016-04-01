@@ -20,7 +20,9 @@
 #ifndef __cgcaddress_h__
 #define __cgcaddress_h__
 
+#include <CGCBase/cgcSmartString.h>
 #include <ThirdParty/stl/stldef.h>
+using namespace cgc;
 
 class CCgcAddress
 {
@@ -44,8 +46,8 @@ public:
 	}
 
 	void address(const tstring & sAddress) {
-		const tstring::size_type find = sAddress.find(":");
-		if (find != tstring::npos)
+		const std::string::size_type find = sAddress.find(":");
+		if (find != std::string::npos)
 		{
 			m_ip = sAddress.substr(0, find);
 			m_port = atoi(sAddress.substr(find+1).c_str());;

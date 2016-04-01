@@ -134,16 +134,16 @@ double CPPSotp2::getRecvParameterValue(const tstring & sParamName, double fDefau
 
 ////////////////////////////////////////////////////////
 // Response
-std::string CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
+tstring CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
 {
 	return toSessionResult(getSotpVersion(),getProtoType(), getCallid(), retCode, sSessionId, seq, bNeedAck, sSslPublicKey);
-//	std::string sNeedAck = _T("");
+//	tstring sNeedAck = _T("");
 //	if (bNeedAck)
 //	{
 //		sNeedAck = _T("NAck: 1\n");
 //	}
 //
-//	std::string sType = _T("");
+//	tstring sType = _T("");
 //	switch (getProtoType())
 //	{
 //	case 1:
@@ -181,20 +181,20 @@ std::string CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, 
 //		_T("Cid: %d\n")
 //		_T("Sid: %s\n"));
 //
-//	std::string responseData((gFormatSesResponse%sType.c_str()%retCode%seq%sNeedAck.c_str()%getCallid()%sValue.c_str()).str());
+//	tstring responseData((gFormatSesResponse%sType.c_str()%retCode%seq%sNeedAck.c_str()%getCallid()%sValue.c_str()).str());
 //	return responseData;
 }
 
-std::string CPPSotp2::getAppCallResult(int retCode, unsigned short seq, bool bNeedAck)
+tstring CPPSotp2::getAppCallResult(int retCode, unsigned short seq, bool bNeedAck)
 {
 	return toAppCallResult(this->getSotpVersion(),getCallid(), getSign(), retCode, seq, bNeedAck);
-//	std::string sNeedAck = _T("");
+//	tstring sNeedAck = _T("");
 //	if (bNeedAck)
 //	{
 //		sNeedAck = _T("NAck: 1\n");
 //	}
 //
-//	std::string responseValues = GetParametersString();
+//	tstring responseValues = GetParametersString();
 //	m_parameters.clear();
 //	boost::format gFormatResponse(_T("CALL SOTP/2.0 %d\n")
 //		_T("Seq: %d\n%s")
@@ -204,23 +204,23 @@ std::string CPPSotp2::getAppCallResult(int retCode, unsigned short seq, bool bNe
 ////	if (m_attach.isHasAttach())
 ////	{
 ////	}
-//	return std::string((gFormatResponse%retCode%seq%sNeedAck.c_str()%getCallid()%getSign()%responseValues.c_str()).str());
+//	return tstring((gFormatResponse%retCode%seq%sNeedAck.c_str()%getCallid()%getSign()%responseValues.c_str()).str());
 }
-std::string CPPSotp2::getAppCallResultHead(int retCode)
+tstring CPPSotp2::getAppCallResultHead(int retCode)
 {
 	return toAppCallResultHead(this->getSotpVersion(),retCode);
 }
-std::string CPPSotp2::getAppCallResultData(unsigned short seq, bool bNeedAck)
+tstring CPPSotp2::getAppCallResultData(unsigned short seq, bool bNeedAck)
 {
 	return toAppCallResultData(this->getSotpVersion(),getCallid(), getSign(), seq, bNeedAck);
 }
 
-std::string CPPSotp2::getAckResult(unsigned short seq)
+tstring CPPSotp2::getAckResult(unsigned short seq)
 {
 	return toAckString(this->getSotpVersion(),seq);
 	//boost::format gFormatResponse(_T("ACK SOTP/2.0\n")
 	//	_T("Seq: %d\n"));
-	//return std::string((gFormatResponse%seq).str());
+	//return tstring((gFormatResponse%seq).str());
 }
 void CPPSotp2::setResAttachName(const tstring & name)
 {

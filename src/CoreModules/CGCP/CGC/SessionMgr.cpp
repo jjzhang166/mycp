@@ -524,7 +524,7 @@ cgcResponse::pointer CSessionImpl::getLastResponse(const tstring& moduleName) co
 	{
 		if (m_pcgcRemote->getProtocol() == PROTOCOL_SOTP)
 		{
-			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this);
+			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this,NULL);
 			pSotpResponseImpl->setSession(const_cast<CSessionImpl*>(this)->shared_from_this());
 			return cgcSotpResponse::pointer(pSotpResponseImpl);
 		}else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
@@ -535,7 +535,7 @@ cgcResponse::pointer CSessionImpl::getLastResponse(const tstring& moduleName) co
 	{
 		if (m_pcgcRemote->getProtocol() == PROTOCOL_SOTP)
 		{
-			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(m_pcgcRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this);
+			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(m_pcgcRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this,NULL);
 			pSotpResponseImpl->setSession(const_cast<CSessionImpl*>(this)->shared_from_this());
 			return cgcSotpResponse::pointer(pSotpResponseImpl);
 		}else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)

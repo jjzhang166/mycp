@@ -37,7 +37,7 @@ namespace cgc{
 class cgcAttachment
 {
 protected:
-	std::string m_name;	// name
+	tstring m_name;	// name
 	bigint m_total;
 	bigint m_index;
 	unsigned int m_len;
@@ -68,8 +68,8 @@ public:
 	bool isHasAttach(void) const {return m_data != 0 && m_len > 0;}
 
 	// name
-	void setName(const std::string & newValue) {m_name = newValue;}
-	const std::string & getName(void) const {return m_name;}
+	void setName(const tstring & newValue) {m_name = newValue;}
+	const tstring & getName(void) const {return m_name;}
 	// total
 	void setTotal(bigint newValue) {m_total = newValue;}
 	bigint getTotal(void) const {return m_total;}

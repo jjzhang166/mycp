@@ -114,7 +114,7 @@ protected:
 			m_nCount = 0;
 			try
 			{
-				BOOST_FOREACH(const ptree::value_type &v, m_ptree.get_child(sChildPath))
+				BOOST_FOREACH(const ptree::value_type &v, m_ptree.get_child(sChildPath.c_str()))
 					Insert(sChildItem, v);
 
 			}catch(...)
@@ -152,7 +152,7 @@ protected:
 
 	void Insert(const tstring sGetItem, const boost::property_tree::ptree::value_type & v)
 	{
-		if (v.first.compare(sGetItem) == 0)
+		if (sGetItem.compare(v.first) == 0)
 		{
 			char buffer[10];
 			sprintf(buffer, "%d", m_nCount);
@@ -160,8 +160,8 @@ protected:
 			std::list<tstring>::iterator iter;
 			for (iter=m_listString.begin(); iter!=m_listString.end(); iter++)
 			{
-				tstring sPath = *iter;
-				tstring sValue = v.second.get(sPath, "");
+				const tstring sPath(*iter);
+				tstring sValue(v.second.get(sPath.c_str(), ""));
 				theAppAttributes->setProperty((tstring)buffer, CGC_VALUEINFO(sValue));
 			}
 			m_nCount++;

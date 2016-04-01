@@ -2,21 +2,35 @@
 #ifndef __stldef_h__
 #define __stldef_h__
 
+#define USES_CGC_STRING
+
 #include <list>
 #include <map>
 #include <algorithm>
 #include <string>
 #include <fstream>
+//#ifdef USES_CGC_STRING
+//#include "cgcstring.h"
+//#endif
+
 #ifndef TSTRING_DEFINED
 #define TSTRING_DEFINED
 #ifdef _UNICODE
+#ifdef USES_CGC_STRING
+//typedef cgcString tstring;
+#else
 typedef std::wstring tstring;
+#endif
 typedef std::wfstream tfstream;
 //#ifndef TCHAR
 //#define TCHAR wchar_t
 //#endif // TCHAR
 #else
+#ifdef USES_CGC_STRING
+//typedef cgcString tstring;
+#else
 typedef std::string tstring;
+#endif
 typedef std::fstream tfstream;
 //#ifndef TCHAR
 //#define TCHAR char

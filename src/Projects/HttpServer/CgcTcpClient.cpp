@@ -87,7 +87,7 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 #endif
 	}
 	if (sIp.empty())
-		sIp = sInIp;
+		sIp = sInIp.c_str();
 
 	if (m_ipService.get() == 0)
 		m_ipService = IoService::create();
@@ -113,6 +113,12 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 #else
 		usleep(100000);
 #endif
+
+	//if (!m_bDisconnect)
+	//{
+	//	m_tcpClient->socket()->get_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
+	//	m_tcpClient->socket()->get_socket()->set_option(boost::asio::socket_base::receive_buffer_size(6*1024),ec);
+	//}
 	return 0;
 }
 

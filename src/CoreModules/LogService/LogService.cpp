@@ -81,7 +81,7 @@ public:
 	{
 		namespace fs = boost::filesystem;
 
-		fs::path pathXmlFile(m_xmlfile);
+		fs::path pathXmlFile(m_xmlfile.c_str());
 		boost::system::error_code ec;
 		if (boost::filesystem::exists(pathXmlFile,ec))
 			m_setting.load(m_xmlfile);
@@ -98,7 +98,7 @@ public:
 			// Create log directory.
 			tstring sLogRoot(theSystem->getServerPath());
 			sLogRoot.append("/log");
-			fs::path pathLogRoot(sLogRoot);
+			fs::path pathLogRoot(sLogRoot.c_str());
 			if (!boost::filesystem::exists(pathLogRoot,ec))
 				boost::filesystem::create_directory(pathLogRoot,ec);
 
@@ -123,7 +123,7 @@ public:
 			try{
 				tformat formatDatetime(_T("%02d:%02d:%02d.%03d "));
 				struct tm * ptm = localtime(&logInfo->m_logtime.time);
-				tstring sTemp((formatDatetime%ptm->tm_hour%ptm->tm_min%ptm->tm_sec%logInfo->m_logtime.millitm).str());
+				std::string sTemp((formatDatetime%ptm->tm_hour%ptm->tm_min%ptm->tm_sec%logInfo->m_logtime.millitm).str());
 				logInfo->m_msg.insert(0, sTemp);
 			}catch (const std::exception &)
 			{
@@ -155,9 +155,9 @@ public:
 		{
 			// Close file first.
 			m_stream.close();
-			tstring src_file = m_setting.getLogPath();
+			std::string src_file = m_setting.getLogPath();
 			src_file.append("/");
-			src_file.append(m_setting.getLogFile());
+			src_file.append(m_setting.getLogFile().c_str());
 
 			if (m_setting.getBackupNumber() <= 0)
 			{
@@ -245,11 +245,11 @@ protected:
 
 	void string_replace(tstring & strBig, const tstring & strsrc, const tstring &strdst) const
 	{
-		tstring::size_type pos=0;
-		tstring::size_type srclen=strsrc.size();
-		tstring::size_type dstlen=strdst.size();
+		std::string::size_type pos=0;
+		std::string::size_type srclen=strsrc.size();
+		std::string::size_type dstlen=strdst.size();
 
-		while ((pos=strBig.find(strsrc, pos)) != tstring::npos)
+		while ((pos=strBig.find(strsrc, pos)) != std::string::npos)
 		{
 			strBig.replace(pos, srclen, strdst);
 			pos += dstlen;
@@ -272,12 +272,12 @@ protected:
 		if (bFirstLog && !m_stream.is_open())
 		{
 			//
-			tstring sLogPath = m_setting.getLogPath();
-			tstring sLogFile = m_setting.getLogFile();
+			tstring sLogPath(m_setting.getLogPath());
+			tstring sLogFile(m_setting.getLogFile());
 
 			// Create log directory.
 			namespace fs = boost::filesystem;
-			fs::path logPath(sLogPath);
+			fs::path logPath(sLogPath.c_str());
 			boost::system::error_code ec;
 			if (!boost::filesystem::exists(logPath,ec))
 				boost::filesystem::create_directory(logPath,ec);

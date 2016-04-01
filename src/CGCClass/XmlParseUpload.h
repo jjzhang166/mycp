@@ -23,11 +23,14 @@
 #pragma warning(disable:4819)
 #endif
 
+#include "../CGCBase/cgcSmartString.h"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/foreach.hpp>
 using boost::property_tree::ptree;
 
+
+namespace cgc{
 
 class XmlParseUpload
 {
@@ -112,4 +115,5 @@ private:
 	CLockMap<tstring, bool> m_enableTypes;	// ContentType->(true: enable; false: disable)
 };
 
+}
 #endif // __XmlParseUpload_h__

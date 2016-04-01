@@ -174,7 +174,8 @@ int main(int argc, char* argv[])
 	sModulePath = currentPath.string();
 #endif
 	//printf("** program=%s,%d\n",sProgram.c_str(),(int)(bService?1:0));
-	const std::string sProtectDataFile = sModulePath + "/CGCP.protect";
+	tstring sProtectDataFile(sModulePath);
+	sProtectDataFile.append("/CGCP.protect");
 	char lpszBuffer[260];
 	if (bProtect)
 	{
@@ -207,7 +208,8 @@ int main(int argc, char* argv[])
 				const time_t tRunTime = cgc_atoi64(lpszBuffer);
 				if (tRunTime>0 && (tCurrentTime-tRunTime)>=8)
 				{
-					const std::string sProtectLogFile = sModulePath + "/CGCP.protect.log";
+					tstring sProtectLogFile(sModulePath);
+					sProtectLogFile.append("/CGCP.protect.log");
 					FILE * pProtectLog = fopen(sProtectLogFile.c_str(),"a");
 					if (pProtectLog!=NULL)
 					{
@@ -409,6 +411,7 @@ int main(int argc, char* argv[])
 //		usleep(100000);
 //#endif
 //	}
+	remove(sProtectDataFile.c_str());
 	return 0;
 }
 

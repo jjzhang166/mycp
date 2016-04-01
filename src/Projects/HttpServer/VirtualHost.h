@@ -78,7 +78,7 @@ public:
 	std::string m_sScriptName;	// php,...
 	std::string m_sFastcgiPass;	// 127.0.0.1:9000
 	std::string m_sFastcgiIndex;	// index.php
-	std::string m_sFastcgiPath;		// php-cgi.exe
+	tstring m_sFastcgiPath;		// php-cgi.exe
 	int m_nResponseTimeout;
 	int m_nMinProcess;
 	int m_nMaxProcess;

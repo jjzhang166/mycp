@@ -264,5 +264,7 @@ const std::string FASTCGI_PARAM_CONTENT_TYPE		= "CONTENT_TYPE";
 const std::string FASTCGI_PARAM_CONTENT_LENGTH		= "CONTENT_LENGTH";
 const std::string FASTCGI_PARAM_PATH_INFO			= "PATH_INFO";
 const std::string FASTCGI_PARAM_GATEWAY_INTERFACE	= "GATEWAY_INTERFACE";
+const std::string FASTCGI_PARAM_HTTP_HOST			= "HTTP_HOST";
+//const std::string FASTCGI_PARAM_PHP_SELF			= "PHP_SELF";
 
 #endif // __tabconst__head__

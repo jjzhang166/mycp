@@ -21,10 +21,10 @@
 #include "SessionMgr.h"
 #include <ThirdParty/stl/aes.h>
 
-CSotpResponseImpl::CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler)
+CSotpResponseImpl::CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler, CParserSotpHandler* pParserSotpHandler)
 : m_cgcRemote(pcgcRemote)
 , m_cgcParser(pcgcParser)
-, m_pResponseHandler(pHandler)
+, m_pResponseHandler(pHandler), m_pParserSotpHandler(pParserSotpHandler)
 , m_bResponseSended(false)
 , m_bNotResponse(false)
 , m_nHoldSecond(-1)
@@ -38,6 +38,11 @@ CSotpResponseImpl::CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const
 
 CSotpResponseImpl::~CSotpResponseImpl(void)
 {
+	if (m_pParserSotpHandler!=NULL)
+	{
+		//printf("onReturnParserSotp\n");
+		m_pParserSotpHandler->onReturnParserSotp(m_cgcParser);
+	}
 	m_cgcRemote.reset();
 	m_cgcParser.reset();
 	if (m_pSendLock)
@@ -61,7 +66,7 @@ int CSotpResponseImpl::sendSessionResult(long retCode, const tstring & sSessionI
 			CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
 			sSslPassword = pSessionImpl->GetSslPassword();
 		}
-		const tstring responseData = m_cgcParser->getSessionResult(retCode, sSessionId, seq, true, m_sSslPublicKey);
+		const tstring responseData(m_cgcParser->getSessionResult(retCode, sSessionId, seq, true, m_sSslPublicKey));
 		if (m_cgcParser->isSslRequest() && !sSslPassword.empty())
 		{
 			unsigned int nAttachSize = 0;
@@ -169,8 +174,8 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 	}
 	if (!sSslPassword.empty())
 	{
-		const std::string sAppCallHead = m_cgcParser->getAppCallResultHead(retCode);
-		const std::string sAppCallData = m_cgcParser->getAppCallResultData(seq, bNeedAck);
+		const tstring sAppCallHead(m_cgcParser->getAppCallResultHead(retCode));
+		const tstring sAppCallData(m_cgcParser->getAppCallResultData(seq, bNeedAck));
 
 		// AES_BLOCK_SIZE
 
@@ -285,22 +290,22 @@ void CSotpResponseImpl::setCgcRemote(const cgcRemote::pointer& pcgcRemote)
 	m_cgcRemote = pcgcRemote;
 }
 
-void CSotpResponseImpl::setCgcParser(const cgcParserSotp::pointer& pcgcParser)
-{
-	m_cgcParser = pcgcParser;
-	BOOST_ASSERT (m_cgcParser.get() != NULL);
-
-	// ??
-	if (m_cgcParser.get() != 0)
-	{
-		m_originalCallId = m_cgcParser->getCallid();
-		m_originalCallSign = m_cgcParser->getSign();
-	}else
-	{
-		m_originalCallId = 0;
-		m_originalCallSign = 0;
-	}
-}
+//void CSotpResponseImpl::setCgcParser(const cgcParserSotp::pointer& pcgcParser)
+//{
+//	m_cgcParser = pcgcParser;
+//	BOOST_ASSERT (m_cgcParser.get() != NULL);
+//
+//	// ??
+//	if (m_cgcParser.get() != 0)
+//	{
+//		m_originalCallId = m_cgcParser->getCallid();
+//		m_originalCallSign = m_cgcParser->getSign();
+//	}else
+//	{
+//		m_originalCallId = 0;
+//		m_originalCallSign = 0;
+//	}
+//}
 
 void CSotpResponseImpl::lockResponse(void)
 {

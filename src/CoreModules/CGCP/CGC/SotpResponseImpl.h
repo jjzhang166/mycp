@@ -28,7 +28,11 @@ public:
 	virtual unsigned short onGetNextSeq(void) = 0;
 	virtual int onAddSeqInfo(const unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign) = 0;
 	virtual int onAddSeqInfo(unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign) = 0;
-
+};
+class CParserSotpHandler
+{
+public:
+	virtual void onReturnParserSotp(cgcParserSotp::pointer cgcParser) = 0;
 };
 
 class CSotpResponseImpl
@@ -40,6 +44,7 @@ private:
 	cgcParserSotp::pointer m_cgcParser;
 	cgcSession::pointer m_session;
 	CResponseHandler * m_pResponseHandler;
+	CParserSotpHandler* m_pParserSotpHandler;
 	bool m_bResponseSended;
 	bool m_bNotResponse;
 	int m_nHoldSecond;		// default:-1; 0:remove; >0:hold
@@ -50,7 +55,7 @@ private:
 	tstring m_sSslPublicKey;
 	//tstring m_sSslPassword;
 public:
-	CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler);
+	CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler, CParserSotpHandler* pParserSotpHandler);
 	virtual ~CSotpResponseImpl(void);
 	
 	void SetResponseHandler(CResponseHandler * pHandler) {m_pResponseHandler = pHandler;}
@@ -70,9 +75,9 @@ public:
 	//void clearCgcRemote(void);
 	void setCgcRemote(const cgcRemote::pointer& pcgcRemote);
 	void setSessionClosed(void) {}
-	void setCgcParser(const cgcParserSotp::pointer& pcgcParser);
+	//void setCgcParser(const cgcParserSotp::pointer& pcgcParser);
 	void setSession(const cgcSession::pointer& session) {m_session = session;}
-	cgcParserSotp::pointer getCgcParser(void) {return m_cgcParser;}
+	//cgcParserSotp::pointer getCgcParser(void) {return m_cgcParser;}
 	cgcRemote::pointer getCgcRemote(void) {return m_cgcRemote;}
 	unsigned long getCommId(void) const {return m_cgcRemote.get() == NULL ? 0 : m_cgcRemote->getCommId();}
 

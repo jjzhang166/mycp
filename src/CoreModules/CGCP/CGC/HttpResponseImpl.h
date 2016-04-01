@@ -22,6 +22,12 @@
 
 #include "IncludeBase.h"
 
+class CParserHttpHandler
+{
+public:
+	virtual void onReturnParserHttp(cgcParserHttp::pointer cgcParser) = 0;
+};
+
 class CHttpResponseImpl
 	: public cgcHttpResponse
 	, public boost::enable_shared_from_this<CHttpResponseImpl>
@@ -30,6 +36,7 @@ private:
 	cgcRemote::pointer m_cgcRemote;
 	cgcParserHttp::pointer m_cgcParser;
 	cgcSession::pointer m_session;
+	CParserHttpHandler * m_pParserHttpHandler;
 	bool m_bResponseSended;
 	bool m_bNotResponse;
 	int m_nHoldSecond;		// default:-1; 0:remove; >0:hold
@@ -45,12 +52,14 @@ public:
 	bool getForward(void) const {return m_bForward;}
 	void setForward(bool v) {m_bForward = v;}
 
+	void SetParserHttpHandler(CParserHttpHandler * pParserHttpHandler) {m_pParserHttpHandler = pParserHttpHandler;}
+
 	//void clearCgcRemote(void);
 	void setCgcRemote(const cgcRemote::pointer& pcgcRemote);
 	void setSessionClosed(void) {}
-	void setCgcParser(const cgcParserHttp::pointer& pcgcParser);
+	//void setCgcParser(const cgcParserHttp::pointer& pcgcParser);
 	void setSession(const cgcSession::pointer& session) {m_session = session;}
-	cgcParserHttp::pointer getCgcParser(void) const {return m_cgcParser;}
+	//cgcParserHttp::pointer getCgcParser(void) const {return m_cgcParser;}
 	cgcRemote::pointer getCgcRemote(void) const {return m_cgcRemote;}
 	unsigned long getCommId(void) const {return m_cgcRemote.get() == NULL ? 0 : m_cgcRemote->getCommId();}
 

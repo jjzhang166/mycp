@@ -22,6 +22,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include "../ThirdParty/stl/lockmap.h"
+#include "cgcSmartString.h"
 
 namespace cgc{
 #ifdef WIN32

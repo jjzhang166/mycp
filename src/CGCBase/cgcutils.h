@@ -26,7 +26,7 @@
 
 namespace cgc {
 
-inline const std::string & replace_string(std::string & strSource, const std::string & strFind, const std::string &strReplace)
+inline const tstring & replace_string(tstring & strSource, const tstring & strFind, const tstring &strReplace)
 {
 	std::string::size_type pos=0;
 	std::string::size_type findlen=strFind.size();
@@ -38,7 +38,7 @@ inline const std::string & replace_string(std::string & strSource, const std::st
 	}
 	return strSource;
 }
-inline const std::string & replace_char(std::string & strSource, char cFind, const std::string &strReplace)
+inline const tstring & replace_char(tstring & strSource, char cFind, const tstring &strReplace)
 {
 	std::string::size_type pos=0;
 	std::string::size_type findlen=1;

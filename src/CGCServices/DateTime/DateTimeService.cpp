@@ -220,12 +220,12 @@ protected:
 			try
 			{
 				d = boost::gregorian::from_simple_string(sDateString);
-			}catch(std::exception const &e1)
+			}catch(std::exception const &)
 			{
 				try
 				{
 					d = boost::gregorian::from_undelimited_string(sDateString);
-				}catch(std::exception const &e2)
+				}catch(std::exception const &)
 				{
 					return false;
 				}
@@ -247,12 +247,12 @@ protected:
 			try
 			{
 				t = boost::posix_time::time_from_string(sTimeString);
-			}catch(std::exception const &e1)
+			}catch(std::exception const &)
 			{
 				try
 				{
 					t = boost::posix_time::from_iso_string(sTimeString);
-				}catch(std::exception const &e2)
+				}catch(std::exception const &)
 				{
 					return false;
 				}
@@ -386,7 +386,7 @@ protected:
 			{
 				boost::gregorian::date d = date_from_tm(tmMakeTime);
 				outParam->setBoolean(true);
-			}catch(std::exception const &e1)
+			}catch(std::exception const &)
 			{
 				outParam->setBoolean(false);
 			}

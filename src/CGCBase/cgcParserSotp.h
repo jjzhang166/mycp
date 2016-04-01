@@ -92,14 +92,14 @@ public:
 	//////////////////////////////////////////////////
 	// Response:
 	virtual void setResEncoding(const tstring & sEncoding = _T("GBK")) = 0;
-	virtual std::string getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck,const tstring& sSslPublicKey) const = 0;
-	virtual std::string getAppCallResult(int retCode, unsigned short seq, bool bNeedAck) = 0;
-	virtual std::string getAppCallResultHead(int retCode) = 0;
-	virtual std::string getAppCallResultData(unsigned short seq, bool bNeedAck) = 0;
-	virtual std::string getAckResult(unsigned short seq) = 0;
+	virtual tstring getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck,const tstring& sSslPublicKey) const = 0;
+	virtual tstring getAppCallResult(int retCode, unsigned short seq, bool bNeedAck) = 0;
+	virtual tstring getAppCallResultHead(int retCode) = 0;
+	virtual tstring getAppCallResultData(unsigned short seq, bool bNeedAck) = 0;
+	virtual tstring getAckResult(unsigned short seq) = 0;
 	virtual unsigned char * getAttachString(const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const = 0;
 	// P2P
-	virtual std::string getP2PTry(void) const = 0;
+	virtual tstring getP2PTry(void) const = 0;
 
 	// Response Parameters
 	virtual void setResParameter(const cgcParameter::pointer& parameter, bool bSetForce) = 0;

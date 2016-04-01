@@ -55,6 +55,13 @@ using namespace cgc;
 #include "fastcgi.h"
 #include "cgcaddress.h"
 
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef min
+#define min(a, b)  (((a) < (b)) ? (a) : (b)) 
+#endif // min
+
 //#define USES_BODB_SCRIPT
 #ifdef WIN32
 #include "shellapi.h"
@@ -169,6 +176,7 @@ typedef enum REQUEST_INFO_STATE
 	, REQUEST_INFO_STATE_FCGI_DOING
 	, REQUEST_INFO_STATE_FCGI_STDOUT
 	, REQUEST_INFO_STATE_FCGI_STDERR
+	, REQUEST_INFO_STATE_FCGI_END_REQUEST
 	, REQUEST_INFO_STATE_FCGI_DISCONNECTED
 };
 #define DEFAULT_SEND_BUFFER_SIZE (32*1024)
@@ -266,6 +274,8 @@ public:
 	time_t GetRequestTime(void) const {return m_tRequestTime;}
 	void SetResponseState(REQUEST_INFO_STATE nResponseState) {m_nResponseState = nResponseState;}
 	REQUEST_INFO_STATE GetResponseState(void) const {return m_nResponseState;}
+	void SetParsedHead(bool b) {m_bParsedHead = b;}
+	bool GetParsedHead(void) const {return m_bParsedHead;}
 	void SetResponsePaddingLength(int nPaddingLength) {m_nResponsePaddingLength = nPaddingLength;}
 	int GetResponsePaddingLength(void) const {return m_nResponsePaddingLength;}
 	void SetLastPaddingData(const std::string& sData) {m_sLastPaddingData = sData;}
@@ -276,6 +286,7 @@ public:
 	CFastcgiRequestInfo(const CRequestPassInfo::pointer& pRequestPassInfo, const cgcHttpResponse::pointer& response)
 		: m_pRequestPassInfo(pRequestPassInfo), m_response(response), m_nResponseState(REQUEST_INFO_STATE_WAITTING_RESPONSE)
 		, m_nResponsePaddingLength(0)
+		, m_bParsedHead(false)
 	//CFastcgiRequestInfo(int nRequestId, const std::string& sFastcgiPass, const cgcHttpResponse::pointer& response)
 	//	: m_nRequestId(nRequestId), m_sFastcgiPass(sFastcgiPass), m_response(response), m_nResponseState(REQUEST_INFO_STATE_WAITTING_RESPONSE)
 	//	, m_nResponsePaddingLength(0)
@@ -298,6 +309,7 @@ private:
 	int m_nResponsePaddingLength;
 	std::string m_sLastPaddingData;
 	unsigned char* m_lpszBuffer;
+	bool m_bParsedHead;
 };
 
 class CHttpTimeHandler
@@ -630,44 +642,55 @@ public:
 		}
 		pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_DISCONNECTED);
 		m_pRequestPassInfoList.add(pFastcgiRequestInfo->GetRequestPassInfo());
-
 	}
-	virtual void OnReceiveData(const ReceiveBuffer::pointer& data, int nUserData)
+	void ParseFastcgi(CFastcgiRequestInfo::pointer pFastcgiRequestInfo, const char* pData, size_t nSize, int nUserData)
 	{
-		printf("******** OnReceiveData size=%d,UserData=%d\n",data->size(),nUserData);
-		const int nTcpRequestId = nUserData;
-		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
-		if (!m_pFastcgiRequestList.find(nTcpRequestId,pFastcgiRequestInfo))
+		if (pData==NULL) return;
+
+		const int nWaitPaddingSize = pFastcgiRequestInfo->GetResponsePaddingLength();
+		//printf("******** nWaitPaddingSize=%d\n",nWaitPaddingSize);
+		if (nWaitPaddingSize>0 && nSize>=nWaitPaddingSize)
 		{
+			//const std::string s(pData,30);
+			//printf("******** s=%d\n",s.c_str());
+			pFastcgiRequestInfo->response()->writeData(pData,nWaitPaddingSize);
+			pFastcgiRequestInfo->SetResponsePaddingLength(0);
+			ParseFastcgi(pFastcgiRequestInfo,pData+nWaitPaddingSize,nSize-nWaitPaddingSize,nUserData);
 			return;
 		}
+		if (nSize<=FCGI_HEADER_LEN) return;
+		const int nTcpRequestId = nUserData;
+		FCGI_Header header;
+		memcpy(&header,pData,FCGI_HEADER_LEN);
 
-		if (pFastcgiRequestInfo->GetResponseState()==REQUEST_INFO_STATE_WAITTING_RESPONSE && data->size()>=FCGI_HEADER_LEN)
+		if(header.version != FCGI_VERSION_1) {
+			return ;//FCGX_UNSUPPORTED_VERSION;
+		}
+		const int nRequestId = (header.requestIdB1 << 8) + header.requestIdB0;
+		if (nRequestId!=nTcpRequestId)
+			return;
+		const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
+		const int nPaddingLen = header.paddingLength;
+		printf("******** RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen);
+		//pFastcgiRequestInfo->SetResponsePaddingLength(nPaddingLen);
+
+		try
 		{
-			FCGI_Header header;
-			memcpy(&header,data->data(),8);
-
-			if(header.version != FCGI_VERSION_1) {
-				return ;//FCGX_UNSUPPORTED_VERSION;
-			}
-			const int nRequestId = (header.requestIdB1 << 8) + header.requestIdB0;
-			if (nRequestId!=nTcpRequestId)
-				return;
-			const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
-			const int nPaddingLen = header.paddingLength;
-			printf("******** RequestId=%d,type=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nContentLen,nPaddingLen);
-			pFastcgiRequestInfo->SetResponsePaddingLength(nPaddingLen);
-
-			try
+			if (header.type == FCGI_STDOUT)
 			{
-				if (header.type == FCGI_STDOUT)
+				//const bool bNeedParseHeader = pFastcgiRequestInfo->GetResponseState()==REQUEST_INFO_STATE_WAITTING_RESPONSE?true:false;
+				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_DOING);
+				int nBodyLength = min(nContentLen,nSize-FCGI_HEADER_LEN);
+				//printf("********\n%s\n", data->data()+8);
+				//const char * findSearch = NULL;
+				if (pFastcgiRequestInfo->GetParsedHead())
 				{
-					pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_DOING);
-					//printf("********\n%s\n", data->data()+8);
-					//const char * findSearch = NULL;
+					pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
+				}else
+				{
+					pFastcgiRequestInfo->SetParsedHead(true);
 					const char * findSearchEnd = NULL;
-					const char * httpRequest = (const char*)(data->data()+FCGI_HEADER_LEN);
-					int nBodyLength = nContentLen;
+					const char * httpRequest = (const char*)(pData+FCGI_HEADER_LEN);
 					bool bFindHttpHead = false;
 					while (nBodyLength>0 && httpRequest != NULL)
 					{
@@ -706,26 +729,6 @@ public:
 						const short nOffset = sLine.c_str()[find+1]==' '?2:1;	// 带空格2，不带空格1
 						const tstring value(sLine.substr(find+nOffset));
 
-						//findSearch = strstr(httpRequest, ":");
-						//if (findSearch == NULL)
-						//{
-						//	if (nBodyLength>=2 && httpRequest[0]=='\r' && httpRequest[1]=='\n')
-						//	{
-						//		httpRequest = httpRequest+2;
-						//		nBodyLength -= 2;
-						//	}
-						//	printf("******** data=%s,length=%d\n",httpRequest,nBodyLength);
-						//	pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
-						//	break;
-						//}
-						//findSearchEnd = strstr(findSearch+1, "\r\n");
-						//if (findSearchEnd == NULL) break;
-						//const tstring sParamReal(httpRequest, findSearch-httpRequest);
-						//tstring param(sParamReal);
-						//std::transform(param.begin(), param.end(), param.begin(), ::tolower);
-						//const short nOffset = findSearch[1]==' '?2:1;	// 带空格2，不带空格1
-						//tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
-
 						bFindHttpHead = true;
 						//printf("******** PV-> %s:%s\n",sParamReal.c_str(),value.c_str());
 						if (param=="content-type")
@@ -746,53 +749,190 @@ public:
 						nBodyLength -= 2;	// \r\n
 						httpRequest = findSearchEnd+2;
 					}
+				}
+			}else if (header.type == FCGI_STDERR)
+			{
+				//printf("********\n%s\n", data->data()+8);
+				pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nContentLen);
+			}else if (header.type == FCGI_END_REQUEST)
+			{
+				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST);
+				return;
+			}
+			const int nUsedSize = FCGI_HEADER_LEN+nContentLen+nPaddingLen;
+			//printf("******** UsedSize=%d\n",nUsedSize);
+			if ((int)nSize-nUsedSize>FCGI_HEADER_LEN)
+			{
+				ParseFastcgi(pFastcgiRequestInfo,pData+nUsedSize,nSize-nUsedSize,nUserData);
+			}else
+			{
+				const int nWaitSize = (nContentLen+nPaddingLen)-((int)nSize-FCGI_HEADER_LEN);
+				if (nWaitSize>0)
+				{
+					//printf("******** WaitSize=%d\n",nWaitSize);
+					pFastcgiRequestInfo->SetResponsePaddingLength(nWaitSize);
+				}
+				if (header.type == FCGI_STDOUT)
 					pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_STDOUT);
-				}else if (header.type == FCGI_STDERR)
-				{
-					//printf("********\n%s\n", data->data()+8);
-					pFastcgiRequestInfo->response()->writeData((const char*)(data->data()+FCGI_HEADER_LEN),nContentLen);
+				else if (header.type == FCGI_STDERR)
 					pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_STDERR);
-				//}else if (header.type == FCGI_END_REQUEST)
-				//{
-				}
-			}catch(std::exception const &)
-			{
-			}catch(...)
-			{}
-			//pFastcgiRequestInfo->SetResponsed();
-			//m_pRequestPassInfoList.add(nRequestId);
-		}else if (pFastcgiRequestInfo->GetResponseState()>=REQUEST_INFO_STATE_FCGI_DOING && data->size()>pFastcgiRequestInfo->GetResponsePaddingLength())
+			}
+		}catch(std::exception const &)
 		{
-			//FCGI_Header header;
-			//memcpy(&header,data->data(),8);
-			//if(header.version == FCGI_VERSION_1)
-			//{
-			//	const int nRequestId = (header.requestIdB1 << 8) + header.requestIdB0;
-			//	if (nRequestId==nTcpRequestId)
-			//	{
-			//		const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
-			//		const int nPaddingLen = header.paddingLength;
-			//		printf("******** 22 RequestId=%d,type=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nContentLen,nPaddingLen);
-			//	}
-			//}
-			try
-			{
-				if (pFastcgiRequestInfo->GetResponsePaddingLength()>0)
-				{
-					const std::string& sLastPaddingData = pFastcgiRequestInfo->GetLastPaddingData();
-					if (!sLastPaddingData.empty())
-						pFastcgiRequestInfo->response()->write(sLastPaddingData);
-					const std::string sPaddingData((const char*)data->data()+(data->size()-pFastcgiRequestInfo->GetResponsePaddingLength()),pFastcgiRequestInfo->GetResponsePaddingLength());
-					pFastcgiRequestInfo->SetLastPaddingData(sPaddingData);
-					//printf("****paddingdata\n%s\n",sPaddingData.c_str());
-				}
-				pFastcgiRequestInfo->response()->writeData((const char*)data->data(),data->size()-pFastcgiRequestInfo->GetResponsePaddingLength());
-				//pFastcgiRequestInfo->response()->writeData((const char*)data->data(),data->size());
-			}catch(std::exception const &)
-			{
-			}catch(...)
-			{}
+		}catch(...)
+		{}
+	}
+	virtual void OnReceiveData(const ReceiveBuffer::pointer& data, int nUserData)
+	{
+		printf("******** OnReceiveData size=%d,UserData=%d\n",data->size(),nUserData);
+		const int nTcpRequestId = nUserData;
+		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
+		if (!m_pFastcgiRequestList.find(nTcpRequestId,pFastcgiRequestInfo))
+		{
+			return;
 		}
+
+		//const int nLastPaddingLength = pFastcgiRequestInfo->GetResponsePaddingLength();
+		//if (nLastPaddingLength>0)
+		//{
+		//	pFastcgiRequestInfo->response()->write((const char*)data->data(),nLastPaddingLength);
+		//}
+		//ParseFastcgi(pFastcgiRequestInfo,(const char*)data->data()+nLastPaddingLength,data->size()-nLastPaddingLength,nUserData,0);
+		ParseFastcgi(pFastcgiRequestInfo,(const char*)data->data(),data->size(),nUserData);
+		return;
+
+		//if (pFastcgiRequestInfo->GetResponseState()==REQUEST_INFO_STATE_WAITTING_RESPONSE && data->size()>=FCGI_HEADER_LEN)
+		//{
+		//	ParseFastcgi(pFastcgiRequestInfo,(const char*)data->data(),data->size(),nUserData,0);
+		//	//FCGI_Header header;
+		//	//memcpy(&header,data->data(),FCGI_HEADER_LEN);
+
+		//	//if(header.version != FCGI_VERSION_1) {
+		//	//	return ;//FCGX_UNSUPPORTED_VERSION;
+		//	//}
+		//	//const int nRequestId = (header.requestIdB1 << 8) + header.requestIdB0;
+		//	//if (nRequestId!=nTcpRequestId)
+		//	//	return;
+		//	//const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
+		//	//const int nPaddingLen = header.paddingLength;
+		//	//printf("******** RequestId=%d,type=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nContentLen,nPaddingLen);
+		//	//pFastcgiRequestInfo->SetResponsePaddingLength(nPaddingLen);
+
+		//	//try
+		//	//{
+		//	//	if (header.type == FCGI_STDOUT)
+		//	//	{
+		//	//		pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_DOING);
+		//	//		//printf("********\n%s\n", data->data()+8);
+		//	//		//const char * findSearch = NULL;
+		//	//		const char * findSearchEnd = NULL;
+		//	//		const char * httpRequest = (const char*)(data->data()+FCGI_HEADER_LEN);
+		//	//		int nBodyLength = max(nContentLen,(data->size()-FCGI_HEADER_LEN));
+		//	//		bool bFindHttpHead = false;
+		//	//		while (nBodyLength>0 && httpRequest != NULL)
+		//	//		{
+		//	//			findSearchEnd = strstr(httpRequest, "\r\n");
+		//	//			if (findSearchEnd==NULL)
+		//	//			{
+		//	//				//printf("******** 1 length=%d,data=%s\n",nBodyLength,httpRequest);
+		//	//				if (nBodyLength>0)
+		//	//					pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
+		//	//				break;
+		//	//			}else if (findSearchEnd==httpRequest)
+		//	//			{
+		//	//				if (bFindHttpHead)
+		//	//				{
+		//	//					httpRequest = httpRequest+2;
+		//	//					nBodyLength -= 2;
+		//	//				}else
+		//	//				{
+		//	//					httpRequest = httpRequest+4;
+		//	//					nBodyLength -= 4;
+		//	//				}
+		//	//				//printf("******** 2 length=%d,data=%s\n",nBodyLength,httpRequest);
+		//	//				if (nBodyLength>0)
+		//	//					pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
+		//	//				break;
+		//	//			}
+		//	//			const std::string sLine(httpRequest,findSearchEnd-httpRequest);
+		//	//			const std::string::size_type find = sLine.find(":");
+		//	//			if (find==std::string::npos)
+		//	//			{
+		//	//				break;
+		//	//			}
+		//	//			const tstring sParamReal(sLine.substr(0,find));
+		//	//			tstring param(sParamReal);
+		//	//			std::transform(param.begin(), param.end(), param.begin(), ::tolower);
+		//	//			const short nOffset = sLine.c_str()[find+1]==' '?2:1;	// 带空格2，不带空格1
+		//	//			const tstring value(sLine.substr(find+nOffset));
+
+		//	//			bFindHttpHead = true;
+		//	//			//printf("******** PV-> %s:%s\n",sParamReal.c_str(),value.c_str());
+		//	//			if (param=="content-type")
+		//	//			{
+		//	//				pFastcgiRequestInfo->response()->setContentType(value);
+		//	//				//}else if (param=="content-length")
+		//	//				//{
+		//	//				//	//pFastcgiRequestInfo->response()->setcon(value);
+		//	//			}else if (param=="status")
+		//	//			{
+		//	//				const HTTP_STATUSCODE nHttpState = (HTTP_STATUSCODE)atoi(value.c_str());
+		//	//				pFastcgiRequestInfo->response()->setStatusCode(nHttpState);
+		//	//			}else
+		//	//			{
+		//	//				pFastcgiRequestInfo->response()->setHeader(sParamReal,value);
+		//	//			}
+		//	//			nBodyLength -= (int)(findSearchEnd-httpRequest);
+		//	//			nBodyLength -= 2;	// \r\n
+		//	//			httpRequest = findSearchEnd+2;
+		//	//		}
+		//	//		pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_STDOUT);
+		//	//	}else if (header.type == FCGI_STDERR)
+		//	//	{
+		//	//		//printf("********\n%s\n", data->data()+8);
+		//	//		pFastcgiRequestInfo->response()->writeData((const char*)(data->data()+FCGI_HEADER_LEN),nContentLen);
+		//	//		pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_STDERR);
+		//	//	//}else if (header.type == FCGI_END_REQUEST)
+		//	//	//{
+		//	//	}
+		//	//}catch(std::exception const &)
+		//	//{
+		//	//}catch(...)
+		//	//{}
+		//	//pFastcgiRequestInfo->SetResponsed();
+		//	//m_pRequestPassInfoList.add(nRequestId);
+		//}else if (pFastcgiRequestInfo->GetResponseState()>=REQUEST_INFO_STATE_FCGI_DOING && data->size()>pFastcgiRequestInfo->GetResponsePaddingLength())
+		//{
+		//	//FCGI_Header header;
+		//	//memcpy(&header,data->data(),8);
+		//	//if(header.version == FCGI_VERSION_1)
+		//	//{
+		//	//	const int nRequestId = (header.requestIdB1 << 8) + header.requestIdB0;
+		//	//	if (nRequestId==nTcpRequestId)
+		//	//	{
+		//	//		const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
+		//	//		const int nPaddingLen = header.paddingLength;
+		//	//		printf("******** 22 RequestId=%d,type=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nContentLen,nPaddingLen);
+		//	//	}
+		//	//}
+		//	try
+		//	{
+		//		if (pFastcgiRequestInfo->GetResponsePaddingLength()>0)
+		//		{
+		//			const std::string& sLastPaddingData = pFastcgiRequestInfo->GetLastPaddingData();
+		//			if (!sLastPaddingData.empty())
+		//				pFastcgiRequestInfo->response()->write(sLastPaddingData);
+		//			const std::string sPaddingData((const char*)data->data()+(data->size()-pFastcgiRequestInfo->GetResponsePaddingLength()),pFastcgiRequestInfo->GetResponsePaddingLength());
+		//			pFastcgiRequestInfo->SetLastPaddingData(sPaddingData);
+		//			//printf("****paddingdata\n%s\n",sPaddingData.c_str());
+		//		}
+		//		pFastcgiRequestInfo->response()->writeData((const char*)data->data(),data->size()-pFastcgiRequestInfo->GetResponsePaddingLength());
+		//		//pFastcgiRequestInfo->response()->writeData((const char*)data->data(),data->size());
+		//	}catch(std::exception const &)
+		//	{
+		//	}catch(...)
+		//	{}
+		//}
 	}
 private:
 	CLockList<CRequestPassInfo::pointer> m_pRequestPassInfoList;
@@ -956,7 +1096,8 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	thePHPFastcgiInfo = theVirtualHosts.getFastcgiInfo("php");
 	if (thePHPFastcgiInfo.get()!=NULL)
 	{
-		const std::string sThirdParth = theSystem->getServerPath() + "/thirdparty";
+		tstring sThirdParth(theSystem->getServerPath());
+		sThirdParth.append("/thirdparty");
 		cgc::replace_string(thePHPFastcgiInfo->m_sFastcgiPath,$MYCP_THIRDPARTY_PATH,sThirdParth);
 		const std::string::size_type find = thePHPFastcgiInfo->m_sFastcgiPass.find(":",1);
 		if (find!=std::string::npos)
@@ -994,7 +1135,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	{
 		tstring sDocumentRoot(theDefaultHost->getDocumentRoot());
 		namespace fs = boost::filesystem;
-		fs::path src_path(sDocumentRoot);
+		fs::path src_path(sDocumentRoot.c_str());
 		if (!fs::exists(src_path))
 		{
 			tstring sDocumentRootTemp(theDefaultHost->getDocumentRoot());
@@ -1019,7 +1160,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 			//sDocumentRoot = theApplication->getAppConfPath();
 			//sDocumentRoot.append("/");
 			//sDocumentRoot.append(theDefaultHost->getDocumentRoot());
-			fs::path src_path2(sDocumentRoot);
+			fs::path src_path2(sDocumentRoot.c_str());
 			if (!fs::exists(src_path2))
 			{
 				CGC_LOG((cgc::LOG_ERROR, "DocumentRoot not exist. %s\n",sDocumentRoot.c_str()));
@@ -1247,8 +1388,8 @@ void GetScriptFileType(const tstring& filename, tstring& outMimeType,bool& pOutI
 {
 	pOutScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN;
 	outMimeType = "text/html";
-	tstring::size_type find = filename.rfind(".");
-	if (find == tstring::npos)
+	std::string::size_type find = filename.rfind(".");
+	if (find == std::string::npos)
 	{
 		outMimeType = "application/octet-stream";
 		return;
@@ -1383,9 +1524,6 @@ void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTim
 	sprintf(lpszBuffer, "max-age=%d", nExpireSecond);
 	response->setHeader("Cache-Control",lpszBuffer);
 }
-#ifndef min
-#define min(a, b)  (((a) < (b)) ? (a) : (b)) 
-#endif // min
 extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	HTTP_STATUSCODE statusCode = STATUS_CODE_200;
@@ -1401,8 +1539,8 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	CVirtualHost::pointer requestHost = theVirtualHosts.getVirtualHost(host);
 	if (requestHost.get() == NULL && theVirtualHosts.getHosts().size() > 1)
 	{
-		tstring::size_type find = host.find(":");
-		if (find != tstring::npos)
+		std::string::size_type find = host.find(":");
+		if (find != std::string::npos)
 		{
 			tstring address = host.substr(0, find);
 			address.append(":*");
@@ -1429,7 +1567,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		{
 			tstring sDocumentRoot(requestHost->getDocumentRoot());
 			namespace fs = boost::filesystem;
-			fs::path src_path(sDocumentRoot);
+			fs::path src_path(sDocumentRoot.c_str());
 			if (!fs::exists(src_path))
 			{
 				tstring sDocumentRootTemp(requestHost->getDocumentRoot());
@@ -1453,7 +1591,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				//sDocumentRoot = theApplication->getAppConfPath();
 				//sDocumentRoot.append("/");
 				//sDocumentRoot.append(requestHost->getDocumentRoot());
-				fs::path src_path2(sDocumentRoot);
+				fs::path src_path2(sDocumentRoot.c_str());
 				if (!fs::exists(src_path2))
 				{
 					requestHost.reset();
@@ -1481,22 +1619,27 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	GetScriptFileType(sFileName,sMimeType,bIsImageOrBinary,nScriptFileType);
 
 	// File not exist
-	tstring sFilePath(requestHost->getDocumentRoot() + sFileName);
+	tstring sFilePath(requestHost->getDocumentRoot());
+	sFilePath.append(sFileName);
 	//printf("**** FilePath=%s,sFileName=%s\n",sFilePath.c_str(),sFileName.c_str());
 	namespace fs = boost::filesystem;
-	fs::path src_path(sFilePath);
+	fs::path src_path(sFilePath.c_str());
 	if (!fs::exists(src_path))
 	{
 		if (nScriptFileType==SCRIPT_FILE_TYPE_PHP && thePHPFastcgiInfo.get()!=NULL)
 		{
 			sFileName = thePHPFastcgiInfo->m_sFastcgiIndex;
-			sFilePath = requestHost->getDocumentRoot() + "/" + thePHPFastcgiInfo->m_sFastcgiIndex;
-			src_path = fs::path(sFilePath);
+			sFilePath = requestHost->getDocumentRoot();
+			sFilePath.append("/");
+			sFilePath.append(thePHPFastcgiInfo->m_sFastcgiIndex);
+			src_path = fs::path(sFilePath.c_str());
 		}else if (nScriptFileType==SCRIPT_FILE_TYPE_CSP)
 		{
 			sFileName = requestHost->getIndex();
-			sFilePath = requestHost->getDocumentRoot() + "/" + requestHost->getIndex();
-			src_path = fs::path(sFilePath);
+			sFilePath = requestHost->getDocumentRoot();
+			sFilePath.append("/");
+			sFilePath.append(requestHost->getIndex());
+			src_path = fs::path(sFilePath.c_str());
 			if (!fs::exists(src_path))
 			{
 				response->println("HTTP Status 404 - %s", sFileName.c_str());
@@ -1514,7 +1657,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		if (nScriptFileType==SCRIPT_FILE_TYPE_PHP && thePHPFastcgiInfo.get()!=NULL)
 		{
 			sFilePath.append(thePHPFastcgiInfo->m_sFastcgiIndex);
-			src_path = fs::path(sFilePath);
+			src_path = fs::path(sFilePath.c_str());
 		}else
 		{
 			response->println("HTTP Status 404 - %s", sFileName.c_str());
@@ -1777,7 +1920,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			//printf("******** getRemoteAddr=%s\n",request->getRemoteAddr().c_str());
 			CCgcAddress pAddress(request->getRemoteAddr());
 			{
-				sValue1 = pAddress.getip();
+				sValue1 = pAddress.getip().c_str();
 				FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_REMOTE_ADDR.c_str(),FASTCGI_PARAM_REMOTE_ADDR.size(),sValue1.c_str(),sValue1.size(),&nNameValue1Size,lpszSendBuffer);
 				m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 			}
@@ -1787,6 +1930,24 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 			}
 		}
+		// FASTCGI_PARAM_HTTP_HOST
+		const tstring sHttpHost(request->getHeader(Http_Host,""));
+		FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_HTTP_HOST.c_str(),FASTCGI_PARAM_HTTP_HOST.size(),sHttpHost.c_str(),sHttpHost.size(),&nNameValue1Size,lpszSendBuffer);
+		m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
+		// FASTCGI_PARAM_DOCUMENT_ROOT
+		const tstring& sDocumentRoot = requestHost->getDocumentRoot();
+		//printf("******** sDocumentRoot=%s\n",sDocumentRoot.c_str());
+		FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_DOCUMENT_ROOT.c_str(),FASTCGI_PARAM_DOCUMENT_ROOT.size(),sDocumentRoot.c_str(),sDocumentRoot.size(),&nNameValue1Size,lpszSendBuffer);
+		m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
+		//// FASTCGI_PARAM_PHP_SELF
+		////const tstring& sPHPSelf = sFileName;//request->sFileName
+		//printf("******** sPHPSelf=%s\n",sFileName.c_str());
+		//FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_PHP_SELF.c_str(),FASTCGI_PARAM_PHP_SELF.size(),sFileName.c_str(),sFileName.size(),&nNameValue1Size,lpszSendBuffer);
+		//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
+		// FASTCGI_PARAM_SCRIPT_NAME
+		//printf("******** SCRIPT_NAME=%s\n",sFileName.c_str());
+		FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_SCRIPT_NAME.c_str(),FASTCGI_PARAM_SCRIPT_NAME.size(),sFileName.c_str(),sFileName.size(),&nNameValue1Size,lpszSendBuffer);
+		m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 
 		// SERVER_ADDR
 		const std::string& sServerAddr = request->getServerAddr();
@@ -1968,9 +2129,11 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		// 
 		for (int i=0;i<thePHPFastcgiInfo->m_nResponseTimeout*100;i++)	// default 30S
 		{
-			if (pFastcgiRequestInfo->GetResponseState()==REQUEST_INFO_STATE_FCGI_DISCONNECTED)
+			if (pFastcgiRequestInfo->GetResponseState()>=REQUEST_INFO_STATE_FCGI_END_REQUEST)
+			{
+				//printf("******** return STATUS_CODE_200\n");
 				return STATUS_CODE_200;
-			else if (!theApplication->isInited())
+			}else if (!theApplication->isInited())
 				break;
 #ifdef WIN32
 			Sleep(10);
@@ -2072,7 +2235,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			SetExpiresCache(response,pResInfo->m_tRequestTime,bIsImageOrBinary);
 			return STATUS_CODE_304;					// 304 Not Modified
 		}
-		if (!sIfNoneMatch.empty() && !pResInfo->m_sETag.empty() && sIfNoneMatch.find(pResInfo->m_sETag)!=tstring::npos)
+		if (!sIfNoneMatch.empty() && !pResInfo->m_sETag.empty() && sIfNoneMatch.find(pResInfo->m_sETag)!=std::string::npos)
 		{
 			SetExpiresCache(response,pResInfo->m_tRequestTime,bIsImageOrBinary);
 			return STATUS_CODE_304;					// 304 Not Modified

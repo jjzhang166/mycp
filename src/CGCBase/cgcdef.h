@@ -20,7 +20,8 @@
 #ifndef __cgcdef_head__
 #define __cgcdef_head__
 
-#include <string>
+#include "cgcSmartString.h"
+//#include <string>
 
 namespace cgc{
 #define CGC_THREAD_STACK_MIN 1024*200	// 200K
@@ -198,7 +199,7 @@ namespace cgc{
 	}HTTP_STATUSCODE;
 
 
-	inline std::string cgcGetStatusCode(HTTP_STATUSCODE statusCode)
+	inline tstring cgcGetStatusCode(HTTP_STATUSCODE statusCode)
 	{
 		switch (statusCode)
 		{
@@ -291,70 +292,70 @@ namespace cgc{
 	}
 
 	// General Header Fields
-	const std::string Http_CacheControl			= "Cache-Control";
-	const std::string Http_Connection			= "Connection";
-	const std::string Http_Date					= "Date";
-	const std::string Http_Pragma				= "Pragma";
-	const std::string Http_Trailer				= "Trailer";
-	const std::string Http_TransferEncoding		= "Transfer-Encoding";
-	const std::string Http_Upgrade				= "Upgrade";
-	const std::string Http_Via					= "Via";
+	const tstring Http_CacheControl			= "Cache-Control";
+	const tstring Http_Connection				= "Connection";
+	const tstring Http_Date					= "Date";
+	const tstring Http_Pragma					= "Pragma";
+	const tstring Http_Trailer				= "Trailer";
+	const tstring Http_TransferEncoding		= "Transfer-Encoding";
+	const tstring Http_Upgrade				= "Upgrade";
+	const tstring Http_Via					= "Via";
 
 	// Request Header Fields
-	const std::string Http_Accept				= "Accept";
-	const std::string Http_AcceptCharset		= "Accept-Charset";
-	const std::string Http_AcceptEncoding		= "Accept-Encoding";
-	const std::string Http_AcceptLanguage		= "Accept-Language";
-	const std::string Http_Authorization		= "Authorization";
-	const std::string Http_Expect				= "Expect";
-	const std::string Http_From					= "From";
-	const std::string Http_Host					= "Host";
-	const std::string Http_IfMatch				= "If-Match";
-	const std::string Http_IfModifiedSince		= "If-Modified-Since";
-	const std::string Http_IfNoneMatch			= "If-None-Match";
-	const std::string Http_IfRange				= "If-Range";
-	const std::string Http_IfUnmodifiedSince	= "If-Unmodified-Since";
-	const std::string Http_MaxForwards			= "Max-Forwards";
-	const std::string Http_ProxyAuthorization	= "Proxy-Authorization";
-	const std::string Http_Range				= "Range";
-	const std::string Http_Referer				= "Referer";
-	const std::string Http_TE					= "TE";
-	const std::string Http_UserAgent			= "User-Agent";
+	const tstring Http_Accept					= "Accept";
+	const tstring Http_AcceptCharset			= "Accept-Charset";
+	const tstring Http_AcceptEncoding			= "Accept-Encoding";
+	const tstring Http_AcceptLanguage			= "Accept-Language";
+	const tstring Http_Authorization			= "Authorization";
+	const tstring Http_Expect					= "Expect";
+	const tstring Http_From					= "From";
+	const tstring Http_Host					= "Host";
+	const tstring Http_IfMatch				= "If-Match";
+	const tstring Http_IfModifiedSince		= "If-Modified-Since";
+	const tstring Http_IfNoneMatch			= "If-None-Match";
+	const tstring Http_IfRange				= "If-Range";
+	const tstring Http_IfUnmodifiedSince		= "If-Unmodified-Since";
+	const tstring Http_MaxForwards			= "Max-Forwards";
+	const tstring Http_ProxyAuthorization		= "Proxy-Authorization";
+	const tstring Http_Range					= "Range";
+	const tstring Http_Referer				= "Referer";
+	const tstring Http_TE						= "TE";
+	const tstring Http_UserAgent				= "User-Agent";
 
 	// Response Header Fields
-	const std::string Http_AcceptRanges			= "Accept-Ranges";
-	const std::string Http_Age					= "Age";
-	const std::string Http_ETag					= "ETag";
-	const std::string Http_Location 			= "Location";
-	const std::string Http_ProxyAuthenticate	= "Proxy-Authenticate";
-	const std::string Http_RetryAfter 			= "Retry-After";
-	const std::string Http_Server 				= "Server";
-	const std::string Http_Vary  				= "Vary";
-	const std::string Http_WWWAuthenticate  	= "WWW-Authenticate";
+	const tstring Http_AcceptRanges			= "Accept-Ranges";
+	const tstring Http_Age					= "Age";
+	const tstring Http_ETag					= "ETag";
+	const tstring Http_Location 				= "Location";
+	const tstring Http_ProxyAuthenticate		= "Proxy-Authenticate";
+	const tstring Http_RetryAfter 			= "Retry-After";
+	const tstring Http_Server 				= "Server";
+	const tstring Http_Vary  					= "Vary";
+	const tstring Http_WWWAuthenticate		= "WWW-Authenticate";
 
 	// Entity Header Fields
-	const std::string Http_Allow				= "Allow";
-	const std::string Http_ContentEncoding		= "Content-Encoding";
-	const std::string Http_ContentLanguage		= "Content-Language";
-	const std::string Http_ContentLength		= "Content-Length";
-	const std::string Http_ContentLocation		= "Content-Location";
-	const std::string Http_ContentMD5			= "Content-MD5";
-	const std::string Http_ContentRange			= "Content-Range";
-	const std::string Http_ContentType			= "Content-Type";
-	const std::string Http_Expires				= "Expires";
-	const std::string Http_LastModified			= "Last-Modified";
-	const std::string Http_extensionheader		= "extension-header";
+	const tstring Http_Allow					= "Allow";
+	const tstring Http_ContentEncoding		= "Content-Encoding";
+	const tstring Http_ContentLanguage		= "Content-Language";
+	const tstring Http_ContentLength			= "Content-Length";
+	const tstring Http_ContentLocation		= "Content-Location";
+	const tstring Http_ContentMD5				= "Content-MD5";
+	const tstring Http_ContentRange			= "Content-Range";
+	const tstring Http_ContentType			= "Content-Type";
+	const tstring Http_Expires				= "Expires";
+	const tstring Http_LastModified			= "Last-Modified";
+	const tstring Http_extensionheader		= "extension-header";
 
-	const std::string Http_ContentDisposition	= "Content-Disposition";
-	const std::string Http_KeepAlive			= "Keep-Alive";
+	const tstring Http_ContentDisposition		= "Content-Disposition";
+	const tstring Http_KeepAlive				= "Keep-Alive";
 
-	const std::string Http_Cookie				= "Cookie";
-	const std::string Http_CookieSessionId		= "MYSESSIONID";
+	const tstring Http_Cookie					= "Cookie";
+	const tstring Http_CookieSessionId		= "MYSESSIONID";
 
 	// MYCP Variants
-	const std::string $MYCP_ROOT_PATH			= "$MYCP_ROOT_PATH";
-	const std::string $MYCP_CONF_PATH			= "$MYCP_CONF_PATH";
-	const std::string $MYCP_THIRDPARTY_PATH		= "$MYCP_THIRDPARTY_PATH";
+	const tstring $MYCP_ROOT_PATH				= "$MYCP_ROOT_PATH";
+	const tstring $MYCP_CONF_PATH				= "$MYCP_CONF_PATH";
+	const tstring $MYCP_THIRDPARTY_PATH		= "$MYCP_THIRDPARTY_PATH";
 }
 
 #endif // __cgcdef_head__

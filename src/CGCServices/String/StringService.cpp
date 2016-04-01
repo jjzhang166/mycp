@@ -797,9 +797,9 @@ protected:
 
 			const tstring & sInString = inParam->getStr();
 #ifdef WIN32
-			const std::string sOutString = convert(sInString.c_str(), CP_ACP, CP_UTF8);
+			const tstring sOutString = convert(sInString.c_str(), CP_ACP, CP_UTF8);
 #else
-			const std::string sOutString(sInString);	// ???
+			const tstring sOutString(sInString);	// ???
 #endif
 			//返回结果
 			if (outParam.get() == NULL)
@@ -816,9 +816,9 @@ protected:
 
 			const tstring & sInString = inParam->getStr();
 #ifdef WIN32
-			const std::string sOutString = convert(sInString.c_str(), CP_UTF8, CP_ACP);
+			const tstring sOutString = convert(sInString.c_str(), CP_UTF8, CP_ACP);
 #else
-			const std::string sOutString(sInString);	// ???
+			const tstring sOutString(sInString);	// ???
 #endif
 			//返回结果
 			if (outParam.get() == NULL)
@@ -878,8 +878,7 @@ protected:
 		}else if (function == "upper")
 		{
 			if (inParam.get() == NULL) return false;
-			tstring sInString = inParam->getStr();
-
+			std::string sInString(inParam->getStr().c_str());
 			boost::to_upper(sInString);
 			if (outParam.get() == NULL)
 			{
@@ -892,7 +891,7 @@ protected:
 		}else if (function == "lower")
 		{
 			if (inParam.get() == NULL) return false;
-			tstring sInString = inParam->getStr();
+			std::string sInString(inParam->getStr().c_str());
 			boost::to_lower(sInString);
 			if (outParam.get() == NULL)
 			{
@@ -916,7 +915,7 @@ protected:
 				do
 				{
 					// Get [parameter=value]
-					tstring::size_type findParameter = sInString.find("&", find+1);
+					std::string::size_type findParameter = sInString.find("&", find+1);
 					if (findParameter == std::string::npos)
 					{
 						parameter = sInString.substr(find, sInString.size()-find);
@@ -976,7 +975,7 @@ protected:
 //props.push_back(std::make_pair("array", array));
 //boost::property_tree::write_json("prob.json", props);
 
-	void PutJson(wptree& ptResponse,const tstring& sKey, const cgcValueInfo::pointer& pValueInfo, bool bRoot=false)
+	void PutJson(wptree& ptResponse,const std::string& sKey, const cgcValueInfo::pointer& pValueInfo, bool bRoot=false)
 	{
 		//printf("type=%d,key=%s\n",pValueInfo->getType(),sKey.c_str());
 		switch (pValueInfo->getType())
@@ -1025,9 +1024,9 @@ protected:
 		default:
 			{
 				if (sKey.empty())
-					ptResponse.push_back(std::make_pair(L"", conv::utf_to_utf<wchar_t>(pValueInfo->toString())));
+					ptResponse.push_back(std::make_pair(L"", conv::utf_to_utf<wchar_t>(pValueInfo->toString().c_str())));
 				else
-					ptResponse.push_back(std::make_pair(conv::utf_to_utf<wchar_t>(sKey), conv::utf_to_utf<wchar_t>(pValueInfo->toString())));
+					ptResponse.push_back(std::make_pair(conv::utf_to_utf<wchar_t>(sKey), conv::utf_to_utf<wchar_t>(pValueInfo->toString().c_str())));
 				//if (bVector || (bRoot && sKey.empty()))
 				//	ptResponse.push_back(std::make_pair(L"", conv::utf_to_utf<wchar_t>(pValueInfo->toString())));		// 数组
 				//else
@@ -1225,9 +1224,9 @@ protected:
 
 
 	//////////////////////////////////////////////////////////////
-	virtual std::string W2Char(const wchar_t * strSource) const
+	virtual tstring W2Char(const wchar_t * strSource) const
 	{
-		std::string result = "";
+		tstring result;
 		size_t targetLen = wcsrtombs(NULL, &strSource, 0, NULL);
 		if (targetLen > 0)
 		{
@@ -1295,7 +1294,7 @@ protected:
 	}
 	//////////////////////////////////////////////////////////////
 #ifdef WIN32
-	virtual std::string convert(const char * strSource, int sourceCodepage, int targetCodepage) const
+	virtual tstring convert(const char * strSource, int sourceCodepage, int targetCodepage) const
 	{
 		int unicodeLen = MultiByteToWideChar(sourceCodepage, 0, strSource, -1, NULL, 0);
 		if (unicodeLen <= 0) return "";
@@ -1318,7 +1317,7 @@ protected:
 
 		WideCharToMultiByte(targetCodepage, 0, (wchar_t*)pUnicode, -1, (char *)pTargetData, targetLen, NULL, NULL);
 
-		std::string result = pTargetData;
+		tstring result(pTargetData);
 		//	tstring result(pTargetData, targetLen);
 		delete[] pUnicode;
 		delete[] pTargetData;
@@ -1326,8 +1325,8 @@ protected:
 	}
 #endif
 
-	//////////////////////////////////////////////////////////////
-	virtual std::string format(const char * format,...) const
+	////////////////////////////////////////////////////////////////
+	virtual tstring format(const char * format,...) const
 	{
 		if (format == 0) return "";
 
@@ -1338,17 +1337,15 @@ protected:
 		va_end(vl);
 		if (len > MAX_STRING_FORMAT_SIZE)
 			len = MAX_STRING_FORMAT_SIZE;
-
 		formatmsg[len] = '\0';
-
 		return std::string(formatmsg, len);
 	}
 	virtual const tstring & replace(tstring & strSource, const tstring & strFind, const tstring &strReplace) const
 	{
-		tstring::size_type pos=0;
-		tstring::size_type findlen=strFind.size();
-		tstring::size_type replacelen=strReplace.size();
-		while ((pos=strSource.find(strFind, pos)) != tstring::npos)
+		std::string::size_type pos=0;
+		std::string::size_type findlen=strFind.size();
+		std::string::size_type replacelen=strReplace.size();
+		while ((pos=strSource.find(strFind, pos)) != std::string::npos)
 		{
 			strSource.replace(pos, findlen, strReplace);
 			pos += replacelen;

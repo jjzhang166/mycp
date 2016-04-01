@@ -10,6 +10,6 @@ libCGCBase_a_HEADERS = cgcApplication.h cgcattachment.h cgcAttributes.h cgcCommu
 	cgcvalueinfo.h cgcparameter.h md5.h cgcuses.h cgcfunc.h \
 	httpapp.h cgcHttpRequest.h cgcHttpResponse.h \
 	cgcService.h cgcServices.h cgcLock.h cgcCDBCService.h cgccdbcs.h cgcmultipart.h cgcuploadfile.h \
-	extern.h http.h sotpapp.h cgcSeqInfo.h cgcCookieInfo.h cgcrtpobject.h cgcutils.h
+	extern.h http.h sotpapp.h cgcSeqInfo.h cgcCookieInfo.h cgcrtpobject.h cgcutils.h cgcSmartString.h
 
 libCGCBase_adir = $(includedir)/CGCBase

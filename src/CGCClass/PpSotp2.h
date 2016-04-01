@@ -108,6 +108,7 @@ public:
 	virtual const tstring & getModuleName(void) const {return m_cgcInvoke.getAppName();}
 	virtual const tstring & getFunctionName(void) const {return m_cgcInvoke.getApiName();}
 	virtual tstring getAccount(void) const {return m_cgcInvoke.getAccount();}
+	virtual tstring getSecure(void) const {return m_cgcInvoke.getPasswd();}
 	virtual tstring getPasswd(void) const {return m_cgcInvoke.getPasswd();}
 
 	// Request
@@ -128,14 +129,14 @@ public:
 	////////////////////////////////////////////////////////
 	// Response
 	virtual void setResEncoding(const tstring & sEncoding) {SotpCallTable2::setEncoding(sEncoding);}
-	virtual std::string getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
-	virtual std::string getAppCallResult(int retCode, unsigned short seq, bool bNeedAck);
-	virtual std::string getAppCallResultHead(int retCode);
-	virtual std::string getAppCallResultData(unsigned short seq, bool bNeedAck);
-	virtual std::string getAckResult(unsigned short seq);
+	virtual tstring getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
+	virtual tstring getAppCallResult(int retCode, unsigned short seq, bool bNeedAck);
+	virtual tstring getAppCallResultHead(int retCode);
+	virtual tstring getAppCallResultData(unsigned short seq, bool bNeedAck);
+	virtual tstring getAckResult(unsigned short seq);
 	virtual unsigned char * getAttachString(const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const {return SotpCallTable2::toAttachString(getSotpVersion(),pAttach, pOutSize);}
 	// P2P
-	virtual std::string getP2PTry(void) const {return SotpCallTable2::toP2PTry(this->getSotpVersion());}
+	virtual tstring getP2PTry(void) const {return SotpCallTable2::toP2PTry(this->getSotpVersion());}
 
 	// Parameters
 	virtual void setResParameter(const cgcParameter::pointer& parameter, bool bSetForce) {SotpCallTable2::setParameter(parameter,bSetForce);}

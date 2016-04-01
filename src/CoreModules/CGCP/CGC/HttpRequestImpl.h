@@ -77,7 +77,7 @@ private:
 	virtual tstring getParameterValue(const tstring & sParamName, const char * sDefault = "") const
 	{
 		cgcValueInfo::pointer var = getParameter(sParamName);
-		return var.get()==NULL?sDefault:var->getStrValue();
+		return var.get()==NULL?(tstring)(sDefault):var->getStrValue();
 	}
 	virtual tstring getParameterValue(const tstring & sParamName, const tstring& sDefault) const
 	{

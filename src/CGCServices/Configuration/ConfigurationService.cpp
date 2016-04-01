@@ -67,7 +67,7 @@ public:
 		if (this->isServiceInited()) return true;
 
 		namespace fs = boost::filesystem;
-		fs::path pathFile(m_filename);
+		fs::path pathFile(m_filename.c_str());
 		//fs::path pathFile(m_filename, fs::native);
 		if (boost::filesystem::exists(pathFile))
 		{
@@ -98,39 +98,39 @@ protected:
 	virtual tstring get(const tstring& path, const tstring& defaultvalue) const
 	{
 		if (!isServiceInited()) return defaultvalue;
-		return m_ptree.get(path, defaultvalue);
+		return m_ptree.get(path.c_str(), defaultvalue.c_str());
 	}
 	virtual int get(const tstring& path, int defaultvalue) const
 	{
 		if (!isServiceInited()) return defaultvalue;
-		return m_ptree.get(path, defaultvalue);
+		return m_ptree.get(path.c_str(), defaultvalue);
 	}
 	virtual float get(const tstring& path, float defaultvalue) const
 	{
 		if (!isServiceInited()) return defaultvalue;
-		return m_ptree.get(path, defaultvalue);
+		return m_ptree.get(path.c_str(), defaultvalue);
 	}
 
 	virtual void set(const tstring& path, const tstring& value)
 	{
 		if (isServiceInited())
-			m_ptree.put(path, value);
+			m_ptree.put(path.c_str(), value.c_str());
 	}
 	virtual void set(const tstring& path, int value)
 	{
 		if (isServiceInited())
-			m_ptree.put(path, value);
+			m_ptree.put(path.c_str(), value);
 	}
 	virtual void set(const tstring& path, float value)
 	{
 		if (isServiceInited())
-			m_ptree.put(path, value);
+			m_ptree.put(path.c_str(), value);
 	}
 	// ?
 	virtual void del(const tstring& path)
 	{
 		if (isServiceInited())
-			m_ptree.erase(path);
+			m_ptree.erase(path.c_str());
 	}
 
 	virtual bool savefile(void)

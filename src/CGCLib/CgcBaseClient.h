@@ -78,7 +78,7 @@ public:
 	public:
 		typedef boost::shared_ptr<CIndexInfo> pointer;
 		//std::string m_sSessionId;
-		std::string m_sSslPassword;
+		tstring m_sSslPassword;
 
 		static CIndexInfo::pointer create(void)
 		{

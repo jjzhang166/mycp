@@ -91,7 +91,7 @@ protected:
 				return false;
 			pOutHost = varFind->toString();
 			std::transform(pOutHost.begin(), pOutHost.end(), pOutHost.begin(), tolower);
-			if (pOutHost.find("https:")!=tstring::npos)
+			if (pOutHost.find("https:")!=std::string::npos)
 				pOutIsSSL = true;
 			if (inParam->getMap().find("port", varFind))
 				pOutPort = varFind->toString();
@@ -113,8 +113,8 @@ protected:
 			// http://www.entboost.com/abc.csp?xxx=bbb
 			tstring sFullUrl = inParam->getStr();
 			//printf("**** url=%s\n",sFullUrl.c_str());
-			tstring::size_type find = sFullUrl.find("://");
-			if (find != tstring::npos)	// remove before http://
+			std::string::size_type find = sFullUrl.find("://");
+			if (find != std::string::npos)	// remove before http://
 			{
 				tstring sHttpHead = sFullUrl.substr(0,find);
 				std::transform(sHttpHead.begin(), sHttpHead.end(), sHttpHead.begin(), tolower);
@@ -124,14 +124,14 @@ protected:
 			}
 			// find url
 			find = sFullUrl.find("/");
-			if (find != tstring::npos)
+			if (find != std::string::npos)
 			{
 				pOutUrl = sFullUrl.substr(find);		// "/abc.csp?xxx=bbb"
 				sFullUrl = sFullUrl.substr(0,find);	// "www.entboost.com" OR "ip:port"
 			}else
 			{
 				find = sFullUrl.find("?");
-				if (find != tstring::npos)
+				if (find != std::string::npos)
 				{
 					pOutUrl = "/";
 					sFullUrl = sFullUrl.substr(0,find);	// "www.entboost.com" OR "ip:port"
@@ -142,7 +142,7 @@ protected:
 			}
 			// find port
 			find = sFullUrl.find(":");
-			if (find != tstring::npos)
+			if (find != std::string::npos)
 			{
 				pOutHost = sFullUrl.substr(0,find);	// "www.entboost.com" OR "ip"
 				pOutPort = sFullUrl.substr(find+1);
@@ -214,7 +214,16 @@ protected:
 
 			sHostIp.append(":");
 			sHostIp.append(sPort);			// default 80
-			return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
+			try
+			{
+				return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
+			}catch (const std::exception &)
+			{
+			}catch (const boost::exception &)
+			{
+			}catch(...)
+			{}	
+			return false;
 		}else if (function == "POST")
 		{
 			if (inParam.get() == NULL || outParam.get() == NULL) return false;
@@ -274,7 +283,16 @@ protected:
 			}
 			sHostIp.append(":");
 			sHostIp.append(sPort);			// default 80
-			return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
+			try
+			{
+				return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
+			}catch (const std::exception &)
+			{
+			}catch (const boost::exception &)
+			{
+			}catch(...)
+			{}	
+			return false;
 		}else
 		{
 			return false;
@@ -310,7 +328,7 @@ protected:
 					usleep(200000);
 #endif
 				}while ((++counter < 5*30) && !tcpClient->IsDisconnection() && tcpClient->GetReceiveData().empty());	// 30S
-				tstring::size_type responseSize = tcpClient->GetReceiveData().size();
+				std::string::size_type responseSize = tcpClient->GetReceiveData().size();
 				counter = 0;
 				while (++counter < 10 && responseSize > 0)	// wait more 5S
 				{
@@ -332,11 +350,11 @@ protected:
 				{
 					outParam->totype(cgcValueInfo::TYPE_VECTOR);
 					outParam->reset();
-					tstring::size_type find = sResponse.find(const_http_version);
-					if (find != tstring::npos)
+					std::string::size_type find = sResponse.find(const_http_version);
+					if (find != std::string::npos)
 					{
-						tstring::size_type find2 = sResponse.find("\r\n", find+const_http_version.size());
-						if (find2 != tstring::npos)
+						std::string::size_type find2 = sResponse.find("\r\n", find+const_http_version.size());
+						if (find2 != std::string::npos)
 						{
 							tstring sHttpState = sResponse.substr(find+const_http_version.size()+1, find2 - find - const_http_version.size()-1);
 							outParam->addVector(CGC_VALUEINFO(sHttpState));
@@ -350,10 +368,10 @@ protected:
 
 //					// 特殊处理，用于淘宝应用
 //					find = sResponse.find("top-bodylength: ", const_http_version.size());
-//					if (find == tstring::npos)
+//					if (find == std::string::npos)
 //					{
 						find = sResponse.find("Transfer-Encoding: chunked\r\n", const_http_version.size());
-						if (find != tstring::npos)
+						if (find != std::string::npos)
 						{
 							// 先简单处理，直接取出二个回车后一回车开始位置，到0回车结束位置
 //HTTP/1.1 200 OK
@@ -369,8 +387,8 @@ protected:
 							find = sResponse.find("\r\n\r\n", find+10);
 							// 后一回车开始位置
 							find = sResponse.find("\r\n", find+5);
-							const tstring::size_type findend = sResponse.find("\r\n0", find+2);
-							if (find != tstring::npos && findend != tstring::npos)
+							const std::string::size_type findend = sResponse.find("\r\n0", find+2);
+							if (find != std::string::npos && findend != std::string::npos)
 							{
 								const tstring sHttpData(sResponse.substr(find+2, findend-find-2));
 								outParam->addVector(CGC_VALUEINFO(sHttpData));
@@ -381,7 +399,7 @@ protected:
 						}else
 						{
 							find = sResponse.find("\r\n\r\n", const_http_version.size());
-							if (find != tstring::npos)
+							if (find != std::string::npos)
 							{
 								const tstring sHttpData(sResponse.substr(find+4));
 								outParam->addVector(CGC_VALUEINFO(sHttpData));
@@ -394,10 +412,10 @@ protected:
 //					{
 //						// 淘宝应用
 //						find = sResponse.find("<?xml", const_http_version.size());
-//						if (find != tstring::npos)
+//						if (find != std::string::npos)
 //						{
-//							tstring::size_type find2 = sResponse.find("<!--top", find);
-//							if (find2 == tstring::npos)
+//							std::string::size_type find2 = sResponse.find("<!--top", find);
+//							if (find2 == std::string::npos)
 //							{
 //								tstring sHttpData = sResponse.substr(find);
 //								outParam->operator +=(CGC_VALUEINFO(sHttpData));

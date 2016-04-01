@@ -26,6 +26,7 @@
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
 #include <ThirdParty/Boost/asio/TcpClient.h>
+#include <CGCBase/cgcSmartString.h>
 
 namespace cgc
 {

@@ -55,6 +55,7 @@ public:
 			delete m_pProcEventLoop;
 			m_pProcEventLoop = NULL;
 		}
+		m_pHandler.reset();
 	}
 	bool is_killed(void) const {return m_bKilled;}
 	bool is_start(void) const {return (m_pProcEventLoop != NULL);}

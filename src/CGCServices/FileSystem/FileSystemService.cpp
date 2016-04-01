@@ -114,110 +114,110 @@ protected:
 
 	virtual bool exists(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::exists(src_path);
 	}
 	virtual bool is_directory(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::is_directory(src_path);
 	}
 	virtual bool is_regular_file(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::is_regular_file(src_path);
 	}
 	virtual bool is_other(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::is_other(src_path);
 	}
 	virtual bool is_symlink(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::is_symlink(src_path);
 
 	}
 	virtual bool is_empty(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::is_empty(src_path);
 	}
 	virtual bool equivalent(const tstring & path1, const tstring & path2) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path1);
+		tpath src_path(path1.c_str());
 		//tpath src_path(path1, fs::native);
-		tpath des_path(path2);
+		tpath des_path(path2.c_str());
 		//tpath des_path(path2, fs::native);
 		return fs::equivalent(src_path, des_path);
 	}
 
 	virtual boost::uintmax_t file_size(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::file_size(src_path);
 	}
 	virtual std::time_t last_write_time(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::last_write_time(src_path);
 	}
 	virtual void last_write_time(const tstring & path, std::time_t new_time) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		fs::last_write_time(src_path, new_time);
 	}
 
 	virtual bool create_directory(const tstring & dir_path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(dir_path);
+		tpath src_path(dir_path.c_str());
 		//tpath src_path(dir_path, fs::native);
 		return fs::create_directory(src_path);
 	}
 	virtual void create_symlink(const tstring & to_path, const tstring & from_path) const {
 		namespace fs = boost::filesystem;
-		tpath toPath(to_path);
+		tpath toPath(to_path.c_str());
 		//tpath toPath(to_path, fs::native);
-		tpath fromPath(from_path);
+		tpath fromPath(from_path.c_str());
 		//tpath fromPath(from_path, fs::native);
 		fs::create_symlink(toPath, fromPath);
 	}
 
 	virtual bool remove(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::remove(src_path);
 	}
 	virtual bool remove_all(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath src_path(path);
+		tpath src_path(path.c_str());
 		//tpath src_path(path, fs::native);
 		return fs::remove_all(src_path);
 	}
 
 	virtual void rename(const tstring & from_path, const tstring & to_path) const {
 		namespace fs = boost::filesystem;
-		tpath fromPath(from_path);
+		tpath fromPath(from_path.c_str());
 		//tpath fromPath(from_path, fs::native);
-		tpath toPath(to_path);
+		tpath toPath(to_path.c_str());
 		//tpath toPath(to_path, fs::native);
 		return fs::rename(fromPath, toPath);
 	}
 	virtual void copy_file(const tstring & from_path, const tstring & to_path) const {
 		namespace fs = boost::filesystem;
-		tpath fromPath(from_path);
+		tpath fromPath(from_path.c_str());
 		//tpath fromPath(from_path, fs::native);
-		tpath toPath(to_path);
+		tpath toPath(to_path.c_str());
 		//tpath toPath(to_path, fs::native);
 		return fs::copy_file(fromPath, toPath);
 	}
@@ -234,7 +234,7 @@ protected:
 	}
 	virtual void current_path(const tstring & path) const {
 		namespace fs = boost::filesystem;
-		tpath currentPath(path);
+		tpath currentPath(path.c_str());
 		//tpath currentPath(path, fs::native);
 		return fs::current_path(currentPath);
 	}

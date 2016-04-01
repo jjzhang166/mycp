@@ -21,7 +21,7 @@
 #define __cgcuploadfile__head__
 
 #include <boost/shared_ptr.hpp>
-#include <string>
+#include "cgcSmartString.h"
 
 namespace cgc {
 
@@ -30,12 +30,12 @@ class cgcUploadFile
 public:
 	typedef boost::shared_ptr<cgcUploadFile> pointer;
 
-	void setName(const std::string& v) {m_name = v;}
-	const std::string& getName(void) const {return m_name;}
-	void setFileName(const std::string& v) {m_fileName = v;}
-	const std::string& getFileName(void) const {return m_fileName;}
-	void setContentType(const std::string& v) {m_contentType = v;}
-	const std::string& getContentType(void) const {return m_contentType;}
+	void setName(const tstring& v) {m_name = v;}
+	const tstring& getName(void) const {return m_name;}
+	void setFileName(const tstring& v) {m_fileName = v;}
+	const tstring& getFileName(void) const {return m_fileName;}
+	void setContentType(const tstring& v) {m_contentType = v;}
+	const tstring& getContentType(void) const {return m_contentType;}
 	void setFileSize(size_t v) {m_fileSize = v;}
 	size_t getFileSize(void) const {return m_fileSize;}
 
@@ -48,9 +48,9 @@ public:
 	{}
 
 private:
-	std::string m_name;
-	std::string m_fileName;
-	std::string m_contentType;
+	tstring m_name;
+	tstring m_fileName;
+	tstring m_contentType;
 	size_t m_fileSize;
 	tstring m_filepath;
 };

@@ -33,15 +33,15 @@ class cgcString
 public:
 	typedef boost::shared_ptr<cgcString> pointer;
 
-	virtual std::string W2Char(const wchar_t * strSource) const = 0;
+	virtual tstring W2Char(const wchar_t * strSource) const = 0;
 	virtual std::wstring Char2W(const char * strSource) const = 0;
 
 #ifdef WIN32
 	// CP_ACP CP_UTF8 ...
-	virtual std::string convert(const char * strSource, int sourceCodepage, int targetCodepage) const = 0;
+	virtual tstring convert(const char * strSource, int sourceCodepage, int targetCodepage) const = 0;
 #endif
 
-	virtual std::string format(const char * format,...) const = 0; // MAX_FORMAT_SIZE
+	virtual tstring format(const char * format,...) const = 0; // MAX_FORMAT_SIZE
 	virtual const tstring & replace(tstring & strSource, const tstring & strFind, const tstring &strReplace) const = 0;
 	virtual const tstring & toUpper(tstring & strSource) const = 0;
 	virtual const tstring & toLower(tstring & strSource) const = 0;

@@ -69,7 +69,7 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	CCgcAddress cgcAddress = CCgcAddress(sCgcServerAddr, CCgcAddress::ST_TCP);
 	const unsigned short nPort = (unsigned short)cgcAddress.getport();
 	const tstring sInIp = cgcAddress.getip();
-	std::string sIp;
+	tstring sIp;
 	for (int i=0;i<5;i++)
 	{
 		sIp = CgcTcpClient::GetHostIp(sInIp.c_str(),"");
