@@ -1697,6 +1697,12 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 					else
 						statusCode = m_fpHttpServer == NULL ? STATUS_CODE_503 : m_fpHttpServer(requestImpl, responseImpl);
 				}while (statusCode == STATUS_CODE_200 && ((CHttpResponseImpl*)responseImpl.get())->getForward());
+
+				//if (!requestImpl->isKeepAlive() && sessionImpl->getMaxInactiveInterval()>1)
+				//{
+				//	//printf("**** isKeepAlive is false (sid=%s)\n",sessionImpl->getId().c_str());
+				//	sessionImpl->setMaxInactiveInterval(1);
+				//}
 			}
 		}catch(std::exception const &e)
 		{

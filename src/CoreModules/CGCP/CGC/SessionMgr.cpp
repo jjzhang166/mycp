@@ -1032,9 +1032,9 @@ void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidLis
 			// SESSION ÒÑ¾­Ê§Ð§
 			if (timeout > pSessionImpl->getMaxInactiveInterval()*60)
 			{
-				//pSessionImplTimeout =  pSessionImpl;
 				pRemoveList.push_back(pSessionImpl);
-				break;
+				//pSessionImplTimeout =  pSessionImpl;
+				//break;
 			}
 		}
 	}
