@@ -329,7 +329,7 @@ void CGCApp::AppInit(bool bNTService)
 	m_bInitedApp = true;
 	m_bExitLog = false;
 	boost::thread_attributes attrs;
-	attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+	attrs.set_stack_size(CGC_THREAD_STACK_MAX);	// CGC_THREAD_STACK_MIN
 	m_pProcSessionTimeout = new boost::thread(attrs,boost::bind(&do_sessiontimeout, this));
 	m_pProcDataResend = new boost::thread(attrs,boost::bind(&do_dataresend, this));
 }
@@ -747,7 +747,7 @@ void CGCApp::LoadSystemParams(void)
 
 bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
 {
-	const int nServerPort = (int)pUserData;
+	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
 	if (portApp.get() == NULL)
 	{
@@ -792,7 +792,7 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 }
 void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
 {
-	const int nServerPort = (int)pUserData;
+	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
 	if (portApp.get() == NULL)
 	{
@@ -812,7 +812,7 @@ void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc:
 }
 bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData)
 {
-	const int nServerPort = (int)pUserData;
+	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
 	if (portApp.get() == NULL)
 	{
@@ -1697,7 +1697,6 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 					else
 						statusCode = m_fpHttpServer == NULL ? STATUS_CODE_503 : m_fpHttpServer(requestImpl, responseImpl);
 				}while (statusCode == STATUS_CODE_200 && ((CHttpResponseImpl*)responseImpl.get())->getForward());
-
 				//if (!requestImpl->isKeepAlive() && sessionImpl->getMaxInactiveInterval()>1)
 				//{
 				//	//printf("**** isKeepAlive is false (sid=%s)\n",sessionImpl->getId().c_str());
@@ -1845,7 +1844,8 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				if (pRtpSessionTemp.get()!=NULL)
 					pRtpSession = pRtpSessionTemp;
 			}
-			pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
+			pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)&serverPort);
+			//pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
 		}else if (pcgcParser->isRtpData())
 		{
 			const int serverPort = pcgcRemote->getServerPort();

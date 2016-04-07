@@ -11,8 +11,8 @@ THESOURCES = \
 
 CGCP_SOURCES = $(THESOURCES)
 
-AM_CFLAGS = -lboost_system -lboost_thread -lboost_filesystem -ldl -lssl -lcrypto
-AM_CXXFLAGS = -lboost_system -lboost_thread -lboost_filesystem -ldl -lssl -lcrypto
+AM_CFLAGS = -g -lboost_system -lboost_thread -lboost_filesystem -ldl -lssl -lcrypto
+AM_CXXFLAGS = -g -lboost_system -lboost_thread -lboost_filesystem -ldl -lssl -lcrypto
 
 CGCP_LDADD = $(libdir)/libCGCLib.a $(libdir)/libCGCClass.a
 CGCP_adir = /usr/include

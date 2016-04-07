@@ -1867,7 +1867,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			{
 				bool bConnectError = true;
 				const CRequestPassInfo::pointer& pRequestPassInfo = pFastcgiRequestInfo->GetRequestPassInfo();
-				if (pRequestPassInfo->GetProcessId()>0)
+				//if (pRequestPassInfo->GetProcessId()>0)
 				{
 					//printf("**** restart fastcgi\n");
 					pRequestPassInfo->KillProcess();

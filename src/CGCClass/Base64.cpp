@@ -76,7 +76,7 @@ unsigned int Base64Encode( char * const aDest, const unsigned char * aSrc, unsig
 unsigned int Base64Decode( unsigned char * const aDest, const char * aSrc )
 {
     unsigned char * p = aDest;
-    unsigned int             i, n = strlen( aSrc );
+    unsigned int             i, n = (unsigned int)strlen( aSrc );
     unsigned char   c, t;
 
     for ( i = 0; i < n; i++ )

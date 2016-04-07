@@ -402,7 +402,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				try
 				{
-					m_nCallId = cgc_atoi64(sDest.c_str());
+					m_nCallId = (unsigned long)cgc_atoi64(sDest.c_str());
 				}catch(...)
 				{
 					m_nCallId = 0;
@@ -439,7 +439,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 				try
 				{
-					m_nSign = cgc_atoi64(sDest.c_str());
+					m_nSign = (unsigned long)cgc_atoi64(sDest.c_str());
 				}catch(...)
 				{
 					m_nSign = 0;
@@ -472,10 +472,11 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 
 				// Get Parameter Value Length.
 				tstring sTemp = sCurLineBuffer.substr(nFindPL+4);
-				long length = 0;
+				int length = 0;
 				try
 				{
-					length = cgc_atoi64(sTemp.c_str());
+					length = atoi(sTemp.c_str());
+					//length = (long)cgc_atoi64(sTemp.c_str());
 				}catch(...)
 				{
 					length = 0;
@@ -559,7 +560,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				unsigned int attachSize = 0;
 				try
 				{
-					attachSize = cgc_atoi64(sTemp.c_str());
+					attachSize = (unsigned int)cgc_atoi64(sTemp.c_str());
 				}catch(...)
 				{
 					attachSize = 0;
@@ -730,7 +731,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
 			try
 			{
-				m_nCallId = cgc_atoi64(sDest.c_str());
+				m_nCallId = (unsigned long)cgc_atoi64(sDest.c_str());
 			}catch(...)
 			{
 				m_nCallId = 0;
@@ -767,7 +768,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			std::string sDest(pLineBuffer+leftIndex, pNextLineFind-pLineBuffer-leftIndex-const_r_offset);
 			try
 			{
-				m_nSign = cgc_atoi64(sDest.c_str());
+				m_nSign = (unsigned long)cgc_atoi64(sDest.c_str());
 			}catch(...)
 			{
 				m_nSign = 0;
@@ -807,10 +808,11 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 
 			// Get Parameter Value Length.
 			tstring sTemp = sCurLineBuffer.substr(nFindPL+4);
-			long length = 0;
+			int length = 0;
 			try
 			{
-				length = cgc_atoi64(sTemp.c_str());
+				length = atoi(sTemp.c_str());
+				//length = cgc_atoi64(sTemp.c_str());
 			}catch(...)
 			{
 				length = 0;
@@ -893,7 +895,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 			unsigned int attachSize = 0;
 			try
 			{
-				attachSize = cgc_atoi64(sTemp.c_str());
+				attachSize = (unsigned int)cgc_atoi64(sTemp.c_str());
 			}catch(...)
 			{
 				attachSize = 0;
