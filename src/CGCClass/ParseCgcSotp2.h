@@ -135,6 +135,9 @@ public:
 
 protected:
 	// 把SOTP协议，改到2.0版本
+#ifdef WIN32
+	static std::string str_convert(const char * strSource, int sourceCodepage, int targetCodepage);
+#endif
 	const char * parseOneLine(const char * pLineBuffer,size_t nBufferSize);
 	bool sotpCompare(const char * pBuffer, const char * pCompare, int & leftIndex);
 

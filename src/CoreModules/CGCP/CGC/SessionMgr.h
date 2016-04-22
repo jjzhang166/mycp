@@ -27,6 +27,7 @@
 #include "HttpResponseImpl.h"
 #include <CGCBase/cgcSeqInfo.h>
 
+#define DEFAULT_HTTP_SESSIONID_LENGTH 32
 #define MAX_SEQ_MASKS_SIZE 500//120
 
 //#define USES_MULTI_REMOTE_SESSION

@@ -585,11 +585,13 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 	bool ret = IsComplete((const char*)requestData,requestSize,bGetHeader);
 	if (bGetHeader)
 	{
-		const tstring sConnection = getHeader(Http_Connection, "");
-		m_keepAlive = sConnection == "Keep-Alive" || sConnection == "keep-alive";
-		tstring sKeepAlive = getHeader(Http_KeepAlive, "0");
+		tstring sConnection(getHeader(Http_Connection, ""));
+		std::transform(sConnection.begin(), sConnection.end(), sConnection.begin(), ::tolower);
+		m_keepAlive = sConnection == "keep-alive"?true:false;
+		const tstring sKeepAlive(getHeader(Http_KeepAlive, "0"));
 		m_keepAliveInterval = atoi(sKeepAlive.c_str());
 		m_sReqContentType = getHeader(Http_ContentType, "");
+		std::transform(m_sReqContentType.begin(), m_sReqContentType.end(), m_sReqContentType.begin(), ::tolower);
 		m_host = getHeader(Http_Host, "");
 		m_sMyCookieSessionId = getCookie(Http_CookieSessionId, "");
 		const tstring sRange = getHeader(Http_Range, "");

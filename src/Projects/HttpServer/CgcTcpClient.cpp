@@ -107,12 +107,15 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	m_tcpClient->connect(m_ipService->ioservice(), endpoint);
 #endif
 	m_ipService->start(shared_from_this());
-	while (!m_connectReturned)
+	for (int i=0; i<500; i++)	// max 3S
+	{
+		if (m_connectReturned) break;
 #ifdef WIN32
-		Sleep(100);
+		Sleep(10);
 #else
-		usleep(100000);
+		usleep(10000);
 #endif
+	}
 
 	//if (!m_bDisconnect)
 	//{

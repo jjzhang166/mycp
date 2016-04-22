@@ -695,6 +695,7 @@ ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool
 
 bool CSessionImpl::ProcessDataResend(void)
 {
+	if (m_pcgcRemote->isInvalidate()) return false;
 	const time_t tNow = time(0);
 	if (m_tLastSeqInfoTime==0 || m_tLastSeqInfoTime==tNow)
 	//if (m_tLastSeqInfoTime==0 || (m_tLastSeqInfoTime+1)>=tNow)
@@ -989,6 +990,7 @@ void CSessionMgr::onRemoteClose(unsigned long remoteId, int nErrorCode)
 		//	this->RemoveSessionImpl(pSessionImpl);
 		//}
 	}
+	m_mapRemoteSessionId.remove(remoteId);
 #endif
 }
 
@@ -996,12 +998,13 @@ void CSessionMgr::onRemoteClose(unsigned long remoteId, int nErrorCode)
 bool CSessionMgr::ProcDataResend(void)
 {
 	// lock
+	CSessionImpl * pSessionImpl = NULL;
 	BoostReadLock rdlock(m_mapSessionImpl.mutex());
 	CLockMap<tstring, cgcSession::pointer>::iterator pIter;
 	for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
 	{
-		cgcSession::pointer sessionImpl = pIter->second;
-		CSessionImpl * pSessionImpl = (CSessionImpl*)sessionImpl.get();
+		const cgcSession::pointer& sessionImpl = pIter->second;
+		pSessionImpl = (CSessionImpl*)sessionImpl.get();
 		int nResendCount = 0;
 		while (pSessionImpl->ProcessDataResend() && (nResendCount++)<50)
 		{
@@ -1018,11 +1021,12 @@ void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidLis
 	//cgcSession::pointer pSessionImplTimeout;
 	std::vector<cgcSession::pointer> pRemoveList;
 	{
+		//printf("**** m_mapSessionImpl.size()=%d, m_mapRemoteSessionId.size()=%d\n",(int)m_mapSessionImpl.size(),(int)m_mapRemoteSessionId.size());
 		BoostReadLock rdlock(m_mapSessionImpl.mutex());
 		CLockMap<tstring, cgcSession::pointer>::iterator pIter;
 		for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
 		{
-			cgcSession::pointer pSessionImpl = pIter->second;
+			const cgcSession::pointer& pSessionImpl = pIter->second;
 			((CSessionImpl*)pSessionImpl.get())->ProcHoldResponseTimeout();	// ¥¶¿Ì≥¨ ±hold response
 			// local time error
 			if (now < pSessionImpl->getLastAccessedtime())

@@ -324,7 +324,7 @@ private:
 		//if (m_connection.get()!=NULL)
 		//{
 		//	unsigned long nRemoteId = m_connection->getId();
-		//	printf("***************** invalidate:%d\n",nRemoteId);
+		//	printf("***************** invalidate:%lu, close=%d\n",nRemoteId,(int)(bClose?1:0));
 		//}
 		try
 		{
@@ -358,7 +358,7 @@ const int ATTRIBUTE_NAME	= 1;
 //const int EVENT_ATTRIBUTE	= 2;
 
 #define MAIN_MGR_EVENT_ID	1
-#define MIN_EVENT_THREAD	6
+#define MIN_EVENT_THREAD	10
 #define MAX_EVENT_THREAD	600
 
 //static unsigned int theCurrentIdEvent	= 0;
@@ -580,6 +580,7 @@ public:
 		sem_init(&m_semDoStop, 0, 0);
 #endif // WIN32
 		//m_tNowTime = time(0);
+		m_tProcessReceDataTime = 0;
 	}
 	virtual ~CTcpServer(void)
 	{
@@ -790,7 +791,6 @@ public:
 		m_bServiceInited = false;
 		theApplication->log(LOG_INFO, _T("**** [%s:%d] Stop succeeded ****\n"), serviceName().c_str(), m_commPort);
 	}
-
 	
 	CLockMap<unsigned long,CRemoteWaitData::pointer> m_pRecvRemoteIdWaitList;
 	CLockMap<unsigned long,bool> m_pRecvRemoteIdList;
@@ -798,17 +798,22 @@ public:
 protected:
 	// cgcOnTimerHandler
 	//time_t m_tNowTime;
+	time_t m_tProcessReceDataTime;
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
 		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)	// 这是管理线程；
 		{
 			const size_t nSize = m_listMgr.size();
-			if (nSize>(m_nCurrentThread+20))
+			const bool bCreateNewThread = (nSize>0 && m_tProcessReceDataTime>0 && (time(0)-m_tProcessReceDataTime)>1)?true:false;
+			if (bCreateNewThread || nSize>(m_nCurrentThread+20))
 			{
+				if (m_nCurrentThread)
+					m_tProcessReceDataTime = 0;
 				m_nNullEventDataCount = 0;
 				m_nFindEventDataCount++;
-				if (m_nCurrentThread<MAX_EVENT_THREAD && (nSize>(MAX_EVENT_THREAD*2) || (nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100))	// 100*10ms=1S
+				if (bCreateNewThread || 
+					(m_nCurrentThread<MAX_EVENT_THREAD && (nSize>(MAX_EVENT_THREAD*2) || (nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100)))	// 100*10ms=1S
 				{
 					m_nFindEventDataCount = 0;
 					const unsigned int nNewTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+(++m_nCurrentThread);
@@ -819,7 +824,7 @@ protected:
 			{
 				m_nFindEventDataCount = 0;
 				m_nNullEventDataCount++;
-				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || (nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>400) || m_nNullEventDataCount>500))	// 300*10ms=3S
+				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || (nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>500) || m_nNullEventDataCount>600))	// 300*10ms=3S
 				{
 					m_nNullEventDataCount = 0;
 					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;
@@ -871,9 +876,11 @@ protected:
 			{
 				m_pCommEventDataPool.Idle();
 			}
+			m_tProcessReceDataTime = 0;
 			return;
 		}
 
+		m_tProcessReceDataTime = time(0);
 		switch (pCommEventData->getCommEventType())
 		{
 		case CCommEventData::CET_Accept:

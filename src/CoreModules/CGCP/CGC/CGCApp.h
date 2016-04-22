@@ -133,7 +133,7 @@ public:
 	bool isExitLog(void) const {return m_bExitLog;}
 	void ProcNotKeepAliveRmote(void);
 	void ProcLastAccessedTime(void);
-	bool ProcDataResend(void) {return this->m_mgrSession.ProcDataResend();}
+	bool ProcDataResend(void) {return this->m_mgrSession1.ProcDataResend();}
 	void ProcCheckParserPool(void);
 
 	void AppInit(bool bNTService = true);
@@ -190,7 +190,7 @@ private:
 	virtual const tstring & getServerAddr(void) const {return m_parseDefault.getCgcpAddr();}
 	virtual const tstring & getServerCode(void) const {return m_parseDefault.getCgcpCode();}
 	virtual int getServerRank(void) const {return m_parseDefault.getCgcpRank();}
-	virtual cgcSession::pointer getSession(const tstring & sessionId) const {return m_mgrSession.GetSessionImpl(sessionId);}
+	virtual cgcSession::pointer getSession(const tstring & sessionId) const {return sessionId.size()==DEFAULT_HTTP_SESSIONID_LENGTH?m_mgrSession2.GetSessionImpl(sessionId):m_mgrSession1.GetSessionImpl(sessionId);}
 	virtual cgcResponse::pointer getLastResponse(const tstring & sessionId,const tstring& moduleName) const;
 	virtual cgcResponse::pointer getHoldResponse(const tstring& sessionId,unsigned long remoteId);
 
@@ -241,7 +241,8 @@ private:
 	cgcAttributes::pointer m_attributes;
 
 	CModuleImpl m_logModuleImpl;
-	CSessionMgr m_mgrSession;
+	CSessionMgr m_mgrSession1;
+	CSessionMgr m_mgrSession2;	// for http
 	//CHttpSessionMgr m_mgrHttpSession;
 
 	tstring m_sModulePath;

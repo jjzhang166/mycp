@@ -86,6 +86,7 @@ public:
 
 	std::string m_sFcgiPassIp;
 	int m_nFcgiPassPort;
+	boost::shared_mutex m_mutex; 
 	int m_nCurrentFcgiPassPortIndex;
 
 	CFastcgiInfo(void){}

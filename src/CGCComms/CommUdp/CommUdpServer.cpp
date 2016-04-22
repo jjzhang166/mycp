@@ -178,7 +178,7 @@ const int ATTRIBUTE_NAME	= 1;
 //static unsigned int theCurrentIdEvent	= 0;
 
 #define MAIN_MGR_EVENT_ID	1
-#define MIN_EVENT_THREAD	6
+#define MIN_EVENT_THREAD	10
 #define MAX_EVENT_THREAD	600
 
 //class CIDEvent : public cgcObject
@@ -233,6 +233,7 @@ public:
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 	{
 		m_tNowTime = time(0);
+		m_tProcessReceDataTime = 0;
 	}
 	virtual ~CUdpServer(void)
 	{
@@ -345,6 +346,7 @@ private:
 	// cgcOnTimerHandler
 
 	time_t m_tNowTime;
+	time_t m_tProcessReceDataTime;
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
@@ -360,11 +362,15 @@ private:
 				eraseIsInvalidated();
 			}
 			const int nSize = (int)m_listMgr.size();
-			if (nSize>(m_nCurrentThread+20))
+			const bool bCreateNewThread = (nSize>0 && m_tProcessReceDataTime>0 && (time(0)-m_tProcessReceDataTime)>1)?true:false;
+			if (bCreateNewThread || nSize>(m_nCurrentThread+20))
 			{
+				if (m_nCurrentThread)
+					m_tProcessReceDataTime = 0;
 				m_nNullEventDataCount = 0;
 				m_nFindEventDataCount++;
-				if (m_nCurrentThread<MAX_EVENT_THREAD && (nSize>(MAX_EVENT_THREAD*2) || (nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100))	// 100*10ms=1S
+				if (m_nCurrentThread ||
+					(m_nCurrentThread<MAX_EVENT_THREAD && (nSize>(MAX_EVENT_THREAD*2) || (nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100)))	// 100*10ms=1S
 				{
 					m_nFindEventDataCount = 0;
 					const unsigned int nNewTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+(++m_nCurrentThread);
@@ -375,7 +381,7 @@ private:
 			{
 				m_nFindEventDataCount = 0;
 				m_nNullEventDataCount++;
-				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || (nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>400) || m_nNullEventDataCount>500))	// 300*10ms=3S
+				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || (nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>500) || m_nNullEventDataCount>600))	// 300*10ms=3S
 				{
 					m_nNullEventDataCount = 0;
 					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;
@@ -393,9 +399,11 @@ private:
 			{
 				m_pCommEventDataPool.Idle();
 			}
+			m_tProcessReceDataTime = 0;
 			return;
 		}
 
+		m_tProcessReceDataTime = time(0);
 		switch (pCommEventData->getCommEventType())
 		{
 		case CCommEventData::CET_Recv:

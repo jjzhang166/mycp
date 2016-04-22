@@ -107,9 +107,12 @@ int CHttpResponseImpl::sendResponse(bool bSendForce)
 		if (pSendLockTemp)
 			delete pSendLockTemp;
 		const int ret = m_cgcRemote->sendData((const unsigned char*)responseData, outSize);
-		if (getStatusCode() != STATUS_CODE_206)
+		const Http_StatusCode nHttpStatusCode = getStatusCode();
+		if (nHttpStatusCode != STATUS_CODE_206 && nHttpStatusCode != STATUS_CODE_100)
 			reset();
 		return ret;
+	}catch (const boost::exception &)
+	{
 	}catch (const std::exception &)
 	{
 	}catch (...)
