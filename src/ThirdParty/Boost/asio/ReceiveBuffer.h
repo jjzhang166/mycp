@@ -2,7 +2,7 @@
 #ifndef __ReceiveBuffer_h__
 #define __ReceiveBuffer_h__
 
-const size_t Max_ReceiveBuffer_ReceiveSize	= 16*1024;
+const size_t Max_ReceiveBuffer_ReceiveSize	= 64*1024;	// 16*1024
 
 //////////////////////////////////////////////
 // ReceiveBuffer class

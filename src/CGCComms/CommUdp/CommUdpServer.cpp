@@ -262,6 +262,7 @@ public:
 		// ??
 		//m_socket.setMaxBufferSize(10*1024);
 		//m_socket.setUnusedSize(0, false);
+		m_socket.setMaxBufferSize(theIoReceiveBufferSize*1024);
 		m_socket.setPoolSize(20,500);
 		//m_socket.setAutoReturnPoolEndPoint(false);
 		if (m_ioservice.get() == NULL)

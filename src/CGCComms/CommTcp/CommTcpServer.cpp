@@ -19,6 +19,7 @@
 
 // CommTcpServer.cpp : Defines the exported functions for the DLL application.
 // 
+//#define USES_TCP_TEST_CONNECT
 
 #ifdef WIN32
 #pragma warning(disable:4018 4267 4311 4996)
@@ -58,7 +59,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <ThirdParty/stl/lockmap.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/TcpAcceptor.h>
+#ifdef USES_TCP_TEST_CONNECT
 #include <ThirdParty/Boost/asio/TcpClient.h>
+#endif
 using namespace cgc;
 
 #include "../CgcRemoteInfo.h"
@@ -380,6 +383,7 @@ bool FileIsExist(const char* pFile)
 	return true;
 }
 //#define USES_PRINT_DEBUG
+#ifdef USES_TCP_TEST_CONNECT
 class CTcpTestConnect
 	: public TcpClient_Handler
 	, public boost::enable_shared_from_this<CTcpTestConnect>
@@ -487,8 +491,8 @@ private:
 	IoService::pointer m_ipService;
 	TcpClient::pointer m_tcpClient;
 	boost::asio::ssl::context * m_sslctx;
-
 };
+#endif
 
 class CRemoteWaitData
 {
