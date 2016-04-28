@@ -132,6 +132,9 @@ int main(int argc, char* argv[])
 	const std::string sProgram(argv[0]);
 	bool bService = false;
 	bool bProtect = false;
+#ifdef WIN32
+	bool bSingleProcess = false;
+#endif
 	//int nWaitSeconds=0;
 	if (argc>1)
 	{
@@ -149,6 +152,11 @@ int main(int argc, char* argv[])
 			//	nWaitSeconds = atoi(argv[i+1]);
 			//	//printf("******* nWaitSeconds = %d\n",nWaitSeconds);
 			//	i++;
+#ifdef WIN32
+			}else if (sParam == "-s")
+			{
+				bSingleProcess = true;
+#endif
 			}
 		}
 	}
@@ -189,7 +197,7 @@ int main(int argc, char* argv[])
 			sleep(1);
 #endif
 			const time_t tCurrentTime = time(0);
-			if (tStartTime+10>tCurrentTime)
+			if (tStartTime+20>tCurrentTime)
 				continue;
 			FILE * pfile = fopen(sProtectDataFile.c_str(),"r");
 			if (pfile==NULL)
@@ -243,7 +251,10 @@ int main(int argc, char* argv[])
 			fwrite(lpszBuffer,1,strlen(lpszBuffer),pfile);
 			fclose(pfile);
 #ifdef WIN32
-			ShellExecute(NULL,"open",sProgram.c_str(),"-P",sModulePath.c_str(),SW_HIDE);
+			if (!bSingleProcess)
+			{
+				ShellExecute(NULL,"open",sProgram.c_str(),"-P",sModulePath.c_str(),SW_HIDE);
+			}
 #else
 			sprintf(lpszBuffer,"\"%s\" -P &",sProgram.c_str());
 			system(lpszBuffer);
