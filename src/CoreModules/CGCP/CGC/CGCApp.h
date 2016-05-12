@@ -182,7 +182,7 @@ private:
 	virtual HTTP_STATUSCODE executeService(const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult);
 
 	// cgcSystem handler
-	virtual cgcParameterMap::pointer getInitParameters(void) const {return m_systemParams.getParameters();}
+	virtual cgcParameterMap::pointer getInitParameters(void) const;
 	//virtual cgcCDBCInfo::pointer getCDBCInfo(const tstring& name) const {return m_cdbcs.getCDBCInfo(name);}
 
 	virtual const tstring & getServerPath(void) const {return m_sModulePath;}
@@ -235,6 +235,8 @@ private:
 	CLockMap<int,CSotpRtpSession::pointer> m_pRtpSession;
 	//CSotpRtpSession m_pRtpSession;
 
+	//
+	time_t m_tLastSystemParams;
 	XmlParseParams m_systemParams;
 	XmlParseCdbcs m_cdbcs;
 	CDataServiceMgr m_cdbcServices;

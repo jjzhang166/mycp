@@ -94,6 +94,7 @@ CGCApp::CGCApp(const tstring & sPath)
 //#endif
 	//m_pRtpSession.SetSotpRtpCallback((CSotpRtpCallback*)this);
 	m_logModuleImpl.setModulePath(m_sModulePath);
+	m_tLastSystemParams = 0;
 }
 
 CGCApp::~CGCApp(void)
@@ -733,9 +734,9 @@ void CGCApp::LoadSystemParams(void)
 {
 	// init parameter
 	tstring xmlFile(m_sModulePath);
-	xmlFile.append(_T("/conf/params.xml"));
-	m_systemParams.load(xmlFile.c_str());
-	m_logModuleImpl.log(LOG_DEBUG, _T("SystemParams = %d\n"), m_systemParams.getParameters()->size());
+	//xmlFile.append(_T("/conf/params.xml"));
+	//m_systemParams.load(xmlFile.c_str());
+	//m_logModuleImpl.log(LOG_DEBUG, _T("SystemParams = %d\n"), m_systemParams.getParameters()->size());
 
 	xmlFile = m_sModulePath + "/conf/cdbcs.xml";
 	namespace fs = boost::filesystem;
@@ -754,6 +755,29 @@ void CGCApp::LoadSystemParams(void)
 		m_parseWeb.load(xmlFile);
 		m_logModuleImpl.log(LOG_DEBUG, _T("Servlets = %d\n"), m_parseWeb.m_servlets.size());
 	}
+}
+
+cgcParameterMap::pointer CGCApp::getInitParameters(void) const
+{
+	const tstring xmlFile = m_sModulePath + "/conf/params.xml";
+	namespace fs = boost::filesystem;
+	fs::path src_path(xmlFile.string());
+	const time_t lastTime = fs::last_write_time(src_path);
+	cgcParameterMap::pointer result =  m_systemParams.getParameters();
+	if (lastTime!=m_tLastSystemParams)
+	//if (result->empty() || lastTime!=m_tLastSystemParams)
+	{
+		CGCApp * pOwner = const_cast<CGCApp*>(this);
+		pOwner->m_tLastSystemParams = lastTime;
+		pOwner->m_systemParams.load(xmlFile.c_str());
+		result =  pOwner->m_systemParams.getParameters();
+		pOwner->m_logModuleImpl.log(LOG_DEBUG, _T("SystemParams = %d\n"), m_systemParams.getParameters()->size());
+		//const_cast<time_t&>(m_tLastSystemParams) = lastTime;
+		//const_cast<XmlParseParams&>(m_systemParams).load(xmlFile.c_str());
+		//result =  m_systemParams.getParameters();
+		//const_cast<CModuleImpl&>(m_logModuleImpl).log(LOG_DEBUG, _T("SystemParams = %d\n"), m_systemParams.getParameters()->size());
+	}
+	return result;
 }
 
 bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)

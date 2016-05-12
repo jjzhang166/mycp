@@ -53,10 +53,10 @@ using namespace cgc;
 //#pragma comment(lib,"libmysql.lib")
 //#endif // WIN32
 
-my_ulonglong GetRowsNumber(MYSQL_RES * res)
-{
-	return mysql_num_rows(res);
-}
+//my_ulonglong GetRowsNumber(MYSQL_RES * res)
+//{
+//	return mysql_num_rows(res);
+//}
 
 class CCDBCResultSet
 {
@@ -154,6 +154,7 @@ public:
 			m_resultset = NULL;
 		}
 		m_rows = 0;
+		m_fields = 0;
 		//try
 		//{
 		//	if (m_resultset)
@@ -176,10 +177,11 @@ public:
 	//CCDBCResultSet(sql::ResultSet * resultset, sql::Statement * stmt)
 	//	: m_resultset(resultset), m_stmt(stmt)//, m_currentIndex(0)
 	//{}
-	CCDBCResultSet(CMysqlSink* pSink,MYSQL_RES * resultset)
-		: m_pSink(pSink),m_resultset(resultset), m_rows(0)
+	CCDBCResultSet(CMysqlSink* pSink,MYSQL_RES * resultset, cgc::bigint nRows)
+		: m_pSink(pSink),m_resultset(resultset), m_rows(nRows), m_fields(0)
 	{
-		m_rows = mysql_num_rows(m_resultset);
+		//m_rows = mysql_num_rows(m_resultset);
+		m_fields = mysql_num_fields(m_resultset);
 	}
 	virtual ~CCDBCResultSet(void)
 	{
@@ -246,7 +248,7 @@ private:
 	cgc::bigint		m_currentIndex;
 };
 
-#define CDBC_RESULTSET(s,r) CCDBCResultSet::pointer(new CCDBCResultSet(s,r))
+#define CDBC_RESULTSET(s,rs,rows) CCDBCResultSet::pointer(new CCDBCResultSet(s,rs,rows))
 
 const int escape_in_size = 2;
 const tstring escape_in[] = {"''","\\\\"};
@@ -741,7 +743,7 @@ private:
 			if (rows > 0)
 			{
 				outCookie = (int)resultset;
-				m_results.insert(outCookie, CDBC_RESULTSET(pSink,resultset));
+				m_results.insert(outCookie, CDBC_RESULTSET(pSink,resultset,rows));
 			}else
 			{
 				mysql_free_result(resultset);

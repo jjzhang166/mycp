@@ -547,6 +547,7 @@ public:
 			sprintf(lpszBuffer,"php-cgi.exe -b %s -c php.ini",pRequestPassInfo->GetFastcgiPass().c_str());
 		else
 			sprintf(lpszBuffer,"\"%s/php-cgi.exe\" -b %s -c \"%s/php.ini\"",thePHPFastcgiInfo->m_sFastcgiPath.c_str(),pRequestPassInfo->GetFastcgiPass().c_str(),thePHPFastcgiInfo->m_sFastcgiPath.c_str());
+		//printf("*** CreateRequestPassInfoProcess... (%s)\n",lpszBuffer);
 		PROCESS_INFORMATION pi;
 		STARTUPINFO si;
 		memset(&si,0,sizeof(si));
@@ -1035,6 +1036,12 @@ public:
 	{}
 };
 
+const int const_one_hour_seconds = 60*60;
+const int const_one_day_seconds = 24*const_one_hour_seconds;
+const int const_memory_size = 50*1024*1024;		// max 50MB
+//const int const_max_size = 120*1024*1024;		// max 120MB	// 50
+unsigned int theMaxSize = 120*1024*1024;		// max 120MB	// 50
+
 CLockMap<tstring,CContentTypeInfo::pointer> theContentTypeInfoList;
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
@@ -1237,8 +1244,9 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theContentTypeInfoList.insert("flv",CContentTypeInfo::create("video/x-flv",true));
 	theContentTypeInfoList.insert("mkv",CContentTypeInfo::create("video/x-matroska",true));
 
+	theMaxSize = (unsigned int)initParameters->getParameterValue("max-download-size", 120)*1024*1024;
 	//theFastcgiPHPServer = initParameters->getParameterValue("fast_cgi_php_server");
-	theEnableDataSource = initParameters->getParameterValue("enable-datasource", 0)==1?true:false;
+	theEnableDataSource = initParameters->getParameterValue("enable-datasource", (int)0)==1?true:false;
 #ifdef USES_BODB_SCRIPT
 	if (theEnableDataSource)
 	{
@@ -1492,11 +1500,6 @@ void insertScriptItem(const tstring& code, const tstring & sFileNameTemp, const 
 	}
 }
 #endif
-
-const int const_one_hour_seconds = 60*60;
-const int const_one_day_seconds = 24*const_one_hour_seconds;
-const int const_memory_size = 50*1024*1024;		// max 50MB
-const int const_max_size = 50*1024*1024;		// max 50MB	// 50
 
 void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTime, bool bIsImageOrBinary)
 {
@@ -1890,6 +1893,11 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					pRequestPassInfo->KillProcess();
 					theTimerHandler->CreateRequestPassInfoProcess(pRequestPassInfo);
 					m_pFastCgiServer->stopClient();
+#ifdef WIN32
+					Sleep(1000);
+#else
+					usleep(1000000);
+#endif
 					m_pFastCgiServer = cgc::CgcTcpClient::create(theTimerHandler.get(),nRequestId);
 					bConnectError = (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection());
 					CGC_LOG((cgc::LOG_ERROR, "restart fastcgi (%s) ok=%d\n", pFastcgiRequestInfo->GetFastcgiPass().c_str(),(int)(bConnectError?0:1)));
@@ -2427,7 +2435,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		//}
 		if (nRangeTo>=pResInfo->m_nSize)
 			return STATUS_CODE_416;					// 416 Requested Range Not Satisfiable
-		else if (nReadTotal>const_max_size)	// 分包下载
+		else if (nReadTotal>theMaxSize)	// 分包下载
 		{
 			return STATUS_CODE_413;					// 413 Request Entity Too Large
 		}else if (!sRange.empty())
