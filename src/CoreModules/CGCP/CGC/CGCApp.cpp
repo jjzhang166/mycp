@@ -2376,6 +2376,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			pModuleItem = pRemoteSessionImpl->getModuleItem("",true);	// ?GET DEFAULT
 			//printf("**** ProcAppProto pModuleItem=%d\n",(int)pModuleItem.get());
 		}
+
 		if (pRemoteSessionImpl == NULL || pModuleItem.get() == NULL)
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("invalidate session handle \'%s\'!\n"), sSessionId.c_str());
@@ -2386,8 +2387,9 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			retCode = -106;
 		}else
 		{
-			m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s', cid '%d', sign=\"%d\"\n"), sSessionId.c_str(), methodName.c_str(), nCallId, nSign);
+			//m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s', cid '%d', sign=\"%d\"\n"), sSessionId.c_str(), methodName.c_str(), nCallId, nSign);
 
+			bool bDisableLogSign = false;
 			///////////// app call /////////////////
 			int nApiLockSeconds = -1;
 			boost::mutex::scoped_lock * lockWait = NULL;
@@ -2404,6 +2406,12 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			{
 				pModuleImpl = (CModuleImpl*)applicationImpl.get();
 				retCode = 0;
+
+				// ???
+				bDisableLogSign = pModuleImpl->m_moduleParams.isDisableLogSign((int)nSign);
+				if (!bDisableLogSign)
+					m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s', cid '%d', sign=\"%d\"\n"), sSessionId.c_str(), methodName.c_str(), nCallId, nSign);
+
 				//if (pModuleImpl->m_moduleLocks.isLock(methodName,nApiLockSeconds) && nApiLockSeconds>=0)
 				//{
 				//	// nApiLockSeconds=-1; lock(?)
@@ -2460,7 +2468,9 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 					//((CSotpRequestImpl*)requestImpl.get())->SetApi(methodName);
 					((CSotpResponseImpl*)responseImpl.get())->setSession(remoteSessionImpl);
 					retCode = ProcLibMethod(pModuleItem, methodName, requestImpl, responseImpl);
-					m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' cid '%d', returnCode '%d'\n"), sSessionId.c_str(), nCallId, retCode);
+
+					if (!bDisableLogSign)
+						m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' cid '%d', returnCode '%d'\n"), sSessionId.c_str(), nCallId, retCode);
 				}catch(std::exception const & e)
 				{
 					m_logModuleImpl.log(LOG_ERROR, _T("exception, sessionid=\'%s\', callname=\'%s\', lasterror=0x%x\n"), sSessionId.c_str(), methodName.c_str(), GetLastError());

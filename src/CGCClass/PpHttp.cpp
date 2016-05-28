@@ -26,9 +26,11 @@
 
 namespace cgc
 {
-const size_t MAX_HTTPHEAD_SIZE		= 2*1024;
+const size_t MAX_HTTPHEAD_SIZE		= 4*1024;
 const size_t INCREASE_BODY_SIZE		= 20*1024;
 const char * SERVERNAME		= "MYCP Http Server/1.0";
+
+#define USES_BUFFER_ALLOC
 
 CPpHttp::CPpHttp(void)
 : m_host("127.0.0.1"), m_account(""), m_secure(""), m_moduleName(""), m_functionName("doHttpFunc"), m_httpVersion("HTTP/1.1"),m_restVersion("v01"), m_contentLength(0), m_method(HTTP_NONE)
@@ -41,7 +43,13 @@ CPpHttp::CPpHttp(void)
 {
 	m_bodySize = 0;
 	m_bodyBufferSize = INCREASE_BODY_SIZE;
+#ifdef USES_BUFFER_ALLOC
+	m_resultBuffer = (char*)malloc(MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1);
+	if (m_resultBuffer==NULL)
+		m_bodyBufferSize = 0;
+#else
 	m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
+#endif
 }
 CPpHttp::~CPpHttp(void)
 {
@@ -54,7 +62,15 @@ CPpHttp::~CPpHttp(void)
 
 	//if (m_contentData)
 	//	delete[] m_contentData;
+#ifdef USES_BUFFER_ALLOC
+	if (m_resultBuffer!=NULL)
+	{
+		free(m_resultBuffer);
+		m_resultBuffer = NULL;
+	}
+#else
 	delete[] m_resultBuffer;
+#endif
 	if (m_pHeaderBufferTemp!=NULL)
 		delete[] m_pHeaderBufferTemp;
 	if (m_pHeaderTemp!=NULL)
@@ -143,12 +159,28 @@ void CPpHttp::println(const tstring& text)
 }
 void CPpHttp::write(const char * text, size_t size)
 {
-	if (text == NULL || size == std::string::npos) return;
+	if (text == NULL || size == std::string::npos || size==0) return;
 
 	if (m_method == HTTP_HEAD) return;
 
 	if (m_bodySize+size > m_bodyBufferSize)
 	{
+#ifdef USES_BUFFER_ALLOC
+		const size_t nSizeTemp = m_bodyBufferSize + (size > INCREASE_BODY_SIZE ? (size+INCREASE_BODY_SIZE) : INCREASE_BODY_SIZE);
+		if (m_resultBuffer==NULL)
+		{
+			m_resultBuffer = (char*)malloc(MAX_HTTPHEAD_SIZE+nSizeTemp+1);
+			if (m_resultBuffer==NULL)
+				return;
+		}else
+		{
+			char * bufferTemp = (char*)realloc(m_resultBuffer,MAX_HTTPHEAD_SIZE+nSizeTemp+1);
+			if (bufferTemp==NULL)
+				return;
+			m_resultBuffer = bufferTemp;
+		}
+		m_bodyBufferSize = nSizeTemp;
+#else
 		char * bufferTemp = NULL;
 		if (m_bodySize>0)
 		{
@@ -166,6 +198,7 @@ void CPpHttp::write(const char * text, size_t size)
 			memcpy(m_resultBuffer+MAX_HTTPHEAD_SIZE, bufferTemp, m_bodySize);
 			delete[] bufferTemp;
 		}
+#endif
 	}
 	memcpy(m_resultBuffer+MAX_HTTPHEAD_SIZE+m_bodySize, text, size);
 	m_bodySize += size;
@@ -195,7 +228,8 @@ void CPpHttp::reset(void)
 	m_addDateHeader = false;
 	m_addContentLength = true;
 	m_bodySize = 0;
-	memset(m_resultBuffer, 0, m_bodyBufferSize);
+	if (m_resultBuffer!=NULL)
+		memset(m_resultBuffer, 0, m_bodyBufferSize);
 }
 void CPpHttp::init(void)
 {
@@ -220,9 +254,16 @@ void CPpHttp::init(void)
 	m_fileName = "";
 	if (m_bodyBufferSize>1*1024*1024)	// 1MB
 	{
-		delete[] m_resultBuffer;
 		m_bodyBufferSize = INCREASE_BODY_SIZE;
+#ifdef USES_BUFFER_ALLOC
+		free(m_resultBuffer);
+		m_resultBuffer = (char*)malloc(MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1);
+		if (m_resultBuffer==NULL)
+			m_bodyBufferSize = 0;
+#else
+		delete[] m_resultBuffer;
 		m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
+#endif
 	}
 	if (m_fileSystemService.get() != NULL)
 	{
@@ -409,11 +450,20 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 {
 	// Make Response
 	if (m_pHeaderBufferTemp==NULL)
+	{
 		const_cast<CPpHttp*>(this)->m_pHeaderBufferTemp = new char[MAX_HTTPHEAD_SIZE];
+		if (m_pHeaderBufferTemp==NULL) return NULL;
+	}
 	if (m_pHeaderTemp==NULL)
+	{
 		const_cast<CPpHttp*>(this)->m_pHeaderTemp = new char[1024*4];
+		if (m_pHeaderTemp==NULL) return NULL;
+	}
 	if (m_pCookieTemp==NULL)
+	{
 		const_cast<CPpHttp*>(this)->m_pCookieTemp = new char[1024*4];
+		if (m_pCookieTemp==NULL) return NULL;
+	}
 	// get all headers
 	//std::string sHeaders;
 	if (m_sResContentType.empty())

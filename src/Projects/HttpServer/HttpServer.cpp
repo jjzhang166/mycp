@@ -355,8 +355,9 @@ public:
 	const std::string& GetFastcgiPass(void) const {return m_pRequestPassInfo->GetFastcgiPass();}
 	const cgcHttpResponse::pointer& response(void) const {return m_response;}
 	time_t GetRequestTime(void) const {return m_tRequestTime;}
-	void SetResponseState(REQUEST_INFO_STATE nResponseState) {m_nResponseState = nResponseState;}
+	void SetResponseState(REQUEST_INFO_STATE nResponseState, bool bResponseError=false) {m_nResponseState = nResponseState; m_bResponseError=bResponseError;}
 	REQUEST_INFO_STATE GetResponseState(void) const {return m_nResponseState;}
+	bool GetResponseError(void) const {return m_bResponseError;}
 	void SetParsedHead(bool b) {m_bParsedHead = b;}
 	bool GetParsedHead(void) const {return m_bParsedHead;}
 	void SetResponsePaddingLength(int nPaddingLength) {m_nResponsePaddingLength = nPaddingLength;}
@@ -388,7 +389,7 @@ public:
 	unsigned char* GetBuffer(void) {return m_lpszBuffer;}
 
 	CFastcgiRequestInfo(const CRequestPassInfo::pointer& pRequestPassInfo, const cgcHttpResponse::pointer& response)
-		: m_pRequestPassInfo(pRequestPassInfo), m_response(response), m_nResponseState(REQUEST_INFO_STATE_WAITTING_RESPONSE)
+		: m_pRequestPassInfo(pRequestPassInfo), m_response(response), m_nResponseState(REQUEST_INFO_STATE_WAITTING_RESPONSE), m_bResponseError(false)
 		, m_nResponsePaddingLength(0)
 		, m_bParsedHead(false)
 	//CFastcgiRequestInfo(int nRequestId, const std::string& sFastcgiPass, const cgcHttpResponse::pointer& response)
@@ -419,6 +420,7 @@ private:
 	cgcHttpResponse::pointer m_response;
 	time_t m_tRequestTime;
 	REQUEST_INFO_STATE m_nResponseState;
+	bool m_bResponseError;
 	int m_nResponsePaddingLength;
 	std::string m_sLastPaddingData;
 	unsigned char* m_lpszBuffer;
@@ -768,17 +770,25 @@ public:
 	}
 	void ParseFastcgi(CFastcgiRequestInfo::pointer pFastcgiRequestInfo, const char* pData, size_t nSize, int nUserData)
 	{
-		if (pData==NULL) return;
+		if (pData==NULL || nSize==0) return;
 
 		const int nWaitPaddingSize = pFastcgiRequestInfo->GetResponsePaddingLength();
 		//printf("******** nWaitPaddingSize=%d\n",nWaitPaddingSize);
-		if (nWaitPaddingSize>0 && (int)nSize>=nWaitPaddingSize)
+		if (nWaitPaddingSize>0)// && (int)nSize>=nWaitPaddingSize)
 		{
 			//const std::string s(pData,30);
 			//printf("******** s=%d\n",s.c_str());
-			pFastcgiRequestInfo->response()->writeData(pData,nWaitPaddingSize);
-			pFastcgiRequestInfo->SetResponsePaddingLength(0);
-			ParseFastcgi(pFastcgiRequestInfo,pData+nWaitPaddingSize,nSize-nWaitPaddingSize,nUserData);
+			if ((int)nSize>=nWaitPaddingSize)
+			{
+				pFastcgiRequestInfo->response()->writeData(pData,nWaitPaddingSize);
+				pFastcgiRequestInfo->SetResponsePaddingLength(0);
+				ParseFastcgi(pFastcgiRequestInfo,pData+nWaitPaddingSize,nSize-nWaitPaddingSize,nUserData);
+			}else
+			{
+				//printf("******** WaitSize=%d,%d\n", nWaitPaddingSize, nWaitPaddingSize-nSize);
+				pFastcgiRequestInfo->response()->writeData(pData,nSize);
+				pFastcgiRequestInfo->SetResponsePaddingLength(nWaitPaddingSize-nSize);
+			}
 			return;
 		}
 		if (nSize<FCGI_HEADER_LEN) return;
@@ -809,6 +819,7 @@ public:
 				//const char * findSearch = NULL;
 				if (pFastcgiRequestInfo->GetParsedHead())
 				{
+					CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 					pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
 				}else
 				{
@@ -823,7 +834,10 @@ public:
 						{
 							//printf("******** 1 length=%d,data=%s\n",nBodyLength,httpRequest);
 							if (nBodyLength>0)
+							{
+								CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 								pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
+							}
 							break;
 						}else if (findSearchEnd==httpRequest)
 						{
@@ -838,7 +852,10 @@ public:
 							}
 							//printf("******** 2 length=%d,data=%s\n",nBodyLength,httpRequest);
 							if (nBodyLength>0)
+							{
+								CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 								pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
+							}
 							break;
 						}
 						const std::string sLine(httpRequest,findSearchEnd-httpRequest);
@@ -854,7 +871,7 @@ public:
 						const tstring value(sLine.substr(find+nOffset));
 
 						bFindHttpHead = true;
-						//printf("******** PV-> %s:%s\n",sParamReal.c_str(),value.c_str());
+						CGC_LOG((cgc::LOG_TRACE, "%s:%s\n", sParamReal.c_str(), value.c_str()));
 						if (param=="content-type")
 						{
 							pFastcgiRequestInfo->response()->setContentType(value);
@@ -879,8 +896,21 @@ public:
 				pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nContentLen);
 			}else if (header.type == FCGI_END_REQUEST)
 			{
-				//CGC_LOG((cgc::LOG_TRACE, "RequestId=%d set REQUEST_INFO_STATE_FCGI_END_REQUEST\n", nRequestId));
-				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST);
+				int nEndStatus = FCGI_REQUEST_COMPLETE;
+				if ((nSize-nContentLen)==8)
+				{
+					//FCGI_REQUEST_COMPLETE：请求的正常结束。
+					//FCGI_CANT_MPX_CONN：拒绝新请求。这发生在Web服务器通过一条线路向应用发送并发的请求时，后者被设计为每条线路每次处理一个请求。
+					//FCGI_OVERLOADED：拒绝新请求。这发生在应用用完某些资源时，例如数据库连接。
+					//FCGI_UNKNOWN_ROLE：拒绝新请求。这发生在Web服务器指定了一个应用不能识别的角色时。
+					FCGI_EndRequestBody pEndRequestBody;
+					memcpy(&pEndRequestBody,pData+FCGI_HEADER_LEN,8);
+					nEndStatus = pEndRequestBody.protocolStatus;
+				}
+
+				CGC_LOG((cgc::LOG_TRACE, "RequestId=%d set REQUEST_INFO_STATE_FCGI_END_REQUEST EndStatus=%d\n", nRequestId, nEndStatus));
+				const bool bResponseError = nEndStatus == FCGI_REQUEST_COMPLETE?false:true;
+				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST,bResponseError);
 				//pFastcgiRequestInfo->GetRequestPassInfo()->SetCloseEvent();
 //#ifdef USES_FASTCGI_KEEP_CONN
 //				RemoveRequestInfo(pFastcgiRequestInfo);
@@ -898,6 +928,8 @@ public:
 				if (nWaitSize>0)
 				{
 					//printf("******** WaitSize=%d\n",nWaitSize);
+					//const int nPrevWaitSize = pFastcgiRequestInfo->GetResponsePaddingLength();
+					//printf("******** WaitSize=%d, PrevWaitSize=%d\n",nWaitSize,nPrevWaitSize);
 					pFastcgiRequestInfo->SetResponsePaddingLength(nWaitSize);
 				}
 				if (header.type == FCGI_STDOUT)
@@ -1243,6 +1275,12 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theContentTypeInfoList.insert("wm",CContentTypeInfo::create("video/x-ms-wmv",true));
 	theContentTypeInfoList.insert("flv",CContentTypeInfo::create("video/x-flv",true));
 	theContentTypeInfoList.insert("mkv",CContentTypeInfo::create("video/x-matroska",true));
+
+	theContentTypeInfoList.insert("woff",CContentTypeInfo::create("application/x-font-woff",false));
+	theContentTypeInfoList.insert("woff2",CContentTypeInfo::create("application/x-font-woff",false));
+	theContentTypeInfoList.insert("ttf",CContentTypeInfo::create("application/octet-stream",false));
+	theContentTypeInfoList.insert("eot",CContentTypeInfo::create("application/octet-stream",false));
+	theContentTypeInfoList.insert("svg",CContentTypeInfo::create("image/svg+xml",false));
 
 	theMaxSize = (unsigned int)initParameters->getParameterValue("max-download-size", 120)*1024*1024;
 	//theFastcgiPHPServer = initParameters->getParameterValue("fast_cgi_php_server");
@@ -2302,11 +2340,20 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		{
 			if (pFastcgiRequestInfo->GetResponseState()>=REQUEST_INFO_STATE_FCGI_END_REQUEST)
 			{
-				CGC_LOG((cgc::LOG_TRACE, "RequestId=%d return STATUS_CODE_200\n", nRequestId));
+				const bool bResponseError = pFastcgiRequestInfo->GetResponseError();
 #ifdef USES_FASTCGI_KEEP_CONN
-				pFastcgiRequestInfo->GetRequestPassInfo()->ResetErrorCount();
+				if (bResponseError)
+				{
+					CRequestPassInfo::pointer pRequestPassInfo = pFastcgiRequestInfo->GetRequestPassInfo();
+					pRequestPassInfo->KillProcess();
+					theTimerHandler->CreateRequestPassInfoProcess(pRequestPassInfo);
+				}else
+				{
+					pFastcgiRequestInfo->GetRequestPassInfo()->ResetErrorCount();
+				}
 				theTimerHandler->RemoveRequestInfo(pFastcgiRequestInfo);
 #endif
+				CGC_LOG((cgc::LOG_TRACE, "RequestId=%d return STATUS_CODE_200, error=%d\n", nRequestId, (int)(bResponseError?1:0)));
 				return STATUS_CODE_200;
 			}else if (!theApplication->isInited())
 				break;
@@ -2424,16 +2471,17 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		const tstring sRange = request->getHeader(Http_Range);
 		//printf("**** %s\n",sRange.c_str());
 		//printf("**** Range %d-%d\n",nRangeFrom,nRangeTo);
-		if (nRangeTo == 0)
+		if (nRangeTo == 0 && pResInfo->m_nSize>0)
 			nRangeTo = pResInfo->m_nSize-1;
-		unsigned int nReadTotal = nRangeTo-nRangeFrom+1;				// 重设数据长度
+		const unsigned int nReadTotal = nRangeTo>0?(nRangeTo-nRangeFrom+1):0;			// 重设数据长度
+		//printf("**** RangeFrom=%d, RangeTo=%d, nReadTotal=%d\n",nRangeFrom,nRangeTo,nReadTotal);
 		//if (nReadTotal >= 1024)
 		//{
 		//	statusCode = STATUS_CODE_206;
 		//	nReadTotal = 1024;
 		//	nRangeTo = nRangeFrom+1024;
 		//}
-		if (nRangeTo>=pResInfo->m_nSize)
+		if (nRangeTo>=pResInfo->m_nSize && pResInfo->m_nSize>0)
 			return STATUS_CODE_416;					// 416 Requested Range Not Satisfiable
 		else if (nReadTotal>theMaxSize)	// 分包下载
 		{
@@ -2460,6 +2508,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		if (pResInfo->m_pData!=NULL && !pResInfo->m_sETag.empty())
 			response->setHeader("ETag",pResInfo->m_sETag);
 		response->setHeader("Last-Modified",pResInfo->m_sModifyTime);
+		//printf("************ ContentType : %s\n",sMimeType.c_str());
 		response->setContentType(sMimeType);
 		if (statusCode == STATUS_CODE_206)
 		{
@@ -2559,7 +2608,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			}
 		}else
 		{
-			// ?
+			// *有可能是空文件
 		}
 	//	tfstream stream;
 	//	stream.open(sFilePath.c_str(), std::ios::in|std::ios::binary);

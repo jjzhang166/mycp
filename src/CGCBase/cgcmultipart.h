@@ -50,7 +50,10 @@ public:
 		tstring filepath(savepath);
 		filepath.append("/");
 		filepath.append(m_boundary);
-		filepath.append(m_uploadFile->getFileName());
+		char lpszBuffer[48];
+		sprintf(lpszBuffer,"_%lld_%d",(cgc::bigint)time(0),rand());
+		filepath.append(lpszBuffer);
+		//filepath.append(m_uploadFile->getFileName());
 
 		m_uploadFile->setFilePath(filepath);
 		m_stream.open(filepath.c_str(), std::ios::out|std::ios::binary);

@@ -51,6 +51,7 @@ public:
 public:
 	cgcParameterMap::pointer getParameters(void) const {return m_parameters;}
 	void clearParameters(void) {m_parameters->clear();}
+	bool isDisableLogSign(int nSign) const {return m_pDisableLogSignList.exist(nSign,false);}
 
 	long getMajorVersion(void) const {return m_nMajorVersion;}
 	long getMinorVersion(void) const {return m_nMinorVersion;}
@@ -70,6 +71,8 @@ public:
 	void load(const tstring & filename)
 	{
 		clearParameters();
+		m_pDisableLogSignList.clear();
+
 		try
 		{
 			ptree pt;
@@ -110,10 +113,38 @@ private:
 			m_bOlf = v.second.get("onelineformat", 1) == 1;
 			m_bLts = v.second.get("logtosystem", 0) == 1;
 			m_sLocale = v.second.get("locale", "");
+
+			const std::string sDisableSigns = v.second.get("disable_log_signs", "");
+			ParseString(sDisableSigns.c_str(),",",m_pDisableLogSignList);
 		}else if (v.first.compare("version") == 0)
 		{
 			m_nMajorVersion = v.second.get("Major", 0);
 			m_nMinorVersion = v.second.get("Minor", 0);
+		}
+	}
+	static void ParseString(const char * lpszString, const char * lpszInterval, CLockMap<int,bool> & pOut)
+	{
+		const tstring sIn(lpszString);
+		const size_t nInLen = sIn.size();
+		const size_t nIntervalLen = strlen(lpszInterval);
+		pOut.clear();
+		std::string::size_type nFindBegin = 0;
+		while (nFindBegin<nInLen)
+		{
+			std::string::size_type find = sIn.find(lpszInterval,nFindBegin);
+			if (find == std::string::npos)
+			{
+				pOut.insert(atoi(sIn.substr(nFindBegin).c_str()),true,false);
+				break;
+			}
+			if (find==nFindBegin)
+			{
+				//pOut.push_back("");	// Пе
+			}else
+			{
+				pOut.insert(atoi(sIn.substr(nFindBegin, (find-nFindBegin)).c_str()),true,false);
+			}
+			nFindBegin = find+nIntervalLen;
 		}
 	}
 private:
@@ -130,6 +161,7 @@ private:
 	tstring m_sLocale;	// default "chs"
 
 	cgcParameterMap::pointer m_parameters;
+	CLockMap<int,bool> m_pDisableLogSignList;
 };
 
 #endif // __XmlParseParsms_h__

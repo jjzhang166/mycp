@@ -52,6 +52,7 @@ public:
 	//const void * getRemote(void) const {return m_remote;}
 	void setRemote(const cgcRemote::pointer& newv) {m_remote = newv;}
 	const cgcRemote::pointer& getRemote(void) const {return m_remote;}
+	void resetRemote(void) {m_remote.reset();}
 
 	void setRemoteId(unsigned long newv) {m_remoteId = newv;}
 	unsigned long getRemoteId(void) const {return m_remoteId;}
@@ -164,6 +165,7 @@ public:
 			//return;
 			if (m_pPool.size()<m_nMaxPoolSize)
 			{
+				pMsg->resetRemote();
 				m_pPool.add(pMsg);
 			}else
 			{
@@ -193,7 +195,7 @@ public:
 		m_pPool.clear();
 	}
 	
-	CCommEventDataPool(cgc::uint16 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
+	CCommEventDataPool(cgc::uint32 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
 		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
 		, m_tIdle(0)
 	{
@@ -219,7 +221,7 @@ protected:
 	}
 private:
 	CLockListPtr<CCommEventData*> m_pPool;
-	cgc::uint16 m_nBufferSize;
+	cgc::uint32 m_nBufferSize;
 	cgc::uint16 m_nInitPoolSize;
 	cgc::uint16 m_nMaxPoolSize;
 	time_t m_tIdle;

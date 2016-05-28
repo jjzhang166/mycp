@@ -1119,6 +1119,119 @@ void CgcBaseClient::beginCallLock(void)
 //int CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallName, const tstring & sAppName, const Attachment * pAttach, unsigned long * pCallId)
 bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach, unsigned long * pCallId)
 {
+	const unsigned long cid = getNextCallId();
+	if (pCallId)
+		*pCallId = cid;
+	return sendAppCall2(cid,nCallSign,sCallName,bNeedAck,pAttach);
+	//boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
+	//m_pSendLock = NULL;
+	//if (sCallName.empty() || this->isInvalidate())
+	//{
+	//	if (pLockTemp)
+	//		delete pLockTemp;
+	//	return false;
+	//}
+	//const unsigned long cid = getNextCallId();
+	//if (pCallId)
+	//	*pCallId = cid;
+	////const unsigned short seq = getNextSeq();
+	//const unsigned short seq = bNeedAck?getNextSeq():0;
+
+	//const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+	//if (!sSslPassword.empty())
+	//{
+	//	const std::string sAppCallHead = toAppCallHead(theProtoVersion);
+	//	const std::string sAppCallData = toAppCallData(theProtoVersion,cid,nCallSign,sCallName,seq,bNeedAck);
+
+	//	unsigned int nAttachSize = 0;
+	//	unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
+	//	int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
+	//	nDataSize += sAppCallHead.size();
+	//	unsigned char * pSendData = new unsigned char[nDataSize+1];
+	//	memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
+	//	memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
+	//	if (pAttachData != NULL)
+	//	{
+	//		memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
+	//	}
+	//	unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
+	//	memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
+	//	int n = 0;
+	//	if (theProtoVersion==SOTP_PROTO_VERSION_21)
+	//		n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+	//	else
+	//		n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
+	//	if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+	//	{
+	//		if (pLockTemp)
+	//			delete pLockTemp;
+	//		delete[] pSendData;
+	//		delete[] pSendDataTemp;
+	//		delete[] pAttachData;
+	//		return false;
+	//	}
+	//	delete[] pSendData;
+	//	pSendData = pSendDataTemp;
+	//	nDataSize += n;
+	//	pSendData[nDataSize] = '\n';
+	//	nDataSize += 1;
+
+	//	bool ret = false;
+	//	if (bNeedAck)
+	//		ret = addSeqInfo(pSendData, nDataSize, seq, cid, nCallSign);
+	//	if (pLockTemp)
+	//		delete pLockTemp;
+	//	sendData(pSendData, nDataSize);
+	//	delete[] pAttachData;
+	//	if (!ret)
+	//		delete[] pSendData;
+	//	return true;
+	//}else
+	//{
+	//	const std::string requestData = toAppCallString(theProtoVersion,cid,nCallSign,sCallName,seq,bNeedAck);
+	//	// sendData
+	//	if (pAttach.get() != NULL)
+	//	{
+	//		unsigned int nAttachSize = 0;
+	//		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
+	//		if (pAttachData != NULL)
+	//		{
+	//			unsigned char * pSendData = new unsigned char[nAttachSize+requestData.size()+1];
+	//			memcpy(pSendData, requestData.c_str(), requestData.size());
+	//			memcpy(pSendData+requestData.size(), pAttachData, nAttachSize);
+	//			pSendData[nAttachSize+requestData.size()] = '\0';
+
+	//			// addSeqInfo
+	//			bool ret = false;
+	//			if (bNeedAck)
+	//				ret = addSeqInfo(pSendData, nAttachSize+requestData.size(), seq, cid, nCallSign);
+
+	//			if (pLockTemp)
+	//				delete pLockTemp;
+	//			sendData(pSendData, nAttachSize+requestData.size());
+	//			delete[] pAttachData;
+	//			if (!ret)
+	//				delete[] pSendData;
+	//			//return sendSize != nAttachSize+requestData.size() ? 0 : 1;
+	//			return true;
+	//		}
+	//	}
+
+	//	// addSeqInfo
+	//	if (bNeedAck)
+	//	{
+	//		addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid, nCallSign);
+	//	}
+	//	if (pLockTemp)
+	//		delete pLockTemp;
+
+	//	sendData((const unsigned char*)requestData.c_str(), requestData.size());
+	//	//return sendSize != requestData.size() ? 0 : 1;
+	//	return true;
+	//}
+}
+bool CgcBaseClient::sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach)
+{
 	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
 	m_pSendLock = NULL;
 	if (sCallName.empty() || this->isInvalidate())
@@ -1127,9 +1240,7 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 			delete pLockTemp;
 		return false;
 	}
-	const unsigned long cid = getNextCallId();
-	if (pCallId)
-		*pCallId = cid;
+	const unsigned long cid = nCallId;
 	//const unsigned short seq = getNextSeq();
 	const unsigned short seq = bNeedAck?getNextSeq():0;
 

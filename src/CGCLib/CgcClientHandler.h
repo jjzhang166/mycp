@@ -89,8 +89,9 @@ namespace cgc
 
 		// app call
 		virtual void doBeginCallLock(void) = 0;
-		virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,
-			const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pOutCallId = 0) = 0;
+		virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pOutCallId = 0) = 0;
+		virtual unsigned long doGetNextCallId(void) = 0;
+		virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
 		virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
 		virtual void doSendP2PTry(unsigned short nTryCount=3) = 0;
 

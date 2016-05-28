@@ -131,9 +131,11 @@ protected:
 
 	// app call
 	virtual void doBeginCallLock(void) {beginCallLock();}
-	virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,
-		const cgcAttachment::pointer& pAttach, unsigned long * pOutCallId){
-			return sendAppCall(nCallSign,sCallName,bNeedAck,pAttach,pOutCallId);}
+	virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach, unsigned long * pOutCallId){
+		return sendAppCall(nCallSign,sCallName,bNeedAck,pAttach,pOutCallId);}
+	virtual unsigned long doGetNextCallId(void) {return getNextCallId();}
+	virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
+		return sendAppCall2(nCallId,nCallSign,sCallName,bNeedAck,pAttach);}
 	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign=0,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
 		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach);}
 	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
@@ -288,6 +290,7 @@ public:
 	//int sendAppCall(unsigned long nCallSign, const tstring & sCallName, const tstring & sAppName=L"", const Attachment * pAttach = NULL, unsigned long * pCallId = 0);
 	void beginCallLock(void);	// lock
 	bool sendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pCallId = 0);
+	bool sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment);
 	bool sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment);
 
 	//

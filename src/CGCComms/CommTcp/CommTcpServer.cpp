@@ -69,8 +69,12 @@ using namespace cgc;
 class CRemoteHandler
 {
 public:
-	virtual void onInvalidate(const TcpConnectionPointer& connection) = 0;
+	virtual void onCloseConnection(const TcpConnectionPointer& connection, int nWaitSecond) = 0;
 };
+
+//int theRemoteCount = 0;
+//int theConnectionCount = 0;
+//int theAcceptRemoteCount = 0;
 
 ////////////////////////////////////////
 // CcgcRemote
@@ -80,6 +84,7 @@ class CcgcRemote
 private:
 	CRemoteHandler * m_handler;
 	TcpConnectionPointer m_connection;
+	TcpConnectionPointer m_pCloseConnection;
 	tstring m_sServerAddr;			// string of IP address
 	tstring m_sRemoteAddr;			// string of IP address
 	unsigned long m_commId;
@@ -94,6 +99,10 @@ public:
 		, m_commId(commId),m_remoteId(remoteId), m_protocol(protocol)
 		, m_serverPort(0)
 	{
+		//theRemoteCount++;
+		//theConnectionCount++;
+		//printf("**** CcgcRemote(), theRemoteCount=%d,theConnectionCount=%d\n",theRemoteCount,theConnectionCount);
+
 		BOOST_ASSERT(m_handler != 0);
 		BOOST_ASSERT(pConnection.get() != 0);
 
@@ -120,7 +129,31 @@ public:
 		{}
 		m_nRequestSize = 0;
 	}
-	virtual ~CcgcRemote(void){}
+	virtual ~CcgcRemote(void)
+	{
+		if (m_pCloseConnection.get()!=NULL)
+		{
+			m_handler->onCloseConnection(m_pCloseConnection, 5);
+			m_pCloseConnection.reset();
+
+			////theConnectionCount--;
+			////printf("**** CloseConnection...(%x)\n",(int)m_pCloseConnection.get());
+			//try
+			//{
+			//	boost::system::error_code error;
+			//	m_pCloseConnection->lowest_layer().close(error);
+			//}catch (std::exception&)
+			//{
+			//}catch (boost::exception&)
+			//{
+			//}catch(...)
+			//{
+			//}
+			//m_pCloseConnection.reset();
+		}
+		//theRemoteCount--;
+		//printf("**** ~CcgcRemote(), theRemoteCount=%d,theConnectionCount=%d\n",theRemoteCount,theConnectionCount);
+	}
 	
 	void UpdateConnection(const TcpConnectionPointer& pConnection) {m_connection=pConnection;}
 	void SetServerPort(int v) {m_serverPort = v;}
@@ -334,11 +367,29 @@ private:
 			if (m_connection.get()!=NULL)
 			{
 				if (bClose)
-				{
-					boost::system::error_code error;
-					m_connection->lowest_layer().close(error);
-				}
+					m_handler->onCloseConnection(m_connection, 10);
+				else
+					m_pCloseConnection = m_connection;
+
+				//if (m_pCloseConnection.get()!=NULL)
+				//{
+				//	//theConnectionCount--;
+				//	//printf("**** invalidate.CloseConnection...(%x)\n",(int)m_pCloseConnection.get());
+				//	boost::system::error_code error;
+				//	m_pCloseConnection->lowest_layer().close(error);
+				//}
+				//m_pCloseConnection = m_connection;
+
+				//if (bClose)
+				//{
+				//	boost::system::error_code error;
+				//	m_connection->lowest_layer().close(error);
+				//}
 				m_connection.reset();
+			}else if (bClose && m_pCloseConnection.get()!=NULL)
+			{
+				m_handler->onCloseConnection(m_pCloseConnection, 10);
+				m_pCloseConnection.reset();
 			}
 		}catch (std::exception&)
 		{
@@ -347,9 +398,10 @@ private:
 		}catch(...)
 		{
 		}
+
 		//if (m_connection.get() != NULL)
 		//{
-		//	m_handler->onInvalidate(m_connection);
+		//	m_handler->onCloseConnection(m_connection);
 		//	m_connection.reset();
 		//}
 	}
@@ -583,7 +635,7 @@ public:
 		sem_init(&m_semDoClose, 0, 0);
 		sem_init(&m_semDoStop, 0, 0);
 #endif // WIN32
-		//m_tNowTime = time(0);
+		m_tNowTime = time(0);
 		m_tProcessReceDataTime = 0;
 	}
 	virtual ~CTcpServer(void)
@@ -780,6 +832,7 @@ public:
 		sem_post(&m_semDoStop);
 #endif
 		m_listMgr.clear();
+		theCloseList.clear();
 		m_pRecvRemoteIdWaitList.clear();
 		m_pCommEventDataPool.Clear();
 		m_mapCgcRemote.clear();
@@ -801,7 +854,7 @@ public:
 	//unsigned long m_nLastRemoteId;
 protected:
 	// cgcOnTimerHandler
-	//time_t m_tNowTime;
+	time_t m_tNowTime;
 	time_t m_tProcessReceDataTime;
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
@@ -870,6 +923,38 @@ protected:
 				//	}
 				//}
 			}
+
+
+			static unsigned int theIndex = 0;
+			theIndex++;
+			if ((theIndex%500)==499)	// 3 second
+			{
+				m_tNowTime = time(0);
+				CCloseConnectionInfo::pointer pCloseInfo;
+				CCloseConnectionInfo::pointer pFirstErrorCloseInfo;
+				while (theCloseList.front(pCloseInfo))
+				{
+					if (pCloseInfo->CheckClose(m_tNowTime))
+					{
+						continue;
+					}
+					if (theCloseList.empty())									// * last
+					{
+						theCloseList.add(pCloseInfo);
+						break;
+					}
+					if (pFirstErrorCloseInfo.get()==NULL)						// * first
+					{
+						pFirstErrorCloseInfo = pCloseInfo;
+						theCloseList.add(pCloseInfo);
+					}else if (pFirstErrorCloseInfo.get()==pCloseInfo.get())		// * first again
+					{
+						theCloseList.add(pCloseInfo);
+						break;
+					}
+				}
+			}
+
 			return;
 		}
 
@@ -923,6 +1008,7 @@ protected:
 				//printf("**** CCommEventData::CET_Close: remoteid=%d\n",pCommEventData->getRemoteId());
 				//printf("**** CommTcpServer CET_Close, 111\n");
 				m_commHandler->onRemoteClose(pCommEventData->getRemoteId(),pCommEventData->GetErrorCode());
+				pCommEventData->getRemote()->invalidate(true);
 //				printf("**** CommTcpServer CET_Close, 222\n");
 #ifdef WIN32
 				SetEvent(m_hDoCloseEvent);
@@ -1046,9 +1132,61 @@ protected:
 		//delete pCommEventData;
 	}
 
-	// CRemoteHandler
-	virtual void onInvalidate(const TcpConnectionPointer& connection)
+	class CCloseConnectionInfo
 	{
+	public:
+		typedef boost::shared_ptr<CCloseConnectionInfo> pointer;
+		static CCloseConnectionInfo::pointer create(const TcpConnectionPointer& pConnection, int nWaitSecond = 5)
+		{
+			return CCloseConnectionInfo::pointer(new CCloseConnectionInfo(pConnection, nWaitSecond));
+		}
+
+		bool CheckClose(time_t tNow)
+		{
+			if (m_pCloseConnection.get()==NULL) return true;
+			if (tNow>m_tCloseTime || (tNow+600)<m_tCloseTime)
+			{
+				//theAcceptRemoteCount--;
+				//printf("**** CheckClose CloseConnection, theAcceptRemoteCount=%d (%x)\n",theAcceptRemoteCount,(int)m_pCloseConnection.get());
+
+				try
+				{
+					boost::system::error_code error;
+					m_pCloseConnection->lowest_layer().close(error);
+				}catch (std::exception&)
+				{
+				}catch (boost::exception&)
+				{
+				}catch(...)
+				{
+				}
+				m_pCloseConnection.reset();
+				return true;
+			}
+			return false;
+		}
+		CCloseConnectionInfo(const TcpConnectionPointer& pConnection, int nWaitSecond)
+			: m_pCloseConnection(pConnection)
+		{
+			m_tCloseTime = time(0)+nWaitSecond;
+		}
+		CCloseConnectionInfo(void)
+			: m_tCloseTime(0)
+		{}
+		virtual ~CCloseConnectionInfo(void)
+		{
+			CheckClose(0);
+		}
+
+	private:
+		TcpConnectionPointer m_pCloseConnection;
+		time_t m_tCloseTime;
+	};
+	// CRemoteHandler
+	CLockList<CCloseConnectionInfo::pointer> theCloseList;
+	virtual void onCloseConnection(const TcpConnectionPointer& connection, int nWaitSecond)
+	{
+		theCloseList.add(CCloseConnectionInfo::create(connection, nWaitSecond));
 		//if (connection.get() != NULL) 
 		//{
 		//	connection->lowest_layer().close();
@@ -1175,6 +1313,8 @@ protected:
 			{
 				m_pRecvRemoteIdWaitList.insert(nRemoteId,CRemoteWaitData::create(),false);
 			}
+			//theAcceptRemoteCount++;
+			//printf("******** OnRemoteAccept theAcceptRemoteCount=%d\n",theAcceptRemoteCount);
 
 			//printf("******** OnRemoteAccept:%d\n",nRemoteId);
 			cgcRemote::pointer pCgcRemote;
@@ -1206,6 +1346,9 @@ protected:
 		BOOST_ASSERT(pRemote != 0);
 		if (m_commHandler.get() != NULL)
 		{
+			//theAcceptRemoteCount--;
+			//printf("******** OnRemoteClose theAcceptRemoteCount=%d\n",theAcceptRemoteCount);
+
 			// 9=Bad file descriptor
 			const unsigned long nRemoteId = pRemote->getId();
 			//printf("******** OnRemoteClose:%lu\n",nRemoteId);
