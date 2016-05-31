@@ -66,7 +66,7 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libHttpService_la_LIBADD =
+libHttpService_la_DEPENDENCIES = $(libdir)/libCGCClass.a
 am__objects_1 = HttpService.lo CgcTcpClient.lo
 am_libHttpService_la_OBJECTS = $(am__objects_1)
 libHttpService_la_OBJECTS = $(am_libHttpService_la_OBJECTS)
@@ -207,6 +207,7 @@ top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libHttpService.la
 THESOURCES = HttpService.cpp CgcTcpClient.cpp
 libHttpService_la_SOURCES = $(THESOURCES)
+libHttpService_la_LIBADD = $(libdir)/libCGCClass.a
 AM_CFLAGS = -fPIC -shared -Wall -lssl -lcrypto
 AM_CXXFLAGS = -fPIC -shared -Wall -lssl -lcrypto
 all: all-am

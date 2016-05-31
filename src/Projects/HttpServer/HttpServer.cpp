@@ -820,7 +820,8 @@ public:
 				if (pFastcgiRequestInfo->GetParsedHead())
 				{
 					CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
-					pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
+					if (nBodyLength>0)
+						pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
 				}else
 				{
 					pFastcgiRequestInfo->SetParsedHead(true);

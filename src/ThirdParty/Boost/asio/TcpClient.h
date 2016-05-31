@@ -229,7 +229,7 @@ public:
 #endif
 				continue;
 			}
-
+			m_bInOnReceiveData = true;
 			if (m_handler.get() != NULL)
 			{
 				//m_handler->OnReceiveData(*this, buffer);
@@ -241,6 +241,7 @@ public:
 				}catch(...)
 				{}
 			}
+			m_bInOnReceiveData = false;
 
 			if (m_unused.size() < m_unusedsize)
 			{
@@ -331,7 +332,7 @@ private:
 #else
 						usleep(20000);
 #endif
-						if (m_datas.empty())
+						if (!m_bInOnReceiveData && m_datas.empty())
 							break;
 					}
 					m_handler->OnDisconnect(shared_from_this(), error);
@@ -357,7 +358,7 @@ public:
 		, m_handler(handler)
 		, m_proc_data(0)
 		, m_unusedsize(10), m_maxbuffersize(Max_ReceiveBuffer_ReceiveSize)
-		, m_nDisconnectWaittingData(6)
+		, m_nDisconnectWaittingData(6), m_bInOnReceiveData(false)
 	{
 	}
 	virtual ~TcpClient(void)
@@ -378,7 +379,9 @@ private:
 	size_t m_unusedsize;
 	size_t m_maxbuffersize;
 	//tstring m_sSSLPassword;
-	int m_nDisconnectWaittingData;	// default 6
+	int m_nDisconnectWaittingData;	// default 6s
+	bool m_bInOnReceiveData;
+
 };
 
 #endif // __TcpClient_h__

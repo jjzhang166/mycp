@@ -50,6 +50,9 @@ private:
 
 	size_t m_contentLength;
 	HTTP_METHOD m_method;		// GET
+	bool m_bHttpResponse;
+	tstring m_sResponseSaveFile;
+	FILE * m_pResponseSaveFile;
 	tstring m_requestURL;		// "/path/file.csp?p=v&..."
 	tstring m_requestURI;		// "/path/file.csp"
 	tstring m_queryString;		// "p=v&..."
@@ -109,7 +112,6 @@ private:
 
 	cgcServiceInterface::pointer m_fileSystemService;
 	//tstring m_sTempSavePath;
-
 protected:
 	//////////////////////////////////////////////////
 	// Request
@@ -212,6 +214,8 @@ public:
 
 	XmlParseUpload theUpload;
 	void setFileSystemService(cgcServiceInterface::pointer v) {m_fileSystemService = v;}
+	bool isHttpResponse(void) const {return m_bHttpResponse;}
+	void SetResponseSaveFile(const tstring& v) {m_sResponseSaveFile = v;}
 };
 
 #ifdef WIN32

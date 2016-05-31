@@ -39,6 +39,7 @@ public:
 		: m_enableUpload(false), m_tempPath("uploads")
 		, m_maxFileCount(1), m_maxFileSize(10240), m_maxUploadSize(0)
 		, m_enableAllContentType(false)
+		, m_bDeleteFile(true)
 
 	{}
 	~XmlParseUpload(void)
@@ -46,11 +47,19 @@ public:
 		clear();
 	}
 
+	void setEnableAllContentType(bool v) {m_enableAllContentType = v;}
+	void setEnableUpload(bool v) {m_enableUpload = v;}
 	bool isEnableUpload(void) const {return m_enableUpload;}
+	void setTempPath(const tstring& v) {m_tempPath = v;}
 	const tstring& getTempPath(void) const {return m_tempPath;}
+	void setMaxFileCount(int v) {m_maxFileCount = v;}
 	int getMaxFileCount(void) const {return m_maxFileCount;}
+	void setMaxFileSize(int v) {m_maxFileSize = v;}					// KB
 	int getMaxFileSize(void) const {return m_maxFileSize;}			// KB
+	void setMaxUploadSize(int v) {m_maxUploadSize = v;}				// MB
 	int getMaxUploadSize(void) const {return m_maxUploadSize;}		// MB
+	void setDeleteFile(bool v) {m_bDeleteFile = v;}
+	bool getDeleteFile(void) const {return m_bDeleteFile;}
 
 	bool isEnableContentType(const tstring& contentType) const
 	{
@@ -113,6 +122,7 @@ private:
 	int m_maxUploadSize;
 	bool m_enableAllContentType;
 	CLockMap<tstring, bool> m_enableTypes;	// ContentType->(true: enable; false: disable)
+	bool m_bDeleteFile;
 };
 
 }

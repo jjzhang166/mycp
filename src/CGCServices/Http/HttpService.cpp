@@ -66,6 +66,7 @@ tstring getipbyname(const char * name)
 
 
 const tstring const_http_version = "HTTP/1.1";
+//tstring theTempSavePath;
 
 class CHttpService
 	: public cgcServiceInterface
@@ -81,7 +82,7 @@ public:
 protected:
 	virtual tstring serviceName(void) const {return _T("HTTPSERVICE");}
 
-	bool GetRequestInfo(const cgcValueInfo::pointer& inParam,tstring& pOutHost,tstring& pOutPort,tstring& pOutUrl,tstring& pOutHeader,tstring& pOutData, bool& pOutIsSSL) const
+	bool GetRequestInfo(const cgcValueInfo::pointer& inParam,tstring& pOutHost,tstring& pOutPort,tstring& pOutUrl,tstring& pOutHeader,tstring& pOutData, bool& pOutIsSSL, tstring& pOutSaveFile) const
 	{
 		if (inParam.get() == NULL) return false;
 		if (inParam->getType() == cgcValueInfo::TYPE_MAP)
@@ -106,6 +107,8 @@ protected:
 				pOutHeader = varFind->getStr();
 			if (inParam->getMap().find("data", varFind))
 				pOutData = varFind->toString();
+			if (inParam->getMap().find("save_file", varFind))
+				pOutSaveFile = varFind->getStr();
 			return true;
 		}else if (inParam->getType() == cgcValueInfo::TYPE_STRING)
 		{
@@ -161,7 +164,7 @@ protected:
 			// 1=data	// for post data
 			// 2=header
 			const tstring sFullUrl = inParam->getVector()[0]->getStr();
-			if (!GetRequestInfo(CGC_VALUEINFO(sFullUrl),pOutHost,pOutPort,pOutUrl,pOutHeader,pOutData,pOutIsSSL))
+			if (!GetRequestInfo(CGC_VALUEINFO(sFullUrl),pOutHost,pOutPort,pOutUrl,pOutHeader,pOutData,pOutIsSSL, pOutSaveFile))
 				return false;
 			if (inParam->size()>=2)
 			{
@@ -171,11 +174,28 @@ protected:
 			{
 				pOutHeader = inParam->getVector()[2]->getStr();
 			}
+			if (inParam->size()>=4)
+				pOutSaveFile = inParam->getVector()[3]->getStr();
 			return true;
 		}else
 		{
 			return false;
 		}
+	}
+	static bool IsFileExist(const char* lpszFilePath)
+	{
+		FILE * f = fopen(lpszFilePath,"r");
+		if (f==NULL) return false;
+		fclose(f);
+		return true;
+	}
+	static bool TestFileCreate(const char* lpszFilePath)
+	{
+		if (!IsFileExist(lpszFilePath)) return true;
+		FILE * f = fopen(lpszFilePath,"a");
+		if (f==NULL) return false;
+		fclose(f);
+		return true;
 	}
 	virtual bool callService(const tstring& function, const cgcValueInfo::pointer& inParam, cgcValueInfo::pointer outParam)
 	{
@@ -188,7 +208,8 @@ protected:
 			tstring sHeader;
 			tstring sData;
 			bool bIsSSL = false;
-			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL))
+			tstring sSaveFile;
+			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL,sSaveFile))
 				return false;
 			tstring sHostIp(sHost);
 			//tstring sHostIp = getipbyname(sHost.c_str());
@@ -216,7 +237,7 @@ protected:
 			sHostIp.append(sPort);			// default 80
 			try
 			{
-				return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
+				return HttpRequest(sSaveFile, bIsSSL, sHostIp, sHttpRequest, sUrl, outParam);
 			}catch (const std::exception &)
 			{
 			}catch (const boost::exception &)
@@ -235,7 +256,8 @@ protected:
 			tstring sHeader;
 			tstring sData;		// for POST command
 			bool bIsSSL = false;
-			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL))
+			tstring sSaveFile;
+			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL,sSaveFile))
 				return false;
 
 			//cgcValueInfo::pointer varFind;
@@ -285,7 +307,7 @@ protected:
 			sHostIp.append(sPort);			// default 80
 			try
 			{
-				return HttpRequest(bIsSSL, sHostIp, sHttpRequest, outParam);
+				return HttpRequest(sSaveFile, bIsSSL, sHostIp, sHttpRequest, sUrl, outParam);
 			}catch (const std::exception &)
 			{
 			}catch (const boost::exception &)
@@ -301,7 +323,7 @@ protected:
 	}
 
 	protected:
-		bool HttpRequest(bool bIsSSL, const tstring & sHostIp, const tstring & sHttpRequest, cgcValueInfo::pointer outParam)
+		bool HttpRequest(const tstring& sSaveFile, bool bIsSSL, const tstring & sHostIp, const tstring & sHttpRequest, const tstring& sUrl, cgcValueInfo::pointer outParam)
 		{
 			bool result = false;
 			boost::asio::ssl::context * m_sslctx = NULL;
@@ -312,13 +334,32 @@ protected:
 				m_sslctx->set_default_verify_paths();
 				m_sslctx->set_options(ssl::context::verify_peer);
 				m_sslctx->set_verify_mode(ssl::verify_peer);
-				//m_sslctx->set_verify_callback(ssl::rfc2818_verification("smtp.163.com"));
+				//m_sslctx->set_verify_callback(ssl::rfc2818_verification("smtp.entboost.com"));
 			}
 
 			cgc::CgcTcpClient::pointer tcpClient = cgc::CgcTcpClient::create(NULL);
+			tstring sFilePathTemp(sSaveFile);
+			if (!sSaveFile.empty())
+			{
+				int nIndex = 0;
+				while (!TestFileCreate(sFilePathTemp))
+				{
+					char lpszBuffer[260];
+					const std::string::size_type find = sSaveFile.rfind(".");
+					if (find==std::string::npos)
+						sprintf(lpszBuffer,"%s(%d)",sSaveFile.c_str(),(++nIndex));
+					else
+						sprintf(lpszBuffer,"%s(%d)%s",sSaveFile.substr(0,find).c_str(),(++nIndex),sSaveFile.substr(find).c_str());
+					sFilePathTemp = lpszBuffer;
+					//printf("**** FilePathTemp=%s\n",sFilePathTemp.c_str());
+				}
+				tcpClient->setResponseSaveFile(sFilePathTemp);
+				tcpClient->setDeleteFile(false);
+			}
 			if (tcpClient->startClient(sHostIp, 0, m_sslctx) == 0)
 			{
 				tcpClient->sendData((const unsigned char *)sHttpRequest.c_str(), sHttpRequest.size());
+				//const int nMaxSecond = sSaveFile.empty()?30:300;	// 300=5*60
 				int counter = 0;
 				do
 				{
@@ -327,6 +368,89 @@ protected:
 #else
 					usleep(200000);
 #endif
+#ifdef USES_PARSER_HTTP
+				}while (!tcpClient->IsOvertime(30) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
+				//}while ((++counter < 5*nMaxSecond) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
+
+				cgc::cgcParserHttp::pointer pParserHttp = tcpClient->GetParserHttp();
+				if (tcpClient->IsHttpResponseOk())
+				{
+					outParam->totype(cgcValueInfo::TYPE_VECTOR);
+					outParam->reset();
+					//tstring sHttpState;
+					outParam->addVector(CGC_VALUEINFO((int)pParserHttp->getStatusCode()));
+					outParam->addVector(CGC_VALUEINFO(pParserHttp->getQueryString()));
+
+					if (!sSaveFile.empty())
+					{
+						//std::vector<cgcUploadFile::pointer> pFiles;
+						//pParserHttp->getUploadFile(pFiles);
+						//if (pFiles.empty())
+						//{
+							const tstring & sContentType = pParserHttp->getReqContentType();
+							//printf("**** Content-Type: %s\n",sContentType.c_str());
+							// Accept-Ranges: bytes
+							//outParam->addVector(CGC_VALUEINFO((int)1));
+							cgcValueInfo::pointer pFileInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+							tstring sFileName = sUrl;
+							const std::string::size_type find = sUrl.rfind("/");
+							if (find!=std::string::npos)
+							{
+								sFileName = sUrl.substr(find+1);
+							}
+							//printf("**** file_ame=%s,Url=%s\n",sFileName.c_str(),sUrl.c_str());
+//							if (theTempSavePath.empty())
+//							{
+//#ifdef WIN32
+//								theTempSavePath = "c:\\";
+//#else
+//								theTempSavePath = "/";
+//#endif
+//							}
+//							char lpszFilePath[260];
+//							static unsigned int theIndex = 0;
+//#ifdef WIN32
+//							sprintf(lpszFilePath,"%s\\temp_%lld_%03d",theTempSavePath.c_str(),(cgc::bigint)time(0),((++theIndex)%1000));
+//#else
+//							sprintf(lpszFilePath,"%s/temp_%lld_%03d",theTempSavePath.c_str(),(cgc::bigint)time(0),((++theIndex)%1000));
+//#endif
+//							FILE * f = fopen(lpszFilePath,"wb");
+							//FILE * f = fopen(sSaveFile.c_str(),"wb");
+							//if (f!=NULL)
+							//{
+							//	fwrite(pParserHttp->getContentData(),1,pParserHttp->getContentLength(),f);
+							//	fclose(f);
+							//}
+							pFileInfo->insertMap("name",CGC_VALUEINFO(sFileName));
+							pFileInfo->insertMap("file_name",CGC_VALUEINFO(sFileName));
+							pFileInfo->insertMap("file_path",CGC_VALUEINFO(sFilePathTemp));
+							pFileInfo->insertMap("file_size",CGC_VALUEINFO((int)pParserHttp->getContentLength()));
+							pFileInfo->insertMap("content_type",CGC_VALUEINFO(sContentType));
+							outParam->addVector(pFileInfo);
+						//}else
+						//{
+						//	//outParam->addVector(CGC_VALUEINFO((int)pFiles.size()));
+						//	for (size_t i=0; i<pFiles.size(); i++)
+						//	{
+						//		cgcValueInfo::pointer pFileInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+						//		pFileInfo->insertMap("name",CGC_VALUEINFO(pFiles[i]->getName()));
+						//		pFileInfo->insertMap("file_name",CGC_VALUEINFO(pFiles[i]->getFileName()));
+						//		pFileInfo->insertMap("file_path",CGC_VALUEINFO(pFiles[i]->getFilePath()));
+						//		pFileInfo->insertMap("file_size",CGC_VALUEINFO((int)pFiles[i]->getFileSize()));
+						//		pFileInfo->insertMap("content_type",CGC_VALUEINFO(pFiles[i]->getContentType()));
+						//		outParam->addVector(pFileInfo);
+						//		break;
+						//	}
+						//}
+					}
+				}else
+				{
+					outParam->totype(cgcValueInfo::TYPE_STRING);
+					if (pParserHttp.get()!=NULL)
+						outParam->setStr(pParserHttp->getQueryString());
+				}
+				result = true;
+#else
 				}while ((++counter < 5*30) && !tcpClient->IsDisconnection() && tcpClient->GetReceiveData().empty());	// 30S
 				std::string::size_type responseSize = tcpClient->GetReceiveData().size();
 				counter = 0;
@@ -433,6 +557,7 @@ protected:
 				}
 
 				result = true;
+#endif
 			}
 
 			tcpClient->stopClient();
@@ -445,23 +570,38 @@ protected:
 
 };
 
-CHttpService::pointer gServicePointer;
+//#include <CGCBase/cgcServices.h>
+//#include <CGCBase/cgcbase.h>
+//cgcServiceInterface::pointer theFileSystemService;
+CHttpService::pointer theServicePointer;
 
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
+	//theFileSystemService = theServiceManager->getService("FileSystemService");
+	//theTempSavePath = theApplication->getAppConfPath();
+	//if (theFileSystemService.get() != NULL)
+	//{
+	//	cgcValueInfo::pointer pOut = CGC_VALUEINFO(true);
+	//	theFileSystemService->callService("exists", CGC_VALUEINFO(theTempSavePath),pOut);
+	//	if (!pOut->getBoolean())
+	//	{
+	//		theFileSystemService->callService("create_directory", CGC_VALUEINFO(theTempSavePath));
+	//	}
+	//}
 	return true;
 }
 
 extern "C" void CGC_API CGC_Module_Free(void)
 {
-	gServicePointer.reset();
+	//theFileSystemService.reset();
+	theServicePointer.reset();
 }
 
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)
 {
-	if (gServicePointer.get() == NULL)
+	if (theServicePointer.get() == NULL)
 	{
-		gServicePointer = CHttpService::create();
+		theServicePointer = CHttpService::create();
 	}
-	outService = gServicePointer;
+	outService = theServicePointer;
 }

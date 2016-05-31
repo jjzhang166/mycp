@@ -17,16 +17,29 @@ CgcTcpClient::CgcTcpClient(TcpClient_Callback* pCallback)
 : m_connectReturned(false)
 , m_bDisconnect(true)
 , m_bException(false)
+, m_tLastTime(0)
 , m_pCallback(pCallback)
+#ifdef USES_PARSER_HTTP
+, m_bHttpResponseOk(false)
+, m_bDeleteFile(true)
+#else
 , m_sReceiveData(_T(""))
+#endif
+
 {
 }
 CgcTcpClient::CgcTcpClient(void)
 : m_connectReturned(false)
 , m_bDisconnect(true)
 , m_bException(false)
+, m_tLastTime(0)
 , m_pCallback(NULL)
+#ifdef USES_PARSER_HTTP
+, m_bHttpResponseOk(false)
+, m_bDeleteFile(true)
+#else
 , m_sReceiveData(_T(""))
+#endif
 {
 }
 CgcTcpClient::~CgcTcpClient(void)
@@ -135,6 +148,7 @@ size_t CgcTcpClient::sendData(const unsigned char * data, size_t size)
 	//const size_t s = m_tcpClient->write(data, size);
 	//m_tcpClient->async_read_some();
 	//return s;
+	m_tLastTime = time(0);
 	return m_tcpClient->write(data, size);
 	//return m_tcpClient->write(data, size);
 }
@@ -171,7 +185,29 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const Receiv
 	//memcpy(lpszBuffer,data->data(),data->size());
 	//m_tSendRecv = time(0);
 	//this->parseData(CCgcData::create(data->data(), data->size()));
+#ifdef USES_PARSER_HTTP
+	if (m_bHttpResponseOk) return;
+	m_tLastTime = time(0);
+	if (m_pParserHttp.get()==NULL)
+	{
+		CPpHttp* parserHttp = new CPpHttp();
+		parserHttp->SetResponseSaveFile(m_sResponseSaveFile);
+		parserHttp->theUpload.setDeleteFile(m_bDeleteFile);
+		parserHttp->theUpload.setEnableAllContentType(true);
+		parserHttp->theUpload.setEnableUpload(true);
+		parserHttp->theUpload.setMaxFileCount(0);
+		parserHttp->theUpload.setMaxFileSize(0);
+		parserHttp->theUpload.setMaxUploadSize(0);
+		//parserHttp->theUpload.load(theXmlFile);
+		//parserHttp->setFileSystemService(theFileSystemService);
+		m_pParserHttp = cgcParserHttp::pointer(parserHttp);
+	}
+	//printf("***%d\n%s\n***\n",data->size(),data->data());
+	if (m_pParserHttp->doParse(data->data(),data->size()))
+		m_bHttpResponseOk = true;
+#else
 	m_sReceiveData.append(tstring((const char*)data->data(), data->size()));
+#endif
 }
 
 } // namespace cgc

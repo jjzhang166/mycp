@@ -33,7 +33,7 @@ const char * SERVERNAME		= "MYCP Http Server/1.0";
 #define USES_BUFFER_ALLOC
 
 CPpHttp::CPpHttp(void)
-: m_host("127.0.0.1"), m_account(""), m_secure(""), m_moduleName(""), m_functionName("doHttpFunc"), m_httpVersion("HTTP/1.1"),m_restVersion("v01"), m_contentLength(0), m_method(HTTP_NONE)
+: m_host("127.0.0.1"), m_account(""), m_secure(""), m_moduleName(""), m_functionName("doHttpFunc"), m_httpVersion("HTTP/1.1"),m_restVersion("v01"), m_contentLength(0), m_method(HTTP_NONE), m_bHttpResponse(false), m_pResponseSaveFile(NULL)
 , m_requestURL(""), m_requestURI(""), m_queryString(""),m_postString(""), m_fileName("")
 , m_nRangeFrom(0), m_nRangeTo(0)
 , m_keepAlive(true), m_keepAliveInterval(0), /*m_contentData(NULL), */m_contentSize(0),m_receiveSize(0)/*,m_nCookieExpiresMinute(0)*/
@@ -78,7 +78,7 @@ CPpHttp::~CPpHttp(void)
 	if (m_pCookieTemp!=NULL)
 		delete[] m_pCookieTemp;
 
-	if (m_fileSystemService.get() != NULL)
+	if (theUpload.getDeleteFile() && m_fileSystemService.get() != NULL)
 	{
 		for (size_t i=0; i<m_files.size(); i++)
 		{
@@ -159,7 +159,7 @@ void CPpHttp::println(const tstring& text)
 }
 void CPpHttp::write(const char * text, size_t size)
 {
-	if (text == NULL || size == std::string::npos || size==0) return;
+	if (size == std::string::npos || size==0 || text == NULL) return;
 
 	if (m_method == HTTP_HEAD) return;
 
@@ -239,6 +239,13 @@ void CPpHttp::init(void)
 	m_sMyCookieSessionId = "";
 	m_contentLength = 0;
 	m_method = HTTP_NONE;
+	m_bHttpResponse = false;
+	m_sResponseSaveFile = "";
+	if (m_pResponseSaveFile!=NULL)
+	{
+		fclose(m_pResponseSaveFile);
+		m_pResponseSaveFile = NULL;
+	}
 	m_requestURL = "";
 	m_requestURI = "";
 	m_queryString = "";
@@ -448,6 +455,7 @@ inline std::string GetMonthName(int nMonth)
 
 const char * CPpHttp::getHttpResult(size_t& outSize) const
 {
+	if (m_resultBuffer==NULL) return NULL;
 	// Make Response
 	if (m_pHeaderBufferTemp==NULL)
 	{
@@ -632,7 +640,8 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 	if (requestData == NULL) return false;
 
 	bool bGetHeader = false;
-	bool ret = IsComplete((const char*)requestData,requestSize,bGetHeader);
+	const bool ret = IsComplete((const char*)requestData,requestSize,bGetHeader);
+	//printf("**** doParse ret=%d\n",(int)(ret?1:0));
 	if (bGetHeader)
 	{
 		tstring sConnection(getHeader(Http_Connection, ""));
@@ -658,24 +667,28 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 					m_nRangeTo = atoi(sRange.substr(find+1).c_str());
 			}
 		}
-		tstring authorization = getHeader(Http_Authorization, "");
-		if (!authorization.empty())
+
+		if (!m_bHttpResponse)
 		{
-			if (authorization.substr(0, 6) == "Basic ")
+			tstring authorization = getHeader(Http_Authorization, "");
+			if (!authorization.empty())
 			{
-				char * buffer = new char[int(authorization.size()*0.8)];
-				long len = Base64Decode((unsigned char*)buffer, authorization.c_str()+6);
-				if (len > 0)
+				if (authorization.substr(0, 6) == "Basic ")
 				{
-					authorization = std::string(buffer, len);
-					std::string::size_type find = authorization.find(":");
-					if (find != std::string::npos)
+					char * buffer = new char[int(authorization.size()*0.8)];
+					long len = Base64Decode((unsigned char*)buffer, authorization.c_str()+6);
+					if (len > 0)
 					{
-						m_account = authorization.substr(0, find);
-						m_secure = authorization.substr(find+1);
+						authorization = std::string(buffer, len);
+						std::string::size_type find = authorization.find(":");
+						if (find != std::string::npos)
+						{
+							m_account = authorization.substr(0, find);
+							m_secure = authorization.substr(find+1);
+						}
 					}
+					delete[] buffer;
 				}
-				delete[] buffer;
 			}
 		}
 	}
@@ -787,10 +800,11 @@ void CPpHttp::GetPropertys(const std::string& sString, bool bUrlDecode)
 
 void CPpHttp::GeRequestInfo(void)
 {
+	if (m_bHttpResponse) return;
 	m_requestURI = m_requestURL;	
 	//printf("******* GeRequestInfo(): m_requestURI=%s\n",m_requestURI.c_str());
 	//if (m_method != HTTP_POST)
-		//if (m_method == HTTP_GET)
+	//if (m_method == HTTP_GET)
 	{
 		std::string::size_type find = m_requestURL.find("?");
 		if (find != std::string::npos)
@@ -804,7 +818,6 @@ void CPpHttp::GeRequestInfo(void)
 			}
 		}
 	}
-
 	const std::string::size_type nFind = m_sReqContentType.find("application/x-www-form-urlencoded");
 	const bool bUrlDecode = nFind != std::string::npos?true:false;
 	GetPropertys(m_queryString, bUrlDecode);
@@ -865,55 +878,65 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 	//printf("CPpHttp::IsComplete  size=%d\n",requestSize);
 	// Check HTTP Method
 	int leftIndex = 0;
-	if (sotpCompare(httpRequest, "GET", leftIndex))
+	if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "HTTP/", leftIndex))
 	{
+		// HTTP/1.1 200 OK
+		leftIndex += 5;
+		m_bHttpResponse = true;
+		m_method = HTTP_NONE;
+		//m_functionName = "doGET";
+		m_currentMultiPart.reset();
+		m_sCurrentParameterData.clear();
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "GET", leftIndex))
+	{
+		// GET /index.asp HTTP/1.0
 		leftIndex += 4;
 		m_method = HTTP_GET;
 		m_functionName = "doGET";
 		m_currentMultiPart.reset();
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "HEAD", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "HEAD", leftIndex))
 	{
 		leftIndex += 5;
 		m_method = HTTP_HEAD;
 		m_functionName = "doHEAD";
 		m_currentMultiPart.reset();
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "POST", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "POST", leftIndex))
 	{
 		leftIndex += 5;
 		m_method = HTTP_POST;
 		m_functionName = "doPOST";
 		m_currentMultiPart.reset();
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "PUT", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "PUT", leftIndex))
 	{
 		leftIndex += 4;
 		m_method = HTTP_PUT;
 		m_functionName = "doPUT";
 		m_currentMultiPart.reset();
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "DELETE", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "DELETE", leftIndex))
 	{
 		leftIndex += 7;
 		m_method = HTTP_DELETE;
 		m_functionName = "doDELETE";
 		m_currentMultiPart.reset();
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "OPTIONS", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "OPTIONS", leftIndex))
 	{
 		leftIndex += 8;
 		m_method = HTTP_OPTIONS;
 		m_functionName = "doOPTIONS";
 		m_currentMultiPart.reset();
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "TRACE", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "TRACE", leftIndex))
 	{
 		leftIndex += 6;
 		m_method = HTTP_TRACE;
 		m_functionName = "doTRACE";
 		m_sCurrentParameterData.clear();
-	}else if (sotpCompare(httpRequest, "CONNECT", leftIndex))
+	}else if (m_method==HTTP_NONE && !m_bHttpResponse && sotpCompare(httpRequest, "CONNECT", leftIndex))
 	{
 		leftIndex += 8;
 		m_method = HTTP_CONNECT;
@@ -935,19 +958,45 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		if (m_contentSize == requestSize && m_currentMultiPart->getBoundary().empty())
 		{
 			m_currentMultiPart.reset();
-			m_queryString = httpRequest;
-			m_postString = m_queryString;
+
+			if (m_bHttpResponse && !m_sResponseSaveFile.empty())
+			{
+				if (m_pResponseSaveFile!=NULL)
+				{
+					fwrite(httpRequest,1,requestSize,m_pResponseSaveFile);
+					fclose(m_pResponseSaveFile);
+					m_pResponseSaveFile = NULL;
+				}
+			}else
+			{
+				m_queryString = httpRequest;
+				m_postString = m_queryString;
+			}
 			m_receiveSize = requestSize;
 			return true;
 		}else if (m_contentSize >= (m_receiveSize + requestSize) && m_currentMultiPart->getBoundary().empty())
 		{
 			//strncpy(m_contentData+m_receiveSize,httpRequest,requestSize);
-			m_queryString.append(httpRequest);
-			m_postString.append(httpRequest);
+			if (m_bHttpResponse && !m_sResponseSaveFile.empty())
+			{
+				if (m_pResponseSaveFile!=NULL)
+				{
+					fwrite(httpRequest,1,requestSize,m_pResponseSaveFile);
+				}
+			}else
+			{
+				m_queryString.append(httpRequest);
+				m_postString.append(httpRequest);
+			}
 			m_receiveSize += requestSize;
 			if (m_receiveSize>=m_contentSize)
 			{
 				m_currentMultiPart.reset();
+				if (m_pResponseSaveFile!=NULL)
+				{
+					fclose(m_pResponseSaveFile);
+					m_pResponseSaveFile = NULL;
+				}
 				return true;
 			}
 			return false;
@@ -1041,18 +1090,32 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 	{
 		// Get file name
 		findSearch = strstr(httpRequest+leftIndex, " ");
+		//printf("**** findSearch=%d, m_bHttpResponse=%d\n",(int)findSearch,(int)(m_bHttpResponse?1:0));
 		if (findSearch == NULL)
 			return false;
-		m_requestURL = tstring(httpRequest+leftIndex, findSearch-httpRequest-leftIndex);
-		//printf("******* IsComplete(): Get file name;%s,%s\n",httpRequest,m_requestURL.c_str());
-		m_requestURL = URLDecode(m_requestURL.c_str());
-		leftIndex += (m_requestURL.size()+1);
+		if (m_bHttpResponse)
+		{
+			// HTTP/1.1 200 OK
+			m_httpVersion = tstring(httpRequest+(leftIndex-5), findSearch-httpRequest-(leftIndex-5));
+			//findSearchEnd = strstr(findSearch+1, " ");
+			//if (findSearchEnd == NULL) return false;
+			m_statusCode = (HTTP_STATUSCODE)atoi(findSearch+1);
+			findSearchEnd = strstr(findSearch+1, "\r\n");
+			//printf("**** m_httpVersion=%s, m_statusCode=%d,findSearchEnd=%d\n",m_httpVersion.c_str(),(int)m_statusCode,(int)(findSearchEnd));
+			if (findSearchEnd == NULL) return false;
+		}else
+		{
+			m_requestURL = tstring(httpRequest+leftIndex, findSearch-httpRequest-leftIndex);
+			//printf("******* IsComplete(): Get file name;%s,%s\n",httpRequest,m_requestURL.c_str());
+			m_requestURL = URLDecode(m_requestURL.c_str());
+			leftIndex += (m_requestURL.size()+1);
 
-		GeServletInfo();
-		findSearchEnd = strstr(findSearch, "\r\n");
-		if (findSearchEnd == NULL) return false;
+			GeServletInfo();
+			findSearchEnd = strstr(findSearch, "\r\n");
+			if (findSearchEnd == NULL) return false;
 
-		m_httpVersion = tstring(findSearch+1, findSearchEnd-findSearch-1);
+			m_httpVersion = tstring(findSearch+1, findSearchEnd-findSearch-1);
+		}
 		httpRequest = findSearchEnd + 2;
 	}
 	while (httpRequest != NULL)
@@ -1143,6 +1206,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		tstring param(sParamReal);
 		std::transform(param.begin(), param.end(), param.begin(), ::tolower);
 		std::string value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
+		//printf("**** %s : %s\n",sParamReal.c_str(), value.c_str());
 
 		//findSearchEnd = strstr(httpRequest, "\r\n");
 		//if (findSearchEnd == NULL) break;
@@ -1360,15 +1424,15 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 
 				//if (multipartyBoundary.empty())
 				{
-					const char * find = strstrl(httpRequest, "\r\n\r\n", requestSize-(httpRequest-httpRequestOld), 4);
+					const char * findContent = strstrl(httpRequest, "\r\n\r\n", requestSize-(httpRequest-httpRequestOld), 4);
 					//const char * find = strstrl(httpRequest, "\r\n\r\n", strlen(httpRequest), 4);
-					if (find == NULL)
+					if (findContent == NULL)
 					{
 						m_receiveSize = 0;
 					}else
 					{
-						find += 4;
-						m_receiveSize = requestSize-(int)(find-httpRequestOld);
+						findContent += 4;
+						m_receiveSize = requestSize-(int)(findContent-httpRequestOld);
 					}
 					//m_receiveSize = strlen(find);
 					//printf("**** m_contentSize=%d,m_receiveSize=%d\n",m_contentSize,m_receiveSize);
@@ -1395,10 +1459,24 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 							//m_contentData[m_receiveSize] = '\0';
 							////printf("=================\n%s\n================\n",m_contentData);
 							//m_queryString = m_contentData;
-							m_queryString = find;
-							if (m_queryString.size()>m_contentSize)
-								m_queryString = m_queryString.substr(0,m_contentSize);
-							m_postString = m_queryString;
+							if (m_bHttpResponse && !m_sResponseSaveFile.empty())
+							{
+								if (m_pResponseSaveFile==NULL)
+								{
+									m_pResponseSaveFile = fopen(m_sResponseSaveFile.c_str(), "wb");
+								}
+								if (m_pResponseSaveFile!=NULL && findContent!=NULL)
+								{
+									fwrite(findContent,1,m_receiveSize,m_pResponseSaveFile);
+								}
+							}else
+							{
+								if (findContent!=NULL)
+									m_queryString = findContent;
+								if (m_queryString.size()>m_contentSize)
+									m_queryString = m_queryString.substr(0,m_contentSize);
+								m_postString = m_queryString;
+							}
 							if (m_contentSize > m_receiveSize)
 							{
 								m_currentMultiPart = CGC_MULTIPART("");

@@ -20,6 +20,7 @@
 #ifndef __CgcTcpClient_h__
 #define __CgcTcpClient_h__
 
+#define USES_PARSER_HTTP
 //
 // include
 //#include "CgcBaseClient.h"
@@ -27,6 +28,9 @@
 #include <ThirdParty/Boost/asio/boost_socket.h>
 #include <ThirdParty/Boost/asio/TcpClient.h>
 #include <CGCBase/cgcSmartString.h>
+#ifdef USES_PARSER_HTTP
+#include <CGCClass/cgcclassinclude.h>
+#endif
 
 namespace cgc
 {
@@ -54,6 +58,8 @@ public:
 	CgcTcpClient(TcpClient_Callback* pCallback);
 	virtual ~CgcTcpClient(void);
 
+	void setDeleteFile(bool v) {m_bDeleteFile = v;}
+	void setResponseSaveFile(const tstring& s) {m_sResponseSaveFile = s;}
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
 
 #ifdef USES_OPENSSL
@@ -63,10 +69,16 @@ public:
 #endif
 	virtual void stopClient(void);
 	virtual size_t sendData(const unsigned char * data, size_t size);
+#ifdef USES_PARSER_HTTP
+	cgc::cgcParserHttp::pointer GetParserHttp(void) const {return m_pParserHttp;}
+	bool IsHttpResponseOk(void) const {return m_bHttpResponseOk;}
+#else
 	const tstring & GetReceiveData(void) const {return m_sReceiveData;}
 	void ClearData(void) {m_sReceiveData.clear();}
+#endif
 	bool IsDisconnection(void) const {return m_bDisconnect;}
 	bool IsException(void) const {return m_bException;}
+	bool IsOvertime(int nSeconds) const {return (m_tLastTime>0 && (m_tLastTime+nSeconds)<time(0))?true:false;}
 
 private:
 	virtual bool isInvalidate(void) const;
@@ -86,9 +98,17 @@ private:
 	bool m_connectReturned;
 	bool m_bDisconnect;
 	bool m_bException;
+	time_t m_tLastTime;
 
 	TcpClient_Callback* m_pCallback;
+#ifdef USES_PARSER_HTTP
+	cgc::cgcParserHttp::pointer m_pParserHttp;
+	bool m_bHttpResponseOk;
+	bool m_bDeleteFile;
+	tstring m_sResponseSaveFile;
+#else
 	tstring m_sReceiveData;
+#endif
 };
 
 } // namespace cgc
