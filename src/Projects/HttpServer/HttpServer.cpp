@@ -873,13 +873,14 @@ public:
 
 						bFindHttpHead = true;
 						CGC_LOG((cgc::LOG_TRACE, "%s:%s\n", sParamReal.c_str(), value.c_str()));
-						if (param=="content-type")
-						{
-							pFastcgiRequestInfo->response()->setContentType(value);
-							//}else if (param=="content-length")
-							//{
-							//	//pFastcgiRequestInfo->response()->setcon(value);
-						}else if (param=="status")
+						//if (param=="content-type")
+						//{
+						//	pFastcgiRequestInfo->response()->setContentType(value);
+						//	//}else if (param=="content-length")
+						//	//{
+						//	//	//pFastcgiRequestInfo->response()->setcon(value);
+						//}else
+						if (param=="status")
 						{
 							const HTTP_STATUSCODE nHttpState = (HTTP_STATUSCODE)atoi(value.c_str());
 							pFastcgiRequestInfo->response()->setStatusCode(nHttpState);

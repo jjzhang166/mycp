@@ -22,6 +22,8 @@
 
 #include <CGCBase/cgcCommunications.h>
 
+//#define USES_CONNECTION_CLOSE_EVENT
+
 class CCommEventData
 {
 public:
@@ -131,6 +133,13 @@ public:
 		, m_recvData(0)
 		, m_recvSize(0), m_bufferSize(0)
 		, m_nErrorCode(nErrorCode)
+#ifdef USES_CONNECTION_CLOSE_EVENT
+#ifdef WIN32
+		, m_hDoCloseEvent(NULL)
+#else
+		, m_semDoClose(NULL)
+#endif
+#endif
 	{
 	}
 	virtual ~CCommEventData(void)
@@ -141,7 +150,30 @@ public:
 			delete[] m_recvData;
 			m_recvData = 0;
 		}
+#ifdef USES_CONNECTION_CLOSE_EVENT
+#ifdef WIN32
+		if (m_hDoCloseEvent!=NULL)
+		{
+			CloseHandle(m_hDoCloseEvent);
+			m_hDoCloseEvent = NULL;
+		}
+#else
+		if (m_semDoClose!=NULL)
+		{
+			sem_destroy(m_semDoClose);
+			delete m_semDoClose;
+			m_semDoClose = NULL;
+		}
+#endif
+#endif
 	}
+#ifdef USES_CONNECTION_CLOSE_EVENT
+#ifdef WIN32
+	HANDLE m_hDoCloseEvent;
+#else
+	sem_t* m_semDoClose;
+#endif // WIN32
+#endif
 };
 
 class CCommEventDataPool

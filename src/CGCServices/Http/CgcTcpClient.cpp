@@ -186,7 +186,11 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const Receiv
 	//m_tSendRecv = time(0);
 	//this->parseData(CCgcData::create(data->data(), data->size()));
 #ifdef USES_PARSER_HTTP
-	if (m_bHttpResponseOk) return;
+	if (m_bHttpResponseOk)
+	{
+		//printf("******** %s, OnReceiveData(size=%d) HttpResponseOk=1 error\n",m_sResponseSaveFile.c_str(), data->size());
+		return;
+	}
 	m_tLastTime = time(0);
 	if (m_pParserHttp.get()==NULL)
 	{
@@ -205,6 +209,8 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const Receiv
 	//printf("***%d\n%s\n***\n",data->size(),data->data());
 	if (m_pParserHttp->doParse(data->data(),data->size()))
 		m_bHttpResponseOk = true;
+	//const int nReceiveSize = ((CPpHttp*)m_pParserHttp.get())->GetReceiveSize();
+	//printf("******** %s, OnReceiveData(size=%d), ContentLength=%d, ReceiveSize=%d, HttpResponseOk=%d\n",m_sResponseSaveFile.c_str(),data->size(),m_pParserHttp->getContentLength(),nReceiveSize,(int)(m_bHttpResponseOk?1:0));
 #else
 	m_sReceiveData.append(tstring((const char*)data->data(), data->size()));
 #endif

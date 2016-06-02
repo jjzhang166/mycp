@@ -53,6 +53,11 @@ CPpHttp::CPpHttp(void)
 }
 CPpHttp::~CPpHttp(void)
 {
+	if (m_pResponseSaveFile!=NULL)
+	{
+		fclose(m_pResponseSaveFile);
+		m_pResponseSaveFile = NULL;
+	}
 	//m_multiparts.clear();
 	m_propertys.clear();
 	//m_propertys.cleanAllPropertys();
@@ -228,8 +233,15 @@ void CPpHttp::reset(void)
 	m_addDateHeader = false;
 	m_addContentLength = true;
 	m_bodySize = 0;
-	if (m_resultBuffer!=NULL)
+	if (m_resultBuffer!=NULL && m_bodyBufferSize>0)
 		memset(m_resultBuffer, 0, m_bodyBufferSize);
+	m_bHttpResponse = false;
+	m_sResponseSaveFile = "";
+	if (m_pResponseSaveFile!=NULL)
+	{
+		fclose(m_pResponseSaveFile);
+		m_pResponseSaveFile = NULL;
+	}
 }
 void CPpHttp::init(void)
 {
@@ -239,13 +251,6 @@ void CPpHttp::init(void)
 	m_sMyCookieSessionId = "";
 	m_contentLength = 0;
 	m_method = HTTP_NONE;
-	m_bHttpResponse = false;
-	m_sResponseSaveFile = "";
-	if (m_pResponseSaveFile!=NULL)
-	{
-		fclose(m_pResponseSaveFile);
-		m_pResponseSaveFile = NULL;
-	}
 	m_requestURL = "";
 	m_requestURI = "";
 	m_queryString = "";
@@ -629,8 +634,8 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	//const size_t headerSize = strlen(m_pHeaderBufferTemp);
 	outSize = m_bodySize + headerSize;
 	memcpy(m_resultBuffer, m_pHeaderBufferTemp, headerSize);
-	memmove(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);
-	//memcpy(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);
+	memmove(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);	// ***
+	//memcpy(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);	// xxx
 	m_resultBuffer[outSize] = '\0';
 	return m_resultBuffer;
 }
@@ -1468,6 +1473,11 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 								if (m_pResponseSaveFile!=NULL && findContent!=NULL)
 								{
 									fwrite(findContent,1,m_receiveSize,m_pResponseSaveFile);
+									if (m_receiveSize>=m_contentSize)
+									{
+										fclose(m_pResponseSaveFile);
+										m_pResponseSaveFile = NULL;
+									}
 								}
 							}else
 							{

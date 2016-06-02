@@ -216,6 +216,7 @@ public:
 	void setFileSystemService(cgcServiceInterface::pointer v) {m_fileSystemService = v;}
 	bool isHttpResponse(void) const {return m_bHttpResponse;}
 	void SetResponseSaveFile(const tstring& v) {m_sResponseSaveFile = v;}
+	size_t GetReceiveSize(void) const {return m_receiveSize;}
 };
 
 #ifdef WIN32

@@ -1802,7 +1802,10 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	//if (statusCode!=STATUS_CODE_200)
 	//	responseImpl->setKeepAlive(-1);
 	// ×Ô¶¯·¢ËÍ
-	((CHttpResponseImpl*)responseImpl.get())->sendResponse();
+	printf("**** ProcHttpData::sendResponse...\n");
+	//((CHttpResponseImpl*)responseImpl.get())->sendResponse();
+	const int ret = ((CHttpResponseImpl*)responseImpl.get())->sendResponse();
+	printf("**** ProcHttpData::sendResponse ret=%d\n",ret);
 	//if (statusCode != STATUS_CODE_200)
 	//if (statusCode == STATUS_CODE_413)
 	//if (!requestImpl->isKeepAlive())

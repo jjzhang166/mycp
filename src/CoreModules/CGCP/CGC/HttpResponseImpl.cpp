@@ -103,11 +103,14 @@ int CHttpResponseImpl::sendResponse(bool bSendForce)
 		//std::string responseData = m_cgcParser->getResult();
 
 		size_t outSize = 0;
+		printf("**** CHttpResponseImpl::getHttpResult...\n");
 		const char * responseData = m_cgcParser->getHttpResult(outSize);
+		printf("**** CHttpResponseImpl::getHttpResult size=%d, pSendLockTemp=%x, sendData(%x)...\n",outSize,(int)pSendLockTemp,(int)m_cgcRemote.get());
 		if (pSendLockTemp)
 			delete pSendLockTemp;
 		const int ret = m_cgcRemote->sendData((const unsigned char*)responseData, outSize);
 		const Http_StatusCode nHttpStatusCode = getStatusCode();
+		printf("**** CHttpResponseImpl->m_cgcRemote->sendData ok, StatusCode=%d, reset(?)\n",(int)nHttpStatusCode);
 		if (nHttpStatusCode != STATUS_CODE_206 && nHttpStatusCode != STATUS_CODE_100)
 			reset();
 		return ret;

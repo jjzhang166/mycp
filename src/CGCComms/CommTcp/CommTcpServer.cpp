@@ -1361,16 +1361,22 @@ protected:
 				pEventData->SetErrorCode(nErrorCode);
 				pEventData->setRemote(pCgcRemote);
 				pEventData->setRemoteId(pCgcRemote->getRemoteId());
+#ifdef USES_CONNECTION_CLOSE_EVENT
+#ifdef WIN32
+#else
+#endif
+#endif
 				m_listMgr.add(pEventData);
 			}
 			// *** 需要做下面，可以让前面数据正常返回
 			//return;
 			// Do CET_Close Event, or StopServer
 #ifdef WIN32
-			HANDLE hObject[2];
-			hObject[0] = m_hDoStopServer;
-			hObject[1] = m_hDoCloseEvent;
-			WaitForMultipleObjects(2, hObject, FALSE, 3000);
+			WaitForSingleObject(m_hDoCloseEvent, 3000);
+			//HANDLE hObject[2];
+			//hObject[0] = m_hDoStopServer;
+			//hObject[1] = m_hDoCloseEvent;
+			//WaitForMultipleObjects(2, hObject, FALSE, 3000);
 			//WaitForMultipleObjects(2, hObject, FALSE, INFINITE);
 #else
 			//sem_wait(&m_semDoClose);
