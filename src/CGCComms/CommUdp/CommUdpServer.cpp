@@ -94,7 +94,7 @@ private:
 
 public:
 	// ???
-	CcgcRemote(CRemoteHandler * handler, const UdpEndPoint::pointer& endpoint, udp::socket * socket)
+	CcgcRemote(CRemoteHandler * handler, const mycp::asio::UdpEndPoint::pointer& endpoint, udp::socket * socket)
 		: m_handler(handler), /*m_endpoint1(endpoint), */m_nRemoteId(endpoint->getId()),m_nIpAddress(endpoint->getIpAddress()), m_socket(socket)
 	{
 		assert (m_handler != NULL);
@@ -124,7 +124,7 @@ public:
 	}
 	virtual ~CcgcRemote(void){}
 
-	void SetRemote(const UdpEndPoint::pointer& endpoint)
+	void SetRemote(const mycp::asio::UdpEndPoint::pointer& endpoint)
 	{
 		//m_endpoint1 = endpoint;
 		m_endpoint2 = endpoint->endpoint();
@@ -192,8 +192,8 @@ cgcAttributes::pointer theAppAttributes;
 /////////////////////////////////////////
 // CUdpServer
 class CUdpServer
-	: public UdpSocket_Handler
-	, public IoService_Handler
+	: public mycp::asio::UdpSocket_Handler
+	, public mycp::asio::IoService_Handler
 	, public cgcOnTimerHandler
 	, public cgcCommunication
 	, public CRemoteHandler
@@ -213,8 +213,8 @@ private:
 	//int m_capacity;
 	int m_protocol;
 
-	IoService::pointer m_ioservice;
-	UdpSocket m_socket;
+	mycp::asio::IoService::pointer m_ioservice;
+	mycp::asio::UdpSocket m_socket;
 	CLockMap<unsigned long, cgcRemote::pointer> m_mapCgcRemote;
 	unsigned int m_nDoCommEventCount;
 
@@ -266,7 +266,7 @@ public:
 		m_socket.setPoolSize(20,500);
 		//m_socket.setAutoReturnPoolEndPoint(false);
 		if (m_ioservice.get() == NULL)
-			m_ioservice = IoService::create();
+			m_ioservice = mycp::asio::IoService::create();
 		m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this(),theThreadStackSize,theIoSendBufferSize,theIoReceiveBufferSize);
 		udp::endpoint local_endpoint = m_socket.socket()->local_endpoint();
 		boost::system::error_code ignored_error;
@@ -432,7 +432,7 @@ private:
 				m_mapCgcRemote.clear();
 				m_socket.stop();
 				m_ioservice.reset();
-				m_ioservice = IoService::create();
+				m_ioservice = mycp::asio::IoService::create();
 				m_socket.start(m_ioservice->ioservice(), m_commPort, shared_from_this());
 				m_ioservice->start(shared_from_this());
 				CGC_LOG((LOG_INFO, _T("**** [*:%d] Restart OK ****\n"), m_commPort));
@@ -459,7 +459,7 @@ private:
 	}
 
 	// UdpSocket_Handler
-	virtual void OnReceiveData(const UdpSocket & socket2, const UdpEndPoint::pointer& endpoint)
+	virtual void OnReceiveData(const mycp::asio::UdpSocket & socket2, const mycp::asio::UdpEndPoint::pointer& endpoint)
 	{
 		if (endpoint->size() == 0) return;
 		//printf("*** OnReceiveData size=%d\n",endpoint->size());

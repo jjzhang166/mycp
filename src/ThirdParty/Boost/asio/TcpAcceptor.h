@@ -8,6 +8,9 @@
 using boost::asio::ip::tcp;
 #include "TcpConnection.h"
 
+namespace mycp {
+namespace asio {
+
 ///////////////////////////////////////////////
 // TcpAcceptor class
 class TcpAcceptor
@@ -129,5 +132,8 @@ public:
 	}
 
 };
+
+} // namespace asio
+} // namespace mycp
 
 #endif // __TcpAcceptor_h__

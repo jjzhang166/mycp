@@ -20,6 +20,7 @@
 #ifndef __CGCLib_h__
 #define __CGCLib_h__
 
+#include "IncludeBase.h"
 #include "SotpClient.h"
 
 #ifdef WIN32

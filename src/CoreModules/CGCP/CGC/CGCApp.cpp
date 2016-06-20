@@ -18,8 +18,8 @@
 
 //#define USES_HDCID 1
 #ifdef WIN32
-//#include <winsock2.h>
-//#include <Windows.h>
+#include <winsock2.h>
+#include <Windows.h>
 #else //WIN32
 #include "dlfcn.h"
 unsigned long GetLastError(void)
@@ -66,8 +66,6 @@ CGCApp::CGCApp(const tstring & sPath)
 , m_bInitedApp(false)
 , m_bExitLog(false)
 , m_sModulePath(sPath)
-, m_pProcSessionTimeout(NULL)
-, m_pProcDataResend(NULL)
 , m_bLicensed(true)
 , m_sLicenseAccount(_T(""))
 , m_licenseModuleCount(1)
@@ -120,12 +118,10 @@ void do_event_loop(void)
 }
 */
 
-void do_dataresend(CGCApp * pCGCApp)
+void CGCApp::do_dataresend(void)
 {
-	if (pCGCApp == NULL) return;
-
 	unsigned int theIndex = 0;
-	while (pCGCApp->isInited())
+	while (isInited())
 	{
 #ifdef WIN32
 		Sleep(100);
@@ -136,24 +132,24 @@ void do_dataresend(CGCApp * pCGCApp)
 			continue;
 		try
 		{
-			pCGCApp->ProcDataResend();
+			ProcDataResend();
 		}catch(std::exception const &)
 		{
 		}catch(...){
 		}
 	}
 }
-void do_sessiontimeout(CGCApp * pCGCApp)
+void CGCApp::do_sessiontimeout(void)
 {
-	if (pCGCApp == NULL) return;
+	//if (pCGCApp == NULL) return;
 
 	// 1 秒检查一次，SESSION是否超时没有访问。自动清除无用SESSION
 	unsigned int theIndex = 0;
 	unsigned int theSecondIndex = 0;
 	char lpszBuffer[32];
-	const tstring sProtectDataFile = pCGCApp->GetProtectDataFile();
-	const int nIsService = pCGCApp->GetIsService()?1:0;
-	while (pCGCApp->isInited())
+	const tstring sProtectDataFile = GetProtectDataFile();
+	const int nIsService = GetIsService()?1:0;
+	while (isInited())
 	{
 #ifdef WIN32
 		Sleep(100);
@@ -164,12 +160,12 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 			continue;
 		try
 		{
-			pCGCApp->ProcCheckParserPool();
-			pCGCApp->ProcNotKeepAliveRmote();
+			ProcCheckParserPool();
+			ProcNotKeepAliveRmote();
 
 			if (((++theSecondIndex)%20)==19)	// 20秒处理一次
 			{
-				pCGCApp->ProcLastAccessedTime();
+				ProcLastAccessedTime();
 			}
 			if (!sProtectDataFile.empty() && (theSecondIndex%2)==0)	// 2秒处理一次
 			{
@@ -184,7 +180,7 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 
 //			if (((++theSecondIndex)%20)!=19) continue;	// 20秒处理一次
 //			// 如果没有超时SESSION，再继续等待
-//			while(pCGCApp->ProcLastAccessedTime())
+//			while(ProcLastAccessedTime())
 //			{
 //				// 如果有超时SESSION，继续处理；
 //#ifdef WIN32
@@ -192,8 +188,39 @@ void do_sessiontimeout(CGCApp * pCGCApp)
 //#else
 //				usleep(10000);
 //#endif
-//				pCGCApp->ProcNotKeepAliveRmote();
+//				ProcNotKeepAliveRmote();
 //			}
+
+			if (theSecondIndex>30)
+			{
+				if ((theSecondIndex%20)==19)			// 20秒处理一次
+				{
+#ifdef USES_CMODULEMGR
+					m_pModuleMgr.OnCheckTimeout();
+#else
+					{
+						BoostReadLock rdlock(m_mapOpenModules.mutex());
+						CLockMap<void*, cgcApplication::pointer>::iterator pIter;
+						for (pIter=m_mapOpenModules.begin(); pIter!=m_mapOpenModules.end(); pIter++)
+						{
+							CModuleImpl * pModuleImpl = (CModuleImpl*)pIter->second.get();
+							pModuleImpl->OnCheckTimeout();
+						}
+					}
+#endif
+				}
+			}
+
+			if ((theSecondIndex%3600)==3500)						// 一小时处理一次
+				CheckScriptExecute(SCRIPT_TYPE_HOURLY);
+			if (theSecondIndex%(3600*24)==(3600*23))				// 3600*24=60*24分钟=一天处理一次
+				CheckScriptExecute(SCRIPT_TYPE_DAILY);
+			if (theSecondIndex%(3600*24*7)==(3600*24*6))			// 每7天处理一次
+				CheckScriptExecute(SCRIPT_TYPE_WEEKLY);
+			if (theSecondIndex%(3600*24*30)==(3600*24*29))			// 每30天处理一次
+				CheckScriptExecute(SCRIPT_TYPE_MONTHLY);
+			if (theSecondIndex%(3600*24*365)==(3600*24*364))		// 每365天处理一次
+				CheckScriptExecute(SCRIPT_TYPE_YEARLY);
 		}catch(std::exception const &)
 		{
 		}catch(...){
@@ -340,8 +367,8 @@ void CGCApp::AppInit(bool bNTService)
 	m_bExitLog = false;
 	boost::thread_attributes attrs;
 	attrs.set_stack_size(CGC_THREAD_STACK_MAX);	// CGC_THREAD_STACK_MIN
-	m_pProcSessionTimeout = new boost::thread(attrs,boost::bind(&do_sessiontimeout, this));
-	m_pProcDataResend = new boost::thread(attrs,boost::bind(&do_dataresend, this));
+	m_pProcSessionTimeout = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CGCApp::do_sessiontimeout, this)));
+	m_pProcDataResend = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CGCApp::do_dataresend, this)));
 }
 
 void CGCApp::AppStart(int nWaitSeconds)
@@ -441,17 +468,15 @@ void CGCApp::AppExit(void)
 
 	m_logModuleImpl.log(LOG_INFO, _T("Exiting %s Server......\n"), m_parseDefault.getCgcpName().c_str());
 
-	if (m_pProcSessionTimeout)
+	if (m_pProcSessionTimeout.get()!=NULL)
 	{
 		m_pProcSessionTimeout->join();
-		delete m_pProcSessionTimeout;
-		m_pProcSessionTimeout = NULL;
+		m_pProcSessionTimeout.reset();
 	}
-	if (m_pProcDataResend)
+	if (m_pProcDataResend.get()!=NULL)
 	{
 		m_pProcDataResend->join();
-		delete m_pProcDataResend;
-		m_pProcDataResend = NULL;
+		m_pProcDataResend.reset();
 	}
 
 	AppStop();
@@ -487,8 +512,115 @@ void kill_op(int signum,siginfo_t *info,void *myact)
 //}
 #endif
 
+inline bool FileIsExist(const char* lpszFile)
+{
+	FILE * f = fopen(lpszFile,"r");
+	if (f==NULL)
+		return false;
+	fclose(f);
+	return true;
+}
+void CGCApp::CheckScriptExecute(int nScriptType)
+{
+	char lpszScriptDir[260];
+#ifdef WIN32
+	sprintf(lpszScriptDir,"%s\\script",m_sModulePath.c_str());
+#else
+	sprintf(lpszScriptDir,"%s/script",m_sModulePath.c_str());
+#endif
+
+	tstring sUpdateScriptFile(lpszScriptDir);
+	switch (nScriptType)
+	{
+	case SCRIPT_TYPE_ONCE:
+		{
+#ifdef WIN32
+			sUpdateScriptFile.append("\\mycp_execute_script_once.bat");
+#else
+			sUpdateScriptFile.append("/mycp_execute_script_once.sh");
+#endif
+		}break;
+	case SCRIPT_TYPE_HOURLY:
+		{
+#ifdef WIN32
+			sUpdateScriptFile.append("\\mycp_execute_script_hourly.bat");
+#else
+			sUpdateScriptFile.append("/mycp_execute_script_hourly.sh");
+#endif
+		}break;
+	case SCRIPT_TYPE_DAILY:
+		{
+#ifdef WIN32
+			sUpdateScriptFile.append("\\mycp_execute_script_daily.bat");
+#else
+			sUpdateScriptFile.append("/mycp_execute_script_daily.sh");
+#endif
+		}break;
+	case SCRIPT_TYPE_WEEKLY:
+		{
+#ifdef WIN32
+			sUpdateScriptFile.append("\\mycp_execute_script_weekly.bat");
+#else
+			sUpdateScriptFile.append("/mycp_execute_script_weekly.sh");
+#endif
+		}break;
+	case SCRIPT_TYPE_MONTHLY:
+		{
+#ifdef WIN32
+			sUpdateScriptFile.append("\\mycp_execute_script_monthly.bat");
+#else
+			sUpdateScriptFile.append("/mycp_execute_script_monthly.sh");
+#endif
+		}break;
+	case SCRIPT_TYPE_YEARLY:
+		{
+#ifdef WIN32
+			sUpdateScriptFile.append("\\mycp_execute_script_yearly.bat");
+#else
+			sUpdateScriptFile.append("/mycp_execute_script_yearly.sh");
+#endif
+		}break;
+	default:
+		return;
+		break;
+	}
+	if (FileIsExist(sUpdateScriptFile.c_str()))
+	{
+		// *
+#ifdef WIN32
+		char lpszCurrentDir[260];
+		GetCurrentDirectory(260,lpszCurrentDir);
+		::SetCurrentDirectory(lpszScriptDir);
+		::WinExec(sUpdateScriptFile.c_str(),SW_HIDE);
+		::SetCurrentDirectory(lpszCurrentDir);
+#else
+		char lpszCommand[1024];
+		sprintf(lpszCommand,"chmod +x \"%s\"",sUpdateScriptFile.c_str());
+		system(lpszCommand);
+
+		sprintf(lpszCommand,"cd \"%s\" ; \"%s\"",lpszScriptDir,sUpdateScriptFile.c_str());
+		system(lpszCommand);
+#endif
+		if (nScriptType==SCRIPT_TYPE_ONCE)
+		{
+			const time_t tNow = time(0);
+			const struct tm * pNotTime = localtime(&tNow);
+			char lpszDateDir[60];
+			sprintf(lpszDateDir,"%04d%02d%02d-%02d%02d",pNotTime->tm_year+1900,pNotTime->tm_mon+1,pNotTime->tm_mday,pNotTime->tm_hour,pNotTime->tm_min);
+			char lpszBkFile[260];
+			sprintf(lpszBkFile,"%s.%s.txt",sUpdateScriptFile.c_str(),lpszDateDir);
+
+			namespace fs = boost::filesystem;
+			fs::path pathfrom(sUpdateScriptFile.string());
+			fs::path pathto(lpszBkFile);
+			fs::copy_file(pathfrom,pathto);
+			remove(sUpdateScriptFile.c_str());
+		}
+	}
+}
 int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDataFile)
 {
+	CheckScriptExecute(SCRIPT_TYPE_ONCE);
 	m_bService = bService;
 	m_sProtectDataFile = sProtectDataFile;
 	AppInit(false);
@@ -1041,7 +1173,11 @@ cgcServiceInterface::pointer CGCApp::getService(const tstring & serviceName, con
 	void * hModule = moduleItem->getModuleHandle();
 
 	cgcApplication::pointer application;
+#ifdef USES_CMODULEMGR
+	if (!m_pModuleMgr.m_mapModuleImpl.find(hModule, application)) return cgcNullServiceInterface;
+#else
 	if (!m_mapOpenModules.find(hModule, application)) return cgcNullServiceInterface;
+#endif
 	if (((CModuleImpl*)application.get())->getModuleState() < 1)
 	{
 		if (!InitLibModule(application, moduleItem)) return cgcNullServiceInterface;
@@ -1207,7 +1343,11 @@ HTTP_STATUSCODE CGCApp::executeService(const tstring & serviceName, const tstrin
 	void * hModule = moduleItem->getModuleHandle();
 
 	cgcApplication::pointer application;
+#ifdef USES_CMODULEMGR
+	if (!m_pModuleMgr.m_mapModuleImpl.find(hModule, application)) return STATUS_CODE_404;
+#else
 	if (!m_mapOpenModules.find(hModule, application)) return STATUS_CODE_404;
+#endif
 	if (((CModuleImpl*)application.get())->getModuleState() < 1)
 	{
 		if (!InitLibModule(application, moduleItem)) return STATUS_CODE_501;
@@ -1258,6 +1398,7 @@ cgcCDBCService::pointer CGCApp::getCDBDService(const tstring& datasource)
 	if (serviceInterface.get() == NULL) return cgcNullCDBCService;
 
 	result = CGC_CDBCSERVICE_DEF(serviceInterface);
+	result->set_datasource(datasource);
 	if (!result->initService())
 	{
 		resetService(result);
@@ -1270,6 +1411,21 @@ cgcCDBCService::pointer CGCApp::getCDBDService(const tstring& datasource)
 		return cgcNullCDBCService;
 	}
 
+	ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(dataSourceInfo->getCDBCService());
+	if (moduleItem.get() != NULL && moduleItem->getModuleHandle() != NULL)
+	{
+		void * hModule = moduleItem->getModuleHandle();
+		cgcApplication::pointer application;
+#ifdef USES_CMODULEMGR
+		if (m_pModuleMgr.m_mapModuleImpl.find(hModule, application))
+#else
+		if (m_mapOpenModules.find(hModule, application))
+#endif
+		{
+			((CModuleImpl*)application.get())->SetCdbcDatasource(datasource);
+		}
+	}
+
 	m_cdbcServices.insert(datasource, result);
 	return result;
 }
@@ -1278,6 +1434,7 @@ void CGCApp::retCDBDService(cgcCDBCServicePointer& cdbcservice)
 	if (cdbcservice.get()!=NULL)
 	{
 		// *** 如何设计，断开超时没用连接
+		m_cdbcServices.remove(cdbcservice->get_datasource());
 
 		resetService(cdbcservice);
 		cdbcservice.reset();
@@ -1309,7 +1466,11 @@ cgcAttributes::pointer CGCApp::getAppAttributes(const tstring & appName) const
 		return cgcNullAttributes;
 
 	cgcApplication::pointer applicationImpl;
+#ifdef USES_CMODULEMGR
+	m_pModuleMgr.m_mapModuleImpl.find(moduleItem->getModuleHandle(), applicationImpl);
+#else
 	m_mapOpenModules.find(moduleItem->getModuleHandle(), applicationImpl);
+#endif
 	return applicationImpl.get() == NULL ? cgcNullAttributes : applicationImpl->getAttributes();
 }
 
@@ -1464,12 +1625,12 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	if (phttpParser.get() == NULL)
 	{
 		GetHttpParserPool(phttpParser);
-		bCanSetParserToPool = true;
 		if (phttpParser.get() == NULL)
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("ParserHttpService GetParser error! %s\n"), recvData);
 			return STATUS_CODE_500;
 		}
+		bCanSetParserToPool = true;
 		//cgcServiceInterface::pointer parserService;
 		//m_fpParserHttpService(parserService, cgcNullValueInfo);
 		//if (parserService.get() == NULL)
@@ -1802,10 +1963,10 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	//if (statusCode!=STATUS_CODE_200)
 	//	responseImpl->setKeepAlive(-1);
 	// 自动发送
-	printf("**** ProcHttpData::sendResponse...\n");
-	//((CHttpResponseImpl*)responseImpl.get())->sendResponse();
-	const int ret = ((CHttpResponseImpl*)responseImpl.get())->sendResponse();
-	printf("**** ProcHttpData::sendResponse ret=%d\n",ret);
+	//printf("**** ProcHttpData::sendResponse...\n");
+	((CHttpResponseImpl*)responseImpl.get())->sendResponse();
+	//const int ret = ((CHttpResponseImpl*)responseImpl.get())->sendResponse();
+	//printf("**** ProcHttpData::sendResponse ret=%d,isKeepAlive()=%d\n",ret,(int)(phttpParser->isKeepAlive()?1:0));
 	//if (statusCode != STATUS_CODE_200)
 	//if (statusCode == STATUS_CODE_413)
 	//if (!requestImpl->isKeepAlive())
@@ -1987,13 +2148,16 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 			if (pcgcParser->isSessionProto())
 			{
 				ProcSesProto(requestImpl, pcgcParser, pcgcRemote, sessionImpl);
-			}else if (pcgcParser->isAppProto())
+			}else if (pcgcParser->isAppProto() || pcgcParser->getProtoType()==SOTP_PROTO_TYPE_SYNC)
 			{
 				bCanSetParserToPool = false;
 				cgcSotpResponse::pointer responseImpl(new CSotpResponseImpl(pcgcRemote, pcgcParser, pSessionImpl,this));
 				responseImpl->setEncoding(m_parseDefault.getDefaultEncoding());
 				((CSotpResponseImpl*)responseImpl.get())->setSession(sessionImpl);
 				ProcAppProto(requestImpl, responseImpl, pcgcParser, sessionImpl);
+			//}else if (pcgcParser->getProtoType()==SOTP_PROTO_TYPE_SYNC)
+			//{
+			//	ProcSyncProto(requestImpl, pcgcParser, pcgcRemote, sessionImpl);
 			}/* ? else if (pRequestImpl->m_cwsInvoke.isClusterProto())
 			{
 				ProcCluProto(pRequestImpl, cwssRemote);
@@ -2081,7 +2245,11 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("'%s' account auth failed!\n"), pcgcParser->getAccount().c_str());
 			retCode = -104;
+#ifdef USES_CMODULEMGR
+		}else if (!m_pModuleMgr.m_mapModuleImpl.find(moduleItem->getModuleHandle(), applicationImpl) || !applicationImpl->isInited())
+#else
 		}else if (!m_mapOpenModules.find(moduleItem->getModuleHandle(), applicationImpl) || !applicationImpl->isInited())
+#endif
 		{
 			retCode = -105;
 		}else
@@ -2169,7 +2337,47 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 	}
 	return 0;
 }
+int CGCApp::ProcSyncProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcParserSotp::pointer& pcgcParser, const cgcRemote::pointer& pcgcRemote, cgcSession::pointer& remoteSessionImpl)
+{
+	if (!m_bInitedApp || m_bStopedApp || pcgcParser.get() == NULL) return -1;
 
+	if (pcgcRemote->isInvalidate()) return -1;
+	//if (!pcgcParser->isSessionProto()) return -1;
+
+	//long retCode = 0;
+	//tstring sSessionId;
+	//unsigned long nCallId = pcgcParser->getCallid();
+
+	CSessionImpl * pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
+	// session
+	if (pcgcParser->isResulted())
+	{
+
+	}else
+	{
+		//const tstring & sAppModuleName = pcgcParser->getModuleName();
+		//m_logModuleImpl.log(LOG_DEBUG, _T("SESSION OPENING..., APP_NAME=%s\n"), sAppModuleName.c_str());
+
+	}
+
+	//CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pRemoteSessionImpl,NULL);
+	//responseImpl.setSession(remoteSessionImpl);
+	//responseImpl.SetEncoding(m_parseDefault.getDefaultEncoding());
+	//// **暂时不需要返回public key
+	////if (pRemoteSessionImpl!=NULL)
+	////{
+	////	responseImpl.SetSslPublicKey(m_pRsa.GetPublicKey());
+	////}
+	//responseImpl.sendSessionResult(retCode, sSessionId);
+
+	//if (pcgcParser->isCloseType() && pRemoteSessionImpl != NULL)
+	//{
+	//	m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sSessionId.c_str());
+	//	remoteSessionImpl->invalidate();
+	//	m_mgrSession1.RemoveSessionImpl(remoteSessionImpl);
+	//}
+	return 0;
+}
 HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestImpl,const cgcHttpResponse::pointer& responseImpl,const cgcParserHttp::pointer& pcgcParser)
 {
 	assert (requestImpl.get() != NULL);
@@ -2210,7 +2418,11 @@ HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestI
 		boost::mutex::scoped_lock * lockWait = NULL;
 		CModuleImpl * pModuleImpl = NULL;
 		cgcApplication::pointer applicationImpl;
+#ifdef USES_CMODULEMGR
+		if (!m_pModuleMgr.m_mapModuleImpl.find(pModuleItem->getModuleHandle(), applicationImpl) || !applicationImpl->isInited())
+#else
 		if (!m_mapOpenModules.find(pModuleItem->getModuleHandle(), applicationImpl) || !applicationImpl->isInited())
+#endif
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("invalidate module handle \'%s\'!\n"), pModuleItem->getName().c_str());
 			statusCode = STATUS_CODE_500;
@@ -2278,13 +2490,13 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 {
 	if (!m_bInitedApp || m_bStopedApp) return -1;
 	if (responseImpl->isInvalidate()) return -1;
-	if (!pcgcParser->isAppProto()) return -1;
+	if (!pcgcParser->isAppProto() && pcgcParser->getProtoType()!=SOTP_PROTO_TYPE_SYNC) return -1;
 
 	CSotpResponseImpl * pResponseImpl = (CSotpResponseImpl*)responseImpl.get();
 	CSessionImpl * pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
 	bool bOpenNewSession = false;
 	long retCode = 0;
-	if (pcgcParser->isCallType())
+	if (pcgcParser->isCallType() || pcgcParser->getProtoType()==SOTP_PROTO_TYPE_SYNC)
 	{
 		const unsigned long nCallId = pcgcParser->getCallid();
 		const unsigned long nSign = pcgcParser->getSign();
@@ -2384,7 +2596,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("invalidate session handle \'%s\'!\n"), sSessionId.c_str());
 			retCode = -103;
-		}else if (!pModuleItem->getAllowMethod(sCallName, methodName))
+		}else if (pcgcParser->getProtoType()!=SOTP_PROTO_TYPE_SYNC && !pModuleItem->getAllowMethod(sCallName, methodName))
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("no allow to call \'%s\'!\n"), sCallName.c_str());
 			retCode = -106;
@@ -2398,7 +2610,11 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 			boost::mutex::scoped_lock * lockWait = NULL;
 			CModuleImpl * pModuleImpl = NULL;
 			cgcApplication::pointer applicationImpl;
+#ifdef USES_CMODULEMGR
+			if (!m_pModuleMgr.m_mapModuleImpl.find(pModuleItem->getModuleHandle(), applicationImpl))
+#else
 			if (!m_mapOpenModules.find(pModuleItem->getModuleHandle(), applicationImpl))
+#endif
 			{
 				m_logModuleImpl.log(LOG_ERROR, _T("invalidate module handle \'%s\'!\n"), pModuleItem->getName().c_str());
 				retCode = -102;
@@ -2467,11 +2683,47 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 
 				try
 				{
-					((CSotpRequestImpl*)requestImpl.get())->setSession(remoteSessionImpl);
-					//((CSotpRequestImpl*)requestImpl.get())->SetApi(methodName);
-					((CSotpResponseImpl*)responseImpl.get())->setSession(remoteSessionImpl);
-					retCode = ProcLibMethod(pModuleItem, methodName, requestImpl, responseImpl);
-
+					// ***
+					if (pcgcParser->getProtoType()==SOTP_PROTO_TYPE_SYNC)
+					{
+						const int nExtData = requestImpl->getParameterValue(_T("ext"), (int)0);
+						const int nSyncType = requestImpl->getParameterValue(_T("type"), (int)0);
+						const tstring sSyncData(requestImpl->getParameterValue(_T("data"), ""));
+						const tstring& sSyncName = methodName;
+						const bool bDatasource = (nExtData&1)==1?true:false;
+						//printf("**** SOTP_PROTO_TYPE_SYNC (%s)\n",sSyncData.c_str());
+						if (bDatasource)	// * cdbc
+						{
+							const tstring& sDatasource = sSyncName;
+							cgcCDBCService::pointer pCdbcService = getCDBDService(sDatasource);
+							if (pCdbcService.get()==NULL)
+							{
+								retCode = -117;
+							}else
+							{
+								const cgc::bigint ret = pCdbcService->execute(sSyncData.c_str());
+								// ??? LOG
+								//pCdbcService->
+								printf("**** %lld,%s\n",ret,sSyncData.c_str());
+								if (ret<0)
+									retCode = 0;
+								else if (ret==0)
+									retCode = 1;
+								else
+									retCode = 2;
+								//retCDBDService(pCdbcService);	// sync 不需要 retCDBDService
+							}
+						}else
+						{
+							retCode = ProcLibSyncMethod(pModuleItem, sSyncName, nSyncType, sSyncData);
+						}
+					}else
+					{
+						((CSotpRequestImpl*)requestImpl.get())->setSession(remoteSessionImpl);
+						//((CSotpRequestImpl*)requestImpl.get())->SetApi(methodName);
+						((CSotpResponseImpl*)responseImpl.get())->setSession(remoteSessionImpl);
+						retCode = ProcLibMethod(pModuleItem, methodName, requestImpl, responseImpl);
+					}
 					if (!bDisableLogSign)
 						m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' cid '%d', returnCode '%d'\n"), sSessionId.c_str(), nCallId, retCode);
 				}catch(std::exception const & e)
@@ -2574,6 +2826,32 @@ int CGCApp::ProcLibMethod(const ModuleItem::pointer& moduleItem, const tstring &
 
 	return result;
 }
+int CGCApp::ProcLibSyncMethod(const ModuleItem::pointer& moduleItem, const tstring& sSyncName, int nSyncType, const tstring & sSyncData)
+{
+	assert (moduleItem.get() != NULL);
+
+	int result(0);
+	void * hModule = moduleItem->getModuleHandle();
+	if (hModule == NULL)
+	{
+		result = -113;
+		return result;
+	}
+#ifdef WIN32
+	//std::string pOutTemp = cgcString::W2Char(sMethodName);
+	FPCGC_SYNC farProc = (FPCGC_SYNC)GetProcAddress((HMODULE)hModule, "CGC_SYNC");
+#else
+	FPCGC_SYNC farProc = (FPCGC_SYNC)dlsym(hModule, "CGC_SYNC");
+#endif
+	if (farProc == NULL)
+	{
+		result = -114;
+		return result;
+	}
+
+	result = farProc(sSyncName, nSyncType, sSyncData);
+	return result;
+}
 
 void CGCApp::InitLibModules(unsigned int mt)
 {
@@ -2598,7 +2876,11 @@ void CGCApp::InitLibModules(unsigned int mt)
 
 		void * hModule = moduleItem->getModuleHandle();
 		cgcApplication::pointer application;
+#ifdef USES_CMODULEMGR
+		if (!m_pModuleMgr.m_mapModuleImpl.find(hModule, application)) continue;
+#else
 		if (!m_mapOpenModules.find(hModule, application)) continue;
+#endif
 		MODULETYPE moduleMT = application->getModuleType();
 		if ((mt & (int)moduleMT) != (int)moduleMT)
 			continue;
@@ -2677,7 +2959,11 @@ void CGCApp::OpenLibrarys(void)
 				}
 #endif
 			}
+#ifdef USES_CMODULEMGR
+			if (m_pModuleMgr.m_mapModuleImpl.exist(hModule))
+#else
 			if (m_mapOpenModules.exist(hModule))
+#endif
 			{
 				// **多次打开，新建临时文件
 				namespace fs = boost::filesystem;
@@ -2702,16 +2988,25 @@ void CGCApp::OpenLibrarys(void)
 			}
 		}
 		cgcApplication::pointer application;
+#ifdef USES_CMODULEMGR
+		if (m_pModuleMgr.m_mapModuleImpl.find(hModule, application))
+#else
 		if (m_mapOpenModules.find(hModule, application))
+#endif
 		{
 			moduleItem->setModuleHandle(hModule);
 			continue;
 		}
-		CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem);
+		CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this);
 		pModuleImpl->setModulePath(m_sModulePath);
+		pModuleImpl->loadSyncData(false);
 		pModuleImpl->m_sTempFile = sTempFile;
 		cgcApplication::pointer moduleImpl(pModuleImpl);
+#ifdef USES_CMODULEMGR
+		m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
+#else
 		m_mapOpenModules.insert(hModule, moduleImpl);
+#endif
 
 		//
 		// CGC_SetApplicationHandler
@@ -2757,6 +3052,9 @@ void CGCApp::FreeLibrarys(void)
 {
 	m_mapServiceModule.clear();
 
+#ifdef USES_CMODULEMGR
+	m_pModuleMgr.StopModule();
+#else
 	CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
 	for (iterApp=m_mapOpenModules.begin(); iterApp!=m_mapOpenModules.end(); iterApp++)
 	{
@@ -2764,6 +3062,7 @@ void CGCApp::FreeLibrarys(void)
 		CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
 		pModuleImpl->StopModule();
 	}
+#endif
 
 	//printf("**** Module Size = %d\n", m_parseModules.m_modules.size());
 	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
@@ -2798,8 +3097,12 @@ void CGCApp::FreeLibrarys(void)
 	}
 
 	// ** delete temp file
-	//CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
+#ifdef USES_CMODULEMGR
+	CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
+	for (iterApp=m_pModuleMgr.m_mapModuleImpl.begin(); iterApp!=m_pModuleMgr.m_mapModuleImpl.end(); iterApp++)
+#else
 	for (iterApp=m_mapOpenModules.begin(); iterApp!=m_mapOpenModules.end(); iterApp++)
+#endif
 	{
 		cgcApplication::pointer application = iterApp->second;
 		CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
@@ -2812,7 +3115,11 @@ void CGCApp::FreeLibrarys(void)
 			pModuleImpl->m_sTempFile.clear();
 		}
 	}
+#ifdef USES_CMODULEMGR
+	m_pModuleMgr.m_mapModuleImpl.clear();
+#else
 	m_mapOpenModules.clear();
+#endif
 }
 
 bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const ModuleItem::pointer& moduleItem)
@@ -3128,9 +3435,11 @@ void CGCApp::FreeLibModules(unsigned int mt)
 
 	// 反向遍历
 	CLockMap<void*, cgcApplication::pointer>::reverse_iterator iter;
+#ifdef USES_CMODULEMGR
+	for (iter=m_pModuleMgr.m_mapModuleImpl.rbegin(); iter!=m_pModuleMgr.m_mapModuleImpl.rend(); iter++)
+#else
 	for (iter=m_mapOpenModules.rbegin(); iter!=m_mapOpenModules.rend(); iter++)
-	//CLockMap<void*, cgcApplication::pointer>::iterator iter;
-	//for (iter=m_mapOpenModules.begin(); iter!=m_mapOpenModules.end(); iter++)
+#endif
 	{
 		cgcApplication::pointer application = iter->second;
 		MODULETYPE moduleMT = application->getModuleType();

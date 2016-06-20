@@ -11,8 +11,9 @@
 #include "cgcaddress.h"
 //#include <boost/format.hpp>
 
-namespace cgc
-{
+namespace mycp {
+namespace httpservice {
+
 CgcTcpClient::CgcTcpClient(TcpClient_Callback* pCallback)
 : m_connectReturned(false)
 , m_bDisconnect(true)
@@ -98,7 +99,7 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 		sIp = sInIp;
 
 	if (m_ipService.get() == 0)
-		m_ipService = IoService::create();
+		m_ipService = mycp::asio::IoService::create();
 
 	TcpClient_Handler::pointer clientHandler = boost::enable_shared_from_this<CgcTcpClient>::shared_from_this();
 	//CgcTcpClient::pointer clientHandler = boost::static_pointer_cast<CgcTcpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
@@ -173,7 +174,7 @@ void CgcTcpClient::OnConnected(const TcpClientPointer& tcpClient)
 	//}
 }
 
-void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data)
+void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data)
 {
 	BOOST_ASSERT (tcpClient.get() != 0);
 	BOOST_ASSERT (data.get() != 0);
@@ -216,4 +217,5 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const Receiv
 #endif
 }
 
-} // namespace cgc
+} // namespace httpservice
+} // namespace mycp

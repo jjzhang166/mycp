@@ -21,6 +21,7 @@
 
 #ifdef WIN32
 #pragma warning(disable:4267)
+#include <winsock2.h>
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -37,10 +38,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	}
 	return TRUE;
 }
-
+#else
+#include <ifaddrs.h>
+#include <netinet/in.h> 
+#include <arpa/inet.h>
 #endif // WIN32
 
 #include <CGCBase/cdbc.h>
+#include <CGCBase/cgcApplication2.h>
 using namespace cgc;
 
 #if (USES_PGCDBC)
@@ -49,6 +54,7 @@ using namespace cgc;
 #ifdef WIN32
 #pragma comment(lib,"libpq.lib")
 #endif // WIN32
+cgc::cgcApplication2::pointer theApplication2;
 
 class CCDBCResultSet
 {
@@ -392,6 +398,10 @@ private:
 				return -1;
 			}
 			//ret = result_rn (sink, res);
+			const tstring& sSyncName = this->get_datasource();
+			if (!sSyncName.empty())
+				theApplication2->sendSyncData(sSyncName,0,exeSql,strlen(exeSql),false);
+
 			if (nTransaction==0)
 			{
 				const char * sAffectedRows = result_affected_rows(sink,res);
@@ -670,6 +680,9 @@ tstring theAppConfPath;
 // 模块初始化函数，可选实现函数
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
+	theApplication2 = CGC_APPLICATION2_CAST(theApplication);
+	assert (theApplication2.get() != NULL);
+
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);
 
@@ -695,6 +708,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 	}
 	theAppAttributes.reset();
 	theApplication->KillAllTimer();
+	theApplication2.reset();
 }
 
 int theServiceIndex = 0;

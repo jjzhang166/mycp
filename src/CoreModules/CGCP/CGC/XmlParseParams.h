@@ -27,6 +27,40 @@
 #include <boost/foreach.hpp>
 using boost::property_tree::ptree;
 
+//class CSyncInfo
+//{
+//public:
+//	typedef boost::shared_ptr<CSyncInfo> pointer;
+//	static CSyncInfo::pointer create(bool bEnableSync)
+//	{
+//		return CSyncInfo::pointer(new CSyncInfo(bEnableSync));
+//	}
+//	//void setSyncEnable(bool v) {m_bEnableSync = v;}
+//	bool getSyncEnable(void) const {return m_bEnableSync;}
+//	void setHosts(const std::string& v) {m_sHosts = v;}
+//	const std::string& getHosts(void) const {return m_sHosts;}
+//
+//	CSyncInfo(bool bEnableSync)
+//		: m_bEnableSync(bEnableSync)
+//	{
+//	}
+//	CSyncInfo(void)
+//		: m_bEnableSync(false)
+//	{
+//	}
+//private:
+//	bool m_bEnableSync;
+//	std::string m_sHosts;
+//};
+
+typedef enum CGC_SYNC_RESULT_PROCESS_MODE
+{
+	CGC_SYNC_RESULT_PROCESS_ERROR_STOP
+	, CGC_SYNC_RESULT_PROCESS_WARNING_STOP
+	, CGC_SYNC_RESULT_PROCESS_BACKUP_SYNC_NEXT
+	, CGC_SYNC_RESULT_PROCESS_DELETE_SYNC_NEXT
+};
+
 class XmlParseParams
 {
 public:
@@ -40,6 +74,8 @@ public:
 		, m_bOlf(true)
 		, m_bLts(false)
 		, m_sLocale(_T(""))
+		, m_bEnableSync(false), m_nSyncSocketType(1), m_bSerialize(false), m_nConnectRetry(60)
+		, m_nErrorRetry(1), m_nSyncResultProcess(CGC_SYNC_RESULT_PROCESS_ERROR_STOP)
 	{
 		m_parameters = cgcParameterMap::pointer(new cgcParameterMap());
 	}
@@ -67,6 +103,20 @@ public:
 	bool isLts(void) const {return m_bLts;}		// log to system
 	void setLts(bool newValue) {m_bLts=newValue;}
 	const tstring & getLogLocale(void) const {return m_sLocale;}	// locale
+	//CSyncInfo::pointer getSyncInfo(void) const {return m_pSyncInfo;}
+
+	bool isSyncEnable(void) const {return m_bEnableSync;}
+	int getSyncSocketType(void) const {return m_nSyncSocketType;}
+	const std::string& getSyncNames(void) const {return m_sSyncNames;}
+	bool isSyncName(const std::string& sName) const {return (m_sSyncNames=="*" || m_sSyncNames.find(sName)!=std::string::npos)?true:false;}
+	//bool isSyncName(const std::string& sName) const {return (sName.empty() || m_sSyncNames=="*" || m_sSyncNames.find(sName)!=std::string::npos)?true:false;}
+	const std::string& getSyncHosts(void) const {return m_sSyncHosts;}
+	const std::string& getSyncPassword(void) const {return m_sSyncPassword;}
+	const std::string& getSyncCdbcService(void) const {return m_sCdbcService;}
+	bool isSyncSerialize(void) const {return m_bSerialize;}
+	int getConnectRetry(void) const {return m_nConnectRetry;}
+	int getErrorRetry(void) const {return m_nErrorRetry;}
+	CGC_SYNC_RESULT_PROCESS_MODE getSyncResultProcessMode(void) const {return m_nSyncResultProcess;}
 
 	void load(const tstring & filename)
 	{
@@ -120,6 +170,27 @@ private:
 		{
 			m_nMajorVersion = v.second.get("Major", 0);
 			m_nMinorVersion = v.second.get("Minor", 0);
+		}else if (v.first.compare("sync") == 0)
+		{
+			m_bEnableSync = v.second.get("enable", 0)==1?true:false;
+			if (m_bEnableSync)
+			{
+				m_sSyncHosts = v.second.get("hosts", "");
+				m_nSyncSocketType = v.second.get("socket_type", 1);
+				m_sSyncNames = v.second.get("names", "");
+				m_sSyncPassword = v.second.get("password", "");
+				m_sCdbcService = v.second.get("cdbc_service", "");
+				m_nConnectRetry = v.second.get("connect_retry_time", 60);
+				if (m_nConnectRetry<10)
+					m_nConnectRetry = 10;
+				m_nErrorRetry = v.second.get("error_retry", 1);
+				m_nSyncResultProcess = (CGC_SYNC_RESULT_PROCESS_MODE)v.second.get("result_process_mode", (int)CGC_SYNC_RESULT_PROCESS_ERROR_STOP);
+				m_bSerialize = v.second.get("serialize", 0)==1?true:false;
+				
+				//if (m_pSyncInfo.get()==NULL)
+				//	m_pSyncInfo = CSyncInfo::create(m_bEnableSync);
+				//m_pSyncInfo->setHosts(sHost);
+			}
 		}
 	}
 	static void ParseString(const char * lpszString, const char * lpszInterval, CLockMap<int,bool> & pOut)
@@ -162,6 +233,18 @@ private:
 
 	cgcParameterMap::pointer m_parameters;
 	CLockMap<int,bool> m_pDisableLogSignList;
+	// for sync
+	//CSyncInfo::pointer m_pSyncInfo;
+	bool m_bEnableSync;
+	int m_nSyncSocketType;	// 1=tcp; 2=udp
+	std::string m_sSyncNames;
+	std::string m_sSyncHosts;
+	std::string m_sSyncPassword;
+	std::string m_sCdbcService;
+	bool m_bSerialize;
+	int m_nConnectRetry;
+	int m_nErrorRetry;		// <!-- [>=0] 0=disable retry; default 1 -->
+	CGC_SYNC_RESULT_PROCESS_MODE m_nSyncResultProcess;
 };
 
 #endif // __XmlParseParsms_h__

@@ -20,6 +20,7 @@
 
 #ifdef WIN32
 #pragma warning(disable:4267)
+#include <winsock2.h>
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -39,10 +40,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 //#pragma comment(lib, "mysqlcppconn.lib")
 //#pragma comment(lib, "mysqlcppconn-static.lib")
-
+#else
+#include <ifaddrs.h>
+#include <netinet/in.h> 
+#include <arpa/inet.h>
 #endif // WIN32
 
 #include <CGCBase/cdbc.h>
+#include <CGCBase/cgcApplication2.h>
 using namespace cgc;
 
 #if (USES_MYSQLCDBC)
@@ -57,6 +62,7 @@ using namespace cgc;
 //{
 //	return mysql_num_rows(res);
 //}
+cgc::cgcApplication2::pointer theApplication2;
 
 class CCDBCResultSet
 {
@@ -605,6 +611,12 @@ private:
 					return -1;
 				}
 			}
+			// * 成功，需要同步
+			//m_cdbcInfo->getName()
+			const tstring& sSyncName = this->get_datasource();
+			if (!sSyncName.empty())
+				theApplication2->sendSyncData(sSyncName,0,exeSql,strlen(exeSql),false);
+
 			m_nLastErrorCode = 0;
 			//CR_COMMANDS_OUT_OF_SYNC
 			//CR_SERVER_GONE_ERROR
@@ -1172,10 +1184,14 @@ const int ATTRIBUTE_NAME = 1;
 cgcAttributes::pointer theAppAttributes;
 //CMysqlCdbc::pointer theBodbCdbc;
 tstring theAppConfPath;
+//cgcServiceInterface::pointer theSyncService;
 
 // 模块初始化函数，可选实现函数
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
+	theApplication2 = CGC_APPLICATION2_CAST(theApplication);
+	assert (theApplication2.get() != NULL);
+
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);
 
@@ -1200,6 +1216,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		}
 	}
 	theAppAttributes.reset();
+	theApplication2.reset();
 }
 
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)

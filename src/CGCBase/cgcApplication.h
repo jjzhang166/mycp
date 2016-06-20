@@ -20,6 +20,8 @@
 #ifndef __cgcapplication_head__
 #define __cgcapplication_head__
 
+//#define USES_SYNC_VERSION
+
 #include "cgcparameter.h"
 #include "cgcattachment.h"
 #include "cgcLock.h"
@@ -28,6 +30,9 @@
 #include "cgcResponse.h"
 #include "cgcSession.h"
 #include "cgcLogService.h"
+//#ifdef USES_SYNC_VERSION
+//#include "../CGCLib/CgcClientHandler.h"
+//#endif
 
 namespace cgc{
 
@@ -86,6 +91,19 @@ public:
 	virtual tstring getExecuteResult(void) const =0;
 	virtual void clearExecuteResult(void) {setExecuteResult("");}
 	virtual void setExecuteResult(const tstring & executeResult) =0;
+//
+//	// io service
+//	virtual IoService::pointer getIoService(bool bCreateAndStart = true) = 0;
+//	virtual void resetIoService(bool bStopIoService = true) = 0;
+//
+//	virtual int sendSyncData(const tstring& sSyncName, int nDataType, const char* sDataString, size_t nDataSize, bool bBackup) =0;
+//	virtual int sendSyncFile(const tstring& sSyncName, int nDataType, const tstring& sFileName, const tstring& sFilePath, bool bBackup) = 0;
+//	// nSocketType: 1=tcp; 2=udp
+//	// sAddress: format=ip:port
+//#ifdef USES_SYNC_VERSION
+//	virtual DoSotpClientHandler::pointer getSotpClientHandler(int nSocketType, const tstring& sAddress, const tstring& sAppName, int bindPort=0, int nThreadStackSize=200) =0;
+//#endif
+
 };
 
 } // cgc namespace

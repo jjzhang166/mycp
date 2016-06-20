@@ -22,8 +22,8 @@
 
 #include "CgcUdpClient.h"
 
-namespace cgc
-{
+namespace mycp {
+
 CgcUdpClient::CgcUdpClient(void)
 : CgcBaseClient(_T("UDP"))
 , m_nIoSendBufferSize(64), m_nIoReceiveBufferSize(64)
@@ -44,10 +44,10 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	try
 	{
 		if (m_ipService.get() == 0)
-			m_ipService = IoService::create();
+			m_ipService = mycp::asio::IoService::create();
 
 		if (m_udpClient.get()==NULL)
-			m_udpClient = UdpSocket::create();
+			m_udpClient = mycp::asio::UdpSocket::create();
 
 		CgcUdpClient::pointer clientHandler = boost::static_pointer_cast<CgcUdpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
 
@@ -82,13 +82,13 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcUdpClient::stopClient(void)
 {
-	if (m_ipService.get() != 0)
-	{
-		m_ipService->stop();
-	}
 	if (m_udpClient.get() != 0)
 	{
 		m_udpClient->stop();
+	}
+	if (m_bExitStopIoService && m_ipService.get() != 0)
+	{
+		m_ipService->stop();
 	}
 	m_udpClient.reset();
 	m_ipService.reset();
@@ -175,7 +175,7 @@ bool CgcUdpClient::doSetConfig(int nConfig, unsigned int nInValue)
 		{
 			if (m_udpClient.get()==NULL)
 			{
-				m_udpClient = UdpSocket::create(nInValue);
+				m_udpClient = mycp::asio::UdpSocket::create(nInValue);
 			}else
 			{
 				m_udpClient->setMaxBufferSize(nInValue);
@@ -210,7 +210,7 @@ void CgcUdpClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 	}
 }
 
-void CgcUdpClient::OnReceiveData(const UdpSocket & UdpSocket, const UdpEndPoint::pointer& endpoint)
+void CgcUdpClient::OnReceiveData(const mycp::asio::UdpSocket & pUdpSocket, const mycp::asio::UdpEndPoint::pointer& endpoint)
 {
 	if (endpoint->size() <= 0) return;
 

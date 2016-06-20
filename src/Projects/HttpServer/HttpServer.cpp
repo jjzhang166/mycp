@@ -41,6 +41,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 // cgc head
 #include <CGCBase/http.h>
+#include <CGCBase/cgcApplication2.h>
 #include <CGCBase/cgcServices.h>
 #include <CGCBase/cgcCDBCService.h>
 #include <CGCBase/cgcutils.h>
@@ -211,7 +212,7 @@ public:
 	//void ResetKillTime(void) {if (m_tKillTime>0) m_tKillTime = 0;}
 
 #ifdef USES_FASTCGI_KEEP_CONN
-	cgc::CgcTcpClient::pointer m_pFastCgiServer;
+	mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer;
 #endif
 
 	void KillProcess(void)
@@ -348,7 +349,7 @@ public:
 	}
 	
 #ifndef USES_FASTCGI_KEEP_CONN
-	cgc::CgcTcpClient::pointer m_pFastCgiServer;
+	mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer;
 #endif
 	const CRequestPassInfo::pointer& GetRequestPassInfo(void) const {return m_pRequestPassInfo;}
 	int GetRequestId(void) const {return m_pRequestPassInfo->GetRequestId();}
@@ -365,7 +366,7 @@ public:
 	void SetLastPaddingData(const std::string& sData) {m_sLastPaddingData = sData;}
 	const std::string GetLastPaddingData(void) const {return m_sLastPaddingData;}
 
-	void SendData(const cgc::CgcTcpClient::pointer& pFastCgiServer, const unsigned char* pData, size_t nSize, bool bForceSend=false)
+	void SendData(const mycp::httpserver::CgcTcpClient::pointer& pFastCgiServer, const unsigned char* pData, size_t nSize, bool bForceSend=false)
 	{
 		if (m_bSendBufferSize>0 && (m_bSendBufferSize+nSize)>=DEFAULT_SEND_BUFFER_SIZE)
 		{
@@ -432,7 +433,7 @@ const CFastcgiRequestInfo::pointer NullFastcgiRequestInfo;
 
 class CHttpTimeHandler
 	: public cgcOnTimerHandler
-	, public cgc::TcpClient_Callback	// for tcp
+	, public mycp::httpserver::TcpClient_Callback	// for tcp
 {
 public:
 	typedef boost::shared_ptr<CHttpTimeHandler> pointer;
@@ -872,7 +873,7 @@ public:
 						const tstring value(sLine.substr(find+nOffset));
 
 						bFindHttpHead = true;
-						CGC_LOG((cgc::LOG_TRACE, "%s:%s\n", sParamReal.c_str(), value.c_str()));
+						//CGC_LOG((cgc::LOG_TRACE, "%s:%s\n", sParamReal.c_str(), value.c_str()));
 						//if (param=="content-type")
 						//{
 						//	pFastcgiRequestInfo->response()->setContentType(value);
@@ -896,6 +897,9 @@ public:
 			}else if (header.type == FCGI_STDERR)
 			{
 				pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nContentLen);
+				//CGC_LOG((cgc::LOG_ERROR, "RequestId=%d FCGI_STDERR:%s\n", nRequestId, std::string(pData+FCGI_HEADER_LEN,nContentLen).c_str()));
+				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST,false);
+				return;
 			}else if (header.type == FCGI_END_REQUEST)
 			{
 				int nEndStatus = FCGI_REQUEST_COMPLETE;
@@ -944,7 +948,7 @@ public:
 		}catch(...)
 		{}
 	}
-	virtual void OnReceiveData(const ReceiveBuffer::pointer& data, int nUserData)
+	virtual void OnReceiveData(const mycp::asio::ReceiveBuffer::pointer& data, int nUserData)
 	{
 		//theWaitDataList.remove(nUserData);
 
@@ -1069,6 +1073,7 @@ public:
 		: m_bDownload(false), m_nScriptFileType(SCRIPT_FILE_TYPE_UNKNOWN)
 	{}
 };
+//cgc::cgcApplication2::pointer theApplication2;
 
 const int const_one_hour_seconds = 60*60;
 const int const_one_day_seconds = 24*const_one_hour_seconds;
@@ -1104,6 +1109,9 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 		theApps = XMLPARSEAPPS;
 		theApps->load(xmlFile);
 	}
+
+	//theApplication2 = CGC_APPLICATION2_CAST(theApplication);
+	//assert(theApplication2.get()!=NULL);
 
 	// Load DataSource.
 	xmlFile = theApplication->getAppConfPath();
@@ -1402,6 +1410,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 #endif
 		thePHPFastcgiInfo.reset();
 	}
+	//theApplication2.reset();
 }
 
 /*
@@ -1910,18 +1919,20 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		const int nRequestId = pFastcgiRequestInfo->GetRequestId();
 		CGC_LOG((cgc::LOG_TRACE, "RequestId=%d waitting...(%s)\n", nRequestId,sFileName.c_str()));
 #ifdef USES_FASTCGI_KEEP_CONN
-		cgc::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->GetRequestPassInfo()->m_pFastCgiServer;
+		mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->GetRequestPassInfo()->m_pFastCgiServer;
 #else
-		cgc::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->m_pFastCgiServer;
+		mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->m_pFastCgiServer;
 #endif
 		if (m_pFastCgiServer.get()!=NULL && m_pFastCgiServer->IsDisconnection())
 		{
 			m_pFastCgiServer->stopClient();
 			m_pFastCgiServer.reset();
 		}
+		
 		if (m_pFastCgiServer.get()==NULL)
 		{
-			m_pFastCgiServer = cgc::CgcTcpClient::create((cgc::TcpClient_Callback*)theTimerHandler.get(),nRequestId);
+			m_pFastCgiServer = mycp::httpserver::CgcTcpClient::create((mycp::httpserver::TcpClient_Callback*)theTimerHandler.get(),nRequestId);
+			//m_pFastCgiServer->SetIoService(theApplication2->getIoService(), false);
 			if (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection())
 			{
 				bool bConnectError = true;
@@ -1938,7 +1949,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 #else
 					usleep(1000000);
 #endif
-					m_pFastCgiServer = cgc::CgcTcpClient::create(theTimerHandler.get(),nRequestId);
+					m_pFastCgiServer = mycp::httpserver::CgcTcpClient::create(theTimerHandler.get(),nRequestId);
 					bConnectError = (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection());
 					CGC_LOG((cgc::LOG_ERROR, "restart fastcgi (%s) ok=%d\n", pFastcgiRequestInfo->GetFastcgiPass().c_str(),(int)(bConnectError?0:1)));
 				}
@@ -1957,6 +1968,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			pFastcgiRequestInfo->m_pFastCgiServer = m_pFastCgiServer;
 #endif
 		}
+
 		FCGI_BeginRequestRecord pBeginRequestRecord;
 		memset(&pBeginRequestRecord,0,sizeof(pBeginRequestRecord));
 		pBeginRequestRecord.header = MakeHeader(FCGI_BEGIN_REQUEST,nRequestId,FCGI_BEGIN_REQUEST_BODY_LEN, 0);
@@ -1998,7 +2010,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 		{
 			//printf("******** getRemoteAddr=%s\n",request->getRemoteAddr().c_str());
-			CCgcAddress pAddress(request->getRemoteAddr());
+			mycp::httpserver::CCgcAddress pAddress(request->getRemoteAddr());
 			{
 				sValue1 = pAddress.getip().c_str();
 				FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_REMOTE_ADDR.c_str(),FASTCGI_PARAM_REMOTE_ADDR.size(),sValue1.c_str(),sValue1.size(),&nNameValue1Size,lpszSendBuffer);
@@ -2413,7 +2425,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		const time_t lastTime = fs::last_write_time(src_path);
 		{
 			boost::mutex::scoped_lock lock(pResInfo->m_mutex);
-			if (pResInfo->m_tModifyTime != lastTime)
+			if (pResInfo->m_tModifyTime==0 || pResInfo->m_tModifyTime != lastTime)
 			{
 				std::fstream stream;
 				stream.open(sFilePath.c_str(), std::ios::in|std::ios::binary);
@@ -2437,7 +2449,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				if (pResInfo->m_nSize<=const_memory_size)
 				{
 					char * buffer = new char[pResInfo->m_nSize+1];
-					memset(buffer, 0, pResInfo->m_nSize+1);
+					//memset(buffer, 0, pResInfo->m_nSize+1);
 					stream.seekg(0, std::ios::beg);
 					stream.read(buffer, pResInfo->m_nSize);
 					buffer[pResInfo->m_nSize] = '\0';
@@ -2565,7 +2577,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 //		}
 		if (nReadTotal > 0)
 		{
-			//printf("**** resid=%lld,file=%s\n",sResourceId,pResInfo->m_sFileName.c_str());
+			//CGC_LOG((cgc::LOG_TRACE, "filepath=%s, Data=0x%x, Size=%d, nReadTotal=%d\n",sFilePath.c_str(),(int)pResInfo->m_pData,(int)pResInfo->m_nSize,(int)nReadTotal));
 			if (pResInfo->m_pData == NULL)
 			{
 				// ¶ÁÎÄ¼þ
@@ -2578,7 +2590,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				}
 				stream.seekg(nRangeFrom, std::ios::beg);
 				char * buffer = new char[nReadTotal+1];
-				memset(buffer, 0, nReadTotal+1);
+				//memset(buffer, 0, nReadTotal+1);
 				stream.read(buffer, nReadTotal);
 				stream.clear();
 				stream.close();

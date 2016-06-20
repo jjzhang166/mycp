@@ -20,6 +20,9 @@
 //} 
 //#endif
 
+namespace mycp {
+namespace asio {
+
 class IoService_Handler
 {
 public:
@@ -34,56 +37,92 @@ class IoService
 {
 public:
 	typedef boost::shared_ptr<IoService> pointer;
+	typedef boost::shared_ptr<boost::asio::io_service> io_service_ptr; 
 	static IoService::pointer create(void) {return IoService::pointer(new IoService());}
 
-	void start(IoService_Handler::pointer handler=ConstNullIoService_Handler)
+	void start(IoService_Handler::pointer handler=ConstNullIoService_Handler, int nThreadStackSize=200)
 	{
 		m_bKilled = false;
 		m_pHandler = handler;
-		//m_ioservice.reset();
-		if (m_pProcEventLoop == NULL)
-			m_pProcEventLoop = new boost::thread(boost::bind(&IoService::do_event_loop, this));
+		if (m_pProcEventLoop.get() == NULL)
+		{
+			boost::thread_attributes attrs;
+			attrs.set_stack_size(1024*nThreadStackSize);	// 200K
+			m_pProcEventLoop = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&IoService::do_event_loop, this)));
+			//m_pProcEventLoop = new boost::thread(boost::bind(&IoService::do_event_loop, this));
+		}
 	}
 
 	void stop(void)
 	{
 		m_bKilled = true;
-		m_ioservice.stop();
-		if (m_pProcEventLoop)
+		try
 		{
-			m_pProcEventLoop->join();
-			delete m_pProcEventLoop;
-			m_pProcEventLoop = NULL;
-		}
+			m_ioservice->stop();
+			if (m_pProcEventLoop.get()!=NULL)
+			{
+				m_pProcEventLoop->join();
+				m_pProcEventLoop.reset();
+			}
+		}catch(const std::exception&)
+		{}
+		catch(const boost::exception&)
+		{}
+		catch(...)
+		{}
 		m_pHandler.reset();
 	}
 	bool is_killed(void) const {return m_bKilled;}
-	bool is_start(void) const {return (m_pProcEventLoop != NULL);}
-	boost::asio::io_service & ioservice(void) {return m_ioservice;}
+	bool is_start(void) const {return (m_pProcEventLoop.get() != NULL)?true:false;}
+	boost::asio::io_service & ioservice(void) {return *m_ioservice;}
+	void do_poll(void)
+	{
+		boost::system::error_code ec;
+		m_ioservice->poll(ec);
+	}
+	void do_run(void)
+	{
+		boost::system::error_code ec;
+		m_ioservice->run(ec);
+	}
+	void do_reset(void)
+	{
+		try
+		{
+			m_ioservice->reset();
+		}catch (const std::exception &)
+		{
+		}catch(...)
+		{
+		}
+	}
 
 	void on_exception(void)
 	{
-		if (m_pHandler.get())
+		if (m_pHandler.get()!=NULL)
 			m_pHandler->OnIoServiceException();
 	}
 private:
-	static void do_event_loop(IoService * iopservice)
+	void do_event_loop(void)
+		//static void do_event_loop(IoService * pIoService)
 	{
-		if (iopservice)
+		//if (pIoService != NULL)
 		{
-			boost::asio::io_service & pService = iopservice->ioservice();
+			//boost::asio::io_service & pService = pIoService->ioservice();
 			//boost::asio::io_service::work work(pService);	// 保证run不会退出
-			while (!iopservice->is_killed())
+			while (!is_killed())
 			{
 				try
 				{
 #ifdef WIN32
-					Sleep(2);
+					Sleep(5);
 #else
-					usleep(2000);
+					usleep(5000);
 #endif
-					boost::system::error_code ec;
-					pService.poll(ec);
+					do_poll();
+					//pIoService->do_run();
+					//boost::system::error_code ec;
+					//pService.poll(ec);
 					continue;
 					//boost::system::error_code ec;
 					//pService.run(ec);
@@ -92,7 +131,8 @@ private:
 					//break;
 				}catch (std::exception & e)
 				{
-					pService.reset();
+					do_reset();
+					//pService.reset();
 #ifdef WIN32
 					printf("do_event_loop std::exception. %s, lasterror=%d\n", e.what(), GetLastError());
 #else
@@ -103,47 +143,54 @@ private:
 					//{
 					//	continue;
 					//}
-					iopservice->on_exception();
+					on_exception();
 					break;
 				}catch(boost::exception&)
 				{
-					pService.reset();
+					do_reset();
+					//pService.reset();
 #ifdef WIN32
 					printf("do_event_loop boost::exception. lasterror=%d\n", GetLastError());
 #else
 					printf("do_event_loop boost::exception.\n");
 #endif
-					iopservice->on_exception();
+					on_exception();
 					break;
 				}catch(...)
 				{
-					pService.reset();
+					do_reset();
+					//pService.reset();
 #ifdef WIN32
 					printf("do_event_loop ... exception. lasterror=%d\n", GetLastError());
 #else
 					printf("do_event_loop exception. \n");
 #endif
-					iopservice->on_exception();
+					on_exception();
 					break;
 				}
 			}
-
 		}
 	}
 
 public:
 	IoService(void)
-		: m_bKilled(false), m_pProcEventLoop(NULL)
-	{}
+		: m_bKilled(false)
+	{
+		m_ioservice = io_service_ptr(new boost::asio::io_service);
+	}
 	virtual ~IoService(void)
 	{
 		stop();
+		m_ioservice.reset();
 	}
 private:
 	bool m_bKilled;
-	boost::asio::io_service m_ioservice;
-	boost::thread * m_pProcEventLoop;
+	io_service_ptr m_ioservice;
+	boost::shared_ptr<boost::thread> m_pProcEventLoop;
 	IoService_Handler::pointer m_pHandler;
 };
+
+} // namespace asio
+} // namespace mycp
 
 #endif // __IoService_h__

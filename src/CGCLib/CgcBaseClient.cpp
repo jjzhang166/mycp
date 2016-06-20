@@ -23,18 +23,17 @@
 #include "../CGCBase/cgcdef.h"
 #include "CgcBaseClient.h"
 #include <fstream>
-#include <boost/format.hpp>
+//#include <boost/format.hpp>
 #ifdef WIN32
 #include <tchar.h>
 #endif // WIN32
 
-namespace cgc
-{
-#ifdef _UNICODE
-typedef boost::wformat tformat;
-#else
-typedef boost::format tformat;
-#endif // _UNICODE
+namespace mycp {
+//#ifdef _UNICODE
+//typedef boost::wformat tformat;
+//#else
+//typedef boost::format tformat;
+//#endif // _UNICODE
 
 class CcgcBaseRemote
 	: public cgcRemote
@@ -97,13 +96,13 @@ static void MySotpRtpFrameCallback(cgc::bigint nSrcId, const CSotpRtpFrame::poin
 CgcBaseClient::CgcBaseClient(const tstring & clientType)
 : m_tSendRecv(0)
 , m_nUserSslInfo(0)
+, m_bExitStopIoService(true)
 , m_pHandler(NULL)
 , m_clientState(Init_Client)
 , m_clientType(clientType)
 , m_bDisableSotpparser(false)
 , m_pSendLock(NULL)
 //, m_tLastCid(0)
-, m_threadActiveSes(NULL), m_threadCIDTimeout(NULL)
 , m_nActiveWaitSeconds(0),m_nSendP2PTrySeconds(0)
 , m_timeoutSeconds(3), m_timeoutResends(5)
 , m_currentPath(_T(""))
@@ -155,26 +154,30 @@ int CgcBaseClient::ParseString(const char * lpszString, const char * lpszInterva
 }
 std::string CgcBaseClient::GetHostIp(const char * lpszHostName,const char* lpszDefault)
 {
-	struct hostent *host_entry;
-	//struct sockaddr_in addr;
-	/* 即要解析的域名或主机名 */
-	host_entry=gethostbyname(lpszHostName);
-	//printf("%s\n", dn_or_ip);
-	char lpszIpAddress[50];
-	memset(lpszIpAddress, 0, sizeof(lpszIpAddress));
-	if(host_entry!=0)
+	try
 	{
-		//printf("解析IP地址: ");
-		sprintf(lpszIpAddress, "%d.%d.%d.%d",
-			(host_entry->h_addr_list[0][0]&0x00ff),
-			(host_entry->h_addr_list[0][1]&0x00ff),
-			(host_entry->h_addr_list[0][2]&0x00ff),
-			(host_entry->h_addr_list[0][3]&0x00ff));
-		return lpszIpAddress;
-	}else
+		struct hostent *host_entry;
+		//struct sockaddr_in addr;
+		/* 即要解析的域名或主机名 */
+		host_entry=gethostbyname(lpszHostName);
+		//printf("%s\n", dn_or_ip);
+		if(host_entry!=0)
+		{
+			char lpszIpAddress[50];
+			memset(lpszIpAddress, 0, sizeof(lpszIpAddress));
+			//printf("解析IP地址: ");
+			sprintf(lpszIpAddress, "%d.%d.%d.%d",
+				(host_entry->h_addr_list[0][0]&0x00ff),
+				(host_entry->h_addr_list[0][1]&0x00ff),
+				(host_entry->h_addr_list[0][2]&0x00ff),
+				(host_entry->h_addr_list[0][3]&0x00ff));
+			return lpszIpAddress;
+		}
+	}catch(std::exception&)
 	{
-		return lpszDefault;
-	}
+	}catch(...)
+	{}
+	return lpszDefault;
 }
 
 //void CgcBaseClient::do_proc_CgcClient(CgcBaseClient * cgcClient)
@@ -206,13 +209,13 @@ std::string CgcBaseClient::GetHostIp(const char * lpszHostName,const char* lpszD
 //	delete[] buffer;
 //}
 
-void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClient)
+void CgcBaseClient::do_proc_activesession(void)
 {
-	BOOST_ASSERT (cgcClient.get() != NULL);
+	//BOOST_ASSERT (cgcClient.get() != NULL);
 
 	unsigned int index1 = 0;
 	unsigned int index2 = 0;
-	while (!cgcClient->isInvalidate())
+	while (!isInvalidate())
 	{
 #ifdef WIN32
 		Sleep(10);
@@ -224,14 +227,14 @@ void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClien
 		try
 		{
 			if (((++index2)%4)==0)	// 4秒检查一次；
-				cgcClient->RtpCheckRegisterSink();
+				RtpCheckRegisterSink();
 
-			//if (!cgcClient->isTimeToActiveSes()) continue;
-			//if (cgcClient->getSessionId().empty()) continue;	// 未打开，或者已经关闭SESSION
-			if (cgcClient->isTimeToActiveSes() && !cgcClient->getSessionId().empty())
-				cgcClient->sendActiveSession();
-			if (cgcClient->isTimeToSendP2PTry())	// 一般发完sendActiveSession，不需要再发sendP2PTry
-				cgcClient->sendP2PTry(2);
+			//if (!isTimeToActiveSes()) continue;
+			//if (getSessionId().empty()) continue;	// 未打开，或者已经关闭SESSION
+			if (isTimeToActiveSes() && !getSessionId().empty())
+				sendActiveSession();
+			if (isTimeToSendP2PTry())	// 一般发完sendActiveSession，不需要再发sendP2PTry
+				sendP2PTry(2);
 		}catch(const std::exception &)
 		{
 		}catch(...)
@@ -240,14 +243,14 @@ void CgcBaseClient::do_proc_activesession(const CgcBaseClient::pointer& cgcClien
 	}
 }
 
-void CgcBaseClient::do_proc_cid_timeout(CgcBaseClient * cgcClient)
+void CgcBaseClient::do_proc_cid_timeout(void)
 {
-	if (NULL == cgcClient) return;
+	//if (NULL == cgcClient) return;
 
 	unsigned int index1 = 0;
 	bool bExistSeqTimeout = true;
-	while (!cgcClient->isClientState(CgcBaseClient::Exit_Client))
-//	while (!cgcClient->isInvalidate())
+	while (!isClientState(CgcBaseClient::Exit_Client))
+//	while (!isInvalidate())
 	{
 #ifdef WIN32
 		Sleep(10);
@@ -259,7 +262,7 @@ void CgcBaseClient::do_proc_cid_timeout(CgcBaseClient * cgcClient)
 
 		try
 		{
-			bExistSeqTimeout = cgcClient->checkSeqTimeout();
+			bExistSeqTimeout = checkSeqTimeout();
 		}catch(const std::exception &)
 		{
 		}catch(...)
@@ -367,11 +370,11 @@ int CgcBaseClient::StartClient(const tstring & sCgcServerAddr, unsigned int bind
 void CgcBaseClient::StartCIDTimeout(void)
 {
 	// start the CID timeout process thread
-	if (m_threadCIDTimeout == NULL)
+	if (m_threadCIDTimeout.get() == NULL)
 	{
 		boost::thread_attributes attrs;
-		attrs.set_stack_size(10240);	// 10K
-		m_threadCIDTimeout = new boost::thread(attrs,boost::bind(do_proc_cid_timeout, this));
+		attrs.set_stack_size(20480);	// 20K
+		m_threadCIDTimeout = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CgcBaseClient::do_proc_cid_timeout, this)));
 	}
 }
 //void CgcBaseClient::StartRecvThreads(unsigned short nRecvThreads)
@@ -405,21 +408,21 @@ void CgcBaseClient::StartActiveThread(unsigned short nActiveWaitSeconds,unsigned
 {
 	m_nActiveWaitSeconds = nActiveWaitSeconds;
 	m_nSendP2PTrySeconds = nSendP2PTrySeconds;
-	if ((m_nActiveWaitSeconds > 0 || m_nSendP2PTrySeconds>0) && m_threadActiveSes == NULL)
+	if ((m_nActiveWaitSeconds > 0 || m_nSendP2PTrySeconds>0) && m_threadActiveSes.get() == NULL)
 	{
 		boost::thread_attributes attrs;
 		attrs.set_stack_size(10240);	// 10K
-		m_threadActiveSes = new boost::thread(boost::bind(do_proc_activesession, shared_from_this()));
+		m_threadActiveSes = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&CgcBaseClient::do_proc_activesession, this)));
+		//m_threadActiveSes = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(do_proc_activesession, shared_from_this())));
 	}
 }
 
 void CgcBaseClient::StopActiveThread(void)
 {
-	if (m_threadActiveSes)
+	if (m_threadActiveSes.get()!=NULL)
 	{
 		m_threadActiveSes->join();
-		delete m_threadActiveSes;
-		m_threadActiveSes = NULL;
+		m_threadActiveSes.reset();
 	}
 	m_nActiveWaitSeconds = 0;
 	m_nSendP2PTrySeconds = 0;
@@ -482,11 +485,10 @@ void CgcBaseClient::StopClient(bool exitClient)
 		m_clientState = Exit_Client;
 
 		// stop the CID timeout process thread
-		if (m_threadCIDTimeout)
+		if (m_threadCIDTimeout.get()!=NULL)
 		{
 			m_threadCIDTimeout->join();
-			delete m_threadCIDTimeout;
-			m_threadCIDTimeout = NULL;
+			m_threadCIDTimeout.reset();
 		}
 	}
 
@@ -1328,6 +1330,114 @@ bool CgcBaseClient::sendAppCall2(unsigned long nCallId, unsigned long nCallSign,
 		if (bNeedAck)
 		{
 			addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid, nCallSign);
+		}
+		if (pLockTemp)
+			delete pLockTemp;
+
+		sendData((const unsigned char*)requestData.c_str(), requestData.size());
+		//return sendSize != requestData.size() ? 0 : 1;
+		return true;
+	}
+}
+bool CgcBaseClient::sendSyncCall(unsigned long nCallId, const tstring& sSyncName, bool bNeedAck,const cgcAttachment::pointer& pAttach)
+{
+	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
+	m_pSendLock = NULL;
+	if (this->isInvalidate())
+	//if (sCallName.empty() || this->isInvalidate())
+	{
+		if (pLockTemp)
+			delete pLockTemp;
+		return false;
+	}
+	const unsigned long cid = nCallId;
+	//const unsigned short seq = getNextSeq();
+	const unsigned short seq = bNeedAck?getNextSeq():0;
+
+	const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
+	if (!sSslPassword.empty())
+	{
+		const std::string sSyncCallHead = toSyncCallHead(theProtoVersion);
+		const std::string sSyncCallData = toSyncCallData(theProtoVersion,cid,sSyncName,seq,bNeedAck);
+
+		unsigned int nAttachSize = 0;
+		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
+		int nDataSize = ((sSyncCallData.size()+nAttachSize+15)/16)*16;
+		nDataSize += sSyncCallHead.size();
+		unsigned char * pSendData = new unsigned char[nDataSize+1];
+		memcpy(pSendData, sSyncCallHead.c_str(), sSyncCallHead.size());
+		memcpy(pSendData+sSyncCallHead.size(), sSyncCallData.c_str(), sSyncCallData.size());
+		if (pAttachData != NULL)
+		{
+			memcpy(pSendData+sSyncCallHead.size()+sSyncCallData.size(), pAttachData, nAttachSize);
+		}
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
+		memcpy(pSendDataTemp, sSyncCallHead.c_str(), sSyncCallHead.size());
+		int n = 0;
+		if (theProtoVersion==SOTP_PROTO_VERSION_21)
+			n = sprintf((char*)(pSendDataTemp+sSyncCallHead.size()),"2%d\n",(int)(nDataSize-sSyncCallHead.size()));
+		else
+			n = sprintf((char*)(pSendDataTemp+sSyncCallHead.size()),"Sd: %d\n",(int)(nDataSize-sSyncCallHead.size()));
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sSyncCallHead.size(),sSyncCallData.size()+nAttachSize,pSendDataTemp+(sSyncCallHead.size()+n))!=0)
+		{
+			if (pLockTemp)
+				delete pLockTemp;
+			delete[] pSendData;
+			delete[] pSendDataTemp;
+			delete[] pAttachData;
+			return false;
+		}
+		delete[] pSendData;
+		pSendData = pSendDataTemp;
+		nDataSize += n;
+		pSendData[nDataSize] = '\n';
+		nDataSize += 1;
+
+		bool ret = false;
+		if (bNeedAck)
+			ret = addSeqInfo(pSendData, nDataSize, seq, cid);
+		if (pLockTemp)
+			delete pLockTemp;
+		sendData(pSendData, nDataSize);
+		delete[] pAttachData;
+		if (!ret)
+			delete[] pSendData;
+		return true;
+	}else
+	{
+		const std::string requestData = toSyncCallString(theProtoVersion,cid,sSyncName,seq,bNeedAck);
+		// sendData
+		if (pAttach.get() != NULL)
+		{
+			unsigned int nAttachSize = 0;
+			unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
+			if (pAttachData != NULL)
+			{
+				unsigned char * pSendData = new unsigned char[nAttachSize+requestData.size()+1];
+				memcpy(pSendData, requestData.c_str(), requestData.size());
+				memcpy(pSendData+requestData.size(), pAttachData, nAttachSize);
+				pSendData[nAttachSize+requestData.size()] = '\0';
+
+				// addSeqInfo
+				bool ret = false;
+				if (bNeedAck)
+					ret = addSeqInfo(pSendData, nAttachSize+requestData.size(), seq, cid);
+
+				if (pLockTemp)
+					delete pLockTemp;
+				sendData(pSendData, nAttachSize+requestData.size());
+				delete[] pAttachData;
+				if (!ret)
+					delete[] pSendData;
+				//return sendSize != nAttachSize+requestData.size() ? 0 : 1;
+				return true;
+			}
+		}
+
+		// addSeqInfo
+		if (bNeedAck)
+		{
+			addSeqInfo((const unsigned char*)requestData.c_str(), requestData.size(), seq, cid);
 		}
 		if (pLockTemp)
 			delete pLockTemp;

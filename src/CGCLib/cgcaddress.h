@@ -23,84 +23,86 @@
 //#include "../ThirdParty/stl/stldef.h"
 #include "../CGCBase/cgcSmartString.h"
 
-class CCgcAddress
-{
-public:
-	enum SocketType
+namespace cgc{
+	class CCgcAddress
 	{
-		ST_TCP = 1
-		, ST_UDP
-		, ST_RTP
-		, ST_UNKNOWN = 0xf
+	public:
+		enum SocketType
+		{
+			ST_TCP = 1
+			, ST_UDP
+			, ST_RTP
+			, ST_UNKNOWN = 0xf
+		};
+
+		CCgcAddress(const CCgcAddress & avp)
+		{
+			equal(avp);
+		}
+		const CCgcAddress & operator = (const CCgcAddress & avp)
+		{
+			equal(avp);
+			return *this;
+		}
+
+		void address(const tstring & sAddress) {
+			const std::string::size_type find = sAddress.find(":");
+			if (find != std::string::npos)
+			{
+				m_ip = sAddress.substr(0, find);
+				m_port = atoi(sAddress.substr(find+1).c_str());
+			}
+		}
+		void address(const tstring & ip, unsigned short port) {
+			m_ip = ip;
+			m_port = port;
+		}
+		tstring address(void) const {
+			char buffer[32];
+			sprintf(buffer, "%s:%d", m_ip.c_str(), (int)m_port);
+			return buffer;
+		}
+		void socketType(SocketType newv) {m_socketType = newv;}
+		SocketType socketType(void) const {return m_socketType;}
+
+		const tstring& getip(void) const {return m_ip;}
+		unsigned short getport(void) const {return m_port;}
+
+		void reset(void)
+		{
+			m_ip = "127.0.0.1";
+			m_port = 8010;
+			m_socketType = ST_UNKNOWN;
+		}
+
+	protected:
+		void equal(const CCgcAddress & ca)
+		{
+			this->m_ip = ca.getip();
+			this->m_port = ca.getport();
+			this->m_socketType = ca.socketType();
+		}
+
+	public:
+		CCgcAddress(const tstring & sAddress="127.0.0.1:8010", SocketType socketType = ST_UDP)
+			: m_port(0), m_socketType(socketType)
+		{
+			address(sAddress);
+		}
+		CCgcAddress(const tstring & ip, unsigned short port, SocketType socketType)
+			: m_ip(ip), m_port(port),m_socketType(socketType)
+		{
+			//address(ip, port);
+		}
+		virtual ~CCgcAddress(void)
+		{}
+	private:
+		tstring	m_ip;
+		unsigned short m_port;
+		SocketType m_socketType;
 	};
 
-	CCgcAddress(const CCgcAddress & avp)
-	{
-		equal(avp);
-	}
-	const CCgcAddress & operator = (const CCgcAddress & avp)
-	{
-		equal(avp);
-		return *this;
-	}
-
-	void address(const tstring & sAddress) {
-		const std::string::size_type find = sAddress.find(":");
-		if (find != std::string::npos)
-		{
-			m_ip = sAddress.substr(0, find);
-			m_port = atoi(sAddress.substr(find+1).c_str());
-		}
-	}
-	void address(const tstring & ip, unsigned short port) {
-		m_ip = ip;
-		m_port = port;
-	}
-	tstring address(void) const {
-		char buffer[32];
-		sprintf(buffer, "%s:%d", m_ip.c_str(), (int)m_port);
-		return buffer;
-	}
-	void socketType(SocketType newv) {m_socketType = newv;}
-	SocketType socketType(void) const {return m_socketType;}
-
-	const tstring& getip(void) const {return m_ip;}
-	unsigned short getport(void) const {return m_port;}
-
-	void reset(void)
-	{
-		m_ip = "127.0.0.1";
-		m_port = 8010;
-		m_socketType = ST_UNKNOWN;
-	}
-
-protected:
-	void equal(const CCgcAddress & ca)
-	{
-		this->m_ip = ca.getip();
-		this->m_port = ca.getport();
-		this->m_socketType = ca.socketType();
-	}
-
-public:
-	CCgcAddress(const tstring & sAddress="127.0.0.1:8010", SocketType socketType = ST_UDP)
-		: m_port(0), m_socketType(socketType)
-	{
-		address(sAddress);
-	}
-	CCgcAddress(const tstring & ip, unsigned short port, SocketType socketType)
-		: m_ip(ip), m_port(port),m_socketType(socketType)
-	{
-		//address(ip, port);
-	}
-	virtual ~CCgcAddress(void)
-	{}
-private:
-	tstring	m_ip;
-	unsigned short m_port;
-	SocketType m_socketType;
-};
-
-const CCgcAddress constDefaultCgcAddress;
+	const CCgcAddress constDefaultCgcAddress;
+}
 
 #endif // __cgcaddress_h__

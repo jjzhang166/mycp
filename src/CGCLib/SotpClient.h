@@ -23,18 +23,37 @@
 #include "dlldefine.h"
 #include "CgcClientHandler.h"
 #include "cgcaddress.h"
+#include "../ThirdParty/stl/lockmap.h"
+#include "CgcBaseClient.h"
 
-class LIBSOTPCLIENT_CLASS CSotpClient
+namespace mycp {
+
+class CSotpClient
+//class LIBSOTPCLIENT_CLASS CSotpClient
 {
 public:
-	DoSotpClientHandler::pointer startClient(const CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
-	void stopClient(DoSotpClientHandler::pointer pDoHandler);
+	cgc::DoSotpClientHandler::pointer startClient(const cgc::CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
+	void stopClient(cgc::DoSotpClientHandler::pointer pDoHandler);
 	void stopAllClient(void);
+
+	void SetIoService(mycp::asio::IoService::pointer pIoService, bool bExitStop = false) {m_pIoService = pIoService; m_bExitStopIoService=bExitStop;}
+	void ResetIoService(void) {m_pIoService.reset();}
+	mycp::asio::IoService::pointer GetIoService(void) const {return m_pIoService;}
+
+	void SetUserData(unsigned int v) {m_nUserData = v;}
+	unsigned int GetUserData(void) const {return m_nUserData;}
 
 public:
 	CSotpClient(void);
 	virtual ~CSotpClient(void);
 
+private:
+	bool m_bExitStopIoService;
+	mycp::asio::IoService::pointer m_pIoService;
+	CLockMap<cgc::DoSotpClientHandler*, CgcBaseClient::pointer> theSotpClientList;
+	unsigned int m_nUserData;
 };
+
+} // namespace mycp
 
 #endif // __SotpClient_h__

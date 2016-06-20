@@ -202,33 +202,33 @@ public:
 		if (!isServiceInited()) return;
 		cgcServiceInterface::finalService();
 
-		boost::thread * threadLogTemp = m_threadLog;
-		m_threadLog = NULL;
-		if (threadLogTemp)
+		boost::shared_ptr<boost::thread> threadLogTemp = m_threadLog;
+		m_threadLog.reset();
+		if (threadLogTemp.get()!=NULL)
 		{
 			threadLogTemp->join();
-			delete threadLogTemp;
+			threadLogTemp.reset();
 		}
 		m_stream.close();
 	}
 
 protected:
-	static void do_logservice(CLogService * pLogService)
+	void do_logservice(void)
+	//static void do_logservice(CLogService * pLogService)
 	{
-		if (pLogService == NULL) return;
-
+		//if (pLogService == NULL) return;
 		while (true)
 		{
 			try
 			{
-				if (!pLogService->isServiceInited())
+				if (!isServiceInited())
 				{
-					while (pLogService->DoLog())
+					while (DoLog())
 						;
 					break;
 				}
 
-				if (!pLogService->DoLog())
+				if (!DoLog())
 				{
 #ifdef WIN32
 					Sleep(10);
@@ -261,12 +261,12 @@ protected:
 		// Not the log level.
 		if ((int)(m_setting.getLogLevel() & level) != (int)level) return false;
 
-		bool bFirstLog = m_threadLog == NULL;
-		if (m_threadLog == NULL)
+		const bool bFirstLog = m_threadLog.get() == NULL?true:false;
+		if (m_threadLog.get() == NULL)
 		{
 			boost::thread_attributes attrs;
 			attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-			m_threadLog = new boost::thread(attrs,boost::bind(&do_logservice, this));
+			m_threadLog = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CLogService::do_logservice, this)));
 		}
 
 		if (bFirstLog && !m_stream.is_open())
@@ -493,7 +493,7 @@ protected:
 	}
 public:
 	CLogService(const tstring& name, const tstring& xmlfile)
-		: m_name(name), m_xmlfile(xmlfile), m_threadLog(NULL), m_currentBackup(0)
+		: m_name(name), m_xmlfile(xmlfile), m_currentBackup(0)
 	{
 	}
 	~CLogService(void)
@@ -504,7 +504,7 @@ public:
 private:
 	tstring m_name;
 	tstring m_xmlfile;
-	boost::thread * m_threadLog;
+	boost::shared_ptr<boost::thread> m_threadLog;
 	int m_currentBackup;
 	XmlParseLogSetting m_setting;
 

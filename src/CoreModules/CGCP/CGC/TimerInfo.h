@@ -45,7 +45,7 @@ private:
 	const void * m_pvParam;
 
 	TimerState m_timerState;
-	boost::thread * m_timerThread;
+	boost::shared_ptr<boost::thread> m_timerThread;
 	struct timeb m_tLastRunTime;
 
 public:
@@ -67,7 +67,8 @@ public:
 	const void * getParam(void) const {return m_pvParam;}
 
 protected:
-	static void do_timer(TimerInfo * pTimerInfo);
+	void do_timer(void);
+	//static void do_timer(TimerInfo * pTimerInfo);
 	void doRunTimer(void);
 	void doTimerExit(void);
 };

@@ -22,7 +22,10 @@
 
 #include <CGCBase/cgcSmartString.h>
 #include <ThirdParty/stl/stldef.h>
-using namespace cgc;
+//using namespace cgc;
+
+namespace mycp {
+namespace httpservice {
 
 class CCgcAddress
 {
@@ -101,7 +104,9 @@ private:
 	unsigned short m_port;
 	SocketType m_socketType;
 };
-
 const CCgcAddress constDefaultCgcAddress;
+
+} // namespace httpservice
+} // namespace mycp
 
 #endif // __cgcaddress_h__

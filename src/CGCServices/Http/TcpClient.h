@@ -3,32 +3,33 @@
 #define __TcpClient_h__
 
 #include <boost/asio.hpp>
-#ifdef USES_OPENSSL
-#include "boost_socket.h"
-#endif
+#include <ThirdParty/Boost/asio/boost_socket.h>
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <boost/enable_shared_from_this.hpp>
-#include "../../stl/locklist.h"
+#include <ThirdParty/stl/locklist.h>
+//#include "../../stl/locklist.h"
 using boost::asio::ip::tcp;
-#include "ReceiveBuffer.h"
+#include <ThirdParty/Boost/asio/ReceiveBuffer.h>
+//#include "ReceiveBuffer.h"
+//using namespace cgc;
+
+namespace mycp {
+namespace httpservice {
 
 //////////////////////////////////////////////
 // TcpClient_Handler
-namespace mycp {
-namespace asio {
-
 class TcpClient;
 typedef boost::shared_ptr<TcpClient> TcpClientPointer;
 class TcpClient_Handler
 {
 public:
 	typedef boost::shared_ptr<TcpClient_Handler> pointer;
-	
+
 	virtual void OnConnected(const TcpClientPointer& tcpClient) = 0;
 	virtual void OnConnectError(const TcpClientPointer& tcpClient, const boost::system::error_code & error) = 0;
-	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data) = 0;
+	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data) = 0;
 	virtual void OnDisconnect(const TcpClientPointer & tcpClient,const boost::system::error_code & error) = 0;
 };
 
@@ -409,7 +410,7 @@ private:
 	bool m_bInOnReceiveData;
 };
 
-} // namespace asio
+} // namespace httpservice
 } // namespace mycp
 
 #endif // __TcpClient_h__

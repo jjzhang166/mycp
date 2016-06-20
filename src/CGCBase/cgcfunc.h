@@ -48,6 +48,8 @@ namespace cgc{
 	// extern "C" int CGC_API YourFuncName(const cgcSotpRequest::pointer & request, cgcSotpResponse::pointer response){}
 	typedef int (FAR *FPCGCApi)(const cgcSotpRequest::pointer & request, const cgcSotpResponse::pointer& response);
 
+	typedef int (FAR *FPCGC_SYNC)(const tstring& sSyncName, int nSyncType, const tstring& sSyncData);
+
 	// extern "C" HTTP_STATUSCODE CGC_API doGET(const cgcHttpRequest::pointer & request, cgcHttpResponse::pointer response){}
 	typedef HTTP_STATUSCODE (FAR *FPCGCHttpApi)(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
 

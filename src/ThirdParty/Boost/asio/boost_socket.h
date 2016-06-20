@@ -8,6 +8,8 @@
 #ifdef USES_OPENSSL
 #include <boost/asio/ssl.hpp>
 #endif
+namespace mycp {
+namespace asio {
 
 template<typename T>
 class boost_socket_base
@@ -43,7 +45,8 @@ public:
             return get_ssl_socket()->lowest_layer().is_open();
         else
 #endif
-            return get_socket()->is_open();
+            return get_socket()->lowest_layer().is_open();
+            //return get_socket()->is_open();
     }
 
     template <typename MutableBufferSequence>
@@ -190,5 +193,8 @@ private:
     boost::asio::ssl::stream<T> ss_;
 };
 #endif
+
+} // namespace asio
+} // namespace mycp
 
 #endif // __boost_socket_h__

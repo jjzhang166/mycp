@@ -12,6 +12,9 @@ using boost::asio::ip::udp;
 
 //////////////////////////////////////////////
 // UdpSocket_Handler
+namespace mycp {
+namespace asio {
+
 class UdpSocket;
 class UdpSocket_Handler
 {
@@ -76,11 +79,11 @@ public:
 			m_socket->set_option(boost::asio::socket_base::receive_buffer_size(nReceiveBuff*1024),ec);	// 32K
 		}
 
-		if (m_proc_data == 0)
+		if (m_proc_data.get() == NULL)
 		{
 			boost::thread_attributes attrs;
 			attrs.set_stack_size(1024*nThreadStackSize);	// 100K
-			m_proc_data = new boost::thread(attrs,boost::bind(&UdpSocket::do_proc_data, this));
+			m_proc_data = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&UdpSocket::do_proc_data, this)));
 			//m_proc_data = new boost::thread(boost::bind(&UdpSocket::do_proc_data, this));
 		}
 		start_receive();
@@ -105,11 +108,10 @@ public:
 	{
 		udp::socket * pSocketTemp = m_socket;
 		m_socket = NULL;
-		if (m_proc_data)
+		if (m_proc_data.get()!=NULL)
 		{
 			m_proc_data->join();
-			delete m_proc_data;
-			m_proc_data = 0;
+			m_proc_data.reset();
 		}
 		if (pSocketTemp)
 			delete pSocketTemp;
@@ -212,14 +214,15 @@ private:
 		{}
 	}
 
-	static void do_proc_data(UdpSocket * owner)
+	void do_proc_data(void)
+	//static void do_proc_data(UdpSocket * owner)
 	{
-		BOOST_ASSERT (owner != 0);
+		//BOOST_ASSERT (owner != 0);
 		while(true)
 		{
 			try
 			{
-				if (!owner->proc_Data())
+				if (!proc_Data())
 					break;
 			}catch(std::exception&)
 			{
@@ -230,7 +233,7 @@ private:
 public:
 	UdpSocket(size_t nBufferSize=Max_UdpSocket_ReceiveSize)
 		: m_socket(NULL)
-		, m_proc_data(0),m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(50), m_bAutoReturnPoolEndPoint(true)
+		, m_maxbuffersize(nBufferSize),m_nInitPoolSize(20), m_nMaxPoolSize(50), m_bAutoReturnPoolEndPoint(true)
 	{
 	}
 	virtual ~UdpSocket(void)
@@ -241,7 +244,7 @@ private:
 	UdpSocket_Handler::pointer m_handler;
 	udp::socket * m_socket;
 	udp::endpoint m_endpointlocal;
-	boost::thread * m_proc_data;
+	boost::shared_ptr<boost::thread> m_proc_data;
 	CLockList<UdpEndPoint::pointer> m_endpoints;
 	size_t m_maxbuffersize;
 	size_t m_nInitPoolSize;
@@ -249,5 +252,8 @@ private:
 	CLockList<UdpEndPoint::pointer> m_pool;
 	bool m_bAutoReturnPoolEndPoint;
 };
+
+} // namespace asio
+} // namespace mycp
 
 #endif // __UdpSocket_h__

@@ -21,10 +21,10 @@
 #endif // WIN32
 
 #include "CgcTcpClient.h"
-#include <boost/format.hpp>
+//#include <boost/format.hpp>
 
-namespace cgc
-{
+namespace mycp {
+
 CgcTcpClient::CgcTcpClient(void)
 : CgcBaseClient(_T("TCP"))
 , m_connectReturned(false)
@@ -39,6 +39,7 @@ CgcTcpClient::~CgcTcpClient(void)
 
 int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindPort, int nThreadStackSize)
 {
+	//printf("******** CgcTcpClient::startClient (%s)\n",sCgcServerAddr.c_str());
 	if (m_tcpClient.get() != 0) return 0;
 
 	std::vector<std::string> pList;
@@ -47,7 +48,7 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 		return -1;
 	}
 	std::string sIp;
-	for (int i=0;i<10;i++)
+	for (int i=0;i<5;i++)
 	{
 		sIp = CgcBaseClient::GetHostIp(pList[0].c_str(),"");
 		if (!sIp.empty())
@@ -59,21 +60,24 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 #endif
 	}
 	if (sIp.empty())
+	{
+		//return -1;
 		sIp = pList[0];
+	}
 	//const std::string sIp = CgcBaseClient::GetHostIp(pList[0].c_str());
-	unsigned short nPort = atoi(pList[1].c_str());
+	const unsigned short nPort = atoi(pList[1].c_str());
+	if (nPort==0) return -1;
 
 	//CCgcAddress cgcAddress = CCgcAddress(sCgcServerAddr, CCgcAddress::ST_TCP);
 	//tstring sIp = cgcAddress.getip();
 	//unsigned short nPort = (unsigned short)cgcAddress.getport();
 
 	if (m_ipService.get() == 0)
-		m_ipService = IoService::create();
+		m_ipService = mycp::asio::IoService::create();
 
 	//TcpClient_Handler::pointer clientHandler = boost::enable_shared_from_this<CgcTcpClient>::shared_from_this();
 	CgcTcpClient::pointer clientHandler = boost::static_pointer_cast<CgcTcpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
-
-	m_tcpClient = TcpClient::create(clientHandler);
+	m_tcpClient = mycp::asio::TcpClient::create(clientHandler);
 	//m_tcpClient->socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024));		// 8192
 
 	m_connectReturned = false;
@@ -82,6 +86,19 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 	tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str(),ec), nPort);
 	m_tcpClient->connect(m_ipService->ioservice(), endpoint);
 	m_ipService->start();
+	
+//	for (int i=0; i<150; i++)	// * Max 15S
+//	{
+//		if (m_connectReturned)
+//			return 0;
+//#ifdef WIN32
+//		Sleep(100);
+//#else
+//		usleep(100000);
+//#endif
+//	}
+//	return -1;
+
 	while (!m_connectReturned)
 #ifdef WIN32
 		Sleep(100);
@@ -93,13 +110,13 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcTcpClient::stopClient(void)
 {
-	if (m_ipService.get() != 0)
-	{
-		m_ipService->stop();
-	}
 	if (m_tcpClient.get() != 0)
 	{
 		m_tcpClient->disconnect();
+	}
+	if (m_bExitStopIoService && m_ipService.get() != 0)
+	{
+		m_ipService->stop();
 	}
 	m_tcpClient.reset();
 	m_ipService.reset();
@@ -121,7 +138,7 @@ bool CgcTcpClient::isInvalidate(void) const
 	return m_tcpClient.get() == 0 || !m_tcpClient->is_open();
 }
 
-void CgcTcpClient::OnConnected(const TcpClientPointer& tcpClient)
+void CgcTcpClient::OnConnected(const mycp::asio::TcpClientPointer& tcpClient)
 {
 	BOOST_ASSERT (tcpClient.get() != 0);
 
@@ -142,7 +159,7 @@ void CgcTcpClient::OnConnected(const TcpClientPointer& tcpClient)
 	}
 }
 
-void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data)
+void CgcTcpClient::OnReceiveData(const mycp::asio::TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data)
 {
 	BOOST_ASSERT (tcpClient.get() != 0);
 	BOOST_ASSERT (data.get() != 0);

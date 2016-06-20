@@ -15,6 +15,8 @@ using boost::asio::ip::tcp;
 
 ////////////////////////
 //
+namespace mycp {
+namespace asio {
 
 class TcpConnection;
 typedef boost::shared_ptr<TcpConnection> TcpConnectionPointer;
@@ -38,6 +40,7 @@ private:
 	unsigned long m_nIpAddress;	// host byte order
 	//tcp::socket m_socket;
 	boost_socket_base<tcp::socket>* m_socket;
+	bool m_bClosed;
 	tcp::endpoint m_localEndPoint;
 	tcp::endpoint m_remoteEndPoint;
 	TcpConnection_Handler::pointer m_handler;
@@ -75,6 +78,7 @@ public:
 		//m_socket.close();
 		if (m_socket!=NULL)
 		{
+			close();
 			delete m_socket;
 			m_socket = NULL;
 		}
@@ -86,7 +90,7 @@ public:
 	}
 
 	boost_socket_base<tcp::socket>* socket(void) {return m_socket;}
-	tcp::socket::lowest_layer_type& lowest_layer(void) {return m_socket->lowest_layer();}
+	//tcp::socket::lowest_layer_type& lowest_layer(void) {return m_socket->lowest_layer();}
 	//tcp::socket& socket(void) {return m_socket;}
 	const tcp::endpoint& remote_endpoint(void) const {return m_remoteEndPoint;}
 	const tcp::endpoint& local_endpoint(void) const {return m_localEndPoint;}
@@ -101,6 +105,23 @@ public:
 	//void setMaxBufferSize(size_t v = Max_ReceiveBuffer_ReceiveSize) {m_maxbuffersize = v;}
 	size_t GetReadSleep(void) const {return m_nReadSleep;}
 	void SetReadSleep(size_t v) {m_nReadSleep = v;}
+	void close(void)
+	{
+		if (!m_bClosed && m_socket!=NULL)
+		{
+			//printf("**** TcpConnection::close()\n");
+			m_bClosed = true;
+			try{
+				m_socket->close();
+			}catch (std::exception&)
+			{
+			}catch (boost::exception&)
+			{
+			}catch(...)
+			{}
+		}
+	}
+	bool is_closed(void) const {return m_bClosed;}
 
 	bool start(unsigned long nId)
 	{
@@ -191,7 +212,8 @@ public:
 			{
 			}catch(...)
 			{}
-			m_socket->close();
+			close();
+			//m_socket->close();
 		}
 	}
 #endif
@@ -272,17 +294,26 @@ public:
 			//	{
 					if (m_handler.get() != NULL)
 						m_handler->OnRemoteClose(this, error.value());
-					//if (!m_socket.is_open())
+					try
 					{
-#ifdef USES_OPENSSL
-						if (m_socket->is_ssl())
+						//if (!m_socket.is_open())
 						{
-							boost::system::error_code ec;
-							m_socket->get_ssl_socket()->shutdown(ec);
-						}
+#ifdef USES_OPENSSL
+							if (m_socket->is_ssl())
+							{
+								boost::system::error_code ec;
+								m_socket->get_ssl_socket()->shutdown(ec);
+							}
 #endif
-						m_socket->close();
-					}
+							//m_socket->close();
+						}
+					}catch (std::exception&)
+					{
+					}catch (boost::exception &)
+					{}
+					catch(...)
+					{}
+					close();
 			//	}break;
 			//}
 		}
@@ -350,6 +381,7 @@ private:
 #endif
 		: m_nId(0),m_nIpAddress(0)
 		//, m_socket(io_service)
+		, m_bClosed(false)
 		, m_handler(handler)
 		//, m_killed(false), m_proc_data(0)
 		, m_unusedsize(10), m_maxbuffersize(Max_ReceiveBuffer_ReceiveSize)
@@ -384,5 +416,7 @@ private:
 	//}
 };
 
+} // namespace asio
+} // namespace mycp
 
 #endif // __TcpConnection_h__

@@ -22,7 +22,9 @@
 
 //
 // include
-#include "IncludeBase.h"
+//#include "IncludeBase.h"
+#include "../ThirdParty/Boost/asio/IoService.h"
+#include "../CGCBase/cgcParserSotp.h"
 #include "CgcData.h"
 
 namespace cgc
@@ -81,17 +83,23 @@ namespace cgc
 		virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const = 0;
 		virtual void doFreeConfig(int nConfig, unsigned int nInValue) const = 0;
 
+		// io service
+		virtual void doSetIoService(mycp::asio::IoService::pointer pIoService, bool bExitStop = false) = 0;
+		virtual void doResetIoService(void) = 0;
+		virtual mycp::asio::IoService::pointer doGetIoService(void) const = 0;
+
 		// session 
 		virtual bool doSendOpenSession(short nMaxWaitSecons=3,unsigned long * pOutCallId = 0) = 0;
 		virtual void doSendCloseSession(unsigned long * pOutCallId = 0) = 0;
 		virtual bool doIsSessionOpened(void) const = 0;
 		virtual const tstring & doGetSessionId(void) const = 0;
 
-		// app call
+		// app/sync call
 		virtual void doBeginCallLock(void) = 0;
 		virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pOutCallId = 0) = 0;
 		virtual unsigned long doGetNextCallId(void) = 0;
 		virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
+		virtual bool doSendSyncCall(unsigned long nCallId, const tstring & sSyncName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
 		virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
 		virtual void doSendP2PTry(unsigned short nTryCount=3) = 0;
 

@@ -10,6 +10,9 @@ using boost::asio::ip::udp;
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
+namespace mycp {
+namespace asio {
+
 const size_t Max_UdpSocket_ReceiveSize	= 32*1024;
 ////////////////////////
 // UdpEndPoint class
@@ -94,5 +97,8 @@ private:
 	unsigned char* m_buffer;
 	int m_nBufferSize;
 };
+
+} // namespace asio
+} // namespace mycp
 
 #endif // __UdpEndPoint_h__

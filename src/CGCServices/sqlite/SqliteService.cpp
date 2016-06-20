@@ -20,6 +20,7 @@
 
 #ifdef WIN32
 #pragma warning(disable:4267)
+#include <winsock2.h>
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -36,10 +37,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	}
 	return TRUE;
 }
-
+#else
+#include <ifaddrs.h>
+#include <netinet/in.h> 
+#include <arpa/inet.h>
 #endif // WIN32
 
 #include <CGCBase/cdbc.h>
+#include <CGCBase/cgcApplication2.h>
 using namespace cgc;
 #include <boost/thread/shared_mutex.hpp>
 
@@ -54,7 +59,7 @@ using namespace cgc;
 #pragma comment(lib,"sqlite3s.lib")
 #endif
 #endif // WIN32
-
+cgc::cgcApplication2::pointer theApplication2;
 
 class CCDBCResultSet
 {
@@ -265,13 +270,28 @@ private:
 			tstring sDatabase = m_cdbcInfo->getDatabase();
 			if (sDatabase!=":memory:")
 			{
+				const tstring& sConnection = m_cdbcInfo->getConnection();
+				if (!sConnection.empty() && sConnection.find(sDatabase)!=std::string::npos)
+				{
+					sDatabase = sConnection;
+				}else
+				{
 #ifdef WIN32
-				sDatabase = convert(m_sAppConfPath.c_str(), CP_ACP, CP_UTF8);
-				sDatabase.append("\\");
+					sDatabase = convert(m_sAppConfPath.c_str(), CP_ACP, CP_UTF8);
+					sDatabase.append("\\");
 #else
-				sDatabase = m_sAppConfPath + "/";
+					sDatabase = m_sAppConfPath + "/";
 #endif
-				sDatabase.append(m_cdbcInfo->getDatabase());
+					sDatabase.append(m_cdbcInfo->getDatabase());
+				}
+				//FILE * f = fopen(sDatabase.c_str(),"r");
+				//if (f==NULL)
+				//{
+				//	f = fopen(sDatabase.c_str(),"r+b");	// create database
+				//	if (f==NULL)
+				//		return false;
+				//}
+				//fclose(f);
 			}
 			//sqlite3_initialize()
 			//sqlite3_config(SQLITE_CONFIG_SERIALIZED)
@@ -353,6 +373,9 @@ private:
 			}
 			if (nTransaction==0)
 				ret = (cgc::bigint)sqlite3_changes(m_pSqlite);
+			const tstring& sSyncName = this->get_datasource();
+			if (!sSyncName.empty())
+				theApplication2->sendSyncData(sSyncName,0,exeSql,strlen(exeSql),false);
 		}catch(...)
 		{
 			//if (nTransaction!=0)
@@ -631,6 +654,8 @@ tstring theAppConfPath;
 // 模块初始化函数，可选实现函数
 extern "C" bool CGC_API CGC_Module_Init(void)
 {
+	theApplication2 = CGC_APPLICATION2_CAST(theApplication);
+	assert (theApplication2.get() != NULL);
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);
 
@@ -655,6 +680,7 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		}
 	}
 	theAppAttributes.reset();
+	theApplication2.reset();
 }
 
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)
@@ -671,5 +697,11 @@ extern "C" void CGC_API CGC_ResetService(const cgcServiceInterface::pointer & in
 	theAppAttributes->removeAttribute(ATTRIBUTE_NAME, inService.get());
 	inService->finalService();
 }
+//
+//extern "C" int CGC_API CGC_SYNC(const tstring& sSyncName, int nSyncType, const tstring& sSyncData)
+//{
+//
+//	return 0;
+//}
 
 #endif // USES_SQLITECDBC

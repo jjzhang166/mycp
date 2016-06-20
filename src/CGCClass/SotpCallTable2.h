@@ -49,6 +49,9 @@ public:
 	std::string toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
 	std::string toAppCallHead(SOTP_PROTO_VERSION nVersion) const;
 	std::string toAppCallData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long nCallSign, const tstring & sCallName, unsigned short seq, bool bNeedAck);
+	std::string toSyncCallString(SOTP_PROTO_VERSION nVersion,unsigned long cid, const tstring& sSyncName, unsigned short seq, bool bNeedAck);
+	std::string toSyncCallHead(SOTP_PROTO_VERSION nVersion) const;
+	std::string toSyncCallData(SOTP_PROTO_VERSION nVersion,unsigned long cid, const tstring& sSyncName, unsigned short seq, bool bNeedAck);
 	unsigned char * toAttachString(SOTP_PROTO_VERSION nVersion,const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const;
 	unsigned char * toSslDataString(SOTP_PROTO_VERSION nVersion,const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const;
 	// result

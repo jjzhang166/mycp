@@ -5,7 +5,7 @@ THESOURCES = CgcUdpClient.cpp CgcTcpClient.cpp \
         
 libCGCLib_a_SOURCES = $(THESOURCES)
 
-libCGCLib_a_HEADERS = cgcaddress.h CgcBaseClient.h CgcClientHandler.h CgcData.h \
+libCGCLib_a_HEADERS = cgc_sotpclient.h cgcaddress.h CgcBaseClient.h CgcClientHandler.h CgcData.h \
 	CGCLib.h CgcRtpClient.h CgcTcpClient.h CgcUdpClient.h dlldefine.h \
 	IncludeBase.h SotpClient.h
 

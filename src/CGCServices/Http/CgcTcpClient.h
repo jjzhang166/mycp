@@ -26,24 +26,26 @@
 //#include "CgcBaseClient.h"
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
-#include <ThirdParty/Boost/asio/TcpClient.h>
+#include "TcpClient.h"
+//#include <ThirdParty/Boost/asio/TcpClient.h>
 #include <CGCBase/cgcSmartString.h>
 #ifdef USES_PARSER_HTTP
 #include <CGCClass/cgcclassinclude.h>
 #endif
 
-namespace cgc
-{
+namespace mycp {
+namespace httpservice {
+
 class TcpClient_Callback
 {
 public:
 	typedef boost::shared_ptr<TcpClient_Callback> pointer;
-	virtual void OnReceiveData(const ReceiveBuffer::pointer& data) = 0;
+	virtual void OnReceiveData(const mycp::asio::ReceiveBuffer::pointer& data) = 0;
 };
 
 class CgcTcpClient
 	: public TcpClient_Handler
-	, public IoService_Handler
+	, public mycp::asio::IoService_Handler
 	, public boost::enable_shared_from_this<CgcTcpClient>
 {
 public:
@@ -89,11 +91,11 @@ private:
 	// for TcpClient_Handler
 	virtual void OnConnected(const TcpClientPointer& tcpClient);
 	virtual void OnConnectError(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
-	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data);
+	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data);
 	virtual void OnDisconnect(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
 
 private:
-	IoService::pointer m_ipService;
+	mycp::asio::IoService::pointer m_ipService;
 	TcpClient::pointer m_tcpClient;
 	bool m_connectReturned;
 	bool m_bDisconnect;
@@ -111,5 +113,7 @@ private:
 #endif
 };
 
-} // namespace cgc
+} // namespace httpservice
+} // namespace mycp
+
 #endif // __CgcTcpClient_h__

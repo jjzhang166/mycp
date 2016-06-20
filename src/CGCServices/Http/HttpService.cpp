@@ -337,7 +337,7 @@ protected:
 				//m_sslctx->set_verify_callback(ssl::rfc2818_verification("smtp.entboost.com"));
 			}
 
-			cgc::CgcTcpClient::pointer tcpClient = cgc::CgcTcpClient::create(NULL);
+			mycp::httpservice::CgcTcpClient::pointer tcpClient = mycp::httpservice::CgcTcpClient::create(NULL);
 			tstring sFilePathTemp(sSaveFile);
 			if (!sSaveFile.empty())
 			{

@@ -28,7 +28,7 @@ namespace cgc
 {
 const size_t MAX_HTTPHEAD_SIZE		= 4*1024;
 const size_t INCREASE_BODY_SIZE		= 20*1024;
-const char * SERVERNAME		= "MYCP Http Server/1.0";
+const char * SERVERNAME		= "MYCP Http Server/2.0";
 
 #define USES_BUFFER_ALLOC
 
@@ -87,7 +87,8 @@ CPpHttp::~CPpHttp(void)
 	{
 		for (size_t i=0; i<m_files.size(); i++)
 		{
-			m_fileSystemService->callService("delete", CGC_VALUEINFO(m_files[i]->getUploadFile()->getFilePath()));
+			if (!m_files[i]->getUploadFile()->getFilePath().empty())
+				m_fileSystemService->callService("delete", CGC_VALUEINFO(m_files[i]->getUploadFile()->getFilePath()));
 		}
 	}
 	m_files.clear();
@@ -176,12 +177,20 @@ void CPpHttp::write(const char * text, size_t size)
 		{
 			m_resultBuffer = (char*)malloc(MAX_HTTPHEAD_SIZE+nSizeTemp+1);
 			if (m_resultBuffer==NULL)
-				return;
+			{
+				m_resultBuffer = (char*)malloc(MAX_HTTPHEAD_SIZE+nSizeTemp+1);
+				if (m_resultBuffer==NULL)
+					return;
+			}
 		}else
 		{
 			char * bufferTemp = (char*)realloc(m_resultBuffer,MAX_HTTPHEAD_SIZE+nSizeTemp+1);
 			if (bufferTemp==NULL)
-				return;
+			{
+				bufferTemp = (char*)realloc(m_resultBuffer,MAX_HTTPHEAD_SIZE+nSizeTemp+1);
+				if (bufferTemp==NULL)
+					return;
+			}
 			m_resultBuffer = bufferTemp;
 		}
 		m_bodyBufferSize = nSizeTemp;
@@ -258,7 +267,7 @@ void CPpHttp::init(void)
 	m_fileName = "";
 	m_nRangeFrom = 0;
 	m_nRangeTo = 0;
-	m_keepAlive = false;
+	m_keepAlive = true;
 	m_contentSize = 0;
 	m_receiveSize = 0;
 	m_sReqContentType = "";
@@ -277,11 +286,12 @@ void CPpHttp::init(void)
 		m_resultBuffer = new char[MAX_HTTPHEAD_SIZE+m_bodyBufferSize+1];
 #endif
 	}
-	if (m_fileSystemService.get() != NULL)
+	if (theUpload.getDeleteFile() && m_fileSystemService.get() != NULL)
 	{
 		for (size_t i=0; i<m_files.size(); i++)
 		{
-			m_fileSystemService->callService("delete", CGC_VALUEINFO(m_files[i]->getUploadFile()->getFilePath()));
+			if (!m_files[i]->getUploadFile()->getFilePath().empty())
+				m_fileSystemService->callService("delete", CGC_VALUEINFO(m_files[i]->getUploadFile()->getFilePath()));
 		}
 	}
 	m_files.clear();

@@ -262,7 +262,7 @@ inline std::string CGC_UTF82ACP(const char* sString)
 inline int cgc_code_convert(const char *from_charset,const char *to_charset,const char *inbuf,size_t inlen,char *outbuf,size_t outlen)  
 {  
 	iconv_t cd;  
-	int rc;  
+	//int rc;  
 	char **pin = (char**)&inbuf;  
 	char **pout = &outbuf;  
 

@@ -32,9 +32,9 @@
 #include "dlldefine.h"
 #include "../CGCBase/cgcSeqInfo.h"
 #include "../CGCClass/SotpRtpSession.h"
+using namespace cgc;
 
-namespace cgc
-{
+namespace mycp {
 // typedef
 //
 //
@@ -123,6 +123,10 @@ protected:
 	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const;
 	virtual void doFreeConfig(int nConfig, unsigned int nInValue) const;
 
+	virtual void doSetIoService(mycp::asio::IoService::pointer pIoService, bool bExitStop = false) {m_ipService = pIoService; m_bExitStopIoService=bExitStop;}
+	virtual void doResetIoService(void) {m_ipService.reset();}
+	virtual mycp::asio::IoService::pointer doGetIoService(void) const {return m_ipService;}
+
 	// session
 	virtual bool doSendOpenSession(short nMaxWaitSecons,unsigned long * pOutCallId) {return sendOpenSession(nMaxWaitSecons,pOutCallId);}
 	virtual void doSendCloseSession(unsigned long * pOutCallId) {sendCloseSession(pOutCallId);}
@@ -136,6 +140,8 @@ protected:
 	virtual unsigned long doGetNextCallId(void) {return getNextCallId();}
 	virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
 		return sendAppCall2(nCallId,nCallSign,sCallName,bNeedAck,pAttach);}
+	virtual bool doSendSyncCall(unsigned long nCallId, const tstring& sSyncName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
+		return sendSyncCall(nCallId,sSyncName,bNeedAck,pAttach);}
 	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign=0,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
 		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach);}
 	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
@@ -291,6 +297,7 @@ public:
 	void beginCallLock(void);	// lock
 	bool sendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pCallId = 0);
 	bool sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment);
+	bool sendSyncCall(unsigned long nCallId, const tstring& sSyncName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment);
 	bool sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment);
 
 	//
@@ -310,8 +317,10 @@ protected:
 	//
 	// static thread
 	//static void do_proc_CgcClient(CgcBaseClient * udpclient);
-	static void do_proc_activesession(const CgcBaseClient::pointer& udpclient);
-	static void do_proc_cid_timeout(CgcBaseClient * udpclient);
+	void do_proc_activesession(void);
+	void do_proc_cid_timeout(void);
+	//static void do_proc_activesession(const CgcBaseClient::pointer& udpclient);
+	//static void do_proc_cid_timeout(CgcBaseClient * udpclient);
 
 	//
 	// 
@@ -349,6 +358,9 @@ protected:
 	int m_nUserSslInfo;		// 1=mem; 2=file
 	CIndexInfo::pointer m_pCurrentIndexInfo;
 	CLockMap<unsigned int,CIndexInfo::pointer> m_pIndexInfoList;
+	// ioservice
+	bool m_bExitStopIoService;
+	mycp::asio::IoService::pointer m_ipService;
 private:
 	CgcClientHandler * m_pHandler;
 //	unsigned int m_clientState;
@@ -360,8 +372,8 @@ private:
 	boost::mutex m_recvMutex;
 	boost::mutex::scoped_lock * m_pSendLock;
 	//BoostThreadList m_listBoostThread;
-	boost::thread * m_threadActiveSes;
-	boost::thread * m_threadCIDTimeout;
+	boost::shared_ptr<boost::thread> m_threadActiveSes;
+	boost::shared_ptr<boost::thread> m_threadCIDTimeout;
 	unsigned short m_nActiveWaitSeconds;					// 
 	unsigned short m_nSendP2PTrySeconds;
 

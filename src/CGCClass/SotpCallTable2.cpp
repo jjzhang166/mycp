@@ -21,15 +21,15 @@
 #endif // WIN32
 
 #include "SotpCallTable2.h"
-#include <boost/format.hpp>
+//#include <boost/format.hpp>
 
 namespace cgc
 {
-#ifdef _UNICODE
-typedef boost::wformat tformat;
-#else
-typedef boost::format tformat;
-#endif // _UNICODE
+//#ifdef _UNICODE
+//typedef boost::wformat tformat;
+//#else
+//typedef boost::format tformat;
+//#endif // _UNICODE
 
 #ifdef WIN32
 #include "windows.h"
@@ -305,9 +305,6 @@ std::string SotpCallTable2::toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned
 				_T("3%lu\n")
 				_T("6%lu\n")
 				_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
-			tstring result(lpszBuffer);
-			result.append(sParameters);
-			return result;
 		}else
 		{
 			sprintf(lpszBuffer,(_T("A SOTP/2.1\n")
@@ -316,10 +313,10 @@ std::string SotpCallTable2::toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned
 				_T("3%lu\n")
 				_T("6%lu\n")
 				_T("7%s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
-			tstring result(lpszBuffer);
-			result.append(sParameters);
-			return result;
 		}
+		tstring result(lpszBuffer);
+		result.append(sParameters);
+		return result;
 	}else
 	{
 		std::string sNeedAck = _T("");
@@ -342,9 +339,6 @@ std::string SotpCallTable2::toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned
 				_T("Cid: %lu\n")
 				_T("Sign: %lu\n")
 				_T("Api: %s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
-			tstring result(lpszBuffer);
-			result.append(sParameters);
-			return result;
 		}else
 		{
 			sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
@@ -353,10 +347,10 @@ std::string SotpCallTable2::toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned
 				_T("Cid: %lu\n")
 				_T("Sign: %lu\n")
 				_T("Api: %s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
-			tstring result(lpszBuffer);
-			result.append(sParameters);
-			return result;
 		}
+		tstring result(lpszBuffer);
+		result.append(sParameters);
+		return result;
 	}
 }
 
@@ -428,6 +422,162 @@ std::string SotpCallTable2::toAppCallData(SOTP_PROTO_VERSION nVersion,unsigned l
 		tstring result(lpszBuffer);
 		result.append(sParameters);
 		return result;
+	}
+}
+std::string SotpCallTable2::toSyncCallString(SOTP_PROTO_VERSION nVersion,unsigned long cid, const tstring& sSyncName, unsigned short seq, bool bNeedAck)
+{
+	//if (sCallName.empty()) return _T("");
+
+	const std::string sParameters = GetParametersString(nVersion);
+	m_parameters.clear();
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
+
+		char lpszBuffer[256];
+		if (m_sSessionId.empty())
+		{
+			// 2.1
+			sprintf(lpszBuffer,(_T("5 SOTP/2.1\n")
+				_T("%s")
+				_T("A%s\n")
+				_T("3%lu\n")
+				_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),cid,sSyncName.c_str());
+		}else
+		{
+			sprintf(lpszBuffer,(_T("5 SOTP/2.1\n")
+				_T("%s")
+				_T("1%s\n")
+				_T("3%lu\n")
+				_T("7%s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,sSyncName.c_str());
+		}
+		tstring result(lpszBuffer);
+		result.append(sParameters);
+		return result;
+	}else
+	{
+		return "";
+		//std::string sNeedAck = _T("");
+		//if (bNeedAck)
+		//{
+		//	sNeedAck = _T("NAck: 1\n");
+		//	char lpszSeq[16];
+		//	sprintf(lpszSeq,"Seq: %d\n",seq);
+		//	sNeedAck.append(lpszSeq);
+		//}
+
+		//char lpszBuffer[1024];
+		//if (m_sSessionId.empty())
+		//{
+		//	// 2.0
+		//	sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
+		//		_T("%s")
+		//		_T("App: %s\n")
+		//		_T("Ua: %s;pwd=%s;enc=\n")
+		//		_T("Cid: %lu\n")
+		//		_T("Sign: %lu\n")
+		//		_T("Api: %s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+		//	tstring result(lpszBuffer);
+		//	result.append(sParameters);
+		//	return result;
+		//}else
+		//{
+		//	sprintf(lpszBuffer,(_T("CALL SOTP/2.0\n")
+		//		_T("%s")
+		//		_T("Sid: %s\n")
+		//		_T("Cid: %lu\n")
+		//		_T("Sign: %lu\n")
+		//		_T("Api: %s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
+		//	tstring result(lpszBuffer);
+		//	result.append(sParameters);
+		//	return result;
+		//}
+	}
+}
+std::string SotpCallTable2::toSyncCallHead(SOTP_PROTO_VERSION nVersion) const
+{
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		if (m_sSessionId.empty())
+			return "5 SOTP/2.1\n";
+		char lpszBuffer[60];
+		sprintf(lpszBuffer,"5 SOTP/2.1\n1%s\n",m_sSessionId.c_str());
+		return lpszBuffer;
+	}else
+	{
+		return "";
+		//if (m_sSessionId.empty())
+		//	return "CALL SOTP/2.0\n";
+		//char lpszBuffer[60];
+		//sprintf(lpszBuffer,"CALL SOTP/2.0\nSid: %s\n",m_sSessionId.c_str());
+		//return lpszBuffer;
+	}
+}
+std::string SotpCallTable2::toSyncCallData(SOTP_PROTO_VERSION nVersion,unsigned long cid, const tstring& sSyncName, unsigned short seq, bool bNeedAck)
+{
+	//if (sCallName.empty()) return _T("");
+
+	const std::string sParameters = GetParametersString(nVersion);
+	m_parameters.clear();
+	if (nVersion==SOTP_PROTO_VERSION_21)
+	{
+		std::string sNeedAck;
+		if (bNeedAck)
+		{
+			char lpszSeq[20];
+			sprintf(lpszSeq,"51\n4%d\n",seq);
+			sNeedAck = lpszSeq;
+		}
+
+		char lpszBuffer[1024];
+		// 2.0
+		sprintf(lpszBuffer,(_T("%s")
+			_T("A%s\n")
+			_T("C%s;pwd=%s;enc=\n")
+			_T("3%lu\n")
+			_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,sSyncName.c_str());
+		tstring result(lpszBuffer);
+		result.append(sParameters);
+		return result;
+
+		//char lpszBuffer[256];
+		//// 2.0
+		//sprintf(lpszBuffer,(_T("%s")
+		//	_T("A%s\n")
+		//	_T("3%lu\n")
+		//	_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),cid,sSyncName.c_str());
+		//tstring result(lpszBuffer);
+		//result.append(sParameters);
+		//return result;
+	}else
+	{
+		return "";
+		//std::string sNeedAck = _T("");
+		//if (bNeedAck)
+		//{
+		//	sNeedAck = _T("NAck: 1\n");
+		//	char lpszSeq[16];
+		//	sprintf(lpszSeq,"Seq: %d\n",seq);
+		//	sNeedAck.append(lpszSeq);
+		//}
+
+		//char lpszBuffer[1024];
+		//// 2.0
+		//sprintf(lpszBuffer,(_T("%s")
+		//	_T("App: %s\n")
+		//	_T("Ua: %s;pwd=%s;enc=\n")
+		//	_T("Cid: %lu\n")
+		//	_T("Sign: %lu\n")
+		//	_T("Api: %s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+		//tstring result(lpszBuffer);
+		//result.append(sParameters);
+		//return result;
 	}
 }
 
@@ -756,7 +906,9 @@ std::string SotpCallTable2::GetParametersString(SOTP_PROTO_VERSION nVersion) con
 	for (pConstIter=m_parameters.begin(); pConstIter!=m_parameters.end(); pConstIter++)
 	{
 		cgcParameter::pointer parameter = pConstIter->second;
+#ifdef WIN32
 		cgcValueInfo::ValueType nValueType = parameter->getType();
+#endif
 		tstring paramType(parameter->typeString());
 		tstring paramName(parameter->getName());
 		tstring paramValue(parameter->toString());

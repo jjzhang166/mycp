@@ -34,7 +34,7 @@ namespace cgc{
 
 		void setName(const tstring& v) {m_name = v;}
 		const tstring& getName(void) const {return m_name;}
-		void setDatabaase(const tstring& v) {m_database = v;}
+		void setDatabase(const tstring& v) {m_database = v;}
 		const tstring& getDatabase(void) const {return m_database;}
 		void setHost(const tstring& v) {m_host = v;}
 		const tstring& getHost(void) const {return m_host;}
@@ -55,6 +55,9 @@ namespace cgc{
 		void setMaxSize(unsigned short v) {m_nMaxSize = v;}
 		unsigned short getMaxSize(void) const {return m_nMaxSize;}
 
+		//void setSyncName(const tstring& v) {m_sSyncName = v;}
+		//const tstring& getSyncName(void) const {return m_sSyncName;}
+
 		cgcCDBCInfo(const tstring& name, const tstring& database)
 			: m_name(name), m_database(database), m_host("")
 			, m_account(""), m_secure("")
@@ -71,6 +74,7 @@ namespace cgc{
 		tstring m_charset;
 		unsigned short m_nMinSize;	// min connection
 		unsigned short m_nMaxSize;	// max connection
+		//tstring m_sSyncName;
 	};
 	const cgcCDBCInfo::pointer cgcNullCDBCInfo;
 

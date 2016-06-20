@@ -38,7 +38,6 @@
 CSessionImpl::CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote, const cgcParserBase::pointer& pcgcParser)
 : m_bKilled(false)
 , m_bIsNewSession(true),m_bRemoteClosed(false)
-, m_pProcPrevData(NULL)
 //, m_fpFreeParser(NULL)
 , m_tNewProcPrevThread(0)
 , m_tPrevDataTime(0)
@@ -590,21 +589,21 @@ void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemot
 	}
 }
 
-void do_prevdata(CSessionImpl * pSessionImpl)
+void CSessionImpl::do_prevdata(void)
 {
-	assert (pSessionImpl != 0);
+	//assert (pSessionImpl != 0);
 
 	// 该线程很快结束，最多不超过二秒钟，所以不用主动管理它。
 	try
 	{
-		time_t tNewPrevDataThreadTime = pSessionImpl->getNewPrevDataThreadTime();
-		while (!pSessionImpl->IsKilled())
+		time_t tNewPrevDataThreadTime = getNewPrevDataThreadTime();
+		while (!IsKilled())
 		{
-			time_t tNewPrevDataThreadTimeNow = pSessionImpl->getNewPrevDataThreadTime();
+			time_t tNewPrevDataThreadTimeNow = getNewPrevDataThreadTime();
 			// 已经不是当前线程要处理的数据
 			if (tNewPrevDataThreadTime != tNewPrevDataThreadTimeNow) return;
 
-			time_t tNowPrevDataTime = pSessionImpl->getPrevDataTime();
+			time_t tNowPrevDataTime = getPrevDataTime();
 			// 已经没有当前线程要处理的数据
 			if (tNowPrevDataTime == 0) return;
 
@@ -619,15 +618,17 @@ void do_prevdata(CSessionImpl * pSessionImpl)
 				continue;
 			}
 
-			cgcResponse::pointer responseImpl = ((cgcSession*)pSessionImpl)->getLastResponse("");
+			cgcResponse::pointer responseImpl = this->getLastResponse("");
+			//cgcResponse::pointer responseImpl = ((cgcSession*)pSessionImpl)->getLastResponse("");
 			// 已经处理完成返回
 			if (responseImpl.get() == NULL) return;
 			// 已经超过二秒钟，并且还没有返回，返回数据并退出线程
-			if (((cgcSession*)pSessionImpl)->getProtocol() == PROTOCOL_SOTP)
+			if (getProtocol() == PROTOCOL_SOTP)
+			//if (((cgcSession*)pSessionImpl)->getProtocol() == PROTOCOL_SOTP)
 			{
 				((CSotpResponseImpl*)responseImpl.get())->sendAppCallResult(-106);
 			}
-			pSessionImpl->clearPrevData();
+			clearPrevData();
 			break;
 		}
 	}catch (const std::exception &)
@@ -638,24 +639,24 @@ void do_prevdata(CSessionImpl * pSessionImpl)
 
 void CSessionImpl::newPrevDataThread(void)
 {
-	if (NULL == m_pProcPrevData)
+	if (m_pProcPrevData.get()==NULL)
 	{
 		m_tNewProcPrevThread = time(0);
 		boost::thread_attributes attrs;
 		attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-		m_pProcPrevData = new boost::thread(attrs,boost::bind(&do_prevdata, this));
+		m_pProcPrevData = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CSessionImpl::do_prevdata, this)));
 	}
 }
 
 void CSessionImpl::delPrevDatathread(bool bJoin)
 {
-	boost::thread *	pProcPrevDataTemp = m_pProcPrevData;
-	m_pProcPrevData = NULL;
-	if (pProcPrevDataTemp)
+	boost::shared_ptr<boost::thread>	pProcPrevDataTemp = m_pProcPrevData;
+	m_pProcPrevData.reset();
+	if (pProcPrevDataTemp.get()!=NULL)
 	{
 		if (bJoin)
 			pProcPrevDataTemp->join();
-		delete pProcPrevDataTemp;
+		pProcPrevDataTemp.reset();
 	}
 }
 

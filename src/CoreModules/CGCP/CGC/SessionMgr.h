@@ -95,13 +95,14 @@ private:
 	std::string m_sPrevData;
 
 	// Used for processing XML format error, timeout for remote data is returned.
-	boost::thread *	m_pProcPrevData;
+	boost::shared_ptr<boost::thread> m_pProcPrevData;
 	time_t m_tNewProcPrevThread;
 	time_t m_tPrevDataTime;
 
 	bool m_bInvalidate;
 	cgcRemote::pointer m_pcgcRemote;	// default remote
 	cgcParserBase::pointer m_pcgcParser;
+	//cgcCDBCService::pointer m_pCdbcService;	// for sync
 
 	// session ¶ÔÓ¦µÄModuleItem
 	CLockMap<tstring,CSessionModuleInfo::pointer> m_pSessionModuleList;	// name->
@@ -125,6 +126,9 @@ public:
 	void unlockSessionApi(int nLockType);
 	//bool isInSessionApiLocked(const std::string& sApi, int nLockSeconds);
 	//void removeSessionApiLock(const std::string& sApi);
+
+	//void SetCDBCService(const cgcCDBCService::pointer& v) {m_pCdbcService = v;}
+	//cgcCDBCService::pointer GetCDBCService(void) const {return m_pCdbcService;}
 
 	// invoke module CGC_Session_Open()
 	bool OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote);
@@ -156,6 +160,8 @@ public:
 	// cgcResponse
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser);
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote);	// sModuleName="": setdefault
+
+	void do_prevdata(void);
 
 	time_t getNewPrevDataThreadTime(void) const {return m_tNewProcPrevThread;}
 	void newPrevDataThread(void);

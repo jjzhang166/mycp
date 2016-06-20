@@ -226,9 +226,13 @@ namespace cgc{
 		void insert(std::string::size_type off, const char* data, std::string::size_type count) {m_sData->insert(off, data, count);}
 		void insert(std::string::size_type off, const std::string& data) {m_sData->insert(off, data);}
 		void insert(std::string::size_type off, const cgcSmartString& data) {m_sData->insert(off, data.c_str(), data.size());}
+		//void insert(std::string::const_iterator _where, char data) {m_sData->insert(_where, data);}
 		void replace(std::string::size_type off, std::string::size_type count, const char* data) {m_sData->replace(off, count, data);}
 		void replace(std::string::size_type off, std::string::size_type count, const std::string& data) {m_sData->replace(off, count, data);}
 		void replace(std::string::size_type off, std::string::size_type count, const cgcSmartString& data) {m_sData->replace(off, count, data.c_str(), data.size());}
+		//void replace(std::string::const_iterator _first, std::string::const_iterator _last, const char* data) {m_sData->replace(_first, _last, data);}
+		//void replace(std::string::const_iterator _first, std::string::const_iterator _last, const std::string& data) {m_sData->replace(_first, _last, data);}
+		//void replace(std::string::const_iterator _first, std::string::const_iterator _last, const cgcSmartString& data) {m_sData->replace(_first, _last, data.c_str(), data.size());}
 
 		std::string::size_type find_first_of(char data, std::string::size_type off=0) const {return m_sData->find_first_of(data, off);}
 		std::string::size_type find_first_of(const char* data, std::string::size_type off=0) const {return m_sData->find_first_of(data, off);}

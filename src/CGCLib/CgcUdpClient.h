@@ -23,13 +23,13 @@
 //
 // include
 #include "CgcBaseClient.h"
+using namespace cgc;
 
-namespace cgc
-{
+namespace mycp {
 
 class CGCLIB_CLASS CgcUdpClient
 	: public CgcBaseClient
-	, public UdpSocket_Handler
+	, public mycp::asio::UdpSocket_Handler
 	//, public boost::enable_shared_from_this<CgcUdpClient>
 {
 public:
@@ -55,11 +55,11 @@ private:
 	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const;
 
 	// UdpSocket_Handler
-	virtual void OnReceiveData(const UdpSocket & UdpSocket, const UdpEndPoint::pointer& endpoint);
+	virtual void OnReceiveData(const mycp::asio::UdpSocket & pUdpSocket, const mycp::asio::UdpEndPoint::pointer& endpoint);
 
 private:
-	IoService::pointer m_ipService;
-	UdpSocket::pointer m_udpClient;
+	//IoService::pointer m_ipService;
+	mycp::asio::UdpSocket::pointer m_udpClient;
 	udp::endpoint m_endpointLocal;
 	udp::endpoint m_endpointRemote;
 	int m_nIoSendBufferSize;

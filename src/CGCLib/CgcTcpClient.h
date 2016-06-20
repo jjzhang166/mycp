@@ -23,13 +23,13 @@
 //
 // include
 #include "CgcBaseClient.h"
+using namespace cgc;
 
-namespace cgc
-{
+namespace mycp {
 
 class CGCLIB_CLASS CgcTcpClient
 	: public CgcBaseClient
-	, public TcpClient_Handler
+	, public mycp::asio::TcpClient_Handler
 	//, public boost::enable_shared_from_this<CgcTcpClient>
 {
 public:
@@ -52,14 +52,14 @@ private:
 
 	///////////////////////////////////////////////
 	// for TcpClient_Handler
-	virtual void OnConnected(const TcpClientPointer& tcpClient);
-	virtual void OnConnectError(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
-	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data);
-	virtual void OnDisconnect(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
+	virtual void OnConnected(const mycp::asio::TcpClientPointer& tcpClient);
+	virtual void OnConnectError(const mycp::asio::TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
+	virtual void OnReceiveData(const mycp::asio::TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data);
+	virtual void OnDisconnect(const mycp::asio::TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
 
 private:
-	IoService::pointer m_ipService;
-	TcpClient::pointer m_tcpClient;
+	//IoService::pointer m_ipService;
+	mycp::asio::TcpClient::pointer m_tcpClient;
 	bool m_connectReturned;
 	bool m_bDisconnect;
 };

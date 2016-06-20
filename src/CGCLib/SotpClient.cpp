@@ -18,40 +18,43 @@
 
 #ifdef WIN32
 #pragma warning(disable:4267 4819 4996)
+#include <winsock2.h>
 #endif // WIN32
 
-#define libSOTPCLIENT_EXPORTS
+//#define libSOTPCLIENT_EXPORTS
 
+#include "IncludeBase.h"
 #include "SotpClient.h"
 #include "../ThirdParty/stl/lockmap.h"
 #include "CgcTcpClient.h"
 #include "CgcUdpClient.h"
 #include "CgcRtpClient.h"
 
-//////////////////////////////////////////////////////
-//
-CLockMap<DoSotpClientHandler*, CgcBaseClient::pointer> m_mapclient;
+namespace mycp {
+
+//CLockMap<DoSotpClientHandler*, CgcBaseClient::pointer> theSotpClientList;
 
 CSotpClient::CSotpClient(void)
+: m_bExitStopIoService(true)
+, m_nUserData(0)
 {
 
 }
-
 CSotpClient::~CSotpClient(void)
 {
-
+	stopAllClient();
 }
 
-DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddress, unsigned int bindPort, int nThreadStackSize)
+cgc::DoSotpClientHandler::pointer CSotpClient::startClient(const cgc::CCgcAddress & pAddress, unsigned int bindPort, int nThreadStackSize)
 {
 	CgcBaseClient::pointer cgcClient;
 	switch (pAddress.socketType())
 	{
 	case CCgcAddress::ST_TCP:
-		cgcClient = CgcTcpClient::create();
+		cgcClient = mycp::CgcTcpClient::create();
 		break;
 	case CCgcAddress::ST_UDP:
-		cgcClient = CgcUdpClient::create();
+		cgcClient = mycp::CgcUdpClient::create();
 		break;
 	case CCgcAddress::ST_RTP:
 #if (USES_RTP)
@@ -63,22 +66,24 @@ DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddre
 	default:
 		return cgcClient;
 	}
-
+	if (m_pIoService.get()!=NULL)
+	{
+		((DoSotpClientHandler*)cgcClient.get())->doSetIoService(m_pIoService,m_bExitStopIoService);
+	}
 	if (cgcClient->StartClient(pAddress.address(), bindPort, nThreadStackSize) != 0)
 	{
 		cgcClient.reset();
 		return cgcClient;
 	}
-
-	DoSotpClientHandler * handler = (DoSotpClientHandler*)cgcClient.get();
-	m_mapclient.insert(handler, cgcClient);
+	cgc::DoSotpClientHandler * handler = (cgc::DoSotpClientHandler*)cgcClient.get();
+	theSotpClientList.insert(handler, cgcClient);
 	return cgcClient;
 }
 
 void CSotpClient::stopClient(DoSotpClientHandler::pointer pDoHandler)
 {
 	CgcBaseClient::pointer cgcClient;
-	if (m_mapclient.find(pDoHandler.get(), cgcClient, true))
+	if (theSotpClientList.find(pDoHandler.get(), cgcClient, true))
 	{
 		//pDoHandler->doSetResponseHandler(NULL);
 		cgcClient->StopClient();
@@ -87,14 +92,16 @@ void CSotpClient::stopClient(DoSotpClientHandler::pointer pDoHandler)
 
 void CSotpClient::stopAllClient(void)
 {
-	AUTO_LOCK(m_mapclient);
-	//for_each(m_mapclient.begin(), m_mapclient.end(),
+	AUTO_LOCK(theSotpClientList);
+	//for_each(theSotpClientList.begin(), theSotpClientList.end(),
 	//	boost::bind(&CgcBaseClient::StopClient, boost::bind(&std::map<unsigned long, CgcBaseClient::pointer>::value_type::second,_1)));
 	CLockMap<DoSotpClientHandler*, CgcBaseClient::pointer>::iterator pIter;
-	for (pIter=m_mapclient.begin(); pIter!=m_mapclient.end(); pIter++)
+	for (pIter=theSotpClientList.begin(); pIter!=theSotpClientList.end(); pIter++)
 	{
 		pIter->second->StopClient();
 	}
-	m_mapclient.clear(false);
-
+	theSotpClientList.clear(false);
+	//m_pIoService.reset();
 }
+
+} // namespace mycp

@@ -2,7 +2,7 @@ noinst_LIBRARIES = libCGCBase.a
 
 libCGCBase_a_SOURCES = cgcbase.h
 
-libCGCBase_a_HEADERS = cgcApplication.h cgcattachment.h cgcAttributes.h cgcCommunications.h \
+libCGCBase_a_HEADERS = cgcApplication.h cgcApplication2.h cgcattachment.h cgcAttributes.h cgcCommunications.h \
 	cgcdef.h cgcdlldefine.h cgcRequest.h cgcResponse.h cgcSession.h cgcobject.h \
 	cgcParserBase.h cgcParserSotp.h cgcParserHttp.h \
 	cgcSystem.h includeall.h app.h cgcLogService.h cdbc.h comm.h cgcbase.h \

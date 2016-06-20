@@ -50,6 +50,13 @@
 #include "ResponseImpl.h"
 #include <ThirdParty/stl/rsa.h>
 
+#define SCRIPT_TYPE_ONCE	0
+#define SCRIPT_TYPE_HOURLY	1
+#define SCRIPT_TYPE_DAILY	2
+#define SCRIPT_TYPE_WEEKLY	3
+#define SCRIPT_TYPE_MONTHLY	4
+#define SCRIPT_TYPE_YEARLY	5
+
 class CMySessionInfo
 {
 public:
@@ -100,7 +107,7 @@ private:
 	cgcRemote::pointer m_pcgcRemote;
 	time_t m_tRequestTime;
 };
-
+#define USES_CMODULEMGR
 class CGCApp
 	: public cgcSystem
 	, public cgcServiceManager
@@ -141,11 +148,15 @@ public:
 	void AppStop(void);
 	void AppExit(void);
 	void PrintHelp(void);
+	void CheckScriptExecute(int nScriptType);
 
 	// cgcServiceManager handler
 	virtual cgcServiceInterface::pointer getService(const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
 	virtual void resetService(const cgcServiceInterface::pointer & service);
 private:
+	void do_dataresend(void);
+	void do_sessiontimeout(void);
+
 	void LoadDefaultConf(void);
 	void LoadClustersConf(void);
 	void LoadAuthsConf(void);
@@ -213,8 +224,10 @@ private:
 	int ProcCgcData(const unsigned char * recvData, size_t dataSize, const cgcRemote::pointer& pcgcRemote);
 	// pRemoteSessionImpl 可以为空；
 	int ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcParserSotp::pointer& pcgcParser, const cgcRemote::pointer& pcgcRemote, cgcSession::pointer& pRemoteSessionImpl);
+	int ProcSyncProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcParserSotp::pointer& pcgcParser, const cgcRemote::pointer& pcgcRemote, cgcSession::pointer& pRemoteSessionImpl);
 	int ProcAppProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcSotpResponse::pointer& pResponseImpl, const cgcParserSotp::pointer& pcgcParser, cgcSession::pointer& pRemoteSessionImpl);
 	int ProcLibMethod(const ModuleItem::pointer& moduleItem, const tstring & sMethodName, const cgcSotpRequest::pointer& pRequest, const cgcSotpResponse::pointer& pResponse);
+	int ProcLibSyncMethod(const ModuleItem::pointer& moduleItem, const tstring& sSyncName, int nSyncType, const tstring & sSyncData);
 
 	void OpenLibrarys(void);
 	void FreeLibrarys(void);
@@ -248,8 +261,8 @@ private:
 	//CHttpSessionMgr m_mgrHttpSession;
 
 	tstring m_sModulePath;
-	boost::thread * m_pProcSessionTimeout;
-	boost::thread * m_pProcDataResend;
+	boost::shared_ptr<boost::thread> m_pProcSessionTimeout;
+	boost::shared_ptr<boost::thread> m_pProcDataResend;
 	//CLockMap<short, cgcSeqInfo::pointer> m_mapSeqInfo;
 
 	bool m_bService;
@@ -274,7 +287,11 @@ private:
 	CLockMap<cgcServiceInterface::pointer, void*> m_mapServiceModule;		// cgcService->MODULE HANDLE
 
 	CLockMap<unsigned long, cgcMultiPart::pointer> m_mapMultiParts;		// remoteid->
+#ifdef USES_CMODULEMGR
+	CModuleMgr m_pModuleMgr;
+#else
 	CLockMap<void*, cgcApplication::pointer> m_mapOpenModules;			//
+#endif
 	//CLockMap<tstring,CMySessionInfo::pointer> m_pMySessionInfoList;		// mysessionid-> (后期考虑保存到硬盘)
 	CLockList<CNotKeepAliveRemote::pointer> m_pNotKeepAliveRemoteList;
 	CLockList<cgcParserSotp::pointer> m_pSotpParserPool;

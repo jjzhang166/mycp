@@ -80,6 +80,10 @@ public:
 	virtual bool commit(void) {return false;}
 	virtual bool rollback(void) {return false;}
 
+	void set_datasource(const tstring& v) {m_sDatasource = v;}
+	const tstring& get_datasource(void) const {return m_sDatasource;}
+private:
+	tstring m_sDatasource;
 };
 
 const cgcCDBCService::pointer cgcNullCDBCService;

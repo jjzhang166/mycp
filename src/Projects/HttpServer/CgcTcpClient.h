@@ -22,26 +22,28 @@
 
 //
 // include
-//#include "CgcBaseClient.h"
 #include <CGCBase/cgcSmartString.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
-#include <ThirdParty/Boost/asio/TcpClient.h>
+#include "TcpClient.h"
+//#include <ThirdParty/Boost/asio/TcpClient.h>
+//using namespace cgc;
 
-namespace cgc
-{
+namespace mycp {
+namespace httpserver {
+
 class TcpClient_Callback
 {
 public:
 	typedef boost::shared_ptr<TcpClient_Callback> pointer;
-	virtual void OnReceiveData(const ReceiveBuffer::pointer& data, int nUserData) = 0;
+	virtual void OnReceiveData(const mycp::asio::ReceiveBuffer::pointer& data, int nUserData) = 0;
 	virtual void OnConnected(int nUserData){}
 	virtual void OnDisconnect(int nUserData){}
 };
 
 class CgcTcpClient
 	: public TcpClient_Handler
-	, public IoService_Handler
+	, public mycp::asio::IoService_Handler
 	, public boost::enable_shared_from_this<CgcTcpClient>
 {
 public:
@@ -57,11 +59,10 @@ public:
 	virtual ~CgcTcpClient(void);
 
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
-
 #ifdef USES_OPENSSL
-	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort,boost::asio::ssl::context* ctx=NULL);
+	virtual int startClient(const cgc::tstring & sCgcServerAddr, unsigned int bindPort,boost::asio::ssl::context* ctx=NULL);
 #else
-	virtual int startClient(const tstring & sCgcServerAddr, unsigned int bindPort);
+	virtual int startClient(const cgc::tstring & sCgcServerAddr, unsigned int bindPort);
 #endif
 	virtual void stopClient(void);
 	virtual size_t sendData(const unsigned char * data, size_t size);
@@ -71,20 +72,23 @@ public:
 	bool IsException(void) const {return m_bException;}
 	void SetUserData(int nUserData) {m_nUserData = nUserData;}
 
+	void SetIoService(mycp::asio::IoService::pointer pIoService, bool bExitStop = false) {m_ipService = pIoService; m_bExitStopIoService=bExitStop;}
+
 private:
 	virtual bool isInvalidate(void) const;
 
 	// IoService_Handler
 	virtual void OnIoServiceException(void){m_bException = true;}
 	///////////////////////////////////////////////
-	// for TcpClient_Handler
+	// for TcpClient2_Handler
 	virtual void OnConnected(const TcpClientPointer& tcpClient);
 	virtual void OnConnectError(const TcpClientPointer& tcpClient, const boost::system::error_code & error);
-	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data);
+	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data);
 	virtual void OnDisconnect(const TcpClientPointer& tcpClient, const boost::system::error_code & error);
 
 private:
-	IoService::pointer m_ipService;
+	bool m_bExitStopIoService;
+	mycp::asio::IoService::pointer m_ipService;
 	TcpClient::pointer m_tcpClient;
 	bool m_connectReturned;
 	bool m_bDisconnect;
@@ -95,5 +99,7 @@ private:
 	int m_nUserData;
 };
 
-} // namespace cgc
+} // namespace httpserver
+} // namespace mycp
+
 #endif // __CgcTcpClient_h__

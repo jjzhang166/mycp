@@ -16,7 +16,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #ifdef WIN32
+#include <winsock2.h>
 #include <Windows.h>
+#else
+#include <ifaddrs.h>
+#include <netinet/in.h> 
+#include <arpa/inet.h>
 #endif
 
 #include "TimerInfo.h"
@@ -28,7 +33,6 @@ TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTim
 , m_timerHandler(handler), m_bOneShot(bOneShot)
 , m_pvParam(pvParam)
 , m_timerState(TS_Init)
-, m_timerThread(0)
 
 {
 	ftime(&m_tLastRunTime);
@@ -36,8 +40,9 @@ TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTim
 
 TimerInfo::~TimerInfo(void)
 {
-	if (m_timerThread != 0)
-		delete m_timerThread;
+	m_timerThread.reset();
+	//if (m_timerThread.g != 0)
+	//	delete m_timerThread;
 }
 
 void TimerInfo::PauseTimer(void)
@@ -45,19 +50,19 @@ void TimerInfo::PauseTimer(void)
 	m_timerState = TS_Pause;
 }
 
-void TimerInfo::do_timer(TimerInfo * pTimerInfo)
+void TimerInfo::do_timer(void)
 {
 	try
 	{
-		while (pTimerInfo->getTimerState() != TimerInfo::TS_Exit)
+		while (getTimerState() != TimerInfo::TS_Exit)
 		{
-			if (pTimerInfo->getTimerState() == TimerInfo::TS_Running)
+			if (getTimerState() == TimerInfo::TS_Running)
 			{
-				pTimerInfo->doRunTimer();
+				doRunTimer();
 			}
 		}
 
-		pTimerInfo->doTimerExit();
+		doTimerExit();
 	}catch (const std::exception& e)
 	{
 		//
@@ -72,11 +77,11 @@ void TimerInfo::RunTimer(void)
 {
 	m_timerState = TS_Running;
 	ftime(&m_tLastRunTime);
-	if (m_timerThread == 0)
+	if (m_timerThread.get() == NULL)
 	{
 		boost::thread_attributes attrs;
 		attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-		m_timerThread = new boost::thread(attrs,boost::bind(&do_timer, this));
+		m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
 	}
 }
 
@@ -85,13 +90,13 @@ void TimerInfo::KillTimer(void)
 	m_timerState = TS_Exit;
 	//boost::mutex::scoped_lock lockTimer(m_mutex);
 	//m_timerHandler.reset();
-	boost::thread * timerThreadTemp = m_timerThread;
-	m_timerThread = NULL;
-	if (timerThreadTemp)
+	boost::shared_ptr<boost::thread> timerThreadTemp = m_timerThread;
+	m_timerThread.reset();
+	if (timerThreadTemp.get()!=NULL)
 	{
 		if (!m_bOneShot)
 			timerThreadTemp->join();
-		delete timerThreadTemp;
+		timerThreadTemp.reset();
 	}
 }
 

@@ -20,8 +20,8 @@
 //
 #include <stdio.h>
 #include "iostream"
-#include "CGC/CGCApp.h"
 #ifdef WIN32
+#include <winsock2.h>
 #include <Windows.h>
 #include <MMSystem.h>
 #include <ShellApi.h>
@@ -31,6 +31,7 @@
 #include <time.h>
 #include <errno.h>
 #endif // WIN32
+#include "CGC/CGCApp.h"
 
 #if (USES_NEWVERSION)
 typedef int (FAR *FPCGC_app_main)(const char * lpszPath);

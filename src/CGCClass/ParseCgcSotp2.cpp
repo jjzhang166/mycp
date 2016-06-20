@@ -448,7 +448,10 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 		case SOTP_PROTO_ITEM_TYPE_API:
 			{
 				if (pNextLineFind == NULL) return NULL;
-				m_sApi = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
+				//if (m_nProtoType==SOTP_PROTO_TYPE_SYNC)
+				//	m_sApi = "sync_" + std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
+				//else
+					m_sApi = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_PV:
 			{

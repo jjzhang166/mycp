@@ -39,6 +39,7 @@ namespace cgc{
 		, SOTP_PROTO_TYPE_CLOSE			// '2'
 		, SOTP_PROTO_TYPE_ACTIVE		// '3'
 		, SOTP_PROTO_TYPE_RTP			// '4'
+		, SOTP_PROTO_TYPE_SYNC			// '5'
 		, SOTP_PROTO_TYPE_CALL	= 10	// 'A'
 		, SOTP_PROTO_TYPE_ACK			// 'B'
 		, SOTP_PROTO_TYPE_P2P			// 'C'
