@@ -17,7 +17,6 @@
 */
 
 #define USES_BODBCDBC		1		// [0,1]
-
 #ifdef WIN32
 #pragma warning(disable:4267)
 #include <windows.h>

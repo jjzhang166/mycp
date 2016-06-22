@@ -16,9 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
-// RtpService.cpp : Defines the exported functions for the DLL application.
-
+// LogService.cpp : Defines the exported functions for the DLL application.
 #ifdef WIN32
 #pragma warning(disable:4819 4267 4996)
 #include <windows.h>
@@ -71,7 +69,6 @@ class CLogService
 {
 public:
 	typedef boost::shared_ptr<CLogService> pointer;
-
 	static CLogService::pointer create(const tstring& name, const tstring& xmlfile)
 	{
 		return CLogService::pointer(new CLogService(name, xmlfile));
@@ -80,7 +77,6 @@ public:
 	void initlog(void)
 	{
 		namespace fs = boost::filesystem;
-
 		fs::path pathXmlFile(m_xmlfile.c_str());
 		boost::system::error_code ec;
 		if (boost::filesystem::exists(pathXmlFile,ec))

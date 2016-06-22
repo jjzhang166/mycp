@@ -15,7 +15,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
 #define USES_OPENSSL
 #ifdef USES_OPENSSL
 #ifdef WIN32
@@ -23,6 +22,7 @@
 #pragma comment(lib, "ssleay32.lib") 
 #endif // WIN32
 #endif // USES_OPENSSL
+//#include <ThirdParty/Boost/asio/CgcTcpClient.h>
 #include "CgcTcpClient.h"
 #ifdef WIN32
 #pragma warning(disable:4267 4996)
@@ -54,7 +54,7 @@ using namespace cgc;
 #include "md5.h"
 //#include <ThirdParty/fastcgi/fastcgi.h>
 #include "fastcgi.h"
-#include "cgcaddress.h"
+//#include "cgcaddress.h"
 
 #ifndef max
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
@@ -583,7 +583,11 @@ public:
 			}
 		}
 #endif
-
+#ifdef WIN32
+		Sleep(1200);
+#else
+		usleep(1200000);
+#endif
 	}
 	void PHP_FCGIPM(void)
 	{
@@ -1931,7 +1935,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		
 		if (m_pFastCgiServer.get()==NULL)
 		{
-			m_pFastCgiServer = mycp::httpserver::CgcTcpClient::create((mycp::httpserver::TcpClient_Callback*)theTimerHandler.get(),nRequestId);
+			m_pFastCgiServer = mycp::httpserver::CgcTcpClient::create(theTimerHandler.get(),nRequestId);
 			//m_pFastCgiServer->SetIoService(theApplication2->getIoService(), false);
 			if (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection())
 			{
@@ -2010,7 +2014,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 		{
 			//printf("******** getRemoteAddr=%s\n",request->getRemoteAddr().c_str());
-			mycp::httpserver::CCgcAddress pAddress(request->getRemoteAddr());
+			mycp::CCgcAddress pAddress(request->getRemoteAddr());
 			{
 				sValue1 = pAddress.getip().c_str();
 				FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_REMOTE_ADDR.c_str(),FASTCGI_PARAM_REMOTE_ADDR.size(),sValue1.c_str(),sValue1.size(),&nNameValue1Size,lpszSendBuffer);

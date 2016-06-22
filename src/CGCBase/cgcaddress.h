@@ -20,12 +20,10 @@
 #ifndef __cgcaddress_h__
 #define __cgcaddress_h__
 
-#include <CGCBase/cgcSmartString.h>
-#include <ThirdParty/stl/stldef.h>
-//using namespace cgc;
+#include "stdio.h"
+#include "cgcSmartString.h"
 
 namespace mycp {
-namespace httpserver {
 
 class CCgcAddress
 {
@@ -53,7 +51,7 @@ public:
 		if (find != std::string::npos)
 		{
 			m_ip = sAddress.substr(0, find);
-			m_port = atoi(sAddress.substr(find+1).c_str());;
+			m_port = atoi(sAddress.substr(find+1).c_str());
 		}
 	}
 	void address(const cgc::tstring & ip, unsigned short port) {
@@ -62,7 +60,7 @@ public:
 	}
 	cgc::tstring address(void) const {
 		char buffer[32];
-		sprintf(buffer, "%s:%d", m_ip.c_str(), m_port);
+		sprintf(buffer, "%s:%d", m_ip.c_str(), (int)m_port);
 		return buffer;
 	}
 	void socketType(SocketType newv) {m_socketType = newv;}
@@ -73,7 +71,7 @@ public:
 
 	void reset(void)
 	{
-		m_ip = _T("127.0.0.1");
+		m_ip = "127.0.0.1";
 		m_port = 8010;
 		m_socketType = ST_UNKNOWN;
 	}
@@ -106,7 +104,6 @@ private:
 };
 const CCgcAddress constDefaultCgcAddress;
 
-} // namespace httpserver
 } // namespace mycp
 
 #endif // __cgcaddress_h__

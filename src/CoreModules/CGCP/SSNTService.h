@@ -23,11 +23,12 @@
 #include "NTService.h"
 #include "CGC/CGCApp.h"
 
+
 class CSSNTService
 	: public CNTService
 {
 private:
-	CGCApp::pointer m_App;
+	mycp::CGCApp::pointer m_App;
 
 public:
 	CSSNTService(void)
@@ -39,7 +40,7 @@ public:
 		temp = _tcsrchr(chModulePath, (unsigned int)'\\');
 		chModulePath[temp - chModulePath] = '\0';
 
-		m_App = CGCApp::create(chModulePath);
+		m_App = mycp::CGCApp::create(chModulePath);
 		m_sServiceName = _T("CGCP");
 		m_sServiceDisplayName = _T("CGCP Server");
 	}
@@ -52,7 +53,7 @@ private:
 	virtual void Stop(){
 		m_App->AppExit();
 	}
-
 };
+
 
 #endif // __CSSNTService_CLASS_INCLUDED__

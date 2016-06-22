@@ -28,6 +28,8 @@
 #include "TimerInfo.h"
 #include <CGCLib/cgc_sotpclient.h>
 
+namespace mycp {
+
 class CSyncDataInfo
 {
 public:
@@ -173,7 +175,6 @@ private:
 	bool m_pSyncErrorStoped;
 	bool m_pSyncThreadKilled;
 	boost::shared_ptr<boost::thread> m_pSyncThread;
-	//static void do_thread(CModuleImpl * pOwner);
 	CLockList<CSyncDataInfo::pointer> m_pSyncList;
 	//CCGCSotpClient::pointer m_pCGCSotpClient;
 	std::vector<tstring> m_pHostList;
@@ -283,5 +284,7 @@ public:
 	void StopModule(void);
 	void FreeHandle(void);
 };
+
+} // namespace mycp
 
 #endif // _MODULEMGR_HEAD_INCLUDED__

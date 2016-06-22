@@ -8,8 +8,7 @@
 #endif // WIN32
 
 #include "CgcTcpClient.h"
-#include "cgcaddress.h"
-//#include <boost/format.hpp>
+#include <CGCBase/cgcaddress.h>
 
 namespace mycp {
 namespace httpservice {

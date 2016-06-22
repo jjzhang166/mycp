@@ -57,6 +57,8 @@
 #define SCRIPT_TYPE_MONTHLY	4
 #define SCRIPT_TYPE_YEARLY	5
 
+namespace mycp {
+
 class CMySessionInfo
 {
 public:
@@ -299,5 +301,7 @@ private:
 	CLockList<cgcParserHttp::pointer> m_pHttpParserPool;
 	time_t m_tLastNewParserHttpTime;
 };
+
+} // namespace mycp
 
 #endif // _CGCApp_HEAD_VER_1_0_0_0__INCLUDED_

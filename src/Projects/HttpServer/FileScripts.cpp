@@ -2331,7 +2331,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 		leftIndex += (size+1);
 
 		CScriptItem::pointer scriptItemNew;
-		bool finded = false;
+		//bool finded = false;
 		char lpszBuffer1[256];
 		memset(lpszBuffer1, 0, 256);
 		char lpszBuffer2[256];

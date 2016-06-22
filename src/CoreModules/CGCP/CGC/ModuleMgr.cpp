@@ -28,6 +28,8 @@ using namespace std;
 
 #define USES_SOTP_CLIENT
 
+namespace mycp {
+
 CModuleImpl::CModuleImpl(void)
 : m_callRef(0)
 , m_moduleState(0)
@@ -324,15 +326,10 @@ DoSotpClientHandler::pointer CModuleImpl::getSotpClientHandler(const tstring& sA
 #endif
 }
 
-//void CModuleImpl::do_thread(CModuleImpl * pOwner)
-//{
-//	pOwner->procSyncThread();
-//}
 void CModuleImpl::OnCgcResponse(const cgcParserSotp & response)
 {
 	const unsigned long nSotpCallId = response.getCallid();
 	const long nResultValue = response.getResultValue();
-	//if (response.g
 	ProcSyncResponse(nSotpCallId, nResultValue);
 
 	//// -102: ´íÎóÄ£¿é´úÂë
@@ -857,4 +854,4 @@ void CModuleMgr::FreeHandle(void)
 	m_mapModuleImpl.clear();
 }
 
-
+} // namespace mycp

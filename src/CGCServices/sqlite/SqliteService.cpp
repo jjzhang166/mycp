@@ -51,7 +51,6 @@ using namespace cgc;
 #if (USES_SQLITECDBC)
 
 #include <sqlite3.h>
-
 #ifdef WIN32
 #ifdef _DEBUG
 #pragma comment(lib,"sqlite3sd.lib")

@@ -66,7 +66,9 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libParserHttp_la_DEPENDENCIES = $(libdir)/libCGCClass.a
+libParserHttp_la_DEPENDENCIES = $(libdir)/libboost_thread.a \
+	$(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a \
+	$(libdir)/libCGCClass.a
 am__objects_1 = ParserHttp.lo
 am_libParserHttp_la_OBJECTS = $(am__objects_1)
 libParserHttp_la_OBJECTS = $(am_libParserHttp_la_OBJECTS)
@@ -207,7 +209,9 @@ top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libParserHttp.la
 THESOURCES = ParserHttp.cpp
 libParserHttp_la_SOURCES = $(THESOURCES)
-libParserHttp_la_LIBADD = $(libdir)/libCGCClass.a
+libParserHttp_la_LIBADD = $(libdir)/libboost_thread.a $(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a \
+	$(libdir)/libCGCClass.a
+
 AM_CFLAGS = -fPIC -shared -Wall
 AM_CXXFLAGS = -fPIC -shared -Wall
 all: all-am

@@ -121,7 +121,6 @@ unsigned long GetSystemBootTime(void)
 }
 #endif
 
-
 #if defined(WIN32) && !defined(__MINGW_GCC)
 #include "SSNTService.h"
 int _tmain(int argc, _TCHAR* argv[])
@@ -337,7 +336,7 @@ int main(int argc, char* argv[])
 #else // USES_NEWVERSION
 
 #ifdef _DEBUG
-	CGCApp::pointer gApp = CGCApp::create(sModulePath);
+	mycp::CGCApp::pointer gApp = mycp::CGCApp::create(sModulePath);
 	gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 #else // _DEBUG
 
@@ -387,7 +386,7 @@ int main(int argc, char* argv[])
 			}
 		}else if(_tcsicmp(_T("run"),argv[1]+1)==0)
 		{
-			CGCApp::pointer gApp = CGCApp::create(sModulePath);
+			mycp::CGCApp::pointer gApp = mycp::CGCApp::create(sModulePath);
 			gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 		}else
 		{
@@ -401,12 +400,12 @@ int main(int argc, char* argv[])
 		{
 			cService.AddToErrorMessageLog(TEXT("Failed start server£¡"));
 
-			CGCApp::pointer gApp = CGCApp::create(sModulePath);
+			mycp::CGCApp::pointer gApp = mycp::CGCApp::create(sModulePath);
 			gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 		}
 	}
 #else
-	CGCApp::pointer gApp = CGCApp::create(sModulePath);
+	mycp::CGCApp::pointer gApp = mycp::CGCApp::create(sModulePath);
 	gApp->MyMain(nWaitSeconds,bService, sProtectDataFile);
 #endif
 #endif // _DEBUG
@@ -426,4 +425,3 @@ int main(int argc, char* argv[])
 	remove(sProtectDataFile.c_str());
 	return 0;
 }
-

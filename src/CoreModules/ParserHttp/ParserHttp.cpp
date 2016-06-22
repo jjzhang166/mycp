@@ -15,7 +15,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
 #ifdef WIN32
 #pragma warning(disable:4267 4996)
 #include <windows.h>
@@ -40,8 +39,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 // cgc head
 #include <CGCBase/app.h>
 #include <CGCBase/cgcParserHttp.h>
-using namespace cgc;
-
 #include <CGCClass/cgcclassinclude.h>
 using namespace cgc;
 
@@ -52,6 +49,7 @@ using namespace cgc;
 //	virtual tstring serviceName(void) const {return _T("PARSERSOTP");}
 //	virtual void stopService(void) {}
 //};
+
 #include <CGCBase/cgcServices.h>
 cgcServiceInterface::pointer theFileSystemService;
 tstring theXmlFile;

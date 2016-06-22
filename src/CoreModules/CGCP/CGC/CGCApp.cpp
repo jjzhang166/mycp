@@ -61,6 +61,8 @@ unsigned long GetLastError(void)
 //}
 //#endif
 
+namespace mycp {
+
 CGCApp::CGCApp(const tstring & sPath)
 : m_bStopedApp(true)
 , m_bInitedApp(false)
@@ -2856,7 +2858,6 @@ int CGCApp::ProcLibSyncMethod(const ModuleItem::pointer& moduleItem, const tstri
 void CGCApp::InitLibModules(unsigned int mt)
 {
 	//boost::mutex::scoped_lock lock(m_parseModules.m_modules.mutex());
-
 	//CLockMap<void*, cgcApplication::pointer>::iterator iter;
 	//for (iter=m_mapOpenModules.begin(); iter!=m_mapOpenModules.end(); iter++)
 	//{
@@ -2883,8 +2884,9 @@ void CGCApp::InitLibModules(unsigned int mt)
 #endif
 		MODULETYPE moduleMT = application->getModuleType();
 		if ((mt & (int)moduleMT) != (int)moduleMT)
+		{
 			continue;
-
+		}
 		try
 		{
 			if (InitLibModule(application, moduleItem))
@@ -3536,3 +3538,5 @@ void CGCApp::FreeLibModule(const cgcApplication::pointer& moduleImpl)
 		attributes->cleanAllPropertys();
 	}
 }
+
+} // namespace mycp

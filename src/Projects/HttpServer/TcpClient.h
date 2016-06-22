@@ -9,10 +9,8 @@
 #include <boost/thread.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <ThirdParty/stl/locklist.h>
-//#include "../../stl/locklist.h"
 using boost::asio::ip::tcp;
 #include <ThirdParty/Boost/asio/ReceiveBuffer.h>
-//#include "ReceiveBuffer.h"
 //using namespace cgc;
 
 namespace mycp {

@@ -68,7 +68,6 @@ void DesEncrypt(const char* szKey, unsigned char* lpbySrc, unsigned char* lpbyDe
 	char szTempKey[128];
 	strcpy(szTempKey, szKey);
 	makekey(szTempKey, byKey);
-
 	deskey(byKey, EN0);
 	for (int i = 0; i < iLength; i += 8)
 		des(lpbySrc + i, lpbyDest + i);

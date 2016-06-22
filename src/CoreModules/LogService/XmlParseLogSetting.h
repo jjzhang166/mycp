@@ -69,7 +69,7 @@ public:
 		try
 		{
 			ptree pt;
-			read_xml(filename, pt);
+			read_xml(filename.c_str(), pt);
 
 			m_nLogLevel = pt.get("root.log.loglevel", 20);
 

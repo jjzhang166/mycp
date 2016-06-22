@@ -66,9 +66,10 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libHttpServer_la_LIBADD =
-am__objects_1 = CgcTcpClient.lo HttpServer.lo FileScripts.lo \
-	ScriptItem.lo MycpHttpServer.lo
+libHttpServer_la_DEPENDENCIES = $(libdir)/libboost_thread.a \
+	$(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a
+am__objects_1 = HttpServer.lo FileScripts.lo ScriptItem.lo \
+	MycpHttpServer.lo
 am_libHttpServer_la_OBJECTS = $(am__objects_1)
 libHttpServer_la_OBJECTS = $(am_libHttpServer_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -206,11 +207,13 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libHttpServer.la
-THESOURCES = CgcTcpClient.cpp HttpServer.cpp FileScripts.cpp ScriptItem.cpp MycpHttpServer.cpp
+THESOURCES = HttpServer.cpp FileScripts.cpp ScriptItem.cpp MycpHttpServer.cpp
+#THESOURCES = CgcTcpClient.cpp HttpServer.cpp FileScripts.cpp ScriptItem.cpp MycpHttpServer.cpp
 libHttpServer_la_SOURCES = $(THESOURCES)
 #libHttpServer_la_LIBADD = $(libdir)/libCGCLib.a	$(libdir)/libCGCClass.a
-AM_CFLAGS = -fPIE -shared -Wall -lssl -lcrypto
-AM_CXXFLAGS = -fPIE -shared -Wall -lssl -lcrypto
+libHttpServer_la_LIBADD = $(libdir)/libboost_thread.a $(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a
+AM_CFLAGS = -fPIC -shared -Wall -lssl -lcrypto
+AM_CXXFLAGS = -fPIC -shared -Wall -lssl -lcrypto
 all: all-am
 
 .SUFFIXES:
@@ -285,7 +288,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CgcTcpClient.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/FileScripts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HttpServer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/MycpHttpServer.Plo@am__quote@
@@ -519,6 +521,8 @@ uninstall-am: uninstall-libLTLIBRARIES
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-libLTLIBRARIES
 
+#AM_CFLAGS=-fPIC -shared -Wall -lboost_system -lboost_thread -lboost_filesystem -lssl -lcrypto
+#AM_CXXFLAGS=-fPIC -shared -Wall -lboost_system -lboost_thread -lboost_filesystem -lssl -lcrypto
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

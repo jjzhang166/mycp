@@ -22,8 +22,6 @@
 
 #define USES_PARSER_HTTP
 //
-// include
-//#include "CgcBaseClient.h"
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
 #include "TcpClient.h"

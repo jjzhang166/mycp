@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.59])
-AC_INIT(MYCP, 1.9.0, akee.yang@gmail.com)
+AC_INIT(MYCP, 2.0.0, akee.yang@gmail.com)
 AC_CONFIG_SRCDIR(CGCBase/cgcbase.h)
-AM_INIT_AUTOMAKE(MYCP, 1.9.0)
+AM_INIT_AUTOMAKE(MYCP, 2.0.0)
 
 # Checks for programs.
 AC_PROG_CXX
@@ -39,5 +39,4 @@ AC_OUTPUT( \
 	ThirdParty/Makefile \
 	ThirdParty/stl/Makefile \
 	ThirdParty/Boost/Makefile 
-	
 )

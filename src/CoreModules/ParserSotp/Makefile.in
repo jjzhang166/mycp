@@ -66,7 +66,9 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libParserSotp_la_DEPENDENCIES = ../../CGCClass/libCGCClass.a
+libParserSotp_la_DEPENDENCIES = $(libdir)/libboost_thread.a \
+	$(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a \
+	../../CGCClass/libCGCClass.a
 am__objects_1 = ParserSotp.lo
 am_libParserSotp_la_OBJECTS = $(am__objects_1)
 libParserSotp_la_OBJECTS = $(am_libParserSotp_la_OBJECTS)
@@ -207,9 +209,11 @@ top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libParserSotp.la
 THESOURCES = ParserSotp.cpp
 libParserSotp_la_SOURCES = $(THESOURCES)
-libParserSotp_la_LIBADD = ../../CGCClass/libCGCClass.a
-AM_CFLAGS = -fPIC -shared -Wall -lssl -lcrypto
-AM_CXXFLAGS = -fPIC -shared -Wall -lssl -lcrypto
+libParserSotp_la_LIBADD = $(libdir)/libboost_thread.a $(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a \
+	../../CGCClass/libCGCClass.a
+
+AM_CFLAGS = -fPIC -shared -Wall -lrt
+AM_CXXFLAGS = -fPIC -shared -Wall -lrt
 all: all-am
 
 .SUFFIXES:

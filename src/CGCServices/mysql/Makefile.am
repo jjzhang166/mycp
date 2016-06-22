@@ -3,7 +3,8 @@ THESOURCES = MysqlService.cpp MysqlPool.cpp
 libMysqlService_la_SOURCES = $(THESOURCES)
 
 #libMysqlService_la_LIBADD = /usr/lib/mysql/libmysqlclient.a
-libMysqlService_la_LIBADD = /mysql-connector-c-6.1.6-src/libmysql/libmysqlclient.a
+libMysqlService_la_LIBADD = $(libdir)/libboost_thread.a $(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a \
+	/mysql-connector-c-6.1.6-src/libmysql/libmysqlclient.a
 
 AM_CFLAGS=-fPIC -shared -Wall
 AM_CXXFLAGS=-fPIC -shared -Wall

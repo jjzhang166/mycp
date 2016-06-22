@@ -22,7 +22,7 @@
 
 #include "dlldefine.h"
 #include "CgcClientHandler.h"
-#include "cgcaddress.h"
+#include "../CGCBase/cgcaddress.h"
 #include "../ThirdParty/stl/lockmap.h"
 #include "CgcBaseClient.h"
 
@@ -32,7 +32,7 @@ class CSotpClient
 //class LIBSOTPCLIENT_CLASS CSotpClient
 {
 public:
-	cgc::DoSotpClientHandler::pointer startClient(const cgc::CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
+	cgc::DoSotpClientHandler::pointer startClient(const CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
 	void stopClient(cgc::DoSotpClientHandler::pointer pDoHandler);
 	void stopAllClient(void);
 

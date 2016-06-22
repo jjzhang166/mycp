@@ -51,7 +51,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 using namespace cgc;
 
 #if (USES_MYSQLCDBC)
-
 #include "MysqlPool.h"
 //#include <mysql.h>
 //#ifdef WIN32

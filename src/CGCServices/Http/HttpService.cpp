@@ -15,7 +15,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
 #include "CgcTcpClient.h"
 
 #define USES_OPENSSL
@@ -360,7 +359,7 @@ protected:
 			{
 				tcpClient->sendData((const unsigned char *)sHttpRequest.c_str(), sHttpRequest.size());
 				//const int nMaxSecond = sSaveFile.empty()?30:300;	// 300=5*60
-				int counter = 0;
+				//int counter = 0;
 				do
 				{
 #ifdef WIN32

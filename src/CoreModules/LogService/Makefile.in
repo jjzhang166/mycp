@@ -66,7 +66,8 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libLogService_la_LIBADD =
+libLogService_la_DEPENDENCIES = $(libdir)/libboost_thread.a \
+	$(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a
 am__objects_1 = LogService.lo
 am_libLogService_la_OBJECTS = $(am__objects_1)
 libLogService_la_OBJECTS = $(am_libLogService_la_OBJECTS)
@@ -207,10 +208,10 @@ top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libLogService.la
 THESOURCES = LogService.cpp
 libLogService_la_SOURCES = $(THESOURCES)
-
 #libLogService_la_HEADERS = cgcLog.h
-AM_CFLAGS = -fPIC -shared -Wall
-AM_CXXFLAGS = -fPIC -shared -Wall
+libLogService_la_LIBADD = $(libdir)/libboost_thread.a $(libdir)/libboost_filesystem.a $(libdir)/libboost_system.a
+AM_CFLAGS = -fPIC -shared -Wall -lrt
+AM_CXXFLAGS = -fPIC -shared -Wall -lrt
 all: all-am
 
 .SUFFIXES:
@@ -514,7 +515,6 @@ uninstall-am: uninstall-libLTLIBRARIES
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-libLTLIBRARIES
-
 
 #libLogService_ladir = $(includedir)/CGCServices/Log
 
