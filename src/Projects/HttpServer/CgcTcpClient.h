@@ -20,14 +20,22 @@
 #ifndef __mycp_asio_CgcTcpClient_h__
 #define __mycp_asio_CgcTcpClient_h__
 
+#ifndef USES_OPENSSL
+#define USES_OPENSSL
+#endif
+#define USES_MYCP_TCPCLIENT
+
 // include
 #include <CGCBase/cgcSmartString.h>
 #include <CGCBase/cgcaddress.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
+#ifdef USES_MYCP_TCPCLIENT
+#include <ThirdParty/Boost/asio/TcpClient.h>
+using namespace mycp::asio;
+#else
 #include "TcpClient.h"
-//#include <ThirdParty/Boost/asio/TcpClient.h>
-////using namespace mycp::asio;
+#endif
 
 namespace mycp {
 namespace httpserver {
@@ -105,9 +113,9 @@ public:
 		return lpszDefault;
 	}
 #ifdef USES_OPENSSL
-	int startClient(const cgc::tstring & sCgcServerAddr, unsigned int bindPort,boost::asio::ssl::context* ctx=NULL)
+	int startClient(const mycp::tstring & sCgcServerAddr, unsigned int bindPort,boost::asio::ssl::context* ctx=NULL)
 #else
-	int startClient(const cgc::tstring & sCgcServerAddr, unsigned int bindPort)
+	int startClient(const mycp::tstring & sCgcServerAddr, unsigned int bindPort)
 #endif
 	{
 		if (m_tcpClient.get() != 0) return 0;
@@ -116,7 +124,7 @@ public:
 		const unsigned short nPort = (unsigned short)cgcAddress.getport();
 		if (nPort==0) return -1;
 
-		const cgc::tstring sInIp = cgcAddress.getip();
+		const mycp::tstring sInIp = cgcAddress.getip();
 		std::string sIp;
 		for (int i=0;i<5;i++)
 		{
@@ -174,26 +182,22 @@ public:
 	void stopClient(void)
 	{
 		m_pCallback = NULL;
+		if (m_bExitStopIoService && m_ipService.get() != 0)
+		{
+			m_ipService->stop();
+		}
 		if (m_tcpClient.get() != 0)
 		{
 			//m_tcpClient->resetHandler();
 			m_tcpClient->disconnect();
-		}
-		if (m_bExitStopIoService && m_ipService.get() != 0)
-		{
-			m_ipService->stop();
 		}
 		m_tcpClient.reset();
 		m_ipService.reset();
 	}
 	size_t sendData(const unsigned char * data, size_t size)
 	{
-		BOOST_ASSERT(m_tcpClient.get() != 0);
-
 		//printf("******** CgcTcpClient::sendData1\n");
-
 		if (IsDisconnection() || IsException() || data == 0 || isInvalidate()) return 0;
-
 		//printf("******** CgcTcpClient::sendData2\n");
 		//const size_t s = m_tcpClient->write(data, size);
 		//m_tcpClient->async_read_some();
@@ -218,9 +222,7 @@ private:
 	// for TcpClient2_Handler
 	void OnConnected(const TcpClientPointer& tcpClient)
 	{
-		//BOOST_ASSERT (tcpClient.get() != 0);
 		//printf("******** CgcTcpClient::OnConnected\n");
-
 		m_connectReturned = true;
 		m_bDisconnect = false;
 		if (m_pCallback != NULL)

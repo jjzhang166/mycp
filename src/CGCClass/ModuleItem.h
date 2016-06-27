@@ -22,13 +22,13 @@
 
 #include <boost/shared_ptr.hpp>
 #include "../ThirdParty/stl/stldef.h"
+#include "../ThirdParty/stl/lockmap.h"
 #include "dlldefine.h"
 
 #include "../CGCBase/cgcdef.h"
 #include "MethodItem.h"
 
-namespace cgc
-{
+namespace mycp {
 
 typedef	std::map<tstring, tstring> StringMap;
 typedef	StringMap::const_iterator StringMapIter;
@@ -72,6 +72,7 @@ public:
 
 	StringMap m_mapAllowMethods;
 	StringMap m_mapAuths;
+	CLockMap<tstring,void*> m_pApiProcAddressList;
 public:
 	void setName(const tstring & newValue){this->m_name = newValue;}
 	const tstring & getName(void) const {return this->m_name;}
@@ -154,6 +155,6 @@ private:
 	bool m_bDisable;					// default false
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __ModuleItem_h__

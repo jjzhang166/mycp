@@ -18,6 +18,8 @@
 
 #include "ScriptItem.h"
 
+namespace mycp {
+
 CScriptItem::CScriptItem(ItemType type)
 : m_itemType(type)
 , m_operateObject2(CSP_Operate_None)
@@ -128,3 +130,5 @@ void CScriptItem::validataHtmlText(std::string& htmlText) const
 
 	htmlText = "";
 }
+
+} // namespace mycp

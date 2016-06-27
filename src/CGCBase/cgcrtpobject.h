@@ -23,44 +23,44 @@
 #include "cgcdef.h"
 #include "cgcobject.h"
 
-namespace cgc {
+namespace mycp {
 
 #pragma pack(push)
 #pragma pack(1)
 struct tagSotpRtpDataRequest
 {
-	cgc::uint16			m_nSeq;
-	cgc::uint16			m_nCount;
+	uint16			m_nSeq;
+	uint16			m_nCount;
 };
 #define SOTP_RTP_COMMAND_VERSION 2
 struct tagSotpRtpCommand
 {
-	cgc::uint8			m_nVersion;
-	cgc::uint8			m_nCommand;				// see SOTP_RTP_COMMAND_TYPE
-	cgc::bigint			m_nRoomId;
-	cgc::bigint			m_nSrcId;
+	uint8			m_nVersion;
+	uint8			m_nCommand;				// see SOTP_RTP_COMMAND_TYPE
+	bigint			m_nRoomId;
+	bigint			m_nSrcId;
 	union
 	{
-		cgc::bigint				m_nDestId;
+		bigint				m_nDestId;
 		tagSotpRtpDataRequest	m_nDataRequest;	// for SOTP_RTP_COMMAND_DATA_REQUEST
 	}u;
 };
 #define SOTP_RTP_COMMAND_SIZE 26
-//const cgc::uint16 SOTP_RTP_COMMAND_SIZE = sizeof(tagSotpRtpCommand);
+//const uint16 SOTP_RTP_COMMAND_SIZE = sizeof(tagSotpRtpCommand);
 struct tagSotpRtpDataHead
 {
-	cgc::bigint		m_nRoomId;
-	cgc::bigint		m_nSrcId;
-	cgc::uint16		m_nSeq;
-	cgc::uint8		m_nNAKType;		// see SOTP_RTP_NAK_TYPE
-	cgc::uint8		m_nDataType;	// see SOTP_RTP_DATA_TYPE
-	cgc::uint32		m_nTimestamp;
-	cgc::uint32		m_nTotleLength;
-	cgc::uint16		m_nUnitLength;
-	cgc::uint16		m_nIndex;
+	bigint		m_nRoomId;
+	bigint		m_nSrcId;
+	uint16		m_nSeq;
+	uint8		m_nNAKType;		// see SOTP_RTP_NAK_TYPE
+	uint8		m_nDataType;	// see SOTP_RTP_DATA_TYPE
+	uint32		m_nTimestamp;
+	uint32		m_nTotleLength;
+	uint16		m_nUnitLength;
+	uint16		m_nIndex;
 };
 #define SOTP_RTP_DATA_HEAD_SIZE 32
-//const cgc::uint16 SOTP_RTP_DATA_HEAD_SIZE = sizeof(tagSotpRtpDataHead);
+//const uint16 SOTP_RTP_DATA_HEAD_SIZE = sizeof(tagSotpRtpDataHead);
 #pragma pack(pop)
 
 #define SOTP_RTP_MAX_PACKETS_PER_FRAME	512	// 64
@@ -79,15 +79,15 @@ public:
 		return CSotpRtpFrame::pointer(new CSotpRtpFrame(pRtpHead));
 	}
 
-	cgc::uint16			m_nFirstSeq;
-	cgc::uint16			m_nPacketNumber;
-	cgc::uint8*			m_nFilled;
-	cgc::uint32			m_nExpireTime;
+	uint16			m_nFirstSeq;
+	uint16			m_nPacketNumber;
+	uint8*			m_nFilled;
+	uint32			m_nExpireTime;
 	tagSotpRtpDataHead	m_pRtpHead;
 	char*				m_pPayload;
 
 	bool IsWholeFrame(void) const {
-		cgc::uint16 i = 0;
+		uint16 i = 0;
 		for(; i < m_nPacketNumber; i++) {
 			if (m_nFilled[i] != 1) {
 				return false;
@@ -125,7 +125,7 @@ public:
 		, m_pPayload(NULL)
 		, m_nBufferSize(0)
 	{
-		m_nFilled = new cgc::uint8[SOTP_RTP_MAX_PACKETS_PER_FRAME];
+		m_nFilled = new uint8[SOTP_RTP_MAX_PACKETS_PER_FRAME];
 		memset(m_nFilled,0,SOTP_RTP_MAX_PACKETS_PER_FRAME);
 		memset(&m_pRtpHead,0,SOTP_RTP_DATA_HEAD_SIZE);
 	}
@@ -136,7 +136,7 @@ public:
 		, m_pPayload(NULL)
 		, m_nBufferSize(0)
 	{
-		m_nFilled = new cgc::uint8[SOTP_RTP_MAX_PACKETS_PER_FRAME];
+		m_nFilled = new uint8[SOTP_RTP_MAX_PACKETS_PER_FRAME];
 		memset(m_nFilled,0,SOTP_RTP_MAX_PACKETS_PER_FRAME);
 		memcpy(&m_pRtpHead,&pRtpHead,SOTP_RTP_DATA_HEAD_SIZE);
 	}
@@ -152,9 +152,9 @@ private:
 
 };
 
-//typedef void (* HSotpRtpFrameCallback)(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, cgc::uint32 nUserData);
+//typedef void (* HSotpRtpFrameCallback)(bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, uint16 nLostCount, uint32 nUserData);
 
-} // namespace cgc
+} // namespace mycp
 
 
 #endif // __cgcrtpobject_h__

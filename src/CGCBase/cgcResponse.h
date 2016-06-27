@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include "cgcSession.h"
 
-namespace cgc {
+namespace mycp {
 
 // cgcResponse
 class cgcResponse
@@ -42,6 +42,6 @@ public:
 
 const cgcResponse::pointer cgcNullResponse;
 
-}
+} // namespace mycp
 
 #endif // __cgcresponse_head__

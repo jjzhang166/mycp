@@ -24,7 +24,7 @@
 #include "cgcRequest.h"
 #include "cgcuploadfile.h"
 
-namespace cgc{
+namespace mycp {
 
 // cgcHttpRequest
 class cgcHttpRequest
@@ -77,6 +77,6 @@ public:
 
 };
 
-}
+} // namespace mycp
 
 #endif // __cgchttprequest_head__

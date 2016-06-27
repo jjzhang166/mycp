@@ -25,8 +25,7 @@
 #include "SotpRtpRoom.h"
 //#include "SotpRtpSink.h"
 
-namespace cgc
-{
+namespace mycp {
 
 class CSotpRtpSession
 {
@@ -42,19 +41,19 @@ public:
 	void SetRtpFrameCallback(HSotpRtpFrameCallback pCallback, void * pUserData) {m_pRtpFrameCallback = pCallback;m_nCbUserData=pUserData;}
 	//void SetCbUserData(void* nUserData) {m_nCbUserData = nUserData;}
 	bool doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const cgcRemote::pointer& pcgcRemote,bool bSendRtpCommand,CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);
-	void UnRegisterAllRoomSink(cgc::bigint nSrcId);	// for client
+	void UnRegisterAllRoomSink(bigint nSrcId);	// for client
 	bool doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment, const cgcRemote::pointer& pcgcRemote);
 
 	void CheckRegisterSourceLive(short nExpireSecond, CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);	// for server
-	void CheckRegisterSinkLive(short nExpireSecond, cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
+	void CheckRegisterSinkLive(short nExpireSecond, bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
 
-	void GetRoomIdList(std::vector<cgc::bigint>& pOutRoomIdList) const;
-	bool IsRegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId) const;
-	bool IsRegisterSink(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nDestId) const;
+	void GetRoomIdList(std::vector<bigint>& pOutRoomIdList) const;
+	bool IsRegisterSource(bigint nRoomId, bigint nSrcId) const;
+	bool IsRegisterSink(bigint nRoomId, bigint nSrcId, bigint nDestId) const;
 
-	bool RegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);
-	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew);
-	CSotpRtpRoom::pointer GetRtpRoom(cgc::bigint nRoomId) const;
+	bool RegisterSource(bigint nRoomId, bigint nSrcId, bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);
+	CSotpRtpRoom::pointer GetRtpRoom(bigint nRoomId,bool bCreateNew);
+	CSotpRtpRoom::pointer GetRtpRoom(bigint nRoomId) const;
 
 	void ClearAll(void);
 	bool IsRoomEmpty(void) const;
@@ -67,9 +66,9 @@ private:
 	//CSotpRtpCallback* m_pSotpRtpCallback;
 	HSotpRtpFrameCallback m_pRtpFrameCallback;
 	void* m_nCbUserData;
-	CLockMap<cgc::bigint,CSotpRtpRoom::pointer> m_pRoomList;
+	CLockMap<bigint,CSotpRtpRoom::pointer> m_pRoomList;
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __SotpRtpSession_h__

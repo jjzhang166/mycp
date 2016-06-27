@@ -2,6 +2,10 @@
 #ifndef __TcpClient_h__
 #define __TcpClient_h__
 
+#ifndef USES_OPENSSL
+#define USES_OPENSSL
+#endif
+
 #include <boost/asio.hpp>
 #ifdef USES_OPENSSL
 #include "boost_socket.h"

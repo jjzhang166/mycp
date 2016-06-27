@@ -26,7 +26,7 @@
 
 #define USES_NAMESPACE		1	// [0/1]
 
-namespace cgc{
+namespace mycp {
 
 class cgcKVInfo
 {
@@ -99,6 +99,6 @@ public:
 
 #define CGC_NAMESPACESERVICE_DEF(s) boost::static_pointer_cast<cgcNamespace, cgcServiceInterface>(s)
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcnamespace_head__

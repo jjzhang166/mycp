@@ -29,7 +29,7 @@
 #include "cgcAttributes.h"
 #include "cgcCDBCService.h"
 
-namespace cgc{
+namespace mycp {
 
 // cgcSystem
 class cgcSystem
@@ -63,7 +63,6 @@ public:
 #define CGC_GET_LAST_RESPONSE(sessionid) (theSystem->getLastResponse(sessionid,theApplication->getApplicationName()))
 #define CGC_GET_HOLD_RESPONSE(sessionid,remoteid) (theSystem->getHoldResponse(sessionid,remoteid))
 
-
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcsystem_head__

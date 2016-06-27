@@ -24,7 +24,7 @@
 #include "cgcdef.h"
 #include "cgcServices.h"
 
-namespace cgc{
+namespace mycp {
 
 class cgcLogService
 	: public cgcServiceInterface
@@ -43,6 +43,6 @@ const cgcLogService::pointer cgcNullLogService;
 
 #define CGC_LOGSERVICE_DEF(s) boost::static_pointer_cast<cgcLogService, cgcServiceInterface>(s)
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgclogservice_head__

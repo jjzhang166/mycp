@@ -46,7 +46,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 #include <CGCBase/cdbc.h>
 #include <CGCBase/cgcApplication2.h>
-using namespace cgc;
+using namespace mycp;
 
 #if (USES_PGCDBC)
 #include "db/pool.h"
@@ -54,16 +54,16 @@ using namespace cgc;
 #ifdef WIN32
 #pragma comment(lib,"libpq.lib")
 #endif // WIN32
-cgc::cgcApplication2::pointer theApplication2;
+mycp::cgcApplication2::pointer theApplication2;
 
 class CCDBCResultSet
 {
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	cgc::bigint size(void) const{return m_rows;}
-	cgc::bigint cols(void) const{return m_cols;}
-	cgc::bigint index(void) const
+	mycp::bigint size(void) const{return m_rows;}
+	mycp::bigint cols(void) const{return m_cols;}
+	mycp::bigint index(void) const
 	{
 		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
 		return m_currentIndex;
@@ -166,7 +166,7 @@ public:
 		//m_currentIndex = 0;
 	}
 
-	CCDBCResultSet(Sink * sink, Result * resultset, cgc::bigint rows)
+	CCDBCResultSet(Sink * sink, Result * resultset, mycp::bigint rows)
 		: m_sink(sink), m_resultset(resultset), m_rows(rows)
 	{
 		m_cols = result_cn(m_sink, m_resultset);
@@ -203,9 +203,9 @@ protected:
 private:
 	Sink *		m_sink;
 	Result *	m_resultset;
-	cgc::bigint			m_rows;
+	mycp::bigint			m_rows;
 	int			m_cols;
-	cgc::bigint			m_currentIndex;
+	mycp::bigint			m_currentIndex;
 };
 
 #define CDBC_RESULTSET(sink, res, rows) CCDBCResultSet::pointer(new CCDBCResultSet(sink, res, rows))
@@ -367,12 +367,12 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
+	virtual mycp::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		cgc::bigint ret = 0;
+		mycp::bigint ret = 0;
 		Sink *sink = (Sink*)nTransaction;
 		try
 		{
@@ -394,7 +394,7 @@ private:
 					sink_pool_put (sink);
 				//else
 				//	trans_rollback(nTransaction);
-				CGC_LOG((cgc::LOG_WARNING, "%s\n", exeSql));
+				CGC_LOG((mycp::LOG_WARNING, "%s\n", exeSql));
 				return -1;
 			}
 			//ret = result_rn (sink, res);
@@ -416,7 +416,7 @@ private:
 				sink_pool_put (sink);
 			//else
 			//	trans_rollback(nTransaction);
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}catch(...)
 		{
@@ -424,18 +424,18 @@ private:
 				sink_pool_put (sink);
 			//else
 			//	trans_rollback(nTransaction);
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", exeSql));
 			return -1;
 		}
 		return ret;
 	}
 
-	virtual cgc::bigint select(const char * selectSql, int& outCookie)
+	virtual mycp::bigint select(const char * selectSql, int& outCookie)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		cgc::bigint rows = 0;
+		mycp::bigint rows = 0;
 		Sink *sink = NULL;
 		try
 		{
@@ -453,11 +453,11 @@ private:
 			{
 				result_clean(sink, res);
 				sink_pool_put (sink);
-				CGC_LOG((cgc::LOG_WARNING, "%s\n", selectSql));
+				CGC_LOG((mycp::LOG_WARNING, "%s\n", selectSql));
 				return -1;
 				//return 0;
 			}
-			rows = (cgc::bigint)result_rn(sink, res);
+			rows = (mycp::bigint)result_rn(sink, res);
 			if (rows > 0)
 			{
 				outCookie = (int)res;
@@ -470,22 +470,22 @@ private:
 		}catch(std::exception&)
 		{
 			sink_pool_put (sink);
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			return -1;
 		}catch(...)
 		{
 			sink_pool_put (sink);
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			return -1;
 		}
 		return rows;
 	}
-	virtual cgc::bigint select(const char * selectSql)
+	virtual mycp::bigint select(const char * selectSql)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		cgc::bigint rows = 0;
+		mycp::bigint rows = 0;
 		Sink *sink = NULL;
 		try
 		{
@@ -503,28 +503,28 @@ private:
 			{
 				result_clean(sink, res);
 				sink_pool_put (sink);
-				CGC_LOG((cgc::LOG_WARNING, "%s\n", selectSql));
+				CGC_LOG((mycp::LOG_WARNING, "%s\n", selectSql));
 				return -1;
 				//return 0;
 			}
-			rows = (cgc::bigint)result_rn(sink, res);
+			rows = (mycp::bigint)result_rn(sink, res);
 			result_clean(sink, res);
 			sink_pool_put (sink);
 		}catch(std::exception&)
 		{
 			sink_pool_put (sink);
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			return -1;
 		}catch(...)
 		{
 			sink_pool_put (sink);
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			return -1;
 		}
 		return rows;
 	}
 
-	virtual cgc::bigint size(int cookie) const
+	virtual mycp::bigint size(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
@@ -535,7 +535,7 @@ private:
 		return m_results.find(cookie, cdbcResultSet) ? (int)cdbcResultSet->cols() : -1;
 	}
 
-	virtual cgc::bigint index(int cookie) const
+	virtual mycp::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
@@ -546,7 +546,7 @@ private:
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
 	}
 
-	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
+	virtual cgcValueInfo::pointer index(int cookie, mycp::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;
@@ -596,11 +596,11 @@ private:
 		}catch(std::exception&)
 		{
 			sink_pool_put (sink);
-			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_begin exception\n"));
 		}catch(...)
 		{
 			sink_pool_put (sink);
-			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_begin exception\n"));
 		}
 		return 0;
 	}
@@ -616,29 +616,29 @@ private:
 			result = true;
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_rollback exception\n"));
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_rollback exception\n"));
 		}
 		sink_pool_put (sink);
 		return result;
 	}
-	virtual cgc::bigint trans_commit(int nTransaction)
+	virtual mycp::bigint trans_commit(int nTransaction)
 	{
 		if (!isopen()) return -1;
 		Sink *sink = (Sink*)nTransaction;
 		if (sink==NULL) return -1;
-		cgc::bigint result = -1;
+		mycp::bigint result = -1;
 		try
 		{
 			result = ::trans_commit(sink);
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_commit exception\n"));
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_commit exception\n"));
 		}
 		sink_pool_put (sink);
 		return result;

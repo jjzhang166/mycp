@@ -26,7 +26,9 @@
 //#include "XmlParseLocks.h"
 #include <CGCClass/AttributesImpl.h>
 #include "TimerInfo.h"
-#include <CGCLib/cgc_sotpclient.h>
+//#include <CGCLib/cgc_sotpclient.h>
+
+#define USES_FPCGC_GET_SOTP_CLIENT
 
 namespace mycp {
 
@@ -34,26 +36,26 @@ class CSyncDataInfo
 {
 public:
 	typedef boost::shared_ptr<CSyncDataInfo> pointer;
-	static CSyncDataInfo::pointer create(cgc::bigint nId, int nType, const std::string& sName, bool bBackup)
+	static CSyncDataInfo::pointer create(bigint nId, int nType, const std::string& sName, bool bBackup)
 	{
 		return CSyncDataInfo::pointer(new CSyncDataInfo(nId, nType, sName, bBackup));
 	}
-	static CSyncDataInfo::pointer create(cgc::bigint nId, int nType, const std::string& sName, const std::string& sData, bool bBackup)
+	static CSyncDataInfo::pointer create(bigint nId, int nType, const std::string& sName, const std::string& sData, bool bBackup)
 	{
 		return CSyncDataInfo::pointer(new CSyncDataInfo(nId, nType, sName, sData, bBackup));
 	}
-	cgc::bigint m_nDataId;
+	bigint m_nDataId;
 	int m_nType;
 	std::string m_sName;
 	std::string m_sData;
 	bool m_bBackup;
 	bool m_bFromDatabase;
 
-	CSyncDataInfo(cgc::bigint nId, int nType, const std::string& sName, const std::string& sData, bool bBackup)
+	CSyncDataInfo(bigint nId, int nType, const std::string& sName, const std::string& sData, bool bBackup)
 		: m_nDataId(nId), m_nType(nType), m_sName(sName), m_sData(sData), m_bBackup(bBackup)
 		, m_bFromDatabase(false)
 	{}
-	CSyncDataInfo(cgc::bigint nId, int nType, const std::string& sName, bool bBackup)
+	CSyncDataInfo(bigint nId, int nType, const std::string& sName, bool bBackup)
 		: m_nDataId(nId), m_nType(nType), m_sName(sName), m_bBackup(bBackup)
 		, m_bFromDatabase(false)
 	{}
@@ -149,10 +151,16 @@ private:
 };
 const CCGCSotpRequestInfo::pointer NullCGCSotpRequestInfo;
 
+class CModuleHandler
+{
+public:
+	virtual void* onGetFPGetSotpClientHandler(void) const = 0;
+};
+
 // CModuleImpl
 class CModuleImpl
 	: public cgcApplication2
-	, public cgc::CgcClientHandler
+	, public CgcClientHandler
 {
 private:
 	ModuleItem::pointer m_module;
@@ -172,13 +180,14 @@ private:
 	// for sync
 	cgcCDBCServicePointer m_pSyncCdbcService;
 	cgcServiceManager* m_pServiceManager;
+	CModuleHandler* m_pModuleHandler;
 	bool m_pSyncErrorStoped;
 	bool m_pSyncThreadKilled;
 	boost::shared_ptr<boost::thread> m_pSyncThread;
 	CLockList<CSyncDataInfo::pointer> m_pSyncList;
 	//CCGCSotpClient::pointer m_pCGCSotpClient;
 	std::vector<tstring> m_pHostList;
-	CLockMap<tstring,mycp::CCGCSotpClient::pointer> m_pSyncSotpClientList;
+	CLockMap<tstring,mycp::DoSotpClientHandler::pointer> m_pSyncSotpClientList;
 	time_t m_tProcSyncHostsTime;
 	bool m_bLoadBackupFromCdbcService;
 	CLockMap<unsigned long, CCGCSotpRequestInfo::pointer> m_pSyncRequestList;			// callid->
@@ -193,7 +202,9 @@ private:
 	unsigned long m_nCurrentCallId;
 	unsigned long getNextCallId(void);
 
-	CLockMap<tstring,mycp::CCGCSotpClient::pointer> m_pModuleSotpClientList;
+//#ifndef USES_FPCGC_GET_SOTP_CLIENT
+//	CLockMap<tstring,mycp::CCGCSotpClient::pointer> m_pModuleSotpClientList;
+//#endif
 	mycp::asio::IoService::pointer m_pIoService;
 public:
 	//XmlParseLocks m_moduleLocks;
@@ -202,7 +213,7 @@ public:
 
 public:
 	CModuleImpl(void);
-	CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager);
+	CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager, CModuleHandler* pModuleHandler);
 	virtual ~CModuleImpl(void);
 
 	void setModulePath(const tstring & modulePath) {m_sModulePath = modulePath;}
@@ -212,7 +223,7 @@ public:
 	void SetInited(bool nInited) {m_nInited = nInited;}
 	void SetCdbcDatasource(const tstring& sDatasource) {m_pDataSourceList.insert(sDatasource,true,false);}
 	void StopModule(void);
-	void OnCheckTimeout(void);
+	//void OnCheckTimeout(void);
 
 	unsigned long getCallRef(void) const {return m_callRef;}
 	unsigned long addCallRef(void) {return ++m_callRef;}
@@ -275,7 +286,7 @@ public:
 	CModuleMgr(void);
 	virtual ~CModuleMgr(void);
 
-	void OnCheckTimeout(void);
+	//void OnCheckTimeout(void);
 
 	//CModuleImplMap m_mapModuleImpl;
 	CLockMap<void*, cgcApplication::pointer> m_mapModuleImpl;

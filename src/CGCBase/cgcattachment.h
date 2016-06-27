@@ -24,7 +24,8 @@
 #include <string.h>
 #include <boost/shared_ptr.hpp>
 
-namespace cgc{
+namespace mycp {
+
 #ifdef WIN32
 	typedef __int64				bigint;
 #define cgc_atoi64(a) _atoi64(a)
@@ -164,6 +165,6 @@ protected:
 };
 const cgcAttachment::pointer NullcgcAttachment;
 
-}
+} // namespace mycp
 
 #endif // __cgcattachment_head__

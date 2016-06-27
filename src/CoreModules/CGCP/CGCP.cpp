@@ -247,7 +247,7 @@ int main(int argc, char* argv[])
 		FILE * pfile = fopen(sProtectDataFile.c_str(),"w");
 		if (pfile!=NULL)
 		{
-			sprintf(lpszBuffer,"%lld,%d",(cgc::bigint)time(0),(int)(bService?1:0));
+			sprintf(lpszBuffer,"%lld,%d",(bigint)time(0),(int)(bService?1:0));
 			fwrite(lpszBuffer,1,strlen(lpszBuffer),pfile);
 			fclose(pfile);
 #ifdef WIN32

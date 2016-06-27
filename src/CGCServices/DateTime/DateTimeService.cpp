@@ -41,7 +41,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 // cgc head
 #include <CGCBase/app.h>
 #include <CGCBase/cgcService.h>
-using namespace cgc;
+using namespace mycp;
 using namespace boost::gregorian;  
 using namespace boost::local_time;  
 using namespace boost::posix_time; 

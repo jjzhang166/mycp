@@ -23,53 +23,53 @@
 #include "../ThirdParty/stl/lockmap.h"
 #include "SotpRtpSource.h"
 
-namespace cgc
-{
+namespace mycp {
+
 //typedef void (FAR *SinkExpireCallback) (void* pUserData, void* pRtpRoom,void* pRtpSourc);
 class CSotpRtpCallback
 {
 public:
-	virtual bool onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData) = 0;
-	virtual void onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData) = 0;
-	virtual bool onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData) = 0;
+	virtual bool onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData) = 0;
+	virtual void onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData) = 0;
+	virtual bool onRegisterSink(bigint nRoomId, bigint nSourceId, bigint nDestId, void* pUserData) = 0;
 };
 
 class CSotpRtpRoom
 {
 public:
 	typedef boost::shared_ptr<CSotpRtpRoom> pointer;
-	static CSotpRtpRoom::pointer create(bool bServerMode, cgc::bigint nRoomId)
+	static CSotpRtpRoom::pointer create(bool bServerMode, bigint nRoomId)
 	{
 		return CSotpRtpRoom::pointer(new CSotpRtpRoom(bServerMode, nRoomId));
 	}
 	bool IsServerMode(void) const {return m_bServerMode;}
-	cgc::bigint GetRoomId(void) const {return m_nRoomId;}
+	bigint GetRoomId(void) const {return m_nRoomId;}
 	bool IsEmpty(void) const {return m_pSourceList.empty();}
 
-	CSotpRtpSource::pointer RegisterSource(cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData);
-	bool UnRegisterSource1(cgc::bigint nSrcId, cgc::bigint* pOutParam);	// for client
-	bool UnRegisterSource2(cgc::bigint nSrcId, cgc::bigint nParam, CSotpRtpCallback* pCallback, void* pUserData);		// for server
-	bool RegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData);
-	bool UnRegisterSink(cgc::bigint nSrcId,cgc::bigint nDestId,const cgcRemote::pointer& pcgcRemote);
-	bool UnRegisterAllSink(cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);
+	CSotpRtpSource::pointer RegisterSource(bigint nSrcId, bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData);
+	bool UnRegisterSource1(bigint nSrcId, bigint* pOutParam);	// for client
+	bool UnRegisterSource2(bigint nSrcId, bigint nParam, CSotpRtpCallback* pCallback, void* pUserData);		// for server
+	bool RegisterSink(bigint nSrcId,bigint nDestId,const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback, void* pUserData);
+	bool UnRegisterSink(bigint nSrcId,bigint nDestId,const cgcRemote::pointer& pcgcRemote);
+	bool UnRegisterAllSink(bigint nSrcId, const cgcRemote::pointer& pcgcRemote);
 	bool UnRegisterAllSink(const CSotpRtpSource::pointer& pRtpSrcSource, const cgcRemote::pointer& pcgcRemote, bool bUnRegisterAllSinkForce=false);
 
-	CSotpRtpSource::pointer GetRtpSource(cgc::bigint nSrcId) const;
-	bool IsRegisterSource(cgc::bigint nSrcId) const;
+	CSotpRtpSource::pointer GetRtpSource(bigint nSrcId) const;
+	bool IsRegisterSource(bigint nSrcId) const;
 	void BroadcastRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment) const;
 	void CheckRegisterSourceLive(time_t tNow,short nExpireSecond, CSotpRtpCallback* pCallback=NULL,void* pUserData=NULL);
-	void CheckRegisterSinkLive(time_t tNow,short nExpireSecond,cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
+	void CheckRegisterSinkLive(time_t tNow,short nExpireSecond,bigint nSrcId, const cgcRemote::pointer& pcgcRemote);	// for client
 
 	void ClearAll(void);
 
-	CSotpRtpRoom(bool bServerMode, cgc::bigint nRoomId);
+	CSotpRtpRoom(bool bServerMode, bigint nRoomId);
 	virtual ~CSotpRtpRoom(void);
 private:
 	bool m_bServerMode;
-	cgc::bigint m_nRoomId;
-	CLockMap<cgc::bigint,CSotpRtpSource::pointer> m_pSourceList;
+	bigint m_nRoomId;
+	CLockMap<bigint,CSotpRtpSource::pointer> m_pSourceList;
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __SotpRtpRoom_h__

@@ -1,2 +1,2 @@
-SUBDIRS = LogService ParserHttp ParserSotp CGCP
+SUBDIRS = SotpClientService LogService ParserHttp ParserSotp CGCP
 

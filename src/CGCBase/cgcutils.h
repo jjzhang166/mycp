@@ -23,8 +23,7 @@
 //#pragma warning(disable:4996)
 //#endif // WIN32
 
-
-namespace cgc {
+namespace mycp {
 
 inline const tstring & replace_string(tstring & strSource, const tstring & strFind, const tstring &strReplace)
 {
@@ -51,6 +50,6 @@ inline const tstring & replace_char(tstring & strSource, char cFind, const tstri
 	return strSource;
 }
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcutils_head__

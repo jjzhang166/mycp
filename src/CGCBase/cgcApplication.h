@@ -34,7 +34,7 @@
 //#include "../CGCLib/CgcClientHandler.h"
 //#endif
 
-namespace cgc{
+namespace mycp {
 
 class cgcOnTimerHandler
 	: public cgcLock
@@ -106,6 +106,6 @@ public:
 
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __CGCAPPLICATION_HEAD__

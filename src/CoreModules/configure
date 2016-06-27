@@ -16009,7 +16009,7 @@ done
 
 
 
-ac_config_files="$ac_config_files Makefile CGCP/Makefile ParserSotp/Makefile ParserHttp/Makefile LogService/Makefile"
+ac_config_files="$ac_config_files Makefile CGCP/Makefile ParserSotp/Makefile ParserHttp/Makefile LogService/Makefile SotpClientService/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -17025,6 +17025,7 @@ do
     "ParserSotp/Makefile") CONFIG_FILES="$CONFIG_FILES ParserSotp/Makefile" ;;
     "ParserHttp/Makefile") CONFIG_FILES="$CONFIG_FILES ParserHttp/Makefile" ;;
     "LogService/Makefile") CONFIG_FILES="$CONFIG_FILES LogService/Makefile" ;;
+    "SotpClientService/Makefile") CONFIG_FILES="$CONFIG_FILES SotpClientService/Makefile" ;;
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 $as_echo "$as_me: error: invalid argument: $ac_config_target" >&2;}

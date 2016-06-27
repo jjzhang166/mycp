@@ -41,7 +41,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 // cgc head
 #include <CGCBase/cgcParserSotp.h>
 #include <CGCClass/cgcclassinclude.h>
-using namespace cgc;
+using namespace mycp;
 
 class CParserSotp : public CPPSotp2
 {

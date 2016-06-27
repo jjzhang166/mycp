@@ -26,8 +26,7 @@
 #include "AttributesImpl.h"
 #include "XmlParseUpload.h"
 
-namespace cgc
-{
+namespace mycp {
 
 class CPpHttp
 	: public cgcParserHttp
@@ -293,6 +292,7 @@ inline int CGC_XXX2UTF8(const char* from_charset, const char *inbuf,size_t inlen
 	return ret;
 }
 #endif
-} // cgc namespace
+
+} // namespace mycp
 
 #endif // __pp_http_h__

@@ -56,7 +56,7 @@ using namespace boost::locale;
 
 // cgc head
 #include "cgcString.h"
-using namespace cgc;
+using namespace mycp;
 extern "C"
 {
 #include "d3des.h"

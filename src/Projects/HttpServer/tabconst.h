@@ -23,6 +23,8 @@
 // cgc head
 #include <string>
 
+namespace mycp {
+
 typedef enum Variable_Type
 {
 	VARIABLE_USER
@@ -266,5 +268,7 @@ const std::string FASTCGI_PARAM_PATH_INFO			= "PATH_INFO";
 const std::string FASTCGI_PARAM_GATEWAY_INTERFACE	= "GATEWAY_INTERFACE";
 const std::string FASTCGI_PARAM_HTTP_HOST			= "HTTP_HOST";
 //const std::string FASTCGI_PARAM_PHP_SELF			= "PHP_SELF";
+
+} // namespace mycp
 
 #endif // __tabconst__head__

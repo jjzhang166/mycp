@@ -46,6 +46,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #pragma comment(lib, "libeay32.lib")  
 #pragma comment(lib, "ssleay32.lib") 
 #else
+#include <ifaddrs.h>
+#include <netinet/in.h> 
+#include <arpa/inet.h>
 #include <semaphore.h>
 #include <time.h>
 #endif // WIN32
@@ -62,7 +65,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #ifdef USES_TCP_TEST_CONNECT
 #include <ThirdParty/Boost/asio/TcpClient.h>
 #endif
-using namespace cgc;
+using namespace mycp;
 
 #include "../CgcRemoteInfo.h"
 #define USES_SUPPORT_HTTP_CONNECTION

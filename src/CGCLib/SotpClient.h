@@ -32,8 +32,8 @@ class CSotpClient
 //class LIBSOTPCLIENT_CLASS CSotpClient
 {
 public:
-	cgc::DoSotpClientHandler::pointer startClient(const CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
-	void stopClient(cgc::DoSotpClientHandler::pointer pDoHandler);
+	DoSotpClientHandler::pointer startClient(const CCgcAddress & address, unsigned int bindPort=0, int nThreadStackSize=200);
+	void stopClient(DoSotpClientHandler::pointer pDoHandler);
 	void stopAllClient(void);
 
 	void SetIoService(mycp::asio::IoService::pointer pIoService, bool bExitStop = false) {m_pIoService = pIoService; m_bExitStopIoService=bExitStop;}
@@ -50,7 +50,7 @@ public:
 private:
 	bool m_bExitStopIoService;
 	mycp::asio::IoService::pointer m_pIoService;
-	CLockMap<cgc::DoSotpClientHandler*, CgcBaseClient::pointer> theSotpClientList;
+	CLockMap<DoSotpClientHandler*, CgcBaseClient::pointer> theSotpClientList;
 	unsigned int m_nUserData;
 };
 

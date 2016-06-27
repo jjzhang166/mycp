@@ -45,7 +45,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 #include <CGCBase/cdbc.h>
 #include <CGCBase/cgcApplication2.h>
-using namespace cgc;
+using namespace mycp;
 #include <boost/thread/shared_mutex.hpp>
 
 #if (USES_SQLITECDBC)
@@ -58,17 +58,17 @@ using namespace cgc;
 #pragma comment(lib,"sqlite3s.lib")
 #endif
 #endif // WIN32
-cgc::cgcApplication2::pointer theApplication2;
+mycp::cgcApplication2::pointer theApplication2;
 
 class CCDBCResultSet
 {
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	cgc::bigint size(void) const {return m_rows;}
+	mycp::bigint size(void) const {return m_rows;}
 	int cols(void) const {return (int)m_fields;}
 
-	cgc::bigint index(void) const
+	mycp::bigint index(void) const
 	{
 		return m_currentIndex;
 	}
@@ -78,7 +78,7 @@ public:
 		std::vector<cgcValueInfo::pointer> record;
 		try
 		{
-			const cgc::bigint offset = 0;
+			const mycp::bigint offset = 0;
 			for (int i=0 ; i<m_fields; i++ )
 			{
 				const tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
@@ -90,7 +90,7 @@ public:
 		}
 		return CGC_VALUEINFO(record);
 	}
-	cgcValueInfo::pointer index(cgc::bigint moveIndex)
+	cgcValueInfo::pointer index(mycp::bigint moveIndex)
 	{
 		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (moveIndex < 0 || (moveIndex+1) > m_rows) return cgcNullValueInfo;
@@ -137,7 +137,7 @@ public:
 		m_rows = 0;
 	}
 
-	CCDBCResultSet(char** resultset, cgc::bigint rows, short fields)
+	CCDBCResultSet(char** resultset, mycp::bigint rows, short fields)
 		: m_resultset(resultset), m_rows(rows), m_fields(fields)
 	{
 	}
@@ -155,7 +155,7 @@ protected:
 		std::vector<cgcValueInfo::pointer> record;
 		try
 		{
-			const cgc::bigint offset = (m_currentIndex+1)*m_fields;	// +1 is column head info
+			const mycp::bigint offset = (m_currentIndex+1)*m_fields;	// +1 is column head info
 			for (int i=0 ; i<m_fields; i++ )
 			{
 				const tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
@@ -171,9 +171,9 @@ protected:
 
 private:
 	char** m_resultset;
-	cgc::bigint	m_rows;
+	mycp::bigint	m_rows;
 	short		m_fields;
-	cgc::bigint	m_currentIndex;
+	mycp::bigint	m_currentIndex;
 };
 
 #define CDBC_RESULTSET(r,row,field) CCDBCResultSet::pointer(new CCDBCResultSet(r,row,field))
@@ -297,7 +297,7 @@ private:
 			const int rc = sqlite3_open(sDatabase.c_str(), &m_pSqlite);
 			if ( rc!=SQLITE_OK )  
 			{  
-				CGC_LOG((cgc::LOG_WARNING, "Can't open database: %s(%s)\n", sDatabase.c_str(),sqlite3_errmsg(m_pSqlite)));
+				CGC_LOG((mycp::LOG_WARNING, "Can't open database: %s(%s)\n", sDatabase.c_str(),sqlite3_errmsg(m_pSqlite)));
 				sqlite3_close(m_pSqlite);
 				m_pSqlite = 0;
 				return false;  
@@ -340,7 +340,7 @@ private:
 	//{
 	//	return 0;
 	//}
-	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
+	virtual mycp::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
@@ -349,7 +349,7 @@ private:
 		////Ö´ÐÐSQLÓï¾ä 
 		//rc = sqlite3_exec(db, "COMMIT;", 0, 0, &zErrMsg);
 
-		cgc::bigint ret = 0;
+		mycp::bigint ret = 0;
 		try
 		{
 			char *zErrMsg = 0;
@@ -363,15 +363,15 @@ private:
 			if ( rc!=SQLITE_OK )
 			{
 				lock.unlock();
-				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: %d=%s\n", rc,zErrMsg));
-				CGC_LOG((cgc::LOG_WARNING, "Can't execute SQL: (%s)\n", exeSql));
+				CGC_LOG((mycp::LOG_WARNING, "Can't execute SQL: %d=%s\n", rc,zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't execute SQL: (%s)\n", exeSql));
 				sqlite3_free(zErrMsg);
 				//if (nTransaction!=0)
 				//	trans_rollback(nTransaction);
 				return -1;
 			}
 			if (nTransaction==0)
-				ret = (cgc::bigint)sqlite3_changes(m_pSqlite);
+				ret = (mycp::bigint)sqlite3_changes(m_pSqlite);
 			const tstring& sSyncName = this->get_datasource();
 			if (!sSyncName.empty())
 				theApplication2->sendSyncData(sSyncName,0,exeSql,strlen(exeSql),false);
@@ -384,12 +384,12 @@ private:
 		return ret;
 	}
 
-	virtual cgc::bigint select(const char * selectSql, int& outCookie)
+	virtual mycp::bigint select(const char * selectSql, int& outCookie)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
-		cgc::bigint rows = 0;
+		mycp::bigint rows = 0;
 		try
 		{
 			int nrow = 0, ncolumn = 0;  
@@ -404,7 +404,7 @@ private:
 			}
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rc,zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rc,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -420,16 +420,16 @@ private:
 			}
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "Select SQL exception: (%s) \n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "Select SQL exception: (%s) \n", selectSql));
 			return -1;
 		}
 		return rows;
 	}
-	virtual cgc::bigint select(const char * selectSql)
+	virtual mycp::bigint select(const char * selectSql)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
-		cgc::bigint rows = 0;
+		mycp::bigint rows = 0;
 		try
 		{
 			int nrow = 0, ncolumn = 0;  
@@ -445,7 +445,7 @@ private:
 			}
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rc,zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rc,zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
@@ -453,12 +453,12 @@ private:
 			sqlite3_free_table( azResult );
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "Select SQL exception: (%s) \n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "Select SQL exception: (%s) \n", selectSql));
 			return -1;
 		}
 		return rows;
 	}
-	virtual cgc::bigint size(int cookie) const
+	virtual mycp::bigint size(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
@@ -469,7 +469,7 @@ private:
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
 	}
 
-	virtual cgc::bigint index(int cookie) const
+	virtual mycp::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
@@ -479,7 +479,7 @@ private:
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
 	}
-	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
+	virtual cgcValueInfo::pointer index(int cookie, mycp::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;
@@ -523,7 +523,7 @@ private:
 	{
 		return rollback();
 	}
-	virtual cgc::bigint trans_commit(int nTransaction)
+	virtual mycp::bigint trans_commit(int nTransaction)
 	{
 		if (!isopen()) return false;
 		try
@@ -532,11 +532,11 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , "COMMIT;", 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't COMMIT: %s\n", zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't COMMIT: %s\n", zErrMsg));
 				sqlite3_free(zErrMsg);
 				return -1;
 			}
-			return (cgc::bigint)sqlite3_changes(m_pSqlite);
+			return (mycp::bigint)sqlite3_changes(m_pSqlite);
 		}catch(...)
 		{
 			return -1;
@@ -553,7 +553,7 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , "BEGIN;", 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't BEGIN: %s\n", zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't BEGIN: %s\n", zErrMsg));
 				sqlite3_free(zErrMsg);
 				return false;
 			}
@@ -573,7 +573,7 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , "COMMIT;", 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't COMMIT: %s\n", zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't COMMIT: %s\n", zErrMsg));
 				sqlite3_free(zErrMsg);
 				return false;
 			}
@@ -593,7 +593,7 @@ private:
 			const int rc = sqlite3_exec( m_pSqlite , "ROLLBACK;", 0, 0, &zErrMsg);
 			if ( rc!=SQLITE_OK )
 			{
-				CGC_LOG((cgc::LOG_WARNING, "Can't ROLLBACK: %s\n", zErrMsg));
+				CGC_LOG((mycp::LOG_WARNING, "Can't ROLLBACK: %s\n", zErrMsg));
 				sqlite3_free(zErrMsg);
 				return false;
 			}

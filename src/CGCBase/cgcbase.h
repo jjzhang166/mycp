@@ -27,36 +27,36 @@
 #include "cgcSystem.h"
 #include "cgcServices.h"
 
-namespace cgc {
+namespace mycp {
 
-	cgc::cgcApplication::pointer theApplication;
-	extern "C" void CGC_API CGC_SetApplicationHandler(const cgc::cgcApplication::pointer& pHandler)
-	{
-		BOOST_ASSERT(pHandler.get() != NULL);
-		theApplication = pHandler;
-	}
+cgcApplication::pointer theApplication;
+extern "C" void CGC_API CGC_SetApplicationHandler(const cgcApplication::pointer& pHandler)
+{
+	BOOST_ASSERT(pHandler.get() != NULL);
+	theApplication = pHandler;
+}
 //#define CGC_LOG(X) theApplication->log X
 //#define CGC_APP_PARAMETER(N) theApplication->getInitParameter(N)
 //#define CGC_APP_VALUE(N, D) theApplication->getInitParameterValue(N, D)
 //#define CGC_APP_VALUE2(N, D) theApplication->getInitParameterValue2(N, D)
 
-	cgc::cgcSystem::pointer theSystem;
-	extern "C" void CGC_API CGC_SetSystemHandler(const cgc::cgcSystem::pointer& pHandler)
-	{
-		BOOST_ASSERT(pHandler.get() != NULL);
-		theSystem = pHandler;
-	}
+cgcSystem::pointer theSystem;
+extern "C" void CGC_API CGC_SetSystemHandler(const cgcSystem::pointer& pHandler)
+{
+	BOOST_ASSERT(pHandler.get() != NULL);
+	theSystem = pHandler;
+}
 //#define CGC_SYS_PARAMETER(N) theSystem->getInitParameter(N)
 //#define CGC_SYS_VALUE(N, D) theSystem->getInitParameterValue(N, D)
 ////#define CGC_SYS_VALUE2(N, D) gSystem->getInitParameterValue2(N, D)
 
-	cgc::cgcServiceManager::pointer theServiceManager;
-	extern "C" void CGC_API CGC_SetServiceManagerHandler(const cgc::cgcServiceManager::pointer& pHandler)
-	{
-		BOOST_ASSERT(pHandler.get() != NULL);
-		theServiceManager = pHandler;
-	}
+cgcServiceManager::pointer theServiceManager;
+extern "C" void CGC_API CGC_SetServiceManagerHandler(const cgcServiceManager::pointer& pHandler)
+{
+	BOOST_ASSERT(pHandler.get() != NULL);
+	theServiceManager = pHandler;
+}
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcbase_head__

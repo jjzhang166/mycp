@@ -33,7 +33,6 @@
 #include "dlldefine.h"
 #include "../CGCBase/cgcSeqInfo.h"
 #include "../CGCClass/SotpRtpSession.h"
-using namespace cgc;
 
 namespace mycp {
 // typedef
@@ -135,6 +134,7 @@ protected:
 	virtual const tstring & doGetSessionId(void) const {return getSessionId();}
 
 	// app call
+	virtual bool doIsInvalidate(void) const {return isInvalidate();}
 	virtual void doBeginCallLock(void) {beginCallLock();}
 	virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach, unsigned long * pOutCallId){
 		return sendAppCall(nCallSign,sCallName,bNeedAck,pAttach,pOutCallId);}
@@ -147,30 +147,31 @@ protected:
 		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach);}
 	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
 
+	unsigned int m_nUserData;
 	// sotp rtp
 	CSotpRtpMsgPool m_pRtpBufferPool;
 	CSotpRtpMsgPool m_pRtpMsgPool;
 	CSotpRtpSession m_pRtpSession;
-	cgc::bigint m_nSrcId;
-	cgc::uint32 m_nRtpCbUserData;
-	cgc::uint32 m_nTranSpeedLimit;
-	cgc::uint32 m_nDefaultSleep1;	// 每8个包，等待时间，64KB，默认50ms
-	cgc::uint32 m_nDefaultSleep2;	// 每50个包，等待时间，64KB，默认500ms
-	cgc::uint16 m_nDefaultPackageSize;	// 默认1100字节，每增加64KB，增加512
+	bigint m_nSrcId;
+	uint32 m_nRtpCbUserData;
+	uint32 m_nTranSpeedLimit;
+	uint32 m_nDefaultSleep1;	// 每8个包，等待时间，64KB，默认50ms
+	uint32 m_nDefaultSleep2;	// 每50个包，等待时间，64KB，默认500ms
+	uint16 m_nDefaultPackageSize;	// 默认1100字节，每增加64KB，增加512
 	cgcRemote::pointer m_pOwnerRemote;
-	virtual void doSetRtpSourceId(cgc::bigint nSrcId) {m_nSrcId = nSrcId;}
-	virtual cgc::bigint doGetRtpSourceId(void) const {return m_nSrcId;}
-	virtual bool doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam);
-	virtual void doUnRegisterSource(cgc::bigint nRoomId);
-	virtual bool doIsRegisterSource(cgc::bigint nRoomId) const;
+	virtual void doSetRtpSourceId(bigint nSrcId) {m_nSrcId = nSrcId;}
+	virtual bigint doGetRtpSourceId(void) const {return m_nSrcId;}
+	virtual bool doRegisterSource(bigint nRoomId, bigint nParam);
+	virtual void doUnRegisterSource(bigint nRoomId);
+	virtual bool doIsRegisterSource(bigint nRoomId) const;
 	virtual void doUnRegisterAllSource(void);
-	virtual bool doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId);
-	virtual void doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId);
-	virtual void doUnRegisterAllSink(cgc::bigint nRoomId);
+	virtual bool doRegisterSink(bigint nRoomId, bigint nDestId);
+	virtual void doUnRegisterSink(bigint nRoomId, bigint nDestId);
+	virtual void doUnRegisterAllSink(bigint nRoomId);
 	virtual void doUnRegisterAllSink(void);
-	virtual bool doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const;
+	virtual bool doIsRegisterSink(bigint nRoomId, bigint nDestId) const;
 	boost::mutex m_pSendRtpMutex;
-	virtual bool doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint32 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType);
+	virtual bool doSendRtpData(bigint nRoomId,const unsigned char* pData,uint32 nSize,uint32 nTimestamp,uint8 nDataType,uint8 nNAKType);
 
 	// threads
 	virtual void doSetCIDTResends(unsigned short timeoutResends, unsigned short timeoutSeconds) {setCIDTResends(timeoutResends, timeoutSeconds);}
@@ -286,7 +287,7 @@ public:
 
 	void RtpCheckRegisterSink(void);
 	//void ReRegisterSink(CSotpRtpRoom* pSotpRtpRoom,CSotpRtpSource* pSotpRtpSourc);
-	void OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount);
+	void OnRtpFrame(bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, uint16 nLostCount);
 
 	//
 	// Send app call request.

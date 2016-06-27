@@ -26,33 +26,35 @@
 #include <string.h>
 #include "cgcobject.h"
 
-namespace cgc{
-	class cgcCookieInfo
-		: public cgcObject
-	{
-	public:
-		typedef boost::shared_ptr<cgcCookieInfo> pointer;
-		static cgcCookieInfo::pointer create(void) {return cgcCookieInfo::pointer(new cgcCookieInfo());}
-		static cgcCookieInfo::pointer create(const tstring& sName,const tstring& sValue,const tstring& sPath="/",time_t tExpiresTime=0)
-		{return cgcCookieInfo::pointer(new cgcCookieInfo(sName,sValue,sPath,tExpiresTime));}
+namespace mycp {
 
-		tstring m_sCookieName;
-		tstring m_sCookieValue;
-		tstring m_sCookiePath;
-		time_t m_tExpiresTime;
-		cgcCookieInfo(const tstring& sName,const tstring& sValue,const tstring& sPath,time_t tExpiresTime)
-			: m_sCookieName(sName)
-			, m_sCookieValue(sValue)
-			, m_sCookiePath(sPath)
-			, m_tExpiresTime(tExpiresTime)
-		{
-		}
-		cgcCookieInfo(void)
-			: m_sCookiePath("/")
-			, m_tExpiresTime(0)
-		{
-		}
-	};
-}
+class cgcCookieInfo
+	: public cgcObject
+{
+public:
+	typedef boost::shared_ptr<cgcCookieInfo> pointer;
+	static cgcCookieInfo::pointer create(void) {return cgcCookieInfo::pointer(new cgcCookieInfo());}
+	static cgcCookieInfo::pointer create(const tstring& sName,const tstring& sValue,const tstring& sPath="/",time_t tExpiresTime=0)
+	{return cgcCookieInfo::pointer(new cgcCookieInfo(sName,sValue,sPath,tExpiresTime));}
+
+	tstring m_sCookieName;
+	tstring m_sCookieValue;
+	tstring m_sCookiePath;
+	time_t m_tExpiresTime;
+	cgcCookieInfo(const tstring& sName,const tstring& sValue,const tstring& sPath,time_t tExpiresTime)
+		: m_sCookieName(sName)
+		, m_sCookieValue(sValue)
+		, m_sCookiePath(sPath)
+		, m_tExpiresTime(tExpiresTime)
+	{
+	}
+	cgcCookieInfo(void)
+		: m_sCookiePath("/")
+		, m_tExpiresTime(0)
+	{
+	}
+};
+
+} // namespace mycp
 
 #endif // __cgcCookieInfo_head__

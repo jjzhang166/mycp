@@ -25,6 +25,8 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 
+namespace mycp {
+
 /////////////////////////////////////////////////////////
 const int MAX_VALUE_STRING_SIZE = 256;
 
@@ -197,8 +199,8 @@ protected:
 	std::string m_value;
 	std::string m_type;
 };
-
 const CScriptItem::pointer NullScriptItem;
 
+} // namespace mycp
 
 #endif // __scriptitem__head__

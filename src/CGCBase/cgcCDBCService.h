@@ -24,7 +24,7 @@
 #include "cgccdbcs.h"
 #include "cgcService.h"
 
-namespace cgc{
+namespace mycp {
 
 class cgcCDBCService
 	: public cgcServiceInterface
@@ -44,26 +44,26 @@ public:
 	// INSERT, UPDATE, DELETE
 	// >=  0 : OK
 	// == -1 : ERROR
-	virtual cgc::bigint execute(const char * exeSql) {return execute(exeSql,0);}
-	virtual cgc::bigint execute(const char * exeSql, int nTransaction) = 0;
+	virtual mycp::bigint execute(const char * exeSql) {return execute(exeSql,0);}
+	virtual mycp::bigint execute(const char * exeSql, int nTransaction) = 0;
 
 	// SELECT
 	// outCookie > 0 : OK
-	virtual cgc::bigint select(const char * selectSql) {return 0;}
-	virtual cgc::bigint select(const char * selectSql, int& outCookie) = 0;
+	virtual mycp::bigint select(const char * selectSql) {return 0;}
+	virtual mycp::bigint select(const char * selectSql, int& outCookie) = 0;
 
 	// Return ResultSet count
-	virtual cgc::bigint size(int cookie) const = 0;
+	virtual mycp::bigint size(int cookie) const = 0;
 	// rows: -1=not exist
-	virtual cgc::bigint rows(int cookie) const {return this->size(cookie);}
+	virtual mycp::bigint rows(int cookie) const {return this->size(cookie);}
 	// cols: -1=not exist
 	virtual int cols(int cookie) const = 0;
 
 	// Return current index.
-	virtual cgc::bigint index(int cookie) const = 0;
+	virtual mycp::bigint index(int cookie) const = 0;
 
 	virtual cgcValueInfo::pointer cols_name(int cookie) const = 0;
-	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex) = 0;
+	virtual cgcValueInfo::pointer index(int cookie, mycp::bigint moveIndex) = 0;
 	virtual cgcValueInfo::pointer first(int cookie) = 0;
 	virtual cgcValueInfo::pointer next(int cookie) = 0;
 	virtual cgcValueInfo::pointer previous(int cookie) = 0;
@@ -73,7 +73,7 @@ public:
 	// * new version
 	virtual int trans_begin(void) {return 0;}
 	virtual bool trans_rollback(int nTransaction) {return false;}
-	virtual cgc::bigint trans_commit(int nTransaction) {return 0;}
+	virtual mycp::bigint trans_commit(int nTransaction) {return 0;}
 
 	// * old version
 	virtual bool auto_commit(bool autocommit) {return false;}
@@ -90,6 +90,6 @@ const cgcCDBCService::pointer cgcNullCDBCService;
 
 #define CGC_CDBCSERVICE_DEF(s) boost::static_pointer_cast<cgcCDBCService, cgcServiceInterface>(s)
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgccdbcservice_head__

@@ -29,7 +29,8 @@
 #include <CGCBase/cgcobject.h>
 #include "tabconst.h"
 #include "ScriptItem.h"
-using namespace cgc;
+
+namespace mycp {
 
 class CCSPFileInfo
 {
@@ -134,5 +135,7 @@ public:
 };
 
 const CFileScripts::pointer NullFileScripts;
+
+} // namespace mycp
 
 #endif // __FileScripts_head__

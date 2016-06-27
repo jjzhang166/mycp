@@ -39,7 +39,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <boost/shared_ptr.hpp>
 #include <CGCBase/app.h>
 #include "cgcRtp.h"
-using namespace cgc;
+using namespace mycp;
 
 #if (USES_RTP)
 #include <ThirdParty/libRTP/libRTP.h>

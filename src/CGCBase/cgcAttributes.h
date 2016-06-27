@@ -24,27 +24,27 @@
 #include <boost/shared_ptr.hpp>
 #include "cgcvalueinfo.h"
 
-namespace cgc{
+namespace mycp {
 
-	class cgcKeyValue
-	{
-	public:
-		typedef boost::shared_ptr<cgcKeyValue> pointer;
+class cgcKeyValue
+{
+public:
+	typedef boost::shared_ptr<cgcKeyValue> pointer;
 
-		void setKey(const tstring& key) {m_key = key;}
-		const tstring& getKey(void) const {return m_key;}
+	void setKey(const tstring& key) {m_key = key;}
+	const tstring& getKey(void) const {return m_key;}
 
-		void setValue(const cgcValueInfo::pointer& value) {m_value = value;}
-		cgcValueInfo::pointer getValue(void) const {return m_value;}
+	void setValue(const cgcValueInfo::pointer& value) {m_value = value;}
+	cgcValueInfo::pointer getValue(void) const {return m_value;}
 
-		cgcKeyValue(const tstring& key, const cgcValueInfo::pointer& value)
-			: m_key(key), m_value(value)
-		{}
-	private:
-		tstring m_key;
-		cgcValueInfo::pointer m_value;
-	};
-	const cgcKeyValue::pointer cgcNullKeyValue;
+	cgcKeyValue(const tstring& key, const cgcValueInfo::pointer& value)
+		: m_key(key), m_value(value)
+	{}
+private:
+	tstring m_key;
+	cgcValueInfo::pointer m_value;
+};
+const cgcKeyValue::pointer cgcNullKeyValue;
 #define CGC_KEYVALUE(K, V) cgcKeyValue::pointer(new cgcKeyValue(K, V))
 
 class cgcAttributes
@@ -156,6 +156,6 @@ public:
 
 const cgcAttributes::pointer cgcNullAttributes;
 
-}
+} // namespace mycp
 
 #endif // __cgcattributes_head__

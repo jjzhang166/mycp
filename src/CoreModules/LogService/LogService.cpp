@@ -58,7 +58,7 @@ typedef boost::filesystem::path		tpath;
 #include <CGCBase/app.h>
 #include <CGCBase/cgcLogService.h>
 
-using namespace cgc;
+using namespace mycp;
 #include "XmlParseLogSetting.h"
 #include "LogInfo.h"
 cgcAttributes::pointer theAppAttributes;

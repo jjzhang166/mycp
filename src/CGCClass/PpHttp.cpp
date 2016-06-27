@@ -24,8 +24,8 @@
 #include "Base64.h"
 //#include <boost/format.hpp>
 
-namespace cgc
-{
+namespace mycp {
+
 const size_t MAX_HTTPHEAD_SIZE		= 4*1024;
 const size_t INCREASE_BODY_SIZE		= 20*1024;
 const char * SERVERNAME		= "MYCP Http Server/2.0";
@@ -795,7 +795,7 @@ void CPpHttp::GetPropertys(const std::string& sString, bool bUrlDecode)
 		if (bUrlDecode && !v.empty())
 			v = URLDecode(v.c_str());
 		//printf("**** GetPropertys, %s:%s\n",p.c_str(),v.c_str());
-		cgc::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(v);
+		cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(v);
 		cgcValueInfo::pointer pOldValueInfo;
 		m_propertys.insert(p,pValueInfo,false,&pOldValueInfo);
 		if (bIsVector)
@@ -1181,7 +1181,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					tstring v(httpRequest,findSearchEnd-httpRequest);
 					if (bUrlDecode && !v.empty())
 						v = URLDecode(v.c_str());
-					cgc::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(v);
+					cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(v);
 					cgcValueInfo::pointer pOldValueInfo;
 					m_propertys.insert(p,pValueInfo,false,&pOldValueInfo);
 					if (bIsVector)
@@ -1675,4 +1675,4 @@ std::string CPpHttp::URLDecode(const char *sIn)
 
 }
 
-} // cgc namespace
+} // namespace mycp

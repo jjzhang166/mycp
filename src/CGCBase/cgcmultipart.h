@@ -25,7 +25,7 @@
 #include "cgcParserBase.h"
 #include "cgcuploadfile.h"
 
-namespace cgc {
+namespace mycp {
 
 class cgcMultiPart
 {
@@ -51,7 +51,7 @@ public:
 		filepath.append("/");
 		filepath.append(m_boundary);
 		char lpszBuffer[48];
-		sprintf(lpszBuffer,"_%lld_%d",(cgc::bigint)time(0),rand());
+		sprintf(lpszBuffer,"_%lld_%d",(mycp::bigint)time(0),rand());
 		filepath.append(lpszBuffer);
 		//filepath.append(m_uploadFile->getFileName());
 
@@ -107,6 +107,6 @@ const cgcMultiPart::pointer cgcNullMultiPart;
 
 #define CGC_MULTIPART(b) cgcMultiPart::pointer(new cgcMultiPart(b))
 
-} // namespace cgc
+} // namespace mycp
 
 #endif // __cgcmultipart__head__

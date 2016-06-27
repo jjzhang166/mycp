@@ -25,7 +25,7 @@
 #include "cgcvalueinfo.h"
 #include "cgcAttributes.h"
 
-namespace cgc{
+namespace mycp {
 
 class cgcServiceCall
 	: public cgcObject
@@ -69,7 +69,6 @@ protected:
 
 const cgcServiceInterface::pointer cgcNullServiceInterface;
 
-
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcService_head__

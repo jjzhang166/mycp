@@ -26,11 +26,11 @@
 #include "../CGCBase/cgcattachment.h"
 #include "../CGCBase/cgcCommunications.h"
 
-namespace cgc
-{
+namespace mycp {
+
 #define RELIABLE_QUEUE_SIZE 256
 #define MAX_RESEND_COUNT 5			// old=10 大概一秒左右数据量 70
-typedef void (* HSotpRtpFrameCallback)(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, void* nUserData);
+typedef void (* HSotpRtpFrameCallback)(bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, uint16 nLostCount, void* nUserData);
 
 struct compare_seq
 {
@@ -215,10 +215,10 @@ public:
 	{
 		m_pPool.clear();
 	}
-	CSotpRtpMsgPool(cgc::uint16 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
+	CSotpRtpMsgPool(uint16 nBufferSize, uint16 nInitPoolSize=30, uint16 nMaxPoolSize = 50)
 		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
 	{
-		for (cgc::uint16 i=0;i<nInitPoolSize; i++)
+		for (uint16 i=0;i<nInitPoolSize; i++)
 		{
 			m_pPool.add(New());
 		}
@@ -243,16 +243,16 @@ protected:
 
 private:
 	CLockListPtr<CSotpRtpReliableMsg*> m_pPool;
-	cgc::uint16 m_nBufferSize;
-	cgc::uint16 m_nInitPoolSize;
-	cgc::uint16 m_nMaxPoolSize;
+	uint16 m_nBufferSize;
+	uint16 m_nInitPoolSize;
+	uint16 m_nMaxPoolSize;
 };
 
 class CLastExpectInfo
 {
 public:
 	int m_nExpectSeq;
-	cgc::uint16 m_nCount;
+	uint16 m_nCount;
 	void Init(int nExpectSeq = -1)
 	{
 		m_nExpectSeq = nExpectSeq;
@@ -304,14 +304,14 @@ class CSotpRtpSource
 {
 public:
 	typedef boost::shared_ptr<CSotpRtpSource> pointer;
-	static CSotpRtpSource::pointer create(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
+	static CSotpRtpSource::pointer create(bool bServerMode, bigint nRoomId,bigint nSrcId,bigint nParam)
 	{
 		return CSotpRtpSource::pointer(new CSotpRtpSource(bServerMode,nRoomId,nSrcId,nParam));
 	}
-	cgc::bigint GetRoomId(void) const {return m_nRoomId;}
-	cgc::bigint GetSrcId(void) const {return m_nSrcId;}
-	void SetParam(cgc::bigint nParam) {m_nParam = nParam;}
-	cgc::bigint GetParam(void) const {return m_nParam;}
+	bigint GetRoomId(void) const {return m_nRoomId;}
+	bigint GetSrcId(void) const {return m_nSrcId;}
+	void SetParam(bigint nParam) {m_nParam = nParam;}
+	bigint GetParam(void) const {return m_nParam;}
 	void SetLastTime(time_t v = time(0)) {m_tLastTime = v;}
 	time_t GetLastTime(void) const {return m_tLastTime;}
 	void SetLastCallbackTime(time_t v = time(0)) {m_tLastCallbackTime = v;}
@@ -325,15 +325,15 @@ public:
 	unsigned long GetRemoteId(void) const {return m_pRemote.get()==NULL?0:m_pRemote->getRemoteId();}
 	bool isRemoteInvalidate(void) const {return (m_pRemote.get()==NULL || m_pRemote->isInvalidate())?true:false;}
 
-	//void AddSinkSend(cgc::bigint nToId);
-	//void DelSinkSend(cgc::bigint nToId);
-	//bool IsSinkSend(cgc::bigint nToId) const;
-	//const CLockMap<cgc::bigint,bool>& GetSinkSendList(void) const {return m_pSinkSendList;}
+	//void AddSinkSend(bigint nToId);
+	//void DelSinkSend(bigint nToId);
+	//bool IsSinkSend(bigint nToId) const;
+	//const CLockMap<bigint,bool>& GetSinkSendList(void) const {return m_pSinkSendList;}
 	// register sink
-	void AddSinkRecv(cgc::bigint nDestId);
-	void DelSinkRecv(cgc::bigint nDestId);
-	bool IsSinkRecv(cgc::bigint nDestId) const;
-	const CLockMap<cgc::bigint,bool>& GetSinkRecvList(void) const {return m_pSinkRecvList;}
+	void AddSinkRecv(bigint nDestId);
+	void DelSinkRecv(bigint nDestId);
+	bool IsSinkRecv(bigint nDestId) const;
+	const CLockMap<bigint,bool>& GetSinkRecvList(void) const {return m_pSinkRecvList;}
 	void ClearSinkRecv(bool bLock);
 
 	boost::mutex m_pCaculateMissedPacketsMutex;
@@ -350,7 +350,7 @@ public:
 	boost::mutex m_pSendBufferMutex;
 	unsigned char* GetSendBuffer(unsigned int nNeedSize);
 
-	CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId, cgc::bigint m_nParam);
+	CSotpRtpSource(bool bServerMode, bigint nRoomId,bigint nSrcId, bigint m_nParam);
 	virtual ~CSotpRtpSource(void);
 private:
 	void sendNAKRequest(unsigned short nSeq, unsigned short nCount,const cgcRemote::pointer& pcgcRemote);
@@ -360,20 +360,20 @@ private:
 
 private:
 	bool m_bServerMode;
-	cgc::bigint m_nRoomId;
-	cgc::bigint m_nSrcId;
-	cgc::bigint m_nParam;
+	bigint m_nRoomId;
+	bigint m_nSrcId;
+	bigint m_nParam;
 	time_t m_tLastTime;
 	time_t m_tLastCallbackTime;
 	cgcRemote::pointer m_pRemote;
-	//CLockMap<cgc::bigint,bool> m_pSinkSendList;
-	CLockMap<cgc::bigint,bool> m_pSinkRecvList;
+	//CLockMap<bigint,bool> m_pSinkSendList;
+	CLockMap<bigint,bool> m_pSinkRecvList;
 
-	cgc::uint32  m_nLastFrameTimestamp;
+	uint32  m_nLastFrameTimestamp;
 	int m_nWaitForFrameSeq;
 	bool m_bWaitforNextKeyVideo;
-	cgc::uint16 m_nLostData;
-	CLockMap<cgc::uint32,CSotpRtpFrame::pointer> m_pReceiveFrames;	// ts->
+	uint16 m_nLostData;
+	CLockMap<uint32,CSotpRtpFrame::pointer> m_pReceiveFrames;	// ts->
 	CLockList<CSotpRtpFrame::pointer> m_pFramePool;
 
 	tagSotpRtpCommand m_NAKRequestCommand;
@@ -389,7 +389,7 @@ private:
 	// for client
 	CLastExpectInfo m_pLastExpect1;
 	CLastExpectInfo m_pLastExpect2;
-	cgc::uint16 m_nCurrentSeq;
+	uint16 m_nCurrentSeq;
 #ifdef USES_FILE_LOG
 	FILE * m_flog;
 #endif
@@ -399,6 +399,6 @@ private:
 };
 const CSotpRtpSource::pointer NullSotpRtpSource;
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __SotpRtpSource_h__

@@ -24,8 +24,7 @@
 #include "../CGCClass/SotpCallTable2.h"
 #include "SotpRtpSession.h"
 
-namespace cgc
-{
+namespace mycp {
 
 CSotpRtpSession::CSotpRtpSession(bool bServerMode)
 : m_bServerMode(bServerMode)
@@ -48,7 +47,7 @@ bool CSotpRtpSession::IsRoomEmpty(void) const
 	return m_pRoomList.empty();
 }
 
-bool CSotpRtpSession::RegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback,void* pUserData)
+bool CSotpRtpSession::RegisterSource(bigint nRoomId, bigint nSrcId, bigint nParam, const cgcRemote::pointer& pcgcRemote, CSotpRtpCallback* pCallback,void* pUserData)
 {
 	CSotpRtpCallback* pCallbackTemp = pCallback;
 	CSotpRtpRoom::pointer pRtpRoom;
@@ -82,7 +81,7 @@ bool CSotpRtpSession::RegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId, cg
 
 }
 
-CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId,bool bCreateNew)
+CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(bigint nRoomId,bool bCreateNew)
 {
 	CSotpRtpRoom::pointer pRtpRoom;
 	if (!m_pRoomList.find(nRoomId,pRtpRoom))
@@ -100,7 +99,7 @@ CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId,bool bCrea
 	}
 	return pRtpRoom;
 }
-CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(cgc::bigint nRoomId) const
+CSotpRtpRoom::pointer CSotpRtpSession::GetRtpRoom(bigint nRoomId) const
 {
 	CSotpRtpRoom::pointer pRtpRoom;
 	m_pRoomList.find(nRoomId,pRtpRoom);
@@ -130,7 +129,7 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 					return false;
 			}else
 			{
-				cgc::bigint nOutParam = 0;
+				bigint nOutParam = 0;
 				if (!pRtpRoom->UnRegisterSource1(pRtpCommand.m_nSrcId, &nOutParam))
 					return false;
 				if (bSendRtpCommand)
@@ -188,10 +187,10 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 			const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDataRequest.m_nSeq = htons(pRtpCommand.u.m_nDataRequest.m_nSeq);
 		}else
 		{
-			const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDestId = cgc::htonll(pRtpCommand.u.m_nDestId);
+			const_cast<tagSotpRtpCommand&>(pRtpCommand).u.m_nDestId = htonll(pRtpCommand.u.m_nDestId);
 		}
-		const_cast<tagSotpRtpCommand&>(pRtpCommand).m_nRoomId = cgc::htonll(pRtpCommand.m_nRoomId);
-		const_cast<tagSotpRtpCommand&>(pRtpCommand).m_nSrcId = cgc::htonll(pRtpCommand.m_nSrcId);
+		const_cast<tagSotpRtpCommand&>(pRtpCommand).m_nRoomId = htonll(pRtpCommand.m_nRoomId);
+		const_cast<tagSotpRtpCommand&>(pRtpCommand).m_nSrcId = htonll(pRtpCommand.m_nSrcId);
 
 		size_t nSendSize = 0;
 		unsigned char* pSendBuffer = SotpCallTable2::toRtpCommand(pRtpCommand,NULL,nSendSize);
@@ -200,10 +199,10 @@ bool CSotpRtpSession::doRtpCommand(const tagSotpRtpCommand& pRtpCommand, const c
 	}
 	return true;
 }
-void CSotpRtpSession::UnRegisterAllRoomSink(cgc::bigint nSrcId)
+void CSotpRtpSession::UnRegisterAllRoomSink(bigint nSrcId)
 {
 	BoostReadLock rdlock(m_pRoomList.mutex());
-	CLockMap<cgc::bigint,CSotpRtpRoom::pointer>::iterator pIterRoom = m_pRoomList.begin();
+	CLockMap<bigint,CSotpRtpRoom::pointer>::iterator pIterRoom = m_pRoomList.begin();
 	for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 	{
 		CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
@@ -215,11 +214,11 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 {
 	if (pAttackment.get()==NULL || !pAttackment->isHasAttach())
 		return false;
-	CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(cgc::ntohll(pRtpDataHead.m_nRoomId),false);
+	CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(ntohll(pRtpDataHead.m_nRoomId),false);
 	if (pRtpRoom.get()==NULL)
 		return false;
 
-	CSotpRtpSource::pointer pRtpSrcSource = pRtpRoom->GetRtpSource(cgc::ntohll(pRtpDataHead.m_nSrcId));
+	CSotpRtpSource::pointer pRtpSrcSource = pRtpRoom->GetRtpSource(ntohll(pRtpDataHead.m_nSrcId));
 	if (pRtpSrcSource.get()==NULL)
 		return false;
 
@@ -228,10 +227,10 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 	if (this->m_bServerMode)
 	{
 		// save as wait for SOTP_RTP_COMMAND_DATA_REQUEST msg
-		//const cgc::uint16 nSeq = ntohs(pRtpDataHead.m_nSeq);
+		//const uint16 nSeq = ntohs(pRtpDataHead.m_nSeq);
 		//if ((nSeq%20)==1)
 		//{
-		//	printf("*** doRtpData seq=%d,srcid=%lld\n",nSeq,cgc::ntohll(pRtpDataHead.m_nSrcId));
+		//	printf("*** doRtpData seq=%d,srcid=%lld\n",nSeq,ntohll(pRtpDataHead.m_nSrcId));
 		//}
 		CSotpRtpReliableMsg * pRtpMsgIn = m_pRtpMsgPool.Get();
 		memcpy(&pRtpMsgIn->m_pRtpDataHead,&pRtpDataHead,SOTP_RTP_DATA_HEAD_SIZE);
@@ -242,12 +241,12 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 		if (!bExistSeq)
 			pRtpRoom->BroadcastRtpData(pRtpDataHead,pAttackment);
 		//else
-		//	printf("*** doRtpData exist seq=%d,srcid=%lld\n",nSeq,cgc::ntohll(pRtpDataHead.m_nSrcId));
+		//	printf("*** doRtpData exist seq=%d,srcid=%lld\n",nSeq,ntohll(pRtpDataHead.m_nSrcId));
 	}else
 	{
-		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nRoomId = cgc::ntohll(pRtpDataHead.m_nRoomId);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nRoomId = ntohll(pRtpDataHead.m_nRoomId);
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nSeq = ntohs(pRtpDataHead.m_nSeq);
-		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nSrcId = cgc::ntohll(pRtpDataHead.m_nSrcId);
+		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nSrcId = ntohll(pRtpDataHead.m_nSrcId);
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nTimestamp = ntohl(pRtpDataHead.m_nTimestamp);
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nTotleLength = ntohl(pRtpDataHead.m_nTotleLength);
 		const_cast<tagSotpRtpDataHead&>(pRtpDataHead).m_nUnitLength = ntohs(pRtpDataHead.m_nUnitLength);
@@ -261,11 +260,11 @@ bool CSotpRtpSession::doRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgc
 
 void CSotpRtpSession::CheckRegisterSourceLive(short nExpireSecond, CSotpRtpCallback* pCallback,void* pUserData)
 {
-	std::vector<cgc::bigint> pRemoveList;
+	std::vector<bigint> pRemoveList;
 	{
 		const time_t tNow = time(0);
 		BoostReadLock rdlock(m_pRoomList.mutex());
-		CLockMap<cgc::bigint,CSotpRtpRoom::pointer>::iterator pIterRoom = m_pRoomList.begin();
+		CLockMap<bigint,CSotpRtpRoom::pointer>::iterator pIterRoom = m_pRoomList.begin();
 		for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 		{
 			CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
@@ -282,13 +281,13 @@ void CSotpRtpSession::CheckRegisterSourceLive(short nExpireSecond, CSotpRtpCallb
 	}
 }
 
-void CSotpRtpSession::CheckRegisterSinkLive(short nExpireSecond, cgc::bigint nSrcId, const cgcRemote::pointer& pcgcRemote)
+void CSotpRtpSession::CheckRegisterSinkLive(short nExpireSecond, bigint nSrcId, const cgcRemote::pointer& pcgcRemote)
 {
 	if (!m_bServerMode)
 	{
 		const time_t tNow = time(0);
 		BoostReadLock rdlock(m_pRoomList.mutex());
-		CLockMap<cgc::bigint,CSotpRtpRoom::pointer>::iterator pIterRoom = m_pRoomList.begin();
+		CLockMap<bigint,CSotpRtpRoom::pointer>::iterator pIterRoom = m_pRoomList.begin();
 		for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 		{
 			CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
@@ -297,24 +296,24 @@ void CSotpRtpSession::CheckRegisterSinkLive(short nExpireSecond, cgc::bigint nSr
 	}
 }
 
-void CSotpRtpSession::GetRoomIdList(std::vector<cgc::bigint>& pOutRoomIdList) const
+void CSotpRtpSession::GetRoomIdList(std::vector<bigint>& pOutRoomIdList) const
 {
 	BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_pRoomList.mutex()));
-	CLockMap<cgc::bigint,CSotpRtpRoom::pointer>::const_iterator pIterRoom = m_pRoomList.begin();
+	CLockMap<bigint,CSotpRtpRoom::pointer>::const_iterator pIterRoom = m_pRoomList.begin();
 	for (; pIterRoom!=m_pRoomList.end(); pIterRoom++)
 	{
 		CSotpRtpRoom::pointer pRtpRoom = pIterRoom->second;
 		pOutRoomIdList.push_back(pRtpRoom->GetRoomId());
 	}
 }
-bool CSotpRtpSession::IsRegisterSource(cgc::bigint nRoomId, cgc::bigint nSrcId) const
+bool CSotpRtpSession::IsRegisterSource(bigint nRoomId, bigint nSrcId) const
 {
 	CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(nRoomId);
 	if (pRtpRoom.get()==NULL)
 		return false;
 	return pRtpRoom->IsRegisterSource(nSrcId);
 }
-bool CSotpRtpSession::IsRegisterSink(cgc::bigint nRoomId, cgc::bigint nSrcId, cgc::bigint nDestId) const
+bool CSotpRtpSession::IsRegisterSink(bigint nRoomId, bigint nSrcId, bigint nDestId) const
 {
 	CSotpRtpRoom::pointer pRtpRoom = GetRtpRoom(nRoomId);
 	if (pRtpRoom.get()==NULL)
@@ -327,5 +326,4 @@ bool CSotpRtpSession::IsRegisterSink(cgc::bigint nRoomId, cgc::bigint nSrcId, cg
 	return pRtpSrcSource->IsSinkRecv(nDestId);
 }
 
-
-} // cgc namespace
+} // namespace mycp

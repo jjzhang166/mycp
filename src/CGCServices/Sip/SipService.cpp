@@ -38,7 +38,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <boost/shared_ptr.hpp>
 #include <CGCBase/app.h>
 #include "cgcSip.h"
-using namespace cgc;
+using namespace mycp;
 
 #if (USES_SIP)
 #include <ThirdParty/libSIP/libSIP.h>

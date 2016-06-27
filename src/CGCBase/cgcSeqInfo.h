@@ -26,8 +26,7 @@
 #include <boost/shared_ptr.hpp>
 #include <time.h>
 
-namespace cgc
-{
+namespace mycp {
 
 class cgcSeqInfo
 {
@@ -170,5 +169,6 @@ private:
 	tstring m_sAddress;
 };
 
-} // namespace cgc
+} // namespace mycp
+
 #endif // _CGCSEQINFO_HEAD_INCLUDED__

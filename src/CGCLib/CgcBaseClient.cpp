@@ -83,7 +83,7 @@ private:
 
 //CXmlParse theXmlParse;
 
-static void MySotpRtpFrameCallback(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount, void* nUserData)
+static void MySotpRtpFrameCallback(bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, uint16 nLostCount, void* nUserData)
 {
 	CgcBaseClient * pBaseClient = (CgcBaseClient*)nUserData;
 	if (pBaseClient!=0)
@@ -108,6 +108,7 @@ CgcBaseClient::CgcBaseClient(const tstring & clientType)
 , m_currentPath(_T(""))
 , theProtoVersion(SOTP_PROTO_VERSION_20)
 , m_pRtpBufferPool(2*1024,0,5), m_pRtpMsgPool(2*1024,0,30), m_pRtpSession(false)
+, m_nUserData(0)
 , m_nSrcId(0), m_nRtpCbUserData(0), m_nTranSpeedLimit(64), m_nDefaultSleep1(50), m_nDefaultSleep2(500), m_nDefaultPackageSize(SOTP_RTP_MAX_PAYLOAD_LENGTH)
 
 {
@@ -211,8 +212,6 @@ std::string CgcBaseClient::GetHostIp(const char * lpszHostName,const char* lpszD
 
 void CgcBaseClient::do_proc_activesession(void)
 {
-	//BOOST_ASSERT (cgcClient.get() != NULL);
-
 	unsigned int index1 = 0;
 	unsigned int index2 = 0;
 	while (!isInvalidate())
@@ -535,6 +534,9 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 	bool ret = true;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_USER_DATA:
+		m_nUserData = nInValue;
+		break;
 	case SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT:
 		{
 			m_nTranSpeedLimit = nInValue;
@@ -707,6 +709,9 @@ void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 {
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_USER_DATA:
+		*nOutValue = m_nUserData;
+		break;
 	case SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT:
 		*nOutValue = m_nTranSpeedLimit;
 		break;
@@ -728,7 +733,6 @@ void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 
 void CgcBaseClient::doFreeConfig(int nConfig, unsigned int nInValue) const
 {
-
 }
 
 bool CgcBaseClient::sendOpenSession(short nMaxWaitSecons,unsigned long * pCallId)
@@ -860,13 +864,13 @@ void CgcBaseClient::RtpCheckRegisterSink(void)
 //	//pSotpRtpSourc->r
 //}
 
-void CgcBaseClient::OnRtpFrame(cgc::bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, cgc::uint16 nLostCount)
+void CgcBaseClient::OnRtpFrame(bigint nSrcId, const CSotpRtpFrame::pointer& pRtpFrame, uint16 nLostCount)
 {
 	if (m_pHandler)
 		m_pHandler->OnRtpFrame(nSrcId, pRtpFrame, nLostCount, m_nRtpCbUserData);
 }
 
-bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam)
+bool CgcBaseClient::doRegisterSource(bigint nRoomId, bigint nParam)
 {
 	if (m_pOwnerRemote.get()==NULL)
 	{
@@ -880,7 +884,7 @@ bool CgcBaseClient::doRegisterSource(cgc::bigint nRoomId, cgc::bigint nParam)
 	pRtpCommand.u.m_nDestId = nParam;
 	return m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
 }
-void CgcBaseClient::doUnRegisterSource(cgc::bigint nRoomId)
+void CgcBaseClient::doUnRegisterSource(bigint nRoomId)
 {
 	tagSotpRtpCommand pRtpCommand;
 	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
@@ -889,13 +893,13 @@ void CgcBaseClient::doUnRegisterSource(cgc::bigint nRoomId)
 	pRtpCommand.m_nSrcId = doGetRtpSourceId();
 	m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
 }
-bool CgcBaseClient::doIsRegisterSource(cgc::bigint nRoomId) const
+bool CgcBaseClient::doIsRegisterSource(bigint nRoomId) const
 {
 	return m_pRtpSession.IsRegisterSource(nRoomId,doGetRtpSourceId());
 }
 void CgcBaseClient::doUnRegisterAllSource(void)
 {
-	std::vector<cgc::bigint> pRoomIdList;
+	std::vector<bigint> pRoomIdList;
 	m_pRtpSession.GetRoomIdList(pRoomIdList);
 	for (size_t i=0;i<pRoomIdList.size();i++)
 	{
@@ -904,7 +908,7 @@ void CgcBaseClient::doUnRegisterAllSource(void)
 	pRoomIdList.clear();
 }
 
-bool CgcBaseClient::doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
+bool CgcBaseClient::doRegisterSink(bigint nRoomId, bigint nDestId)
 {
 	tagSotpRtpCommand pRtpCommand;
 	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
@@ -914,7 +918,7 @@ bool CgcBaseClient::doRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
 	pRtpCommand.u.m_nDestId = nDestId;
 	return m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
 }
-void CgcBaseClient::doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
+void CgcBaseClient::doUnRegisterSink(bigint nRoomId, bigint nDestId)
 {
 	tagSotpRtpCommand pRtpCommand;
 	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
@@ -924,7 +928,7 @@ void CgcBaseClient::doUnRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId)
 	pRtpCommand.u.m_nDestId = nDestId;
 	m_pRtpSession.doRtpCommand(pRtpCommand,m_pOwnerRemote,true);
 }
-void CgcBaseClient::doUnRegisterAllSink(cgc::bigint nRoomId)
+void CgcBaseClient::doUnRegisterAllSink(bigint nRoomId)
 {
 	tagSotpRtpCommand pRtpCommand;
 	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
@@ -935,7 +939,7 @@ void CgcBaseClient::doUnRegisterAllSink(cgc::bigint nRoomId)
 }
 void CgcBaseClient::doUnRegisterAllSink(void)
 {
-	std::vector<cgc::bigint> pRoomIdList;
+	std::vector<bigint> pRoomIdList;
 	m_pRtpSession.GetRoomIdList(pRoomIdList);
 	for (size_t i=0;i<pRoomIdList.size();i++)
 	{
@@ -943,15 +947,15 @@ void CgcBaseClient::doUnRegisterAllSink(void)
 	}
 	pRoomIdList.clear();
 }
-bool CgcBaseClient::doIsRegisterSink(cgc::bigint nRoomId, cgc::bigint nDestId) const
+bool CgcBaseClient::doIsRegisterSink(bigint nRoomId, bigint nDestId) const
 {
 	return m_pRtpSession.IsRegisterSink(nRoomId,doGetRtpSourceId(),nDestId);
 }
 
-bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData,cgc::uint32 nSize,cgc::uint32 nTimestamp,cgc::uint8 nDataType,cgc::uint8 nNAKType)
+bool CgcBaseClient::doSendRtpData(bigint nRoomId,const unsigned char* pData,uint32 nSize,uint32 nTimestamp,uint8 nDataType,uint8 nNAKType)
 {
-	const cgc::uint16 nCount = (nSize+m_nDefaultPackageSize-1)/m_nDefaultPackageSize;
-	//const cgc::uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
+	const uint16 nCount = (nSize+m_nDefaultPackageSize-1)/m_nDefaultPackageSize;
+	//const uint16 nCount = (nSize+SOTP_RTP_MAX_PAYLOAD_LENGTH-1)/SOTP_RTP_MAX_PAYLOAD_LENGTH;
 	if (nCount>=SOTP_RTP_MAX_PACKETS_PER_FRAME)
 		return false;
 	CSotpRtpRoom::pointer pRtpRoom = m_pRtpSession.GetRtpRoom(nRoomId,false);
@@ -963,14 +967,14 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 	// ?要判断是否有人接收数据
 	//if (pRtpSource->
 
-	const cgc::bigint nNetRoomId = cgc::htonll(nRoomId);
-	const cgc::bigint nNetSrcId = cgc::htonll(doGetRtpSourceId());
-	const cgc::uint32 nNetTS = htonl(nTimestamp);
-	const cgc::uint32 nNetLen = htonl(nSize);
-	const cgc::uint16 nNetUnitLen = htons(m_nDefaultPackageSize);
+	const bigint nNetRoomId = htonll(nRoomId);
+	const bigint nNetSrcId = htonll(doGetRtpSourceId());
+	const uint32 nNetTS = htonl(nTimestamp);
+	const uint32 nNetLen = htonl(nSize);
+	const uint16 nNetUnitLen = htons(m_nDefaultPackageSize);
 	CSotpRtpReliableMsg* pBufferMsg = m_pRtpBufferPool.Get();
 	boost::mutex::scoped_lock lock(m_pSendRtpMutex);
-	for (cgc::uint16 i=0; i<nCount; i++)
+	for (uint16 i=0; i<nCount; i++)
 	{
 		if (m_nDefaultSleep2>0 && (i%50)==49)
 		{
@@ -997,7 +1001,7 @@ bool CgcBaseClient::doSendRtpData(cgc::bigint nRoomId,const unsigned char* pData
 		pRtpMsgIn->m_pRtpDataHead.m_nUnitLength = nNetUnitLen;
 		pRtpMsgIn->m_pRtpDataHead.m_nSeq = htons(nTimestamp==0?0:pRtpSource->GetNextSeq());
 		pRtpMsgIn->m_pRtpDataHead.m_nIndex = htons(i);
-		const cgc::uint16 nDataSize = (i+1)==nCount?(nSize%m_nDefaultPackageSize):m_nDefaultPackageSize;
+		const uint16 nDataSize = (i+1)==nCount?(nSize%m_nDefaultPackageSize):m_nDefaultPackageSize;
 		pRtpMsgIn->m_pAttachment->setAttach(pData+((int)i*m_nDefaultPackageSize),nDataSize);
 
 		// *
@@ -1669,8 +1673,6 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 //void CgcBaseClient::parseData(const CCgcData::pointer& recvData,unsigned long nRemoteId)
 {
 	BOOST_ASSERT (data != NULL);
-	//BOOST_ASSERT (recvData.get() != NULL);
-
 	if (m_bDisableSotpparser && m_pHandler != NULL)
 	{
 		m_pHandler->OnCgcResponse(data,size);

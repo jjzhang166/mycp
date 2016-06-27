@@ -82,13 +82,13 @@ int CgcUdpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcUdpClient::stopClient(void)
 {
-	if (m_udpClient.get() != 0)
-	{
-		m_udpClient->stop();
-	}
 	if (m_bExitStopIoService && m_ipService.get() != 0)
 	{
 		m_ipService->stop();
+	}
+	if (m_udpClient.get() != 0)
+	{
+		m_udpClient->stop();
 	}
 	m_udpClient.reset();
 	m_ipService.reset();
@@ -96,7 +96,6 @@ void CgcUdpClient::stopClient(void)
 
 size_t CgcUdpClient::sendData(const unsigned char * data, size_t size)
 {
-	//BOOST_ASSERT(m_udpClient.get() != 0);
 	if (data == NULL || isInvalidate()) return 0;
 
 	m_tSendRecv = time(0);

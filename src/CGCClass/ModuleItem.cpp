@@ -29,13 +29,12 @@
 #include "tchar.h"
 #endif // WIN32
 
-namespace cgc
-{
+namespace mycp {
 
 ModuleItem::ModuleItem(void)
 : m_name(_T(""))
 , m_module(_T("")), m_param("")
-, m_type(MODULE_UNKNOWN), m_protocol(0)
+, m_type(MODULE_UNKNOWN), m_protocol(MODULE_PROTOCOL_SOTP)
 , m_bAllowAll(false)
 , m_bAuthAccount(false)
 , m_nCommPort(0)
@@ -50,7 +49,7 @@ ModuleItem::ModuleItem(void)
 ModuleItem::ModuleItem(int type, const tstring & name, const tstring & module)
 : m_name(name)
 , m_module(module), m_param("")
-, m_type((MODULETYPE)type), m_protocol(0)
+, m_type((MODULETYPE)type), m_protocol(MODULE_PROTOCOL_SOTP)
 , m_bAllowAll(false)
 , m_bAuthAccount(false)
 , m_nCommPort(0)
@@ -287,5 +286,5 @@ void ModuleItem::Serialize(bool isStoring, std::fstream& ar)
 }
 
 
-} // cgc namespace
+} // namespace mycp
 

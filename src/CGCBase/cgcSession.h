@@ -25,7 +25,7 @@
 #include "cgcAttributes.h"
 #include "cgcResponse.h"
 
-namespace cgc{
+namespace mycp {
 
 const int DEFAULT_MAX_INACTIVE_INTERVAL = 10;	//10*60;
 
@@ -67,6 +67,6 @@ public:
 };
 const cgcSession::pointer cgcNullSession;
 
-}
+} // namespace mycp
 
 #endif // __cgcsession_head__

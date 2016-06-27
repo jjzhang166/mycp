@@ -35,6 +35,6 @@
 #include "cgcServices.h"
 #include "cgcCommunications.h"
 
-#include "cgcfunc.h"
+//#include "cgcfunc.h"
 
 #endif // __includeall_h__

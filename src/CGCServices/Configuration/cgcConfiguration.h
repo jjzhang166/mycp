@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include <CGCBase/cgcService.h>
 
-namespace cgc{
+namespace mycp {
 
 class cgcConfiguration
 	: public cgcServiceInterface
@@ -59,6 +59,6 @@ public:
 
 #define CGC_CONFIGURATIONSERVICE_DEF(s) boost::static_pointer_cast<cgcConfiguration, cgcServiceInterface>(s)
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcconfiguration_head__

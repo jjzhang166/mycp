@@ -40,9 +40,9 @@ public:
 		FreeHandle();
 	}
 
-	std::vector<cgc::ModuleItem::pointer> m_modules;
-	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> > m_modules;
-	//cgc::ModulesMap m_modules;
+	std::vector<ModuleItem::pointer> m_modules;
+	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> > m_modules;
+	//ModulesMap m_modules;
 
 public:
 //	ModulesMap & getModulesMap(void){return this->m_modules;}
@@ -86,10 +86,12 @@ public:
 	}
 	//bool isModuleItem(const ModuleItem::pointer & pModuleItem) const;
 	bool isSupportDebug(void) const {return m_bSupportDebug;}
+	ModuleItem::pointer getSotpClientServiceModuleItem(void) const {return m_pSotpClientServiceModuleItem;}
 
 	void FreeHandle(void)
 	{
 		m_modules.clear();
+		m_pSotpClientServiceModuleItem.reset();
 	}
 
 	void load(const tstring & filename)
@@ -161,7 +163,7 @@ private:
 			file = filetemp;
 #endif
 			std::string param = v.second.get("param", "");
-			int protocol = v.second.get("protocol", 0);
+			const int protocol = v.second.get("protocol", (int)MODULE_PROTOCOL_SOTP);
 
 			if (modultType == MODULE_COMM)
 			{
@@ -186,6 +188,10 @@ private:
 			moduleItem->setAuthAccount(authaccount == 1);
 			moduleItem->setLockState(ModuleItem::getLockState(lockstate));
 
+			if (protocol==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && !moduleItem->getDisable())
+			{
+				m_pSotpClientServiceModuleItem = moduleItem;
+			}
 			m_modules.push_back(moduleItem);
 			//this->m_modules.insert(moduleItem->getName(), moduleItem);
 		}
@@ -193,6 +199,7 @@ private:
 
 	private:
 		bool m_bSupportDebug;
+		ModuleItem::pointer m_pSotpClientServiceModuleItem;
 };
 
 #endif // __XmlParseModules_h__

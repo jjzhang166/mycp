@@ -24,7 +24,7 @@
 #include "cgcattachment.h"
 #include "cgcRequest.h"
 
-namespace cgc{
+namespace mycp {
 
 // cgcSotpRequest
 class cgcSotpRequest
@@ -52,6 +52,6 @@ public:
 #define CGC_REQ_VALUE(N, D) request->getParameterValue(N, D)
 //#define CGC_REQ_VALUE2(N, D) request->getParameterValue2(N, D)
 
-}
+} // namespace mycp
 
 #endif // __cgcSotpRequest_head__

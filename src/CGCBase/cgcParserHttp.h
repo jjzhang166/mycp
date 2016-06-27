@@ -26,7 +26,7 @@
 #include "cgcParserBase.h"
 #include "cgcCookieInfo.h"
 
-namespace cgc {
+namespace mycp {
 
 class cgcParserHttp
 	: public cgcParserBase
@@ -112,6 +112,6 @@ const cgcParserHttp::pointer cgcNullParserHttpService;
 
 #define CGC_PARSERHTTPSERVICE_DEF(s) boost::static_pointer_cast<cgcParserHttp, cgcServiceInterface>(s)
 
-} // namespace cgc
+} // namespace mycp
 
 #endif // _cgcparserhttp_head_included__

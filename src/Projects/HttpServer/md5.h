@@ -48,8 +48,7 @@ documentation and/or software.
 #include <string.h>
 
 
-namespace cgc
-{
+namespace mycp {
 
 //
 // MD5 class
@@ -436,4 +435,5 @@ inline void MD5::II(uint4& a, uint4 b, uint4 c, uint4 d, uint4 x,
 }
 
 } // namespace cgc
+
 #endif // _MD5_HEAD_INCLUDED__

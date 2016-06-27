@@ -46,7 +46,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <CGCBase/cgcCDBCService.h>
 #include <CGCBase/cgcutils.h>
 //#include <CGCClass/cgcclassinclude.h>
-using namespace cgc;
+using namespace mycp;
+
 #include "MycpHttpServer.h"
 #include "XmlParseHosts.h"
 #include "XmlParseApps.h"
@@ -751,7 +752,7 @@ public:
 	virtual void OnDisconnect(int nUserData)
 	{
 		//theWaitDataList.remove(nUserData);
-		CGC_LOG((cgc::LOG_TRACE, "OnDisconnect UserData=%d\n", nUserData));
+		CGC_LOG((mycp::LOG_TRACE, "OnDisconnect UserData=%d\n", nUserData));
 		//printf("******** OnDisconnect UserData=%d\n",nUserData);
 		const int nTcpRequestId = nUserData;
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
@@ -809,7 +810,7 @@ public:
 			return;
 		const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
 		const int nPaddingLen = header.paddingLength;
-		CGC_LOG((cgc::LOG_TRACE, "RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n", nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen));
+		CGC_LOG((mycp::LOG_TRACE, "RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n", nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen));
 		//printf("******** RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen);
 		//pFastcgiRequestInfo->SetResponsePaddingLength(nPaddingLen);
 
@@ -824,7 +825,7 @@ public:
 				//const char * findSearch = NULL;
 				if (pFastcgiRequestInfo->GetParsedHead())
 				{
-					CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
+					CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 					if (nBodyLength>0)
 						pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
 				}else
@@ -841,7 +842,7 @@ public:
 							//printf("******** 1 length=%d,data=%s\n",nBodyLength,httpRequest);
 							if (nBodyLength>0)
 							{
-								CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
+								CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 								pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
 							}
 							break;
@@ -859,7 +860,7 @@ public:
 							//printf("******** 2 length=%d,data=%s\n",nBodyLength,httpRequest);
 							if (nBodyLength>0)
 							{
-								CGC_LOG((cgc::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
+								CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 								pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
 							}
 							break;
@@ -877,7 +878,7 @@ public:
 						const tstring value(sLine.substr(find+nOffset));
 
 						bFindHttpHead = true;
-						//CGC_LOG((cgc::LOG_TRACE, "%s:%s\n", sParamReal.c_str(), value.c_str()));
+						//CGC_LOG((mycp::LOG_TRACE, "%s:%s\n", sParamReal.c_str(), value.c_str()));
 						//if (param=="content-type")
 						//{
 						//	pFastcgiRequestInfo->response()->setContentType(value);
@@ -901,7 +902,7 @@ public:
 			}else if (header.type == FCGI_STDERR)
 			{
 				pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nContentLen);
-				//CGC_LOG((cgc::LOG_ERROR, "RequestId=%d FCGI_STDERR:%s\n", nRequestId, std::string(pData+FCGI_HEADER_LEN,nContentLen).c_str()));
+				//CGC_LOG((mycp::LOG_ERROR, "RequestId=%d FCGI_STDERR:%s\n", nRequestId, std::string(pData+FCGI_HEADER_LEN,nContentLen).c_str()));
 				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST,false);
 				return;
 			}else if (header.type == FCGI_END_REQUEST)
@@ -918,7 +919,7 @@ public:
 					nEndStatus = pEndRequestBody.protocolStatus;
 				}
 
-				CGC_LOG((cgc::LOG_TRACE, "RequestId=%d set REQUEST_INFO_STATE_FCGI_END_REQUEST EndStatus=%d\n", nRequestId, nEndStatus));
+				CGC_LOG((mycp::LOG_TRACE, "RequestId=%d set REQUEST_INFO_STATE_FCGI_END_REQUEST EndStatus=%d\n", nRequestId, nEndStatus));
 				const bool bResponseError = nEndStatus == FCGI_REQUEST_COMPLETE?false:true;
 				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST,bResponseError);
 				//pFastcgiRequestInfo->GetRequestPassInfo()->SetCloseEvent();
@@ -956,7 +957,7 @@ public:
 	{
 		//theWaitDataList.remove(nUserData);
 
-		CGC_LOG((cgc::LOG_TRACE, "OnReceiveData size=%d,UserData=%d\n", data->size(),nUserData));
+		CGC_LOG((mycp::LOG_TRACE, "OnReceiveData size=%d,UserData=%d\n", data->size(),nUserData));
 		//printf("******** OnReceiveData size=%d,UserData=%d\n",data->size(),nUserData);
 		const int nTcpRequestId = nUserData;
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
@@ -1077,7 +1078,7 @@ public:
 		: m_bDownload(false), m_nScriptFileType(SCRIPT_FILE_TYPE_UNKNOWN)
 	{}
 };
-//cgc::cgcApplication2::pointer theApplication2;
+//mycp::cgcApplication2::pointer theApplication2;
 
 const int const_one_hour_seconds = 60*60;
 const int const_one_day_seconds = 24*const_one_hour_seconds;
@@ -1091,13 +1092,13 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theFileSystemService = theServiceManager->getService("FileSystemService");
 	if (theFileSystemService.get() == NULL)
 	{
-		CGC_LOG((cgc::LOG_ERROR, "FileSystemService Error.\n"));
+		CGC_LOG((mycp::LOG_ERROR, "FileSystemService Error.\n"));
 		return false;
 	}
 	//theStringService = theServiceManager->getService("StringService");
 	//if (theStringService.get() == NULL)
 	//{
-	//	CGC_LOG((cgc::LOG_ERROR, "StringService Error.\n"));
+	//	CGC_LOG((mycp::LOG_ERROR, "StringService Error.\n"));
 	//	return false;
 	//}
 
@@ -1137,7 +1138,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	{
 		tstring sThirdParth(theSystem->getServerPath());
 		sThirdParth.append("/thirdparty");
-		cgc::replace_string(thePHPFastcgiInfo->m_sFastcgiPath,$MYCP_THIRDPARTY_PATH,sThirdParth);
+		mycp::replace_string(thePHPFastcgiInfo->m_sFastcgiPath,$MYCP_THIRDPARTY_PATH,sThirdParth);
 		const std::string::size_type find = thePHPFastcgiInfo->m_sFastcgiPass.find(":",1);
 		if (find!=std::string::npos)
 		{
@@ -1160,13 +1161,13 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theDefaultHost = theVirtualHosts.getVirtualHost("*");
 	if (theDefaultHost.get() == NULL)
 	{
-		CGC_LOG((cgc::LOG_ERROR, "DefaultHost Error. %s\n",xmlFile.c_str()));
+		CGC_LOG((mycp::LOG_ERROR, "DefaultHost Error. %s\n",xmlFile.c_str()));
 		return false;
 	}
 	tstring sDocumentRoot(theDefaultHost->getDocumentRoot());
-	cgc::replace_string(sDocumentRoot,$MYCP_CONF_PATH,theSystem->getServerPath());
+	mycp::replace_string(sDocumentRoot,$MYCP_CONF_PATH,theSystem->getServerPath());
 	theDefaultHost->setDocumentRoot(sDocumentRoot);
-	CGC_LOG((cgc::LOG_INFO, "%s\n",theDefaultHost->getDocumentRoot().c_str()));
+	CGC_LOG((mycp::LOG_INFO, "%s\n",theDefaultHost->getDocumentRoot().c_str()));
 	theDefaultHost->setPropertys(theApplication->createAttributes());
 	if (theDefaultHost->getDocumentRoot().empty())
 		theDefaultHost->setDocumentRoot(theApplication->getAppConfPath());
@@ -1194,7 +1195,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 			}
 			sDocumentRoot.append("/");
 			sDocumentRoot.append(sDocumentRootTemp);
-			CGC_LOG((cgc::LOG_INFO, "%s\n",sDocumentRoot.c_str()));
+			CGC_LOG((mycp::LOG_INFO, "%s\n",sDocumentRoot.c_str()));
 
 			//sDocumentRoot = theApplication->getAppConfPath();
 			//sDocumentRoot.append("/");
@@ -1202,7 +1203,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 			fs::path src_path2(sDocumentRoot.c_str());
 			if (!fs::exists(src_path2))
 			{
-				CGC_LOG((cgc::LOG_ERROR, "DocumentRoot not exist. %s\n",sDocumentRoot.c_str()));
+				CGC_LOG((mycp::LOG_ERROR, "DocumentRoot not exist. %s\n",sDocumentRoot.c_str()));
 				return false;
 			}
 
@@ -1306,7 +1307,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 		theCdbcService = theServiceManager->getCDBDService(cdbcDataSource);
 		if (theCdbcService.get() == NULL)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "HttpServer DataSource Error.\n"));
+			CGC_LOG((mycp::LOG_ERROR, "HttpServer DataSource Error.\n"));
 			return false;
 		}
 		// 
@@ -1636,7 +1637,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				if (!fs::exists(src_path2))
 				{
 					requestHost.reset();
-					CGC_LOG((cgc::LOG_ERROR, "DocumentRoot not exist. %s\n",sDocumentRoot.c_str()));
+					CGC_LOG((mycp::LOG_ERROR, "DocumentRoot not exist. %s\n",sDocumentRoot.c_str()));
 				}else
 					requestHost->setDocumentRoot(sDocumentRoot);
 			}
@@ -1727,7 +1728,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					tstring sFileNameTemp(sFileName);
 					theCdbcService->escape_string_in(sFileNameTemp);
 					char sql[512];
-					sprintf(sql, "INSERT INTO cspfileinfo_t (filename,filesize,lasttime) VALUES('%s',%d,%lld)",sFileNameTemp.c_str(), fileSize, (cgc::bigint)lastTime);
+					sprintf(sql, "INSERT INTO cspfileinfo_t (filename,filesize,lasttime) VALUES('%s',%d,%lld)",sFileNameTemp.c_str(), fileSize, (mycp::bigint)lastTime);
 					theCdbcService->execute(sql);
 				}
 #endif
@@ -1746,7 +1747,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				tstring sFileNameTemp(sFileName);
 				theCdbcService->escape_string_in(sFileNameTemp);
 				char sql[512];
-				sprintf(sql, "UPDATE cspfileinfo_t SET filesize=%d,lasttime=%lld WHERE filename='%s'",fileSize, (cgc::bigint)lastTime, sFileNameTemp.c_str());
+				sprintf(sql, "UPDATE cspfileinfo_t SET filesize=%d,lasttime=%lld WHERE filename='%s'",fileSize, (mycp::bigint)lastTime, sFileNameTemp.c_str());
 				theCdbcService->execute(sql);
 			}
 #endif
@@ -1803,7 +1804,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 
 			int cdbcCookie = 0;
 			//theCdbcService->select(selectSql, cdbcCookie);
-			const cgc::bigint ret = theCdbcService->select(selectSql, cdbcCookie);
+			const mycp::bigint ret = theCdbcService->select(selectSql, cdbcCookie);
 			//printf("**** %lld=%s\n",ret,selectSql);
 			CLockMap<tstring, CScriptItem::pointer> codeScripts;
 			cgcValueInfo::pointer record = theCdbcService->first(cdbcCookie);
@@ -1894,7 +1895,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		if (thePHPFastcgiInfo.get()==NULL || thePHPFastcgiInfo->m_sFastcgiPass.empty())
 		{
 			response->println("PHP fastcgi setting error.");
-			CGC_LOG((cgc::LOG_ERROR, "PHP fastcgi setting error.\n"));
+			CGC_LOG((mycp::LOG_ERROR, "PHP fastcgi setting error.\n"));
 			return STATUS_CODE_501;
 		}
 
@@ -1916,12 +1917,12 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		if (pFastcgiRequestInfo.get()==NULL)
 		{
 			response->println("PHP fastcgi busy.");
-			CGC_LOG((cgc::LOG_ERROR, "PHP fastcgi busy.\n"));
+			CGC_LOG((mycp::LOG_ERROR, "PHP fastcgi busy.\n"));
 			return STATUS_CODE_501;
 		}
 
 		const int nRequestId = pFastcgiRequestInfo->GetRequestId();
-		CGC_LOG((cgc::LOG_TRACE, "RequestId=%d waitting...(%s)\n", nRequestId,sFileName.c_str()));
+		CGC_LOG((mycp::LOG_TRACE, "RequestId=%d waitting...(%s)\n", nRequestId,sFileName.c_str()));
 #ifdef USES_FASTCGI_KEEP_CONN
 		mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->GetRequestPassInfo()->m_pFastCgiServer;
 #else
@@ -1944,7 +1945,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				if (pRequestPassInfo->GetProcessId()>0)
 				{
 					//printf("**** restart fastcgi\n");
-					CGC_LOG((cgc::LOG_ERROR, "restart fastcgi (%s)\n", pFastcgiRequestInfo->GetFastcgiPass().c_str()));
+					CGC_LOG((mycp::LOG_ERROR, "restart fastcgi (%s)\n", pFastcgiRequestInfo->GetFastcgiPass().c_str()));
 					pRequestPassInfo->KillProcess();
 					theTimerHandler->CreateRequestPassInfoProcess(pRequestPassInfo);
 					m_pFastCgiServer->stopClient();
@@ -1955,14 +1956,14 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 #endif
 					m_pFastCgiServer = mycp::httpserver::CgcTcpClient::create(theTimerHandler.get(),nRequestId);
 					bConnectError = (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection());
-					CGC_LOG((cgc::LOG_ERROR, "restart fastcgi (%s) ok=%d\n", pFastcgiRequestInfo->GetFastcgiPass().c_str(),(int)(bConnectError?0:1)));
+					CGC_LOG((mycp::LOG_ERROR, "restart fastcgi (%s) ok=%d\n", pFastcgiRequestInfo->GetFastcgiPass().c_str(),(int)(bConnectError?0:1)));
 				}
 				if (bConnectError)
 				{
 					m_pFastCgiServer->stopClient();
 					theTimerHandler->RemoveRequestInfo(pFastcgiRequestInfo);
 					response->println("PHP fastcgi connect error, FastcgiPass=%s",thePHPFastcgiInfo->m_sFastcgiPass.c_str());
-					CGC_LOG((cgc::LOG_ERROR, "PHP fastcgi connect error (%s)\n", pFastcgiRequestInfo->GetFastcgiPass().c_str()));
+					CGC_LOG((mycp::LOG_ERROR, "PHP fastcgi connect error (%s)\n", pFastcgiRequestInfo->GetFastcgiPass().c_str()));
 					return STATUS_CODE_501;
 				}
 			}
@@ -2192,7 +2193,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			{
 				bAlreadySetContentType = true;
 				char lpszBoundary[24];
-				sprintf(lpszBoundary,"------%lld%03d%03d",(cgc::bigint)theTimerHandler->m_tNow,rand(),nRequestId);
+				sprintf(lpszBoundary,"------%lld%03d%03d",(mycp::bigint)theTimerHandler->m_tNow,rand(),nRequestId);
 				std::string sContentType("multipart/form-data; boundary=");
 				sContentType.append(lpszBoundary);
 				// CONTENT_TYPE
@@ -2254,7 +2255,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					FILE * f = fopen(pUploadFile->getFilePath().c_str(),"rb");
 					if (f==NULL)
 					{
-						CGC_LOG((cgc::LOG_ERROR, "File not exist (%s)\n",pUploadFile->getFilePath().c_str()));
+						CGC_LOG((mycp::LOG_ERROR, "File not exist (%s)\n",pUploadFile->getFilePath().c_str()));
 						break;
 					}
 
@@ -2333,7 +2334,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		FCGI_Header header = MakeHeader(FCGI_STDIN,nRequestId,0,0);
 		//m_pFastCgiServer->sendData((const unsigned char*)&header,FCGI_HEADER_LEN);
 		pFastcgiRequestInfo->SendData(m_pFastCgiServer,(const unsigned char*)&header,FCGI_HEADER_LEN,true);
-		//CGC_LOG((cgc::LOG_TRACE, "RequestId=%d SendData ok\n", nRequestId));
+		//CGC_LOG((mycp::LOG_TRACE, "RequestId=%d SendData ok\n", nRequestId));
 
 //		for (int i=0;i<200;i++)	// max 2S
 //		{
@@ -2341,7 +2342,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 //			if (theWaitDataList.size()<=3)
 //			{
 //				pFastcgiRequestInfo->SendData(m_pFastCgiServer,(const unsigned char*)&header,FCGI_HEADER_LEN,true);
-//				CGC_LOG((cgc::LOG_TRACE, "RequestId=%d SendData ok\n", nRequestId));
+//				CGC_LOG((mycp::LOG_TRACE, "RequestId=%d SendData ok\n", nRequestId));
 //				break;
 //			}
 //			theWaitDataList.remove(nRequestId);
@@ -2371,7 +2372,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				}
 				theTimerHandler->RemoveRequestInfo(pFastcgiRequestInfo);
 #endif
-				CGC_LOG((cgc::LOG_TRACE, "RequestId=%d return STATUS_CODE_200, error=%d\n", nRequestId, (int)(bResponseError?1:0)));
+				CGC_LOG((mycp::LOG_TRACE, "RequestId=%d return STATUS_CODE_200, error=%d\n", nRequestId, (int)(bResponseError?1:0)));
 				return STATUS_CODE_200;
 			}else if (!theApplication->isInited())
 				break;
@@ -2383,7 +2384,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			//if ((time(0) - tTimeBegin)>=thePHPFastcgiInfo->m_nResponseTimeout)
 			//	break;
 		}
-		CGC_LOG((cgc::LOG_ERROR, "PHP fastcgi timeout (requestid=%d, %s)\n", nRequestId,pFastcgiRequestInfo->GetFastcgiPass().c_str()));
+		CGC_LOG((mycp::LOG_ERROR, "PHP fastcgi timeout (requestid=%d, %s)\n", nRequestId,pFastcgiRequestInfo->GetFastcgiPass().c_str()));
 		//header = MakeHeader(FCGI_ABORT_REQUEST,nRequestId,0,0);
 		//m_pFastCgiServer->sendData((const unsigned char*)&header,FCGI_HEADER_LEN);
 		CRequestPassInfo::pointer pRequestPassInfo = pFastcgiRequestInfo->GetRequestPassInfo();
@@ -2444,7 +2445,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				strftime(lpszModifyTime, 128, "%a, %d %b %Y %H:%M:%S GMT", tmModifyTime);
 				pResInfo->m_sModifyTime = lpszModifyTime;
 				//// ETag
-				//sprintf(lpszModifyTime,"\"%lld\"",(cgc::bigint)pResInfo->m_tModifyTime);
+				//sprintf(lpszModifyTime,"\"%lld\"",(mycp::bigint)pResInfo->m_tModifyTime);
 				//pResInfo->m_sETag = lpszModifyTime;
 				// 先处理前面内存数据
 				char * lpszTemp = pResInfo->m_pData;
@@ -2581,7 +2582,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 //		}
 		if (nReadTotal > 0)
 		{
-			//CGC_LOG((cgc::LOG_TRACE, "filepath=%s, Data=0x%x, Size=%d, nReadTotal=%d\n",sFilePath.c_str(),(int)pResInfo->m_pData,(int)pResInfo->m_nSize,(int)nReadTotal));
+			//CGC_LOG((mycp::LOG_TRACE, "filepath=%s, Data=0x%x, Size=%d, nReadTotal=%d\n",sFilePath.c_str(),(int)pResInfo->m_pData,(int)pResInfo->m_nSize,(int)nReadTotal));
 			if (pResInfo->m_pData == NULL)
 			{
 				// 读文件

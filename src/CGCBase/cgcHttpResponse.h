@@ -24,7 +24,7 @@
 #include "cgcCookieInfo.h"
 #include "cgcResponse.h"
 
-namespace cgc {
+namespace mycp {
 
 const int MAX_FORMAT_SIZE = 2*1024;
 
@@ -66,7 +66,6 @@ public:
 
 const cgcHttpResponse::pointer cgcNullHttpResponse;
 
-
-}
+} // namespace mycp
 
 #endif // __cgchttpresponse_head__

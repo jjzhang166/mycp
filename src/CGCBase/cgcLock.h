@@ -22,7 +22,7 @@
 
 #include <boost/thread/mutex.hpp>
 
-namespace cgc{
+namespace mycp {
 
 class cgcLock
 {
@@ -39,6 +39,6 @@ protected:
 #define CGC_AUTO_LOCK(l) boost::mutex::scoped_lock lock(l.GetMutex())
 #endif // CGC_AUTO_LOCK
 
-}
+} // namespace mycp
 
 #endif // __cgclock_head__

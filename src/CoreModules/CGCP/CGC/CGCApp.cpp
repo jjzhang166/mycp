@@ -71,6 +71,7 @@ CGCApp::CGCApp(const tstring & sPath)
 , m_bLicensed(true)
 , m_sLicenseAccount(_T(""))
 , m_licenseModuleCount(1)
+, m_fpGetSotpClientHandler(NULL)
 , m_fpGetLogService(NULL), m_fpResetLogService(NULL), m_fpParserSotpService(NULL), m_fpParserHttpService(NULL)
 , /*m_fpHttpStruct(NULL), */m_fpHttpServer(NULL), m_sHttpServerName("")
 //, m_pRtpSession(true)
@@ -174,7 +175,7 @@ void CGCApp::do_sessiontimeout(void)
 				FILE * pfile = fopen(sProtectDataFile.c_str(),"w");
 				if (pfile!=NULL)
 				{
-					sprintf(lpszBuffer,"%lld,%d",(cgc::bigint)time(0),nIsService);
+					sprintf(lpszBuffer,"%lld,%d",(bigint)time(0),nIsService);
 					fwrite(lpszBuffer,1,strlen(lpszBuffer),pfile);
 					fclose(pfile);
 				}
@@ -193,25 +194,25 @@ void CGCApp::do_sessiontimeout(void)
 //				ProcNotKeepAliveRmote();
 //			}
 
-			if (theSecondIndex>30)
-			{
-				if ((theSecondIndex%20)==19)			// 20秒处理一次
-				{
-#ifdef USES_CMODULEMGR
-					m_pModuleMgr.OnCheckTimeout();
-#else
-					{
-						BoostReadLock rdlock(m_mapOpenModules.mutex());
-						CLockMap<void*, cgcApplication::pointer>::iterator pIter;
-						for (pIter=m_mapOpenModules.begin(); pIter!=m_mapOpenModules.end(); pIter++)
-						{
-							CModuleImpl * pModuleImpl = (CModuleImpl*)pIter->second.get();
-							pModuleImpl->OnCheckTimeout();
-						}
-					}
-#endif
-				}
-			}
+//			if (theSecondIndex>30)
+//			{
+//				if ((theSecondIndex%20)==19)			// 20秒处理一次
+//				{
+//#ifdef USES_CMODULEMGR
+//					m_pModuleMgr.OnCheckTimeout();
+//#else
+//					{
+//						BoostReadLock rdlock(m_mapOpenModules.mutex());
+//						CLockMap<void*, cgcApplication::pointer>::iterator pIter;
+//						for (pIter=m_mapOpenModules.begin(); pIter!=m_mapOpenModules.end(); pIter++)
+//						{
+//							CModuleImpl * pModuleImpl = (CModuleImpl*)pIter->second.get();
+//							pModuleImpl->OnCheckTimeout();
+//						}
+//					}
+//#endif
+//				}
+//			}
 
 			if ((theSecondIndex%3600)==3500)						// 一小时处理一次
 				CheckScriptExecute(SCRIPT_TYPE_HOURLY);
@@ -448,6 +449,7 @@ void CGCApp::AppStop(void)
 	m_systemParams.clearParameters();
 	m_cdbcs.FreeHandle();
 	m_parseWeb.FreeHandle();
+	m_fpGetSotpClientHandler = NULL;
 	m_fpGetLogService = NULL;
 	m_fpResetLogService = NULL;
 	m_fpParserSotpService = NULL;
@@ -914,7 +916,7 @@ cgcParameterMap::pointer CGCApp::getInitParameters(void) const
 	return result;
 }
 
-bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
+bool CGCApp::onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData)
 {
 	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
@@ -959,7 +961,7 @@ bool CGCApp::onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::b
 	}
 	return false;
 }
-void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData)
+void CGCApp::onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData)
 {
 	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
@@ -979,7 +981,7 @@ void CGCApp::onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc:
 	{
 	}
 }
-bool CGCApp::onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData)
+bool CGCApp::onRegisterSink(bigint nRoomId, bigint nSourceId, bigint nDestId, void* pUserData)
 {
 	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
@@ -2703,7 +2705,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 								retCode = -117;
 							}else
 							{
-								const cgc::bigint ret = pCdbcService->execute(sSyncData.c_str());
+								const bigint ret = pCdbcService->execute(sSyncData.c_str());
 								// ??? LOG
 								//pCdbcService->
 								printf("**** %lld,%s\n",ret,sSyncData.c_str());
@@ -2866,7 +2868,7 @@ void CGCApp::InitLibModules(unsigned int mt)
 		//if ((mt & (int)moduleMT) != (int)moduleMT)
 		//	continue;
 
-	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
+	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
 	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
 	{
@@ -2918,7 +2920,7 @@ void CGCApp::InitLibModules(unsigned int mt)
 
 void CGCApp::OpenLibrarys(void)
 {
-	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
+	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
 	for (size_t i=0;i<m_parseModules.m_modules.size(); i++)
 	{
@@ -2999,7 +3001,24 @@ void CGCApp::OpenLibrarys(void)
 			moduleItem->setModuleHandle(hModule);
 			continue;
 		}
-		CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this);
+//		if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && m_fpGetSotpClientHandler==NULL)
+//		{
+//#ifdef WIN32
+//			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
+//#else
+//			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
+//#endif
+//			if (fpGetSotpClientHandler!=NULL)
+//			{
+//				m_fpGetSotpClientHandler = fpGetSotpClientHandler;
+//				//mycp::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+//				//pValueInfo->insertMap("abc",CGC_VALUEINFO(123));
+//				//mycp::DoSotpClientHandler::pointer pSotpClientHandler;
+//				//fpGetSotpClientHandler(pSotpClientHandler, pValueInfo);
+//			}
+//		}
+
+		CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this,this);
 		pModuleImpl->setModulePath(m_sModulePath);
 		pModuleImpl->loadSyncData(false);
 		pModuleImpl->m_sTempFile = sTempFile;
@@ -3067,7 +3086,7 @@ void CGCApp::FreeLibrarys(void)
 #endif
 
 	//printf("**** Module Size = %d\n", m_parseModules.m_modules.size());
-	//CLockMap<tstring, cgc::ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
+	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
 	//m_logModuleImpl.log(LOG_INFO, _T("Module Size = %d\n"), m_parseModules.m_modules.size());
 	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
@@ -3095,7 +3114,9 @@ void CGCApp::FreeLibrarys(void)
 			}catch(...){
 				printf("**** name=%s, exception. 0x%x\n", moduleItem->getName().c_str(), GetLastError());
 			}
+			//printf("**** Free Module(0x%x) %02d ok\n", (int)hModule, i+1);
 		}
+		moduleItem->m_pApiProcAddressList.clear();
 	}
 
 	// ** delete temp file
@@ -3238,7 +3259,7 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			{
 				ret = farProc_Init();
 				static bool theCanRetry = true;
-				if (!ret && moduleImpl->getModuleType()==cgc::MODULE_APP && theCanRetry)
+				if (!ret && moduleImpl->getModuleType()==MODULE_APP && theCanRetry)
 				{
 					theCanRetry = false;
 					// CGC_Module_Free
@@ -3292,6 +3313,21 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 #endif
 	moduleItem->setFpGetService((void*)fpGetService);
 	moduleItem->setFpResetService((void*)fpResetService);
+
+	if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && m_fpGetSotpClientHandler==NULL)
+	{
+#ifdef WIN32
+		FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
+#else
+		FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
+#endif
+		printf("**** m_fpGetSotpClientHandler=0x%x\n",(int)(void*)fpGetSotpClientHandler);
+		if (fpGetSotpClientHandler!=NULL)
+		{
+			m_fpGetSotpClientHandler = fpGetSotpClientHandler;
+			//moduleItem->m_pApiProcAddressList.insert(theGetSotpClientHandlerApiName,(void*)fpGetSotpClientHandler);
+		}
+	}
 
 	switch (moduleItem->getType())
 	{

@@ -49,7 +49,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 // cgc head
 //#include <CGCBase/app.h>
 #include <CGCBase/cgcService.h>
-using namespace cgc;
+using namespace mycp;
 
 tstring getipbyname(const char * name)
 {
@@ -371,7 +371,7 @@ protected:
 				}while (!tcpClient->IsOvertime(30) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
 				//}while ((++counter < 5*nMaxSecond) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
 
-				cgc::cgcParserHttp::pointer pParserHttp = tcpClient->GetParserHttp();
+				mycp::cgcParserHttp::pointer pParserHttp = tcpClient->GetParserHttp();
 				if (tcpClient->IsHttpResponseOk())
 				{
 					outParam->totype(cgcValueInfo::TYPE_VECTOR);
@@ -409,9 +409,9 @@ protected:
 //							char lpszFilePath[260];
 //							static unsigned int theIndex = 0;
 //#ifdef WIN32
-//							sprintf(lpszFilePath,"%s\\temp_%lld_%03d",theTempSavePath.c_str(),(cgc::bigint)time(0),((++theIndex)%1000));
+//							sprintf(lpszFilePath,"%s\\temp_%lld_%03d",theTempSavePath.c_str(),(mycp::bigint)time(0),((++theIndex)%1000));
 //#else
-//							sprintf(lpszFilePath,"%s/temp_%lld_%03d",theTempSavePath.c_str(),(cgc::bigint)time(0),((++theIndex)%1000));
+//							sprintf(lpszFilePath,"%s/temp_%lld_%03d",theTempSavePath.c_str(),(mycp::bigint)time(0),((++theIndex)%1000));
 //#endif
 //							FILE * f = fopen(lpszFilePath,"wb");
 							//FILE * f = fopen(sSaveFile.c_str(),"wb");

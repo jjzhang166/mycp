@@ -36,6 +36,7 @@ AC_OUTPUT( \
 	CGCP/Makefile \
 	ParserSotp/Makefile \
 	ParserHttp/Makefile \
-	LogService/Makefile
+	LogService/Makefile \
+	SotpClientService/Makefile
 	
 )

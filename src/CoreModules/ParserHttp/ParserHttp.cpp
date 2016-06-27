@@ -40,7 +40,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <CGCBase/app.h>
 #include <CGCBase/cgcParserHttp.h>
 #include <CGCClass/cgcclassinclude.h>
-using namespace cgc;
+using namespace mycp;
 
 //class CParserHttp
 //	: public CPpHttp
@@ -61,7 +61,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theFileSystemService = theServiceManager->getService("FileSystemService");
 	if (theFileSystemService.get() == NULL)
 	{
-		CGC_LOG((cgc::LOG_ERROR, "FileSystemService Error.\n"));
+		CGC_LOG((LOG_ERROR, "FileSystemService Error.\n"));
 	}else
 	{
 		//cgcValueInfo::pointer inProperty = CGC_VALUEINFO(xmlFile);

@@ -48,7 +48,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 #include <CGCBase/cdbc.h>
 #include <CGCBase/cgcApplication2.h>
-using namespace cgc;
+using namespace mycp;
 
 #if (USES_MYSQLCDBC)
 #include "MysqlPool.h"
@@ -61,16 +61,16 @@ using namespace cgc;
 //{
 //	return mysql_num_rows(res);
 //}
-cgc::cgcApplication2::pointer theApplication2;
+mycp::cgcApplication2::pointer theApplication2;
 
 class CCDBCResultSet
 {
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
-	cgc::bigint size(void) const {return m_rows;}
-	cgc::bigint cols(void) const {return m_fields;}
-	cgc::bigint index(void) const
+	mycp::bigint size(void) const {return m_rows;}
+	mycp::bigint cols(void) const {return m_fields;}
+	mycp::bigint index(void) const
 	{
 		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
 		return m_currentIndex;
@@ -102,7 +102,7 @@ public:
 		}
 		return CGC_VALUEINFO(record);
 	}
-	cgcValueInfo::pointer index(cgc::bigint moveIndex)
+	cgcValueInfo::pointer index(mycp::bigint moveIndex)
 	{
 		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (moveIndex < 0 || (moveIndex+1) > m_rows) return cgcNullValueInfo;
@@ -182,7 +182,7 @@ public:
 	//CCDBCResultSet(sql::ResultSet * resultset, sql::Statement * stmt)
 	//	: m_resultset(resultset), m_stmt(stmt)//, m_currentIndex(0)
 	//{}
-	CCDBCResultSet(CMysqlSink* pSink,MYSQL_RES * resultset, cgc::bigint nRows)
+	CCDBCResultSet(CMysqlSink* pSink,MYSQL_RES * resultset, mycp::bigint nRows)
 		: m_pSink(pSink),m_resultset(resultset), m_rows(nRows), m_fields(0)
 	{
 		//m_rows = mysql_num_rows(m_resultset);
@@ -246,11 +246,11 @@ protected:
 private:
 	CMysqlSink * m_pSink;
 	MYSQL_RES * m_resultset;
-	cgc::bigint		m_rows;
+	mycp::bigint		m_rows;
 	int			m_fields;
 	//sql::ResultSet *	m_resultset;
 	//sql::Statement *	m_stmt;
-	cgc::bigint		m_currentIndex;
+	mycp::bigint		m_currentIndex;
 };
 
 #define CDBC_RESULTSET(s,rs,rows) CCDBCResultSet::pointer(new CCDBCResultSet(s,rs,rows))
@@ -435,13 +435,13 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
-	virtual cgc::bigint execute(const char * exeSql, int nTransaction)
+	virtual mycp::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		CMysqlSink* pSink = (CMysqlSink*)nTransaction;
-		cgc::bigint ret = 0;
+		mycp::bigint ret = 0;
 		try
 		{
 			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
@@ -575,7 +575,7 @@ private:
 				//mysql_ping(nMysqlError); // mysql_ping需要定时做心跳
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", exeSql,m_nLastErrorCode,mysql_error(pMysql)));
+				CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", exeSql,m_nLastErrorCode,mysql_error(pMysql)));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -622,7 +622,7 @@ private:
 			//mysql_ping(
 			if (nTransaction==0)
 			{
-				ret = (cgc::bigint)mysql_affected_rows(pMysql);
+				ret = (mycp::bigint)mysql_affected_rows(pMysql);
 				MYSQL_RES * result = 0;
 				do
 				{
@@ -636,11 +636,11 @@ private:
 			}
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", exeSql));
 			//printf("******* Reconnect 999");
 			if (!pSink->Reconnect())
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+				CGC_LOG((mycp::LOG_ERROR, "Reconnect error.\n"));
 			}
 			if (nTransaction==0)
 				CMysqlPool::SinkPut(pSink);
@@ -649,11 +649,11 @@ private:
 			return -1;
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", exeSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", exeSql));
 			//printf("******* Reconnect aaa");
 			if (!pSink->Reconnect())
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+				CGC_LOG((mycp::LOG_ERROR, "Reconnect error.\n"));
 			}
 			if (nTransaction==0)
 				CMysqlPool::SinkPut(pSink);
@@ -673,13 +673,13 @@ private:
 		return ret;
 	}
 
-	virtual cgc::bigint select(const char * selectSql, int& outCookie)
+	virtual mycp::bigint select(const char * selectSql, int& outCookie)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		CMysqlSink * pSink = NULL;
-		cgc::bigint rows = 0;
+		mycp::bigint rows = 0;
 		try
 		{
 			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
@@ -697,7 +697,7 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
+				CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -750,7 +750,7 @@ private:
 			}
 			m_nLastErrorCode = 0;
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
-			rows = (cgc::bigint)mysql_num_rows(resultset);
+			rows = (mycp::bigint)mysql_num_rows(resultset);
 			if (rows > 0)
 			{
 				outCookie = (int)resultset;
@@ -763,21 +763,21 @@ private:
 			}
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			//printf("******* Reconnect 333");
 			if (!pSink->Reconnect())
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+				CGC_LOG((mycp::LOG_ERROR, "Reconnect error.\n"));
 			}
 			CMysqlPool::SinkPut(pSink);
 			return -1;
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			//printf("******* Reconnect 444");
 			if (!pSink->Reconnect())
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+				CGC_LOG((mycp::LOG_ERROR, "Reconnect error.\n"));
 			}
 			CMysqlPool::SinkPut(pSink);
 			return -1;
@@ -811,13 +811,13 @@ private:
 	}
 	int m_nLastErrorCode;
 	time_t m_tLastErrorTime;
-	virtual cgc::bigint select(const char * selectSql)
+	virtual mycp::bigint select(const char * selectSql)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		CMysqlSink * pSink = NULL;
-		cgc::bigint rows = 0;
+		mycp::bigint rows = 0;
 		try
 		{
 			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
@@ -835,7 +835,7 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
+				CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -888,34 +888,34 @@ private:
 			}
 			m_nLastErrorCode = 0;
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
-			rows = (cgc::bigint)mysql_num_rows(resultset);
+			rows = (mycp::bigint)mysql_num_rows(resultset);
 			CMysqlPool::SinkPut(pSink);
 			mysql_free_result(resultset);
 			resultset = NULL;
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			//printf("******* Reconnect 666");
 			if (!pSink->Reconnect())
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+				CGC_LOG((mycp::LOG_ERROR, "Reconnect error.\n"));
 			}
 			CMysqlPool::SinkPut(pSink);
 			return -1;
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "%s\n", selectSql));
+			CGC_LOG((mycp::LOG_ERROR, "%s\n", selectSql));
 			//printf("******* Reconnect 777");
 			if (!pSink->Reconnect())
 			{
-				CGC_LOG((cgc::LOG_ERROR, "Reconnect error.\n"));
+				CGC_LOG((mycp::LOG_ERROR, "Reconnect error.\n"));
 			}
 			CMysqlPool::SinkPut(pSink);
 			return -1;
 		}
 		return rows;
 	}
-	virtual cgc::bigint size(int cookie) const
+	virtual mycp::bigint size(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
@@ -926,7 +926,7 @@ private:
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
 	}
 
-	virtual cgc::bigint index(int cookie) const
+	virtual mycp::bigint index(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
@@ -936,7 +936,7 @@ private:
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
 	}
-	virtual cgcValueInfo::pointer index(int cookie, cgc::bigint moveIndex)
+	virtual cgcValueInfo::pointer index(int cookie, mycp::bigint moveIndex)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;
@@ -977,7 +977,7 @@ private:
 		if (!open()) return 0;
 
 		CMysqlSink* pSink = NULL;
-		cgc::bigint ret = 0;
+		mycp::bigint ret = 0;
 		try
 		{
 			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
@@ -995,7 +995,7 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -1024,10 +1024,10 @@ private:
 			return (int)pSink;
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_begin exception\n"));
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_begin exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_begin exception\n"));
 		}
 		return 0;
 	}
@@ -1046,7 +1046,7 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -1075,22 +1075,22 @@ private:
 			result = true;
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_rollback exception\n"));
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_rollback exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_rollback exception\n"));
 		}
 		CMysqlPool::SinkPut(pSink);
 		return result;
 	}
-	virtual cgc::bigint trans_commit(int nTransaction)
+	virtual mycp::bigint trans_commit(int nTransaction)
 	{
 		if (!isServiceInited()) return -1;
 		if (!open()) return -1;
 
 		CMysqlSink* pSink = (CMysqlSink*)nTransaction;
 		if (pSink==NULL) return -1;
-		cgc::bigint result = -1;
+		mycp::bigint result = -1;
 		try
 		{
 			MYSQL * pMysql = pSink->GetMYSQL();
@@ -1098,7 +1098,7 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((cgc::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -1124,7 +1124,7 @@ private:
 				}
 			}
 			m_nLastErrorCode = 0;
-			result = (cgc::bigint)mysql_affected_rows(pMysql);
+			result = (mycp::bigint)mysql_affected_rows(pMysql);
 			MYSQL_RES * result = 0;
 			do
 			{
@@ -1136,10 +1136,10 @@ private:
 			}while( !mysql_next_result( pMysql ) );
 		}catch(std::exception&)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_commit exception\n"));
 		}catch(...)
 		{
-			CGC_LOG((cgc::LOG_ERROR, "trans_commit exception\n"));
+			CGC_LOG((mycp::LOG_ERROR, "trans_commit exception\n"));
 		}
 		CMysqlPool::SinkPut(pSink);
 		return result;

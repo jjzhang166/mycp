@@ -24,8 +24,8 @@
 #include "../CGCClass/SotpCallTable2.h"
 #include "SotpRtpSource.h"
 
-namespace cgc
-{
+namespace mycp {
+
 #ifdef WIN32
 #include <Windows.h>
 #include <Mmsystem.h>
@@ -43,7 +43,7 @@ inline unsigned long timeGetTime()
 #endif
 
 
-CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint nSrcId,cgc::bigint nParam)
+CSotpRtpSource::CSotpRtpSource(bool bServerMode, bigint nRoomId,bigint nSrcId,bigint nParam)
 : m_bServerMode(bServerMode), m_nRoomId(nRoomId), m_nSrcId(nSrcId), m_nParam(nParam)
 , m_tLastTime(0), m_tLastCallbackTime(0)
 , m_nLastFrameTimestamp(0), m_nWaitForFrameSeq(-1), m_bWaitforNextKeyVideo(false), m_nLostData(0)
@@ -66,8 +66,8 @@ CSotpRtpSource::CSotpRtpSource(bool bServerMode, cgc::bigint nRoomId,cgc::bigint
 
 	m_NAKRequestCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	m_NAKRequestCommand.m_nCommand = SOTP_RTP_COMMAND_DATA_REQUEST;
-	m_NAKRequestCommand.m_nRoomId = cgc::htonll(m_nRoomId);
-	m_NAKRequestCommand.m_nSrcId = cgc::htonll(m_nSrcId);
+	m_NAKRequestCommand.m_nRoomId = htonll(m_nRoomId);
+	m_NAKRequestCommand.m_nSrcId = htonll(m_nSrcId);
 }
 CSotpRtpSource::~CSotpRtpSource(void)
 {
@@ -109,28 +109,28 @@ CSotpRtpSource::~CSotpRtpSource(void)
 	}
 }
 
-//void CSotpRtpSource::AddSinkSend(cgc::bigint nToId)
+//void CSotpRtpSource::AddSinkSend(bigint nToId)
 //{
 //	m_pSinkSendList.insert(nToId,true);
 //}
-//void CSotpRtpSource::DelSinkSend(cgc::bigint nToId)
+//void CSotpRtpSource::DelSinkSend(bigint nToId)
 //{
 //	m_pSinkSendList.remove(nToId);
 //}
-//bool CSotpRtpSource::IsSinkSend(cgc::bigint nToId) const
+//bool CSotpRtpSource::IsSinkSend(bigint nToId) const
 //{
 //	return m_pSinkSendList.exist(nToId);
 //}
 
-void CSotpRtpSource::AddSinkRecv(cgc::bigint nDestId)
+void CSotpRtpSource::AddSinkRecv(bigint nDestId)
 {
 	m_pSinkRecvList.insert(nDestId,true,false);
 }
-void CSotpRtpSource::DelSinkRecv(cgc::bigint nDestId)
+void CSotpRtpSource::DelSinkRecv(bigint nDestId)
 {
 	m_pSinkRecvList.remove(nDestId);
 }
-bool CSotpRtpSource::IsSinkRecv(cgc::bigint nDestId) const
+bool CSotpRtpSource::IsSinkRecv(bigint nDestId) const
 {
 	return m_pSinkRecvList.exist(nDestId);
 }
@@ -142,9 +142,9 @@ void CSotpRtpSource::ClearSinkRecv(bool bLock)
 void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHead,const cgcRemote::pointer& pcgcRemote)
 {
 	boost::mutex::scoped_lock lock(m_pCaculateMissedPacketsMutex);
-	const cgc::uint16 nSeq = ntohs(pRtpDataHead.m_nSeq);
+	const uint16 nSeq = ntohs(pRtpDataHead.m_nSeq);
 	if (nSeq==0 && pRtpDataHead.m_nTimestamp==0) return;
-	const cgc::uint8 nNAKType = pRtpDataHead.m_nNAKType;
+	const uint8 nNAKType = pRtpDataHead.m_nNAKType;
 	if (nNAKType>=SOTP_RTP_NAK_REQUEST_1)
 	{
 		if (m_bServerMode && m_nLastExpectSeq>=0)
@@ -201,7 +201,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 
 #ifdef USES_FILE_LOG
 	char lpszBuffer[260];
-	const cgc::uint32 ts = ntohl(pRtpDataHead.m_nTimestamp);
+	const uint32 ts = ntohl(pRtpDataHead.m_nTimestamp);
 #ifdef WIN32
 	sprintf(lpszBuffer,"f:\\%lld-%d-%d.txt",this->GetSrcId(),ts,(int)this);
 #else
@@ -217,7 +217,7 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	}
 #endif
 
-	const cgc::uint16 expectSeq = m_nLastPacketSeq + 1;
+	const uint16 expectSeq = m_nLastPacketSeq + 1;
 	if (nSeq == expectSeq || m_nLastPacketSeq==-1 ||
 		(nSeq>=1 && nSeq<=10 && m_nLastPacketSeq>300 && m_nLastPacketSeq<65200))	// ?客户端重新进入
 	{
@@ -237,8 +237,8 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	{
 		// *效果好像好一些，就不知流量如何；
 		m_nLastPacketSeq = nSeq;
-		//const cgc::uint16 nMaxResendCount = (ntohl(pRtpDataHead.m_nTotleLength)/ntohs(pRtpDataHead.m_nUnitLength))>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
-		const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
+		//const uint16 nMaxResendCount = (ntohl(pRtpDataHead.m_nTotleLength)/ntohs(pRtpDataHead.m_nUnitLength))>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
+		const uint16 nMaxResendCount = MAX_RESEND_COUNT;
 		if ((nSeq-expectSeq)>nMaxResendCount)
 			return;	// 网络过差，重发数据也没用，优化流量；
 		n = nSeq-expectSeq;
@@ -266,8 +266,8 @@ void CSotpRtpSource::CaculateMissedPackets(const tagSotpRtpDataHead& pRtpDataHea
 	{
 		m_nLastPacketSeq = nSeq;
 		const int diff = nSeq + (65535 - expectSeq);
-		const cgc::uint16 nMaxResendCount = MAX_RESEND_COUNT;
-		//const cgc::uint16 nMaxResendCount = (ntohl(pRtpDataHead.m_nTotleLength)/ntohs(pRtpDataHead.m_nUnitLength))>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
+		const uint16 nMaxResendCount = MAX_RESEND_COUNT;
+		//const uint16 nMaxResendCount = (ntohl(pRtpDataHead.m_nTotleLength)/ntohs(pRtpDataHead.m_nUnitLength))>10?(MAX_RESEND_COUNT+3):MAX_RESEND_COUNT;
 		n = (diff > nMaxResendCount) ? nMaxResendCount : diff;
 
 		if (nNAKType>=SOTP_RTP_NAK_REQUEST_2)
@@ -347,7 +347,7 @@ void CSotpRtpSource::sendNAKRequest(unsigned short nSeq, unsigned short nCount,c
 bool CSotpRtpSource::UpdateReliableQueue(CSotpRtpReliableMsg* pRtpMsgIn, CSotpRtpReliableMsg** pRtpMsgOut)
 {
 	bool bResult = false;
-	const cgc::uint16 nSeq = ntohs(pRtpMsgIn->m_pRtpDataHead.m_nSeq);
+	const uint16 nSeq = ntohs(pRtpMsgIn->m_pRtpDataHead.m_nSeq);
 	const int i = nSeq%RELIABLE_QUEUE_SIZE;
 	boost::mutex::scoped_lock lock(m_pReliableMutex);
 	if (m_pReliableQueue[i] != 0)
@@ -386,7 +386,7 @@ void CSotpRtpSource::SetPool(const CSotpRtpFrame::pointer& pFrame)
 void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cgcAttachment::pointer& pAttackment)
 {
 	if (pRtpDataHead.m_nIndex>=SOTP_RTP_MAX_PACKETS_PER_FRAME) return;
-	const cgc::uint32 ts = pRtpDataHead.m_nTimestamp;
+	const uint32 ts = pRtpDataHead.m_nTimestamp;
 	// the packet expire time.
 	if (ts<m_nLastFrameTimestamp && ts>0 && (m_nLastFrameTimestamp-ts) < 0xFFFF)		// 前面过期数据
 	{
@@ -447,8 +447,8 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 	//fill frame data.
 	if (pFrame->m_nFilled[pRtpDataHead.m_nIndex] != 1)
 	{
-		const cgc::uint32 nDataOffset = ((cgc::uint32)pRtpDataHead.m_nIndex)*pRtpDataHead.m_nUnitLength;
-		const cgc::uint32 nDataLength = (pRtpDataHead.m_nTotleLength-nDataOffset)>=pRtpDataHead.m_nUnitLength?pRtpDataHead.m_nUnitLength:(pRtpDataHead.m_nTotleLength-nDataOffset);
+		const uint32 nDataOffset = ((uint32)pRtpDataHead.m_nIndex)*pRtpDataHead.m_nUnitLength;
+		const uint32 nDataLength = (pRtpDataHead.m_nTotleLength-nDataOffset)>=pRtpDataHead.m_nUnitLength?pRtpDataHead.m_nUnitLength:(pRtpDataHead.m_nTotleLength-nDataOffset);
 		if (nDataLength==pAttackment->getAttachSize())
 		{
 			pFrame->m_nFilled[pRtpDataHead.m_nIndex] = 1;
@@ -459,12 +459,12 @@ void CSotpRtpSource::PushRtpData(const tagSotpRtpDataHead& pRtpDataHead,const cg
 
 void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserData)
 {
-	//cgc::uint16 nCount = 0;
+	//uint16 nCount = 0;
 	while (!m_pReceiveFrames.empty())
 	{
-		const cgc::uint32 tNow = timeGetTime();
+		const uint32 tNow = timeGetTime();
 		BoostWriteLock wrlock(m_pReceiveFrames.mutex());
-		CLockMap<cgc::uint32,CSotpRtpFrame::pointer>::iterator pIter = m_pReceiveFrames.begin();
+		CLockMap<uint32,CSotpRtpFrame::pointer>::iterator pIter = m_pReceiveFrames.begin();
 		for (; pIter!=m_pReceiveFrames.end(); pIter++)
 		{
 			const CSotpRtpFrame::pointer pFrame = pIter->second;
@@ -484,14 +484,14 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 				// OK
 				m_pReceiveFrames.erase(pIter);
 				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
-				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
+				m_nWaitForFrameSeq = (int)(uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
 				if (m_bWaitforNextKeyVideo && pFrame->m_pRtpHead.m_nDataType==SOTP_RTP_NAK_DATA_VIDEO_I)
 					m_bWaitforNextKeyVideo = false;
 
 				if (!m_bWaitforNextKeyVideo || pFrame->m_pRtpHead.m_nDataType != SOTP_RTP_NAK_DATA_VIDEO)
 				{
 					//callback the frame.
-					const cgc::uint16 nLostDataTemp = m_nLostData;
+					const uint16 nLostDataTemp = m_nLostData;
 					m_nLostData = 0;
 					wrlock.unlock();	// **
 					if(pCallback!=0)
@@ -504,12 +504,12 @@ void CSotpRtpSource::GetWholeFrame(HSotpRtpFrameCallback pCallback, void* nUserD
 				// expire time
 				m_pReceiveFrames.erase(pIter);
 				m_nLastFrameTimestamp = pFrame->m_pRtpHead.m_nTimestamp;
-				m_nWaitForFrameSeq = (int)(cgc::uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
+				m_nWaitForFrameSeq = (int)(uint16)(pFrame->m_nFirstSeq + pFrame->m_nPacketNumber);
 
 				if (!m_bWaitforNextKeyVideo && pFrame->IsWholeFrame())
 				{
 					//callback the frame.
-					const cgc::uint16 nLostDataTemp = m_nLostData;
+					const uint16 nLostDataTemp = m_nLostData;
 					m_nLostData = 0;
 					wrlock.unlock();	// **
 					if(pCallback!=0)
@@ -566,15 +566,15 @@ void CSotpRtpSource::SendRegisterSink(const cgcRemote::pointer& pcgcRemote)
 	tagSotpRtpCommand pRtpCommand;
 	pRtpCommand.m_nVersion = SOTP_RTP_COMMAND_VERSION;
 	pRtpCommand.m_nCommand = SOTP_RTP_COMMAND_REGISTER_SINK;
-	pRtpCommand.m_nRoomId = cgc::htonll(this->GetRoomId());
-	pRtpCommand.m_nSrcId = cgc::htonll(this->GetSrcId());
+	pRtpCommand.m_nRoomId = htonll(this->GetRoomId());
+	pRtpCommand.m_nSrcId = htonll(this->GetSrcId());
 
 	BoostReadLock rdlock(const_cast<boost::shared_mutex&>(m_pSinkRecvList.mutex()));
-	CLockMap<cgc::bigint,bool>::const_iterator pIter = m_pSinkRecvList.begin();
+	CLockMap<bigint,bool>::const_iterator pIter = m_pSinkRecvList.begin();
 	for (; pIter!=m_pSinkRecvList.end(); pIter++)
 	{
-		const cgc::bigint nDestId = pIter->first;
-		pRtpCommand.u.m_nDestId = cgc::htonll(nDestId);
+		const bigint nDestId = pIter->first;
+		pRtpCommand.u.m_nDestId = htonll(nDestId);
 
 		size_t nSendSize = 0;
 		SotpCallTable2::toRtpCommand(pRtpCommand,lpszBuffer,nSendSize);
@@ -598,5 +598,4 @@ unsigned char* CSotpRtpSource::GetSendBuffer(unsigned int nNeedSize)
 	return m_pSendBuffer;
 }
 
-
-} // cgc namespace
+} // namespace mycp

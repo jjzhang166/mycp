@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include "cgcServices.h"
 
-namespace cgc {
+namespace mycp {
 
 class cgcParserCallback
 {
@@ -54,7 +54,6 @@ public:
 
 const cgcParserBase::pointer cgcNullParserBaseService;
 
-} // namespace cgc
-
+} // namespace mycp
 
 #endif // _cgcparserbase_head_included__

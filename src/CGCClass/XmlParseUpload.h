@@ -30,7 +30,7 @@
 using boost::property_tree::ptree;
 
 
-namespace cgc{
+namespace mycp {
 
 class XmlParseUpload
 {
@@ -125,5 +125,6 @@ private:
 	bool m_bDeleteFile;
 };
 
-}
+} // namespace mycp
+
 #endif // __XmlParseUpload_h__

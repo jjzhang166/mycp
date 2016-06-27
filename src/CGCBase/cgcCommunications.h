@@ -24,7 +24,7 @@
 #include "cgcdef.h"
 #include "cgcServices.h"
 
-namespace cgc {
+namespace mycp {
 
 // cgcRemote
 class cgcRemote
@@ -83,7 +83,6 @@ const cgcCommunication::pointer cgcNullCommunication;
 
 #define CGC_COMMSERVICE_DEF(s) boost::static_pointer_cast<cgcCommunication, cgcServiceInterface>(s)
 
-} // namespace cgc
-
+} // namespace mycp
 
 #endif // _cgccommunications_head_included__

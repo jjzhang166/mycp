@@ -29,10 +29,8 @@
 //#include "info/ClusterSvr.h"
 
 #include "dlldefine.h"
-using namespace cgc;
 
-
-
+namespace mycp {
 
 class CGCCLASS_CLASS ParseCgcSotp2
 {
@@ -130,7 +128,7 @@ public:
 	void addParameter(const cgcParameter::pointer& parameter);
 
 public:
-	void setParseCallback(cgc::cgcParserCallback* pCallback) {m_pCallback = pCallback;}
+	void setParseCallback(cgcParserCallback* pCallback) {m_pCallback = pCallback;}
 	bool parseBuffer(const unsigned char * pBuffer,size_t size,const char* sEncoding="");
 
 protected:
@@ -178,5 +176,6 @@ private:
 	ModuleItem::EncryptionType m_et;
 };
 
+} // namespace mycp
 
 #endif // __ParseCgcSotp2_h__

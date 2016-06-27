@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include "cgcvalueinfo.h"
 
-namespace cgc{
+namespace mycp {
 
 // cgcParameter
 class cgcParameter
@@ -136,6 +136,6 @@ public:
 	}
 };
 
-}
+} // namespace mycp
 
 #endif // __cgcparameter_head__

@@ -24,8 +24,7 @@
 #include "../ThirdParty/stl/rsa.h"
 //#include <boost/format.hpp>
 
-namespace cgc
-{
+namespace mycp {
 /*
 #ifdef _UNICODE
 typedef boost::wformat tformat;
@@ -227,7 +226,7 @@ void CPPSotp2::setResAttachName(const tstring & name)
 	m_attach->setName(name);
 }
 
-void CPPSotp2::setResAttachInfo(cgc::bigint total, cgc::bigint index)
+void CPPSotp2::setResAttachInfo(bigint total, bigint index)
 {
 	m_attach->setTotal(total);
 	m_attach->setIndex(index);
@@ -276,5 +275,4 @@ unsigned char * CPPSotp2::getResSslString(const tstring& sSslPassword,unsigned i
 	return NULL;
 }
 
-
-} // cgc namespace
+} // namespace mycp

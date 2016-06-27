@@ -28,6 +28,8 @@
 #include <boost/foreach.hpp>
 using boost::property_tree::ptree;
 
+namespace mycp {
+
 class CDSInfo
 {
 public:
@@ -101,7 +103,8 @@ private:
 	CLockMap<tstring, CDSInfo::pointer> m_dss;
 
 };
-
 #define XMLPARSEDSS XmlParseDSs::pointer(new XmlParseDSs())
+
+} // namespace mycp
 
 #endif // __XmlParseDSs_h__

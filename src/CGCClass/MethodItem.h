@@ -23,8 +23,7 @@
 #include "../ThirdParty/stl/stldef.h"
 #include "dlldefine.h"
 
-namespace cgc
-{
+namespace mycp {
 
 class CGCCLASS_CLASS MethodItem
 {
@@ -59,6 +58,6 @@ private:
 //typedef	MethodItemMap::const_iterator MethodItemMapIter;
 //typedef std::pair<std::string, MethodItem*> MethodItemMapPair;
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __MethodItem_h__

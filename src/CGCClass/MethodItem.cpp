@@ -23,8 +23,7 @@
 #include "CGCClass.h"
 #include "MethodItem.h"
 
-namespace cgc
-{
+namespace mycp {
 
 MethodItem::MethodItem(void)
 : m_id(0), m_name(_T("")), m_method(_T(""))
@@ -91,5 +90,4 @@ void MethodItem::Serialize(bool isStoring, std::fstream& ar)
 	}
 }
 
-
-} // cgc namespace
+} // namespace mycp

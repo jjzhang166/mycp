@@ -18,8 +18,7 @@
 
 #include "AttributesImpl.h"
 
-namespace cgc
-{
+namespace mycp {
 
 AttributesImpl::AttributesImpl(void)
 {
@@ -781,4 +780,4 @@ void AttributesImpl::clearAllAtrributes(void)
 	m_mapStrVoidPointer.clear();
 }
 
-} // cgc namespace
+} // namespace mycp

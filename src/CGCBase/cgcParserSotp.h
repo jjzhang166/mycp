@@ -26,7 +26,7 @@
 #include "cgcParserBase.h"
 #include "cgcrtpobject.h"
 
-namespace cgc {
+namespace mycp {
 
 class cgcParserSotp
 	: public cgcParserBase
@@ -111,7 +111,7 @@ public:
 	virtual std::size_t getResParameterCount(void) const = 0;
 	// Response attachment
 	virtual void setResAttachName(const tstring & name)=0;
-	virtual void setResAttachInfo(cgc::bigint total, cgc::bigint index)=0;
+	virtual void setResAttachInfo(bigint total, bigint index)=0;
 	virtual void setResAttachData(const unsigned char * attachData, unsigned int attachSize)=0;
 	virtual void setResAttachData2(unsigned char * attachData, unsigned int attachSize)=0;
 	virtual void setResAttach(const cgcAttachment::pointer& pAttach)=0;
@@ -129,7 +129,6 @@ const cgcParserSotp::pointer cgcNullParserSotpService;
 
 #define CGC_PARSERSOTPSERVICE_DEF(s) boost::static_pointer_cast<cgcParserSotp, cgcServiceInterface>(s)
 
-} // namespace cgc
-
+} // namespace mycp
 
 #endif // _cgcparsersotp_head_included__

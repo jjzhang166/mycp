@@ -22,10 +22,10 @@
 
 #include "../CGCBase/includeall.h"
 
-namespace cgc
-{
+namespace mycp {
+
 class AttributesImpl
-	: public cgc::cgcAttributes
+	: public cgcAttributes
 {
 private:
 	CStringObjectMap<int>		m_mapIntStringPointer;
@@ -152,6 +152,7 @@ public:
 
 	virtual void clearAllAtrributes(void);
 };
-} // cgc namespace
+
+} // namespace mycp
 
 #endif // _ATTRIBUTESIMPL_HEAD_INCLUDED__

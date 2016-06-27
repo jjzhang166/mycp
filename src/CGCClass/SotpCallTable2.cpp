@@ -23,8 +23,7 @@
 #include "SotpCallTable2.h"
 //#include <boost/format.hpp>
 
-namespace cgc
-{
+namespace mycp {
 //#ifdef _UNICODE
 //typedef boost::wformat tformat;
 //#else
@@ -949,5 +948,5 @@ std::string SotpCallTable2::GetParametersString(SOTP_PROTO_VERSION nVersion) con
 	return result;
 }
 
-} // cgc namespace
+} // namespace mycp
 

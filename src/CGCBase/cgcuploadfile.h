@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include "cgcSmartString.h"
 
-namespace cgc {
+namespace mycp {
 
 class cgcUploadFile
 {
@@ -58,6 +58,6 @@ const cgcUploadFile::pointer cgcNullUploadFile;
 
 #define CGC_UPLOADFILE() cgcUploadFile::pointer(new cgcUploadFile())
 
-} // namespace cgc
+} // namespace mycp
 
 #endif // __cgcuploadfile__head__

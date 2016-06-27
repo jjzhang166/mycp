@@ -20,6 +20,8 @@
 #ifndef __VirtualHost_h__
 #define __VirtualHost_h__
 
+namespace mycp {
+
 class CVirtualHost
 {
 public:
@@ -98,5 +100,7 @@ public:
 	{}
 };
 const CFastcgiInfo::pointer NullFastcgiInfo;
+
+} // namespace mycp
 
 #endif // __VirtualHost_h__

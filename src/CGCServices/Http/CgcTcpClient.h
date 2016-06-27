@@ -20,12 +20,20 @@
 #ifndef __CgcTcpClient_h__
 #define __CgcTcpClient_h__
 
+#ifndef USES_OPENSSL
+#define USES_OPENSSL
+#endif
+#define USES_MYCP_TCPCLIENT
 #define USES_PARSER_HTTP
 //
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/boost_socket.h>
+#ifdef USES_MYCP_TCPCLIENT
+#include <ThirdParty/Boost/asio/TcpClient.h>
+using namespace mycp::asio;
+#else
 #include "TcpClient.h"
-//#include <ThirdParty/Boost/asio/TcpClient.h>
+#endif
 #include <CGCBase/cgcSmartString.h>
 #ifdef USES_PARSER_HTTP
 #include <CGCClass/cgcclassinclude.h>
@@ -70,7 +78,7 @@ public:
 	virtual void stopClient(void);
 	virtual size_t sendData(const unsigned char * data, size_t size);
 #ifdef USES_PARSER_HTTP
-	cgc::cgcParserHttp::pointer GetParserHttp(void) const {return m_pParserHttp;}
+	mycp::cgcParserHttp::pointer GetParserHttp(void) const {return m_pParserHttp;}
 	bool IsHttpResponseOk(void) const {return m_bHttpResponseOk;}
 #else
 	const tstring & GetReceiveData(void) const {return m_sReceiveData;}
@@ -102,7 +110,7 @@ private:
 
 	TcpClient_Callback* m_pCallback;
 #ifdef USES_PARSER_HTTP
-	cgc::cgcParserHttp::pointer m_pParserHttp;
+	mycp::cgcParserHttp::pointer m_pParserHttp;
 	bool m_bHttpResponseOk;
 	bool m_bDeleteFile;
 	tstring m_sResponseSaveFile;

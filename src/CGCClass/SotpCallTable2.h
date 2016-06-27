@@ -27,8 +27,7 @@
 #include "../CGCBase/cgcrtpobject.h"
 #include "ModuleItem.h"
 
-namespace cgc
-{
+namespace mycp {
 
 class SotpCallTable2
 {
@@ -130,6 +129,6 @@ private:
 	unsigned short m_nCurrentSeq;
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __SotpCallTable2_h__

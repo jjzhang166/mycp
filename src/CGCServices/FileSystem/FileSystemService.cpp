@@ -49,7 +49,7 @@ typedef boost::filesystem::path		tpath;
 #include <CGCBase/app.h>
 #include <CGCBase/cgcService.h>
 //#include "cgcFileSystem.h"
-using namespace cgc;
+using namespace mycp;
 
 class CFileSystemService
 	//: public cgcFileSystem

@@ -40,8 +40,8 @@ public:
 		FreeHandle();
 	}
 
-	CLockMap<tstring, cgc::cgcCDBCInfo::pointer> m_cdbcInfos;
-	CLockMap<tstring, cgc::cgcDataSourceInfo::pointer> m_dsInfos;
+	CLockMap<tstring, cgcCDBCInfo::pointer> m_cdbcInfos;
+	CLockMap<tstring, cgcDataSourceInfo::pointer> m_dsInfos;
 
 public:
 	void FreeHandle(void) {m_cdbcInfos.clear(); m_dsInfos.clear();}
@@ -91,7 +91,7 @@ private:
 			int nMin = v.second.get("minsize", 5);
 			int nMax = v.second.get("maxsize", 500);
 
-			cgc::cgcCDBCInfo::pointer cdbcInfo = CGC_CDBCINFO(name, database);
+			cgcCDBCInfo::pointer cdbcInfo = CGC_CDBCINFO(name, database);
 			cdbcInfo->setHost(host);
 			cdbcInfo->setAccount(account);
 			cdbcInfo->setSecure(secure);
@@ -113,7 +113,7 @@ private:
 			cgcCDBCInfo::pointer cdbcInfo = getCDBCInfo(cdbc);
 			if (cdbcInfo.get() == NULL) return;
 
-			cgc::cgcDataSourceInfo::pointer dsInfo = CGC_DSINFO(name, cdbcservice, cdbcInfo);
+			cgcDataSourceInfo::pointer dsInfo = CGC_DSINFO(name, cdbcservice, cdbcInfo);
 			m_dsInfos.insert(name, dsInfo);
 		}
 	}

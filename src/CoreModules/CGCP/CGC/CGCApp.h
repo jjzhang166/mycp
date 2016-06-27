@@ -25,7 +25,9 @@
 //#define USES_OPENSSL
 //#include "CgcTcpClient.h"
 #include "IncludeBase.h"
+#include <CGCLib/CgcClientHandler.h>
 #include <CGCBase/cgcSeqInfo.h>
+#include <CGCBase/cgcfunc.h>
 
 //#include "ACELib/inc/SockServer.h"
 
@@ -112,11 +114,11 @@ private:
 #define USES_CMODULEMGR
 class CGCApp
 	: public cgcSystem
-	, public cgcServiceManager
+	, public cgcServiceManager, public CModuleHandler
 	, public cgcCommHandler
 	, public cgcParserCallback
 	, public CSotpRtpCallback	// for sotp rtp
-	//, public cgc::TcpClient_Callback	// for tcp
+	//, public TcpClient_Callback	// for tcp
 	, public CParserSotpHandler
 	, public CParserHttpHandler
 	, public boost::enable_shared_from_this<CGCApp>
@@ -155,6 +157,9 @@ public:
 	// cgcServiceManager handler
 	virtual cgcServiceInterface::pointer getService(const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
 	virtual void resetService(const cgcServiceInterface::pointer & service);
+	// CModuleHandler
+	virtual void* onGetFPGetSotpClientHandler(void) const {return (void*)m_fpGetSotpClientHandler;}
+
 private:
 	void do_dataresend(void);
 	void do_sessiontimeout(void);
@@ -166,9 +171,9 @@ private:
 	void LoadSystemParams(void);
 
 	// CSotpRtpCallback
-	virtual bool onRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData);
-	virtual void onUnRegisterSource(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam, void* pUserData);
-	virtual bool onRegisterSink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId, void* pUserData);
+	virtual bool onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData);
+	virtual void onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData);
+	virtual bool onRegisterSink(bigint nRoomId, bigint nSourceId, bigint nDestId, void* pUserData);
 
 	// cgcParserCallback 
 	virtual tstring onGetSslPrivateKey(void) const {return "";}
@@ -215,7 +220,7 @@ private:
 	void GetHttpParserPool(cgcParserHttp::pointer& phttpParser);
 	void SetHttpParserPool(const cgcParserHttp::pointer& phttpParser);
 	void CheckHttpParserPool(void);
-	//cgc::CgcTcpClient::pointer m_pFastCgiServer;
+	//CgcTcpClient::pointer m_pFastCgiServer;
 	//virtual void OnReceiveData(const ReceiveBuffer::pointer& data);
 	HTTP_STATUSCODE ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote);
 	HTTP_STATUSCODE ProcHttpAppProto(const cgcHttpRequest::pointer& pRequestImpl,const cgcHttpResponse::pointer& pResponseImpl,const cgcParserHttp::pointer& pcgcParser);
@@ -277,6 +282,7 @@ private:
 	tstring m_sLicenseAccount;
 	int m_licenseModuleCount;
 
+	FPCGC_GetSotpClientHandler m_fpGetSotpClientHandler;
 	FPCGC_GetService m_fpGetLogService;
 	FPCGC_ResetService m_fpResetLogService;
 	FPCGC_GetService m_fpParserSotpService;

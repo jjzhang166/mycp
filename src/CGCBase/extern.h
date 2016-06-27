@@ -24,11 +24,11 @@
 #include "cgcSystem.h"
 #include "cgcServices.h"
 
-namespace cgc {
+namespace mycp {
 
-	extern cgc::cgcApplication::pointer theApplication;
-	extern cgc::cgcSystem::pointer theSystem;
-	extern cgc::cgcServiceManager::pointer theServiceManager;
+extern cgcApplication::pointer theApplication;
+extern cgcSystem::pointer theSystem;
+extern cgcServiceManager::pointer theServiceManager;
 
 #define CGC_LOG(X) theApplication->log X
 #define CGC_APP_PARAMETER(N) theApplication->getInitParameter(N)
@@ -39,7 +39,7 @@ namespace cgc {
 #define CGC_SYS_VALUE(N, D) theSystem->getInitParameterValue(N, D)
 //#define CGC_SYS_VALUE2(N, D) gSystem->getInitParameterValue2(N, D)
 
-} // cgc namespace
+} // namespace mycp
 
 
 #endif // __extern_head__

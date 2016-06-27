@@ -25,8 +25,9 @@
 #include <algorithm>
 #include <stdarg.h>
 using namespace std;
+#include <CGCBase/cgcfunc.h>
 
-#define USES_SOTP_CLIENT
+//#define USES_SOTP_CLIENT
 
 namespace mycp {
 
@@ -34,7 +35,7 @@ CModuleImpl::CModuleImpl(void)
 : m_callRef(0)
 , m_moduleState(0)
 , m_nInited(false)
-, m_pServiceManager(NULL)
+, m_pServiceManager(NULL), m_pModuleHandler(NULL)
 , m_pSyncErrorStoped(false), m_pSyncThreadKilled(false)
 , m_tProcSyncHostsTime(0), m_bLoadBackupFromCdbcService(false)
 , m_nCurrentCallId(0)
@@ -42,12 +43,12 @@ CModuleImpl::CModuleImpl(void)
 {
 }
 
-CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager)
+CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager, CModuleHandler* pModuleHandler)
 : m_module(module)
 , m_callRef(0)
 , m_moduleState(0)
 , m_nInited(false)
-, m_pServiceManager(pServiceManager)
+, m_pServiceManager(pServiceManager), m_pModuleHandler(pModuleHandler)
 , m_pSyncErrorStoped(false), m_pSyncThreadKilled(false)
 , m_tProcSyncHostsTime(0), m_bLoadBackupFromCdbcService(false)
 , m_nCurrentCallId(0)
@@ -84,35 +85,37 @@ void CModuleImpl::StopModule(void)
 	m_pSyncList.clear();
 	m_pHostList.clear();
 	m_pSyncSotpClientList.clear();
-	m_pModuleSotpClientList.clear();
 	m_pSyncRequestList.clear();
 }
-void CModuleImpl::OnCheckTimeout(void)
-{
-	// 定时清空没用sotp client数据
-	//printf("**** OnCheckTimeout(size=%d)...\n",(int)m_pModuleSotpClientList.size());
-	const time_t tNow = time(0);
-	int nEraseCount = 0;
-	BoostReadLock rdLock(m_pModuleSotpClientList.mutex());
-	CLockMap<tstring, mycp::CCGCSotpClient::pointer>::iterator pIter=m_pModuleSotpClientList.begin();
-	for (;pIter!=m_pModuleSotpClientList.end();pIter++)
-	{
-		mycp::CCGCSotpClient::pointer pPOPSotpClient = pIter->second;
-		const time_t tSendRecvTime = pPOPSotpClient->sotp()->doGetLastSendRecvTime();
-		const  unsigned int nSendReceiveTimeout = pPOPSotpClient->GetUserData();
-		//printf("**** OnCheckTimeout lasttime=%lld\n",(cgc::bigint)tSendRecvTime);
-		if (tSendRecvTime > 0 && (tSendRecvTime+nSendReceiveTimeout)<tNow)
-		{
-			// 已经通过 XX 秒没有数据，清空该sotp client
-			//printf("**** OnCheckTimeout clear um client\n");
-			m_pModuleSotpClientList.erase(pIter);
-			if ((++nEraseCount)>=200 || m_pModuleSotpClientList.empty(false))
-				break;
-			else
-				pIter = m_pModuleSotpClientList.begin();
-		}
-	}
-}
+//void CModuleImpl::OnCheckTimeout(void)
+//{
+//#ifndef USES_FPCGC_GET_SOTP_CLIENT
+//	// 定时清空没用sotp client数据
+//	//printf("**** OnCheckTimeout(size=%d)...\n",(int)m_pModuleSotpClientList.size());
+//	const time_t tNow = time(0);
+//	int nEraseCount = 0;
+//	BoostReadLock rdLock(m_pModuleSotpClientList.mutex());
+//	CLockMap<tstring, mycp::CCGCSotpClient::pointer>::iterator pIter=m_pModuleSotpClientList.begin();
+//	for (;pIter!=m_pModuleSotpClientList.end();pIter++)
+//	{
+//		mycp::CCGCSotpClient::pointer pPOPSotpClient = pIter->second;
+//		const time_t tSendRecvTime = pPOPSotpClient->sotp()->doGetLastSendRecvTime();
+//		const unsigned int nSendReceiveTimeout = pPOPSotpClient->GetUserData();
+//		printf("**** OnCheckTimeout lasttime=%lld, timeout=%d\n",(bigint)tSendRecvTime,nSendReceiveTimeout);
+//		if (tSendRecvTime > 0 && (tSendRecvTime+nSendReceiveTimeout)<tNow)
+//		{
+//			// 已经通过 XX 秒没有数据，清空该sotp client
+//			printf("**** OnCheckTimeout clear um client\n");
+//			m_pModuleSotpClientList.erase(pIter);
+//			if ((++nEraseCount)>=200 || m_pModuleSotpClientList.empty(false))
+//				break;
+//			else
+//				pIter = m_pModuleSotpClientList.begin();
+//		}
+//	}
+//#endif
+//
+//}
 
 tstring CModuleImpl::getAppConfPath(void) const
 {
@@ -180,7 +183,7 @@ inline int ParseString(const char * lpszString, const char * lpszInterval, std::
 	}
 	return (int)pOut.size();
 }
-inline cgc::bigint GetNextBigId(bool bLongBig=true)	// index++ 16
+inline bigint GetNextBigId(bool bLongBig=true)	// index++ 16
 {
 	static unsigned short static_id_index = 0;
 	char lpszNextId[24];
@@ -232,7 +235,7 @@ int CModuleImpl::sendSyncData(const tstring& sSyncName, int nDataType, const cha
 	if (!loadSyncData(true))
 		return -1;
 
-	const cgc::bigint nDataId = GetNextBigId(false);
+	const bigint nDataId = GetNextBigId(false);
 	if (m_pSyncCdbcService.get()!=NULL)
 	{
 		const int nBufferSize = nDataSize+256;
@@ -250,14 +253,14 @@ int CModuleImpl::sendSyncData(const tstring& sSyncName, int nDataType, const cha
 			m_pSyncCdbcService->escape_string_in(sSyncDataTemp);
 			sprintf(lpszBuffer,"INSERT INTO mycp_sync_data_t(data_id,type,name,data,backup) VALUES(%lld,%d,'%s','%s',%d)",nDataId,nDataType,sSyncName.c_str(),sSyncDataTemp.c_str(),nBackup);
 		}
-		const cgc::bigint ret = m_pSyncCdbcService->execute(lpszBuffer);
+		const bigint ret = m_pSyncCdbcService->execute(lpszBuffer);
 		if (ret!=1)
 		{
 			delete[] lpszBuffer;
 			return -2;
 		}
 
-		CLockMap<tstring,mycp::CCGCSotpClient::pointer>::const_iterator pIter = m_pSyncSotpClientList.begin();
+		CLockMap<tstring,mycp::DoSotpClientHandler::pointer>::const_iterator pIter = m_pSyncSotpClientList.begin();
 		for (; pIter!=m_pSyncSotpClientList.end(); pIter++)
 		{
 			const tstring sHost = pIter->first;
@@ -285,45 +288,33 @@ DoSotpClientHandler::pointer CModuleImpl::getSotpClientHandler(const tstring& sA
 	return NullDoSotpClientHandler;
 #else
 	//printf("**** getSotpClientHandler(%s)...\n",sAddress.c_str());
-	if (sAddress.empty() || sAppName.empty()) return NullDoSotpClientHandler; 
-	const tstring sKey = sAddress+sAppName;
-	mycp::CCGCSotpClient::pointer pPOPSotpClient;
-	if (!m_pModuleSotpClientList.find(sKey, pPOPSotpClient))
-	{
-		pPOPSotpClient = mycp::CCGCSotpClient::create();
-		// ***（暂时不使用） 使用会报 do_event_loop std::exception. boost: mutex lock failed in pthread_mutex_lock: Invalid argument
-		//pPOPSotpClient->SetIoService(getIoService(true),false);
-		const CCgcAddress::SocketType nCgcSocketType = nSocketType==cgcApplication2::SOTP_CLIENT_SOCKET_TYPE_TCP?CCgcAddress::ST_TCP:CCgcAddress::ST_UDP;
-		CCgcAddress pCgcAddress(sAddress,nCgcSocketType);
-		if (!pPOPSotpClient->StartClient(pCgcAddress,bindPort,nThreadStackSize))
-		{
-			log(cgc::LOG_ERROR, "StartClient(%s) error.\n",sAddress.c_str());
-			pPOPSotpClient.reset();
-			return NullDoSotpClientHandler;
-		}
-		pPOPSotpClient->SetAppName(sAppName);
-		//pPOPSotpClient->sotp()->doSetResponseHandler((CgcClientHandler*)this);
-		pPOPSotpClient->sotp()->doSetConfig(SOTP_CLIENT_CONFIG_SOTP_VERSION,SOTP_PROTO_VERSION_21);
-		pPOPSotpClient->sotp()->doSetConfig(SOTP_CLIENT_CONFIG_USES_SSL,(int)(bUserSsl?1:0));
+	if (sAddress.empty() || sAppName.empty()) return NullDoSotpClientHandler;
+
+		FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)(m_pModuleHandler==NULL?NULL:m_pModuleHandler->onGetFPGetSotpClientHandler());
+		if (fpGetSotpClientHandler==NULL) return NullDoSotpClientHandler;
+		mycp::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+		pValueInfo->insertMap("address",CGC_VALUEINFO(sAddress));
+		pValueInfo->insertMap("app_name",CGC_VALUEINFO(sAppName));
+		const CCgcAddress::SocketType nAddressSocketType = nSocketType==SOTP_CLIENT_SOCKET_TYPE_TCP?CCgcAddress::ST_TCP:CCgcAddress::ST_UDP;
+		pValueInfo->insertMap("socket_type",CGC_VALUEINFO((int)nAddressSocketType));
+		pValueInfo->insertMap("use_ssl",CGC_VALUEINFO((int)(bUserSsl?1:0)));
+		pValueInfo->insertMap("bind_port",CGC_VALUEINFO(bindPort));
+		pValueInfo->insertMap("thread_stack_size",CGC_VALUEINFO(nThreadStackSize));
 		if (bKeepAliveSession)
 		{
-			pPOPSotpClient->sotp()->doSendOpenSession();
-			if (nSocketType==cgcApplication2::SOTP_CLIENT_SOCKET_TYPE_TCP)
-				pPOPSotpClient->sotp()->doStartActiveThread(30);
-			else
-				pPOPSotpClient->sotp()->doStartActiveThread(20);
-			pPOPSotpClient->SetUserData(60);
+			pValueInfo->insertMap("open_session",CGC_VALUEINFO(1));
+			pValueInfo->insertMap("timeout",CGC_VALUEINFO(60));
 		}else
 		{
-			pPOPSotpClient->SetUserData(30);
+			pValueInfo->insertMap("timeout",CGC_VALUEINFO(30));
 		}
-		//pPOPSotpClient->sotp()->doSetEncoding(_T("UTF8"));
-		//pPOPSotpClient->sotp()->doSetCIDTResends(max(1,m_moduleParams.getErrorRetry()),5);	// ? 5无效
-		m_pModuleSotpClientList.insert(sKey,pPOPSotpClient);
-	}
-	//printf("**** getSotpClientHandler(%s) ok\n",sAddress.c_str());
-	return pPOPSotpClient->sotp();
-#endif
+		mycp::DoSotpClientHandler::pointer pPOPSotpClient;
+		fpGetSotpClientHandler(pPOPSotpClient, pValueInfo);
+		if (pPOPSotpClient.get()==NULL) return NullDoSotpClientHandler;
+		//printf("**** m_fpGetSotpClientHandler ok\n");
+		//pPOPSotpClient->doSetResponseHandler((CgcClientHandler*)this);
+		return pPOPSotpClient;
+#endif // USES_SOTP_CLIENT
 }
 
 void CModuleImpl::OnCgcResponse(const cgcParserSotp & response)
@@ -379,7 +370,7 @@ void CModuleImpl::ProcSyncResponse(unsigned long nCallId, int nResultValue)
 		(bSyncWarning && m_moduleParams.getSyncResultProcessMode()==CGC_SYNC_RESULT_PROCESS_WARNING_STOP))
 	{
 		// stop
-		log(cgc::LOG_ERROR, "CGC_SYNC_STOP\n");
+		log(LOG_ERROR, "CGC_SYNC_STOP\n");
 		m_pSyncErrorStoped = true;
 		m_pSyncList.clear();				// **
 		m_pSyncRequestList.remove(nCallId);
@@ -450,7 +441,7 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 			cgcServiceInterface::pointer serviceInterface = m_pServiceManager->getService(sCdbcService);
 			if (serviceInterface.get() == NULL)
 			{
-				log(cgc::LOG_ERROR, "getService(%s) NULL ERROR\n", sCdbcService.c_str());
+				log(LOG_ERROR, "getService(%s) NULL ERROR\n", sCdbcService.c_str());
 				return false;
 			}
 
@@ -459,7 +450,7 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 			{
 				m_pServiceManager->resetService(m_pSyncCdbcService);
 				m_pSyncCdbcService.reset();
-				log(cgc::LOG_ERROR, "%s Service initService() error\n", sCdbcService.c_str());
+				log(LOG_ERROR, "%s Service initService() error\n", sCdbcService.c_str());
 				return false;
 			}
 
@@ -469,7 +460,7 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 			{
 				m_pServiceManager->resetService(m_pSyncCdbcService);
 				m_pSyncCdbcService.reset();
-				log(cgc::LOG_ERROR, "%s Service open(%s) error\n", sCdbcService.c_str(),sDatabaseName.c_str());
+				log(LOG_ERROR, "%s Service open(%s) error\n", sCdbcService.c_str(),sDatabaseName.c_str());
 				return false;
 			}
 
@@ -495,12 +486,12 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 					"CREATE INDEX mycp_sync_request_t_idx_data_id ON mycp_sync_request_t(data_id); ";
 				if (m_pSyncCdbcService->execute(pCreateSyncDatabaseTable)==-1)
 				{
-					log(cgc::LOG_ERROR, "create %s Error.\n", sDatabaseName.c_str());
+					log(LOG_ERROR, "create %s Error.\n", sDatabaseName.c_str());
 					m_pServiceManager->resetService(m_pSyncCdbcService);
 					m_pSyncCdbcService.reset();
 					return false;
 				}
-				log(cgc::LOG_INFO, "create %s Ok.\n", sDatabaseName.c_str());
+				log(LOG_INFO, "create %s Ok.\n", sDatabaseName.c_str());
 			}
 		}
 	}
@@ -515,12 +506,16 @@ void CModuleImpl::StartSyncThread(void)
 		boost::thread_attributes attrs;
 		attrs.set_stack_size(CGC_THREAD_STACK_MIN);
 		m_pSyncThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CModuleImpl::procSyncThread, this)));
-		log(cgc::LOG_INFO, "StartSyncThread ok\n");
+		log(LOG_INFO, "StartSyncThread ok\n");
 	}
 }
 
 bool CModuleImpl::ProcSyncHosts(void)
 {
+	FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)(m_pModuleHandler==NULL?NULL:m_pModuleHandler->onGetFPGetSotpClientHandler());
+	if (fpGetSotpClientHandler==NULL)
+		return false;
+
 	tstring sWhereInHostString;	// 'host1','host2'
 	for (size_t i=0; i<m_pHostList.size(); i++)
 	{
@@ -528,34 +523,37 @@ bool CModuleImpl::ProcSyncHosts(void)
 #ifdef USES_PRINT_SYNC_DEBUG
 		printf("***** %d : SyncHost=%s\n",(int)i,sSyncHost.c_str());
 #endif
-		mycp::CCGCSotpClient::pointer m_pCGCSotpClient;
-		if (!m_pSyncSotpClientList.find(sSyncHost,m_pCGCSotpClient) || !m_pCGCSotpClient->IsClientStarted())
+		mycp::DoSotpClientHandler::pointer m_pCGCSotpClient;
+		if (!m_pSyncSotpClientList.find(sSyncHost,m_pCGCSotpClient) || m_pCGCSotpClient.get()==NULL || m_pCGCSotpClient->doIsInvalidate())
 		{
 			if (m_pCGCSotpClient.get()!=NULL)
 				m_pSyncSotpClientList.remove(sSyncHost);
 
-			//CSotpClient m_pCgcClient;
-			//m_pCgcClient.SetIoService(getIoService(true),false);
 #ifdef USES_SOTP_CLIENT
-			m_pCGCSotpClient = mycp::CCGCSotpClient::create();
-			const CCgcAddress::SocketType nSocketType = m_moduleParams.getSyncSocketType()==1?CCgcAddress::ST_TCP:CCgcAddress::ST_UDP;
-			CCgcAddress pCgcAddress(sSyncHost,nSocketType);
-			if (!m_pCGCSotpClient->StartClient(pCgcAddress))
+			mycp::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+			pValueInfo->insertMap("address",CGC_VALUEINFO(sSyncHost));
+			const std::string sAppName = getApplicationName();
+			pValueInfo->insertMap("app_name",CGC_VALUEINFO(sAppName));
+			const CCgcAddress::SocketType nAddressSocketType = m_moduleParams.getSyncSocketType()==SOTP_CLIENT_SOCKET_TYPE_TCP?CCgcAddress::ST_TCP:CCgcAddress::ST_UDP;
+			pValueInfo->insertMap("socket_type",CGC_VALUEINFO((int)nAddressSocketType));
+			pValueInfo->insertMap("use_ssl",CGC_VALUEINFO(1));
+			pValueInfo->insertMap("open_session",CGC_VALUEINFO(1));
+			pValueInfo->insertMap("encoding",CGC_VALUEINFO("UTF8"));
+			//pValueInfo->insertMap("bind_port",CGC_VALUEINFO(bindPort));
+			//pValueInfo->insertMap("thread_stack_size",CGC_VALUEINFO(nThreadStackSize));
+			mycp::DoSotpClientHandler::pointer pSotpClientHandler;
+			fpGetSotpClientHandler(m_pCGCSotpClient, pValueInfo);
+			if (m_pCGCSotpClient.get()==NULL)
 			{
-				log(cgc::LOG_ERROR, "start cgc_sotopclient(%s) error.\n",sSyncHost.c_str());
+				log(LOG_ERROR, "start cgc_sotopclient(%s) error.\n",sSyncHost.c_str());
 				continue;
 			}
-			const std::string sAppName = getApplicationName();
-			m_pCGCSotpClient->SetAppName(sAppName);
-			m_pCGCSotpClient->sotp()->doSetResponseHandler((CgcClientHandler*)this);
-			m_pCGCSotpClient->sotp()->doSetConfig(SOTP_CLIENT_CONFIG_SOTP_VERSION,SOTP_PROTO_VERSION_21);
-			m_pCGCSotpClient->sotp()->doSetConfig(SOTP_CLIENT_CONFIG_USES_SSL,1);
-			m_pCGCSotpClient->sotp()->doSendOpenSession();
-			m_pCGCSotpClient->sotp()->doSetEncoding(_T("UTF8"));
-			m_pCGCSotpClient->sotp()->doStartActiveThread(25);
-			m_pCGCSotpClient->sotp()->doSetCIDTResends(max(1,m_moduleParams.getErrorRetry()),5);	// ? 5无效
+			printf("**** m_fpGetSotpClientHandler ok\n");
+			m_pCGCSotpClient->doSetResponseHandler((CgcClientHandler*)this);
+			m_pCGCSotpClient->doStartActiveThread(25);
+			m_pCGCSotpClient->doSetCIDTResends(max(1,m_moduleParams.getErrorRetry()),5);	// ? 5无效
 			m_pSyncSotpClientList.insert(sSyncHost,m_pCGCSotpClient,true);
-#endif
+#endif // USES_SOTP_CLIENT
 		}
 		if (!sWhereInHostString.empty())
 		{
@@ -582,7 +580,7 @@ bool CModuleImpl::ProcSyncHosts(void)
 		cgcValueInfo::pointer record = m_pSyncCdbcService->first(cdbcCookie);
 		while (record.get() != NULL)
 		{
-			const cgc::bigint nDataId = record->getVector()[0]->getBigIntValue();
+			const bigint nDataId = record->getVector()[0]->getBigIntValue();
 			const int nDataType = record->getVector()[1]->getIntValue();
 			const tstring sSyncName(record->getVector()[2]->getStr());
 			tstring sSyncData(record->getVector()[3]->getStr());
@@ -664,7 +662,7 @@ void CModuleImpl::procSyncThread(void)
 			{
 				// send
 				bool bSendSyncData = false;
-				CLockMap<tstring,mycp::CCGCSotpClient::pointer>::const_iterator pIter = m_pSyncSotpClientList.begin();
+				CLockMap<tstring,mycp::DoSotpClientHandler::pointer>::const_iterator pIter = m_pSyncSotpClientList.begin();
 				for (; pIter!=m_pSyncSotpClientList.end(); pIter++)
 				{
 					const tstring sHost = pIter->first;
@@ -682,25 +680,25 @@ void CModuleImpl::procSyncThread(void)
 						}
 					}
 
-					mycp::CCGCSotpClient::pointer m_pCGCSotpClient = pIter->second;
+					mycp::DoSotpClientHandler::pointer m_pCGCSotpClient = pIter->second;
 					const bool bDatasource = m_pDataSourceList.exist(pSyncDataInfo->m_sName);
-					m_pCGCSotpClient->sotp()->doBeginCallLock();
+					m_pCGCSotpClient->doBeginCallLock();
 					int nExtData = 0;
 					if (bDatasource)
 						nExtData |= 1;
 
 					if (nExtData!=0)
-						m_pCGCSotpClient->sotp()->doAddParameter(CGC_PARAMETER("ext", nExtData));
+						m_pCGCSotpClient->doAddParameter(CGC_PARAMETER("ext", nExtData));
 					if (pSyncDataInfo->m_nType!=0)
-						m_pCGCSotpClient->sotp()->doAddParameter(CGC_PARAMETER("type", pSyncDataInfo->m_nType));
-					m_pCGCSotpClient->sotp()->doAddParameter(CGC_PARAMETER("data", pSyncDataInfo->m_sData),false);
+						m_pCGCSotpClient->doAddParameter(CGC_PARAMETER("type", pSyncDataInfo->m_nType));
+					m_pCGCSotpClient->doAddParameter(CGC_PARAMETER("data", pSyncDataInfo->m_sData),false);
 
 					const unsigned long nCallId = getNextCallId();
 					CCGCSotpRequestInfo::pointer pRequestInfo = CCGCSotpRequestInfo::create(nCallId);
 					pRequestInfo->m_pRequestList.SetParameter(CGC_PARAMETER("host", sHost));
 					pRequestInfo->m_pSyncDataInfo = pSyncDataInfo;
 					m_pSyncRequestList.insert(nCallId, pRequestInfo);
-					m_pCGCSotpClient->sotp()->doSendSyncCall(nCallId, pSyncDataInfo->m_sName, true);
+					m_pCGCSotpClient->doSendSyncCall(nCallId, pSyncDataInfo->m_sName, true);
 					bSendSyncData = true;
 				}
 				if (!bSendSyncData && m_pSyncCdbcService.get()!=NULL && !m_pSyncSotpClientList.empty())
@@ -823,16 +821,16 @@ CModuleMgr::~CModuleMgr(void)
 	FreeHandle();
 }
 
-void CModuleMgr::OnCheckTimeout(void)
-{
-	BoostReadLock rdlock(m_mapModuleImpl.mutex());
-	CLockMap<void*, cgcApplication::pointer>::iterator pIter;
-	for (pIter=m_mapModuleImpl.begin(); pIter!=m_mapModuleImpl.end(); pIter++)
-	{
-		CModuleImpl * pModuleImpl = (CModuleImpl*)pIter->second.get();
-		pModuleImpl->OnCheckTimeout();
-	}
-}
+//void CModuleMgr::OnCheckTimeout(void)
+//{
+//	BoostReadLock rdlock(m_mapModuleImpl.mutex());
+//	CLockMap<void*, cgcApplication::pointer>::iterator pIter;
+//	for (pIter=m_mapModuleImpl.begin(); pIter!=m_mapModuleImpl.end(); pIter++)
+//	{
+//		CModuleImpl * pModuleImpl = (CModuleImpl*)pIter->second.get();
+//		pModuleImpl->OnCheckTimeout();
+//	}
+//}
 
 void CModuleMgr::StopModule(void)
 {

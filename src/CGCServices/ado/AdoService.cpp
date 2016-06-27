@@ -44,7 +44,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #endif // WIN32
 
 #include <CGCBase/cdbc.h>
-using namespace cgc;
+using namespace mycp;
 
 
 #if (USES_ADOCDBC)

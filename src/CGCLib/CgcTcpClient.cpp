@@ -110,13 +110,13 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 
 void CgcTcpClient::stopClient(void)
 {
-	if (m_tcpClient.get() != 0)
-	{
-		m_tcpClient->disconnect();
-	}
 	if (m_bExitStopIoService && m_ipService.get() != 0)
 	{
 		m_ipService->stop();
+	}
+	if (m_tcpClient.get() != 0)
+	{
+		m_tcpClient->disconnect();
 	}
 	m_tcpClient.reset();
 	m_ipService.reset();
@@ -124,7 +124,6 @@ void CgcTcpClient::stopClient(void)
 
 size_t CgcTcpClient::sendData(const unsigned char * data, size_t size)
 {
-	//BOOST_ASSERT(m_tcpClient.get() != 0);
 	if (data == 0 || isInvalidate()) return 0;
 	if (m_bDisconnect) return 0;
 
@@ -141,7 +140,6 @@ bool CgcTcpClient::isInvalidate(void) const
 void CgcTcpClient::OnConnected(const mycp::asio::TcpClientPointer& tcpClient)
 {
 	BOOST_ASSERT (tcpClient.get() != 0);
-
 	m_connectReturned = true;
 	m_bDisconnect = false;
 	if (tcpClient->is_open())

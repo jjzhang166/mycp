@@ -28,6 +28,8 @@
 #include <boost/foreach.hpp>
 using boost::property_tree::ptree;
 
+namespace mycp {
+
 class CAppInfo
 {
 public:
@@ -110,7 +112,8 @@ private:
 	CLockMap<tstring, CAppInfo::pointer> m_apps;
 
 };
-
 #define XMLPARSEAPPS XmlParseApps::pointer(new XmlParseApps())
+
+} // namespace mycp
 
 #endif // __XmlParseApps_h__

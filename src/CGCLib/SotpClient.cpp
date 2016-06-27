@@ -45,7 +45,7 @@ CSotpClient::~CSotpClient(void)
 	stopAllClient();
 }
 
-cgc::DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddress, unsigned int bindPort, int nThreadStackSize)
+DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & pAddress, unsigned int bindPort, int nThreadStackSize)
 {
 	CgcBaseClient::pointer cgcClient;
 	switch (pAddress.socketType())
@@ -75,7 +75,7 @@ cgc::DoSotpClientHandler::pointer CSotpClient::startClient(const CCgcAddress & p
 		cgcClient.reset();
 		return cgcClient;
 	}
-	cgc::DoSotpClientHandler * handler = (cgc::DoSotpClientHandler*)cgcClient.get();
+	DoSotpClientHandler * handler = (DoSotpClientHandler*)cgcClient.get();
 	theSotpClientList.insert(handler, cgcClient);
 	return cgcClient;
 }

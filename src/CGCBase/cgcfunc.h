@@ -20,61 +20,65 @@
 #ifndef __cgcfunc_head__
 #define __cgcfunc_head__
 
-namespace cgc{
+namespace mycp {
 
-	// ******** App function ********
-	// CGC_Module_Init(): Before the module start to load this mothod.
-	// extern "C" bool CGC_API CGC_Module_Init(void) {}
-	typedef bool (FAR *FPCGC_Module_Init)(void);
+// ******** App function ********
+// CGC_Module_Init(): Before the module start to load this mothod.
+// extern "C" bool CGC_API CGC_Module_Init(void) {}
+typedef bool (FAR *FPCGC_Module_Init)(void);
 
-	// Before the module exit to load this mothod.
-	// extern "C" void CGC_API CGC_Module_Free(void) {}
-	typedef void (FAR *FPCGC_Module_Free)(void);
+// Before the module exit to load this mothod.
+// extern "C" void CGC_API CGC_Module_Free(void) {}
+typedef void (FAR *FPCGC_Module_Free)(void);
 
-	// CGC_Session_Open
-	// extern "C" bool CGC_API CGC_Session_Open(const cgcSession::pointer& pHandler) {}
-	typedef bool (FAR *FPCGC_Session_Open)(const cgcSession::pointer& pHandler);
+// CGC_Session_Open
+// extern "C" bool CGC_API CGC_Session_Open(const cgcSession::pointer& pHandler) {}
+typedef bool (FAR *FPCGC_Session_Open)(const cgcSession::pointer& pHandler);
 
-	// CGC_Session_Close
-	// extern "C" void CGC_API CGC_Session_Close(const cgcSession::pointer& pHandler) {}
-	typedef void (FAR *FPCGC_Session_Close)(const cgcSession::pointer& pHandler);
+// CGC_Session_Close
+// extern "C" void CGC_API CGC_Session_Close(const cgcSession::pointer& pHandler) {}
+typedef void (FAR *FPCGC_Session_Close)(const cgcSession::pointer& pHandler);
 
-	// CGC_Remote_Close
-	// extern "C" void CGC_API CGC_Remote_Close(const cgcSession::pointer& pHandler,unsigned long nRemoteId) {}
-	typedef void (FAR *FPCGC_Remote_Close)(const cgcSession::pointer& pHandler,unsigned long nRemoteId);
+// CGC_Remote_Close
+// extern "C" void CGC_API CGC_Remote_Close(const cgcSession::pointer& pHandler,unsigned long nRemoteId) {}
+typedef void (FAR *FPCGC_Remote_Close)(const cgcSession::pointer& pHandler,unsigned long nRemoteId);
 
-	typedef void (FAR *FPCGC_Remote_Change)(const cgcSession::pointer& pHandler,const cgcRemote::pointer& pcgcRemote);
+typedef void (FAR *FPCGC_Remote_Change)(const cgcSession::pointer& pHandler,const cgcRemote::pointer& pcgcRemote);
 
-	// extern "C" int CGC_API YourFuncName(const cgcSotpRequest::pointer & request, cgcSotpResponse::pointer response){}
-	typedef int (FAR *FPCGCApi)(const cgcSotpRequest::pointer & request, const cgcSotpResponse::pointer& response);
+// extern "C" int CGC_API YourFuncName(const cgcSotpRequest::pointer & request, cgcSotpResponse::pointer response){}
+typedef int (FAR *FPCGCApi)(const cgcSotpRequest::pointer & request, const cgcSotpResponse::pointer& response);
 
-	typedef int (FAR *FPCGC_SYNC)(const tstring& sSyncName, int nSyncType, const tstring& sSyncData);
+typedef int (FAR *FPCGC_SYNC)(const tstring& sSyncName, int nSyncType, const tstring& sSyncData);
 
-	// extern "C" HTTP_STATUSCODE CGC_API doGET(const cgcHttpRequest::pointer & request, cgcHttpResponse::pointer response){}
-	typedef HTTP_STATUSCODE (FAR *FPCGCHttpApi)(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
+// extern "C" HTTP_STATUSCODE CGC_API doGET(const cgcHttpRequest::pointer & request, cgcHttpResponse::pointer response){}
+typedef HTTP_STATUSCODE (FAR *FPCGCHttpApi)(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
 
-	// ******** Service function ********
-	// extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer& outService, const cgcValueInfo::pointer& parameter) {}
-	typedef void (FAR *FPCGC_GetService)(cgcServiceInterface::pointer& outService, const cgcValueInfo::pointer& parameter);
-	// extern "C" void CGC_API CGC_ResetService(cgcServiceInterface::pointer inService) {}
-	typedef void (FAR *FPCGC_ResetService)(const cgcServiceInterface::pointer & inService);
+// ******** Service function ********
+// extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer& outService, const cgcValueInfo::pointer& parameter) {}
+typedef void (FAR *FPCGC_GetService)(cgcServiceInterface::pointer& outService, const cgcValueInfo::pointer& parameter);
+// extern "C" void CGC_API CGC_ResetService(cgcServiceInterface::pointer inService) {}
+typedef void (FAR *FPCGC_ResetService)(const cgcServiceInterface::pointer & inService);
 
-	// ******** System function ********
-	typedef void (FAR *FPCGC_SetApplicationHandler)(const cgcApplication::pointer& pHandler);
-	typedef void (FAR *FPCGC_SetSystemHandler)(const cgcSystem::pointer& pHandler);
-	typedef void (FAR *FPCGC_SetServiceManagerHandler)(const cgcServiceManager::pointer& pHandler);
-	//typedef void (FAR *FPCGC_SetCommunicationsHandler)(cgcCommunications::pointer pHandler);
+// ******** System function ********
+typedef void (FAR *FPCGC_SetApplicationHandler)(const cgcApplication::pointer& pHandler);
+typedef void (FAR *FPCGC_SetSystemHandler)(const cgcSystem::pointer& pHandler);
+typedef void (FAR *FPCGC_SetServiceManagerHandler)(const cgcServiceManager::pointer& pHandler);
+//typedef void (FAR *FPCGC_SetCommunicationsHandler)(cgcCommunications::pointer pHandler);
 
-	// ******** sotp rtp function ********
-	// extern "C" bool CGC_API CGC_Rtp_Register_Source(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam) {}
-	typedef bool (FAR *FPCGC_Rtp_Register_Source)(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam);
+// ******** sotp rtp function ********
+// extern "C" bool CGC_API CGC_Rtp_Register_Source(mycp::bigint nRoomId, mycp::bigint nSourceId, mycp::bigint nParam) {}
+typedef bool (FAR *FPCGC_Rtp_Register_Source)(mycp::bigint nRoomId, mycp::bigint nSourceId, mycp::bigint nParam);
 
-	// extern "C" bool CGC_API CGC_Rtp_UnRegister_Source(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam) {}
-	typedef bool (FAR *FPCGC_Rtp_UnRegister_Source)(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nParam);
+// extern "C" bool CGC_API CGC_Rtp_UnRegister_Source(mycp::bigint nRoomId, mycp::bigint nSourceId, mycp::bigint nParam) {}
+typedef bool (FAR *FPCGC_Rtp_UnRegister_Source)(mycp::bigint nRoomId, mycp::bigint nSourceId, mycp::bigint nParam);
 
-	// extern "C" bool CGC_API CGC_Rtp_Register_Sink(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId) {}
-	typedef bool (FAR *FPCGC_Rtp_Register_Sink)(cgc::bigint nRoomId, cgc::bigint nSourceId, cgc::bigint nDestId);
+// extern "C" bool CGC_API CGC_Rtp_Register_Sink(mycp::bigint nRoomId, mycp::bigint nSourceId, mycp::bigint nDestId) {}
+typedef bool (FAR *FPCGC_Rtp_Register_Sink)(mycp::bigint nRoomId, mycp::bigint nSourceId, mycp::bigint nDestId);
 
-}
+const tstring theGetSotpClientHandlerApiName("CGC_GetSotpClientHandler");
+// extern "C" bool CGC_API CGC_GetSotpClientHandler(DoSotpClientHandler::pointer& pOutSotpClientHandler, const cgcValueInfo::pointer& parameter) {}
+typedef bool (FAR *FPCGC_GetSotpClientHandler)(DoSotpClientHandler::pointer& pOutSotpClientHandler, const cgcValueInfo::pointer& parameter);
+
+} // namespace mycp
 
 #endif // __cgcfunc_head__

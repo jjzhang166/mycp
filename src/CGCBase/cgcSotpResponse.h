@@ -24,7 +24,7 @@
 #include "cgcparameter.h"
 #include "cgcResponse.h"
 
-namespace cgc {
+namespace mycp {
 
 // cgcSotpResponse
 class cgcSotpResponse
@@ -34,7 +34,7 @@ public:
 	typedef boost::shared_ptr<cgcSotpResponse> pointer;
 
 	virtual void setAttachName(const tstring & name) = 0;
-	virtual void setAttachInfo(cgc::bigint total, cgc::bigint index) = 0;
+	virtual void setAttachInfo(mycp::bigint total, mycp::bigint index) = 0;
 	virtual void setAttachData(const unsigned char * attachData, unsigned int attachSize) = 0;
 	virtual void setAttach(const cgcAttachment::pointer& pAttach) = 0;
 
@@ -67,6 +67,6 @@ const cgcSotpResponse::pointer cgcNullSotpResponse;
 //	return boost::static_pointer_cast<cgcSotpResponse, cgcResponse>(r);
 //}
 
-}
+} // namespace mycp
 
 #endif // __cgcsotpresponse_head__

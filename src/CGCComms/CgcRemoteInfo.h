@@ -24,6 +24,8 @@
 
 //#define USES_CONNECTION_CLOSE_EVENT
 
+namespace mycp {
+
 class CCommEventData
 {
 public:
@@ -227,11 +229,11 @@ public:
 		m_pPool.clear();
 	}
 	
-	CCommEventDataPool(cgc::uint32 nBufferSize, cgc::uint16 nInitPoolSize=30, cgc::uint16 nMaxPoolSize = 50)
+	CCommEventDataPool(mycp::uint32 nBufferSize, mycp::uint16 nInitPoolSize=30, mycp::uint16 nMaxPoolSize = 50)
 		: m_nBufferSize(nBufferSize), m_nInitPoolSize(nInitPoolSize), m_nMaxPoolSize(nMaxPoolSize)
 		, m_tIdle(0)
 	{
-		for (cgc::uint16 i=0;i<nInitPoolSize; i++)
+		for (mycp::uint16 i=0;i<nInitPoolSize; i++)
 		{
 			m_pPool.add(New());
 		}
@@ -253,10 +255,12 @@ protected:
 	}
 private:
 	CLockListPtr<CCommEventData*> m_pPool;
-	cgc::uint32 m_nBufferSize;
-	cgc::uint16 m_nInitPoolSize;
-	cgc::uint16 m_nMaxPoolSize;
+	mycp::uint32 m_nBufferSize;
+	mycp::uint16 m_nInitPoolSize;
+	mycp::uint16 m_nMaxPoolSize;
 	time_t m_tIdle;
 };
+
+} // namespace mycp
 
 #endif // __CgcRemoteInfo_h__

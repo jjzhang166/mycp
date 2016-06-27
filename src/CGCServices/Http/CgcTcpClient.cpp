@@ -126,14 +126,14 @@ int CgcTcpClient::startClient(const tstring & sCgcServerAddr, unsigned int bindP
 void CgcTcpClient::stopClient(void)
 {
 	m_pCallback = NULL;
+	if (m_ipService.get() != 0)
+	{
+		m_ipService->stop();
+	}
 	if (m_tcpClient.get() != 0)
 	{
 		//m_tcpClient->resetHandler();
 		m_tcpClient->disconnect();
-	}
-	if (m_ipService.get() != 0)
-	{
-		m_ipService->stop();
 	}
 	m_tcpClient.reset();
 	m_ipService.reset();
@@ -141,10 +141,7 @@ void CgcTcpClient::stopClient(void)
 
 size_t CgcTcpClient::sendData(const unsigned char * data, size_t size)
 {
-	BOOST_ASSERT(m_tcpClient.get() != 0);
-
 	if (IsDisconnection() || IsException() || data == 0 || isInvalidate()) return 0;
-
 	//const size_t s = m_tcpClient->write(data, size);
 	//m_tcpClient->async_read_some();
 	//return s;
@@ -160,8 +157,6 @@ bool CgcTcpClient::isInvalidate(void) const
 
 void CgcTcpClient::OnConnected(const TcpClientPointer& tcpClient)
 {
-	//BOOST_ASSERT (tcpClient.get() != 0);
-
 	m_connectReturned = true;
 	m_bDisconnect = false;
 	//if (tcpClient->is_open())
@@ -177,7 +172,6 @@ void CgcTcpClient::OnReceiveData(const TcpClientPointer& tcpClient, const mycp::
 {
 	BOOST_ASSERT (tcpClient.get() != 0);
 	BOOST_ASSERT (data.get() != 0);
-
 	if (data->size() <= 0) return;
 	if (m_pCallback != NULL)
 		m_pCallback->OnReceiveData(data);

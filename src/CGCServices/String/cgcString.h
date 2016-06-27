@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include <CGCBase/cgcServices.h>
 
-namespace cgc{
+namespace mycp {
 
 const int MAX_STRING_FORMAT_SIZE = 5*1024;
 
@@ -55,6 +55,6 @@ public:
 
 #define CGC_STRINGSERVICE_DEF(s) boost::static_pointer_cast<cgcString, cgcServiceInterface>(s)
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcstring_head__

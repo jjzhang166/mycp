@@ -28,7 +28,7 @@
 #include "../CGCLib/CgcClientHandler.h"
 #endif
 
-namespace cgc{
+namespace mycp {
 
 class cgcApplication2
 	: public cgcApplication
@@ -64,6 +64,6 @@ inline boost::shared_ptr<cgcApplication2> CGC_APPLICATION2_CAST(boost::shared_pt
 //	return boost::static_pointer_cast<T, cgcApplication>(r);
 //}
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __CGCAPPLICATION_HEAD__

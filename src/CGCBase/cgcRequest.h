@@ -23,7 +23,7 @@
 #include <boost/shared_ptr.hpp>
 #include "cgcSession.h"
 
-namespace cgc{
+namespace mycp {
 
 // cgcRequest
 class cgcRequest
@@ -59,6 +59,6 @@ public:
 	virtual tstring getRemoteSecure(void) const {return "";}
 };
 
-}
+} // namespace mycp
 
 #endif // __cgcrequest_head__

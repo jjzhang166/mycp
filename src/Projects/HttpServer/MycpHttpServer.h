@@ -27,7 +27,7 @@ unsigned long GetLastError(void);
 // cgc head
 #include <CGCBase/includeall.h>
 #include <CGCBase/cgcCDBCService.h>
-using namespace cgc;
+using namespace mycp;
 
 const tstring MYCP_WEBSERVER_NAME = "MYCP WebServer";
 
@@ -35,6 +35,8 @@ const tstring MYCP_WEBSERVER_NAME = "MYCP WebServer";
 #include "FileScripts.h"
 #include "XmlParseApps.h"
 #include "XmlParseDSs.h"
+
+namespace mycp {
 
 typedef enum
 {
@@ -99,7 +101,8 @@ public:
 	CMycpHttpServer(const cgcHttpRequest::pointer & req, cgcHttpResponse::pointer res);
 	~CMycpHttpServer(void);
 };
-
 const CMycpHttpServer::pointer NullMycpHttpServer;
+
+} // namespace mycp
 
 #endif // __mycphttpserver_head__

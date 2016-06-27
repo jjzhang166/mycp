@@ -23,7 +23,8 @@
 #include "cgcSmartString.h"
 //#include <string>
 
-namespace cgc{
+namespace mycp {
+
 #define CGC_THREAD_STACK_MIN 1024*200	// 200K
 #define CGC_THREAD_STACK_MAX 1024000	// 1M
 
@@ -109,13 +110,26 @@ namespace cgc{
 	typedef enum ModuleType
 	{
 		MODULE_UNKNOWN		= 0xff
-		, MODULE_COMM		= 0x1
+		, MODULE_COMM			= 0x1
 		, MODULE_PARSER		= 0x2
-		, MODULE_APP		= 0x4
+		, MODULE_APP			= 0x4
 		, MODULE_SERVER		= 0x8
-		, MODULE_LOG		= 0x10
+		, MODULE_LOG			= 0x10
 
 	}MODULETYPE;
+	//// Module_SubType
+	//typedef enum Module_SubType
+	//{
+	//	MODULE_SUBTYPE_UNKNOWN		= 0
+	//	, MODULE_SUBTYPE_SOTP_CLIENT_SERVICE
+	//}MODULE_SUBTYPE;
+	// Module_Protocol
+	typedef enum Module_Protocol
+	{
+		MODULE_PROTOCOL_SOTP									= 0
+		, MODULE_PROTOCOL_HTTP								= 1
+		, MODULE_PROTOCOL_SOTP_CLIENT_SERVICE	= 8
+	}MODULE_PROTOCOL;
 
 	// LogLevel
 	typedef enum LogLevel
@@ -357,6 +371,7 @@ namespace cgc{
 	const tstring $MYCP_ROOT_PATH				= "$MYCP_ROOT_PATH";
 	const tstring $MYCP_CONF_PATH				= "$MYCP_CONF_PATH";
 	const tstring $MYCP_THIRDPARTY_PATH		= "$MYCP_THIRDPARTY_PATH";
+
 }
 
 #endif // __cgcdef_head__

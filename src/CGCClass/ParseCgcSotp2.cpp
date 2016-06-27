@@ -20,10 +20,16 @@
 #pragma warning(disable:4267 4819 4996)
 #endif // WIN32
 
+typedef unsigned int			UINT;
+typedef unsigned int      WPARAM;
+typedef long							LPARAM;
+
 #include "CGCClass.h"
 #include "ParseCgcSotp2.h"
 #include "../ThirdParty/stl/rsa.h"
 #include "../ThirdParty/stl/aes.h"
+
+namespace mycp {
 
 #ifdef WIN32
 #include "windows.h"
@@ -294,28 +300,28 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 					m_pSotpRtpCommand.u.m_nDataRequest.m_nSeq = ntohs(m_pSotpRtpCommand.u.m_nDataRequest.m_nSeq);
 				}else
 				{
-					m_pSotpRtpCommand.u.m_nDestId = cgc::ntohll(m_pSotpRtpCommand.u.m_nDestId);
+					m_pSotpRtpCommand.u.m_nDestId = ntohll(m_pSotpRtpCommand.u.m_nDestId);
 				}
-				m_pSotpRtpCommand.m_nRoomId = cgc::ntohll(m_pSotpRtpCommand.m_nRoomId);
-				m_pSotpRtpCommand.m_nSrcId = cgc::ntohll(m_pSotpRtpCommand.m_nSrcId);
+				m_pSotpRtpCommand.m_nRoomId = ntohll(m_pSotpRtpCommand.m_nRoomId);
+				m_pSotpRtpCommand.m_nSrcId = ntohll(m_pSotpRtpCommand.m_nSrcId);
 				m_bRtpCommand = true;
 			}break;
 		case SOTP_PROTO_ITEM_TYPE_RTP_DATA:
 			{
 				if (!isRTPProto()) return NULL;
 				memcpy(&m_pSotpRtpDataHead,pLineBuffer+1,SOTP_RTP_DATA_HEAD_SIZE);
-				//m_pSotpRtpDataHead.m_nRoomId = cgc::ntohll(m_pSotpRtpDataHead.m_nRoomId);
+				//m_pSotpRtpDataHead.m_nRoomId = ntohll(m_pSotpRtpDataHead.m_nRoomId);
 				//m_pSotpRtpDataHead.m_nSeq = ntohs(m_pSotpRtpDataHead.m_nSeq);
-				//m_pSotpRtpDataHead.m_nSrcId = cgc::ntohll(m_pSotpRtpDataHead.m_nSrcId);
+				//m_pSotpRtpDataHead.m_nSrcId = ntohll(m_pSotpRtpDataHead.m_nSrcId);
 				//m_pSotpRtpDataHead.m_nTimestamp = ntohl(m_pSotpRtpDataHead.m_nTimestamp);
 				//m_pSotpRtpDataHead.m_nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
 				//m_pSotpRtpDataHead.m_nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
-				const cgc::uint16 nIndex = ntohs(m_pSotpRtpDataHead.m_nIndex);
-				const cgc::uint16 nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
-				const cgc::uint32 nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
+				const uint16 nIndex = ntohs(m_pSotpRtpDataHead.m_nIndex);
+				const uint16 nUnitLength = ntohs(m_pSotpRtpDataHead.m_nUnitLength);
+				const uint32 nTotleLength = ntohl(m_pSotpRtpDataHead.m_nTotleLength);
 
-				const cgc::uint32 nDataOffset = ((cgc::uint32)nIndex)*nUnitLength;
-				const cgc::uint32 nDataLength = (nTotleLength-nDataOffset)>=nUnitLength?nUnitLength:(nTotleLength-nDataOffset);
+				const uint32 nDataOffset = ((uint32)nIndex)*nUnitLength;
+				const uint32 nDataLength = (nTotleLength-nDataOffset)>=nUnitLength?nUnitLength:(nTotleLength-nDataOffset);
 				if (nDataOffset>=nTotleLength ||
 					(nDataLength+SOTP_RTP_DATA_HEAD_SIZE+2)>(nBufferSize))
 					return NULL;
@@ -530,7 +536,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 					return pNextLineFind;
 				}
 				sTemp = sCurLineBuffer.substr(nFindAT+4, nFindAI-nFindAT-4);
-				cgc::bigint total = 0;
+				mycp::bigint total = 0;
 				try
 				{
 					total = cgc_atoi64(sTemp.c_str());
@@ -548,7 +554,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 					return pNextLineFind;
 				}
 				sTemp = sCurLineBuffer.substr(nFindAI+4, nFindAL-nFindAI-4);
-				cgc::bigint index = 0;
+				mycp::bigint index = 0;
 				try
 				{
 					index = cgc_atoi64(sTemp.c_str());
@@ -865,7 +871,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				return pNextLineFind;
 			}
 			sTemp = sCurLineBuffer.substr(nFindAT+4, nFindAI-nFindAT-4);
-			cgc::bigint total = 0;
+			mycp::bigint total = 0;
 			try
 			{
 				total = cgc_atoi64(sTemp.c_str());
@@ -883,7 +889,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				return pNextLineFind;
 			}
 			sTemp = sCurLineBuffer.substr(nFindAI+4, nFindAL-nFindAI-4);
-			cgc::bigint index = 0;
+			mycp::bigint index = 0;
 			try
 			{
 				index = cgc_atoi64(sTemp.c_str());
@@ -1020,3 +1026,5 @@ bool ParseCgcSotp2::sotpCompare(const char * pBuffer, const char * pCompare, int
 	}
 	return true;
 }
+
+}	// namespace mycp

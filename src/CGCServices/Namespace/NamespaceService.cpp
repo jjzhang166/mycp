@@ -39,7 +39,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 // cgc head
 #include <CGCBase/app.h>
 #include "cgcNamespace.h"
-using namespace cgc;
+using namespace mycp;
 
 #if (USES_NAMESPACE)
 #include <bodb/bodb2.h>

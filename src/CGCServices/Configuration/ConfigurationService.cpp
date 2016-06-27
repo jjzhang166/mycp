@@ -39,7 +39,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 // cgc head
 #include <CGCBase/app.h>
 #include "cgcConfiguration.h"
-using namespace cgc;
+using namespace mycp;
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>

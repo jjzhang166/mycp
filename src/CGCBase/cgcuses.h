@@ -20,7 +20,7 @@
 #ifndef __cgcuses_head__
 #define __cgcuses_head__
 
-namespace cgc{
+namespace mycp {
 
 	// Use jrtp library.
 #define USES_RTP		0		// [0,1]

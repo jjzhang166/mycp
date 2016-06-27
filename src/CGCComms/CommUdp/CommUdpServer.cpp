@@ -61,7 +61,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <ThirdParty/stl/lockmap.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/UdpSocket.h>
-using namespace cgc;
+using namespace mycp;
 
 #include "../CgcRemoteInfo.h"
 

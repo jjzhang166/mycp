@@ -490,7 +490,7 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 				var_value = m_pageParameters->getProperty(CSP_SYS_VAR_REMOTEIP);
 				if (var_value.get() == NULL)
 				{
-					var_value = CGC_VALUEINFOA((cgc::bigint)request->getIpAddress(), cgcValueInfo::ATTRIBUTE_READONLY);
+					var_value = CGC_VALUEINFOA((mycp::bigint)request->getIpAddress(), cgcValueInfo::ATTRIBUTE_READONLY);
 					m_pageParameters->setProperty(CSP_SYS_VAR_REMOTEIP, var_value);
 				}
 			}else if (string == CSP_SYS_VAR_REMOTEADDR)
@@ -586,7 +586,7 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 				var_value = m_pageParameters->getProperty(CSP_SYS_VAR_SESSIONCREATIONTIME);
 				if (var_value.get() == NULL)
 				{
-					var_value = CGC_VALUEINFOA((cgc::bigint)request->getSession()->getCreationTime(), cgcValueInfo::ATTRIBUTE_READONLY);
+					var_value = CGC_VALUEINFOA((mycp::bigint)request->getSession()->getCreationTime(), cgcValueInfo::ATTRIBUTE_READONLY);
 					m_pageParameters->setProperty(CSP_SYS_VAR_SESSIONCREATIONTIME, var_value);
 				}
 			}else if (string == CSP_SYS_VAR_SESSIONLASTACCESSED)
@@ -594,7 +594,7 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 				var_value = m_pageParameters->getProperty(CSP_SYS_VAR_SESSIONLASTACCESSED);
 				if (var_value.get() == NULL)
 				{
-					var_value = CGC_VALUEINFOA((cgc::bigint)request->getSession()->getLastAccessedtime(), cgcValueInfo::ATTRIBUTE_READONLY);
+					var_value = CGC_VALUEINFOA((mycp::bigint)request->getSession()->getLastAccessedtime(), cgcValueInfo::ATTRIBUTE_READONLY);
 					m_pageParameters->setProperty(CSP_SYS_VAR_SESSIONLASTACCESSED, var_value);
 				}
 			}else if (string == CSP_SYS_VAR_UPLOADFILES)
@@ -1381,7 +1381,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_sql = getStringValueInfo(scriptItem->getName());
 			if (var_sql.get() == NULL) return -1;
 
-			const cgc::bigint ret = cdbcService->execute(var_sql->getStr().c_str());
+			const mycp::bigint ret = cdbcService->execute(var_sql->getStr().c_str());
 			if (!scriptItem->getValue().empty())
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1407,7 +1407,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			if (var_sql.get() == NULL) return -1;
 
 			int cdbcCookie = 0;
-			const cgc::bigint ret = cdbcService->select(var_sql->getStr().c_str(), cdbcCookie);
+			const mycp::bigint ret = cdbcService->select(var_sql->getStr().c_str(), cdbcCookie);
 			m_pageParameters->delProperty(CSP_TEMP_VAR_RESULT);
 			m_pageParameters->setProperty(CSP_TEMP_VAR_RESULT, CGC_VALUEINFO(ret));
 			m_pageParameters->delProperty(scriptItem->getValue());
@@ -1549,7 +1549,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
-			const cgc::bigint size = cdbcService->size(var_cdbccookie->getInt());
+			const mycp::bigint size = cdbcService->size(var_cdbccookie->getInt());
 			if (!scriptItem->getValue().empty())
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1571,7 +1571,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
-			const cgc::bigint index = cdbcService->index(var_cdbccookie->getInt());
+			const mycp::bigint index = cdbcService->index(var_cdbccookie->getInt());
 			if (!scriptItem->getValue().empty())
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1947,7 +1947,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 						cgcUploadFile::pointer uploadFile = uploadFiles->m_files[getIndex];
 						m_pageParameters->setProperty(CSP_TEMP_VAR_FILENAME, CGC_VALUEINFO(uploadFile->getFileName()));
 						m_pageParameters->setProperty(CSP_TEMP_VAR_FILEPATH, CGC_VALUEINFO(uploadFile->getFilePath()));
-						m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO((cgc::bigint)uploadFile->getFileSize()));
+						m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO((mycp::bigint)uploadFile->getFileSize()));
 						m_pageParameters->setProperty(CSP_TEMP_VAR_FILETYPE, CGC_VALUEINFO(uploadFile->getFileName()));
 					}
 				}
@@ -2116,7 +2116,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 					cgcUploadFile::pointer uploadFile = uploadFiles->m_files[forIndex];
 					m_pageParameters->setProperty(CSP_TEMP_VAR_FILENAME, CGC_VALUEINFO(uploadFile->getFileName()));
 					m_pageParameters->setProperty(CSP_TEMP_VAR_FILEPATH, CGC_VALUEINFO(uploadFile->getFilePath()));
-					m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO((cgc::bigint)uploadFile->getFileSize()));
+					m_pageParameters->setProperty(CSP_TEMP_VAR_FILESIZE, CGC_VALUEINFO((mycp::bigint)uploadFile->getFileSize()));
 					m_pageParameters->setProperty(CSP_TEMP_VAR_FILETYPE, CGC_VALUEINFO(uploadFile->getContentType()));
 				}else
 				{

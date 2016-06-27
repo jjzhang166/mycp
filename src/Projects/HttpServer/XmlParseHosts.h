@@ -30,6 +30,8 @@ using boost::property_tree::ptree;
 
 #include "VirtualHost.h"
 
+namespace mycp {
+
 class XmlParseHosts
 {
 public:
@@ -117,7 +119,8 @@ private:
 
 	CLockMap<tstring, CVirtualHost::pointer> m_virtualHost;
 	CLockMap<tstring, CFastcgiInfo::pointer> m_pFastcgiList;
-
 };
+
+} // namespace mycp
 
 #endif // __XmlParseHosts_h__

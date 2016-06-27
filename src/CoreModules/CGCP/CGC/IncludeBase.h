@@ -72,6 +72,6 @@ typedef std::pair<unsigned int, boost::thread*> BThreadUIntMapPair;
 //
 
 
-using namespace cgc;
+using namespace mycp;
 
 #endif

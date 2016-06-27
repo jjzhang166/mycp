@@ -23,7 +23,6 @@
 //
 // include
 #include "CgcBaseClient.h"
-using namespace cgc;
 
 namespace mycp {
 

@@ -25,7 +25,7 @@
 #include "cgcHttpResponse.h"
 #include "cgccdbcs.h"
 
-namespace cgc{
+namespace mycp {
 
 class cgcCDBCService;
 typedef boost::shared_ptr<cgcCDBCService> cgcCDBCServicePointer;
@@ -48,6 +48,6 @@ public:
 
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __cgcservices_head__

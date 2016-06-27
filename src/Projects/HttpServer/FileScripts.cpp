@@ -25,6 +25,8 @@
 #include "FileScripts.h"
 #include "pstr.h"
 
+namespace mycp {
+
 void string_replace(std::string & strBig, const std::string & strsrc, const std::string &strdst)
 {
 	std::string::size_type pos=0;
@@ -2856,3 +2858,4 @@ bool CFileScripts::strGetValue(const char * pBuffer, char * outBuffer, int & lef
 	return result;
 }
 
+} // namespace mycp

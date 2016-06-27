@@ -27,8 +27,7 @@
 #include "../CGCBase/cgcParserSotp.h"
 #include "SotpCallTable2.h"
 
-namespace cgc
-{
+namespace mycp {
 
 class CPPSotp2
 	: public cgcParserSotp
@@ -148,7 +147,7 @@ public:
 
 	// for attachment
 	virtual void setResAttachName(const tstring & name);
-	virtual void setResAttachInfo(cgc::bigint total, cgc::bigint index);
+	virtual void setResAttachInfo(bigint total, bigint index);
 	virtual void setResAttachData(const unsigned char * attachData, unsigned int attachSize);
 	virtual void setResAttachData2(unsigned char * attachData, unsigned int attachSize);
 	virtual void setResAttach(const cgcAttachment::pointer& pAttach);
@@ -161,6 +160,6 @@ public:
 
 };
 
-} // cgc namespace
+} // namespace mycp
 
 #endif // __ppSotp2_h__
