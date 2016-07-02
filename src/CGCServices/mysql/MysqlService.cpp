@@ -282,6 +282,7 @@ public:
 		//: m_mysql(NULL)
 		: m_tLastTime(0)
 		, m_nLastErrorCode(0), m_tLastErrorTime(0)
+		, m_nDbPort(0)
 
 	{}
 	virtual ~CMysqlCdbc(void)
@@ -313,6 +314,8 @@ public:
 		//m_driver = NULL;
 		m_cdbcInfo.reset();
 		m_bServiceInited = false;
+		m_sDbHost.clear();
+		m_nDbPort = 0;
 	}
 private:
 	virtual tstring serviceName(void) const {return _T("MYSQLCDBC");}
@@ -358,18 +361,18 @@ private:
 			unsigned short nMin = m_cdbcInfo->getMinSize();
 			unsigned short nMax = m_cdbcInfo->getMaxSize();
 
-			int nPort = 3306;
-			tstring sHost = m_cdbcInfo->getHost();
+			m_nDbPort = 3306;
+			const tstring& sHost = m_cdbcInfo->getHost();
 			//printf("**** open mysql host=%s\n",sHost.c_str());
 			const std::string::size_type find = sHost.find(":");
 			if (find != std::string::npos)
 			{
-				nPort = atoi(sHost.substr(find+1).c_str());	// **必须放前面
-				sHost = sHost.substr(0,find);	// ip:port, remove *:port
+				m_nDbPort = atoi(sHost.substr(find+1).c_str());	// **必须放前面
+				m_sDbHost = sHost.substr(0,find);	// ip:port, remove *:port
 			}
 			//printf("**** open mysql host=%s:%d,account=%s,pwd=%s\n",sHost.c_str(),nPort,m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str());
 			if (m_mysqlPool.PoolInit(nMin,nMax,
-				sHost.c_str(), nPort,
+				m_sDbHost.c_str(), m_nDbPort,
 				m_cdbcInfo->getAccount().c_str(),
 				m_cdbcInfo->getSecure().c_str(),
 				m_cdbcInfo->getDatabase().c_str(),
@@ -435,6 +438,47 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
+#ifdef WIN32
+	bool ExecDosCmd(const char* sAppName,const char* sCommandLine)
+	{
+		TCHAR               CommandLine[1024*10]   = {0};
+		GetSystemDirectory(CommandLine, MAX_PATH);
+		strcat_s(CommandLine, MAX_PATH, _T("\\cmd.exe /c "));  
+		strcat_s(CommandLine, 8*1024, sCommandLine);  
+		STARTUPINFO si;  
+		PROCESS_INFORMATION pi;
+		memset(&si,0,sizeof(STARTUPINFO));
+		memset(&pi,0,sizeof(PROCESS_INFORMATION));
+		si.cb = sizeof(STARTUPINFO);  
+		GetStartupInfo(&si);   
+		si.wShowWindow = SW_HIDE;  
+		si.dwFlags = STARTF_USESHOWWINDOW;  
+		if (!CreateProcess(sAppName, CommandLine,NULL,NULL,TRUE,NULL,NULL,NULL,&si,&pi))
+		{
+			return false;
+		}
+		WaitForSingleObject(pi.hProcess,INFINITE);
+		//while (theApplication->isInited())
+		return true;
+	}
+#endif
+	virtual bool backup_database(const char * sBackupTo, const char* sProgram)
+	{
+		if (!isServiceInited() || sProgram==NULL || sBackupTo==NULL) return false;
+		if (!open()) return false;
+
+		char lpszCommand[512];
+		// mysqldump.exe -hhostname -uusername -ppassword databasename > backupfile.sql
+		// mysqldump.exe -uroot -E -R  entboost > entboost.sql
+#ifdef WIN32
+		sprintf(lpszCommand,"set mysql_service_test=test&\"%s\" -h%s -P%d -u%s -p%s -E -R %s > \"%s\"",sProgram,m_sDbHost.c_str(),m_nDbPort,m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str(),m_cdbcInfo->getDatabase().c_str(),sBackupTo);
+		return ExecDosCmd(NULL,lpszCommand);
+#else
+		sprintf(lpszCommand,"\"%s\" -h%s -P%d -u%s -p%s -E -R %s > \"%s\"",sProgram,m_sDbHost.c_str(),m_nDbPort,m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getSecure().c_str(),m_cdbcInfo->getDatabase().c_str(),sBackupTo);
+		system(lpszCommand);
+		return true;
+#endif
+	}
 	virtual mycp::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;
@@ -1177,6 +1221,8 @@ private:
 	time_t m_tLastTime;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;
 	cgcCDBCInfo::pointer m_cdbcInfo;
+	tstring m_sDbHost;
+	int m_nDbPort;
 };
 
 const int ATTRIBUTE_NAME = 1;

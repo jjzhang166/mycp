@@ -2416,7 +2416,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestI
 		if (pModuleItem->getType() == MODULE_SERVER && pModuleItem->getAllowAll() && !pModuleItem->getParam().empty())
 			methodName = pModuleItem->getParam();
 
-		m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s.%s.%s'\n"), sSessionId.c_str(),requestImpl->getRestVersion().c_str(),pModuleItem->getName().c_str(), methodName.c_str());
+		//m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s.%s.%s'\n"), sSessionId.c_str(),requestImpl->getRestVersion().c_str(),pModuleItem->getName().c_str(), methodName.c_str());
+		bool bDisableLogApi = false;
 
 		///////////// app call /////////////////
 		boost::mutex::scoped_lock * lockWait = NULL;
@@ -2433,6 +2434,10 @@ HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestI
 		}else
 		{
 			pModuleImpl = (CModuleImpl*)applicationImpl.get();
+
+			bDisableLogApi = pModuleImpl->m_moduleParams.isDisableLogApi(methodName);
+			if (!bDisableLogApi)
+				m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' call '%s.%s.%s'\n"), sSessionId.c_str(),requestImpl->getRestVersion().c_str(),pModuleItem->getName().c_str(), methodName.c_str());
 
 /*			// lock state
 			if (pModuleItem->getLockState() == ModuleItem::LS_WAIT)
@@ -2476,7 +2481,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestI
 				m_logModuleImpl.log(LOG_ERROR, _T("exception, sessionid=\'%s\', callname=\'%s\', lasterror=0x%x\n"), sSessionId.c_str(), methodName.c_str(), GetLastError());
 				statusCode = STATUS_CODE_500;
 			}
-			m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' returnCode '%d'\n"), sSessionId.c_str(), statusCode);
+			if (!bDisableLogApi)
+				m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' returnCode '%d'\n"), sSessionId.c_str(), statusCode);
 
 			// callref
 			//if (pModuleImpl)

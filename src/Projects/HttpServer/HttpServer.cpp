@@ -364,8 +364,15 @@ public:
 	bool GetParsedHead(void) const {return m_bParsedHead;}
 	void SetResponsePaddingLength(int nPaddingLength) {m_nResponsePaddingLength = nPaddingLength;}
 	int GetResponsePaddingLength(void) const {return m_nResponsePaddingLength;}
-	void SetLastPaddingData(const std::string& sData) {m_sLastPaddingData = sData;}
-	const std::string GetLastPaddingData(void) const {return m_sLastPaddingData;}
+	//void SetLastPaddingData(const std::string& sData) {m_sLastPaddingData = sData;}
+	//const std::string& GetLastPaddingData(void) const {return m_sLastPaddingData;}
+	void SetLastData(const std::string& sData) {m_sLastData = sData;}
+	//void AddLastData(const std::string& sData) {m_sLastData.append(sData);}
+	void AddLastData(const char* sData, size_t nSize) {m_sLastData.append(sData, nSize);}
+	const std::string& GetLastData(void) const {return m_sLastData;}
+	void ClearLastData(void) {m_sLastData.clear();}
+	void SetPrevPaddingLen(int v) {m_nPrevPaddingLen = v;}
+	int GetPrevPaddingLen(void) const {return m_nPrevPaddingLen;}
 
 	void SendData(const mycp::httpserver::CgcTcpClient::pointer& pFastCgiServer, const unsigned char* pData, size_t nSize, bool bForceSend=false)
 	{
@@ -399,6 +406,7 @@ public:
 	//	, m_nResponsePaddingLength(0)
 	{
 		m_tRequestTime = time(0);
+		m_nPrevPaddingLen = 0;
 		m_lpszBuffer = new unsigned char[DEFAULT_SEND_BUFFER_SIZE+1];
 		m_lpszSendBuffer = new unsigned char[DEFAULT_SEND_BUFFER_SIZE+1];
 		m_bSendBufferSize = 0;
@@ -424,7 +432,9 @@ private:
 	REQUEST_INFO_STATE m_nResponseState;
 	bool m_bResponseError;
 	int m_nResponsePaddingLength;
-	std::string m_sLastPaddingData;
+	std::string m_sLastData;
+	int m_nPrevPaddingLen;
+	//std::string m_sLastPaddingData;
 	unsigned char* m_lpszBuffer;
 	unsigned char* m_lpszSendBuffer;
 	size_t m_bSendBufferSize;
@@ -784,25 +794,80 @@ public:
 		{
 			//const std::string s(pData,30);
 			//printf("******** s=%d\n",s.c_str());
+			const int nPrevPaddingLen = pFastcgiRequestInfo->GetPrevPaddingLen();
 			if ((int)nSize>=nWaitPaddingSize)
 			{
 				pFastcgiRequestInfo->response()->writeData(pData,nWaitPaddingSize);
 				pFastcgiRequestInfo->SetResponsePaddingLength(0);
-				ParseFastcgi(pFastcgiRequestInfo,pData+nWaitPaddingSize,nSize-nWaitPaddingSize,nUserData);
+				if (nPrevPaddingLen>0)
+				{
+					//printf("******** AAAAAAAAA WaitSize=%d,nPrevPaddingLen=%d\n", nWaitPaddingSize, nPrevPaddingLen);
+					pFastcgiRequestInfo->SetPrevPaddingLen(0);
+					ParseFastcgi(pFastcgiRequestInfo,pData+nWaitPaddingSize+nPrevPaddingLen,nSize-nWaitPaddingSize-nPrevPaddingLen,nUserData);
+				}else
+				{
+					ParseFastcgi(pFastcgiRequestInfo,pData+nWaitPaddingSize,nSize-nWaitPaddingSize,nUserData);
+				}
 			}else
 			{
 				//printf("******** WaitSize=%d,%d\n", nWaitPaddingSize, nWaitPaddingSize-nSize);
+				//if (pFastcgiRequestInfo->GetPrevPaddingLen()>0)
+				//{
+				//	printf("******** BBBBBBBBBBBBBB WaitSize=%d,nPrevPaddingLen=%d\n", nWaitPaddingSize, pFastcgiRequestInfo->GetPrevPaddingLen());
+				//}
 				pFastcgiRequestInfo->response()->writeData(pData,nSize);
 				pFastcgiRequestInfo->SetResponsePaddingLength(nWaitPaddingSize-nSize);
 			}
 			return;
 		}
-		if (nSize<FCGI_HEADER_LEN) return;
+		if (nSize<FCGI_HEADER_LEN)
+		{
+			if (pData!=NULL && nSize>0)
+			{
+				//CGC_LOG((mycp::LOG_TRACE, "********* UserData=%d,LastDataSize=%d\n", nUserData,nSize));
+				//pFastcgiRequestInfo->SetLastData(std::string(pData,nSize));
+				//return;
+				pFastcgiRequestInfo->AddLastData(pData,nSize);
+				const std::string& sLastData = pFastcgiRequestInfo->GetLastData();
+				if (sLastData.size()<FCGI_HEADER_LEN)
+					return;
+			}else
+			{
+				return;
+			}
+		}
 		const int nTcpRequestId = nUserData;
 		FCGI_Header header;
-		memcpy(&header,pData,FCGI_HEADER_LEN);
+		const std::string& sLastData = pFastcgiRequestInfo->GetLastData();
+		const int nLastDataSize = (int)sLastData.size();
+		if (nLastDataSize==0)
+		{
+			memcpy(&header,pData,FCGI_HEADER_LEN);
+		}else
+		{
+			if (nLastDataSize>=FCGI_HEADER_LEN)
+			{
+				//pFastcgiRequestInfo->ClearLastData();
+				//return;	// *
+				memcpy(&header,sLastData.c_str(),FCGI_HEADER_LEN);
+				if (nLastDataSize>FCGI_HEADER_LEN)
+				{
+					const std::string sLastDataTemp(sLastData.substr(FCGI_HEADER_LEN));
+					pFastcgiRequestInfo->response()->writeData(sLastDataTemp.c_str(), sLastDataTemp.size());
+				}
+			}else
+			{
+				char lpszBuf[FCGI_HEADER_LEN+1];
+				memcpy(lpszBuf,sLastData.c_str(),nLastDataSize);
+				memcpy(lpszBuf+nLastDataSize,pData,FCGI_HEADER_LEN-nLastDataSize);
+				memcpy(&header,lpszBuf,FCGI_HEADER_LEN);
+			}
+			//CGC_LOG((mycp::LOG_TRACE, "********* UserData=%d,LastDataSize=%d process ok\n", nUserData,nLastDataSize));
+		}
 
 		if(header.version != FCGI_VERSION_1) {
+			pFastcgiRequestInfo->SetPrevPaddingLen(0);
+			pFastcgiRequestInfo->ClearLastData();
 			return ;//FCGX_UNSUPPORTED_VERSION;
 		}
 		const int nRequestId = (header.requestIdB1 << 8) + header.requestIdB0;
@@ -813,6 +878,24 @@ public:
 		CGC_LOG((mycp::LOG_TRACE, "RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n", nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen));
 		//printf("******** RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen);
 		//pFastcgiRequestInfo->SetResponsePaddingLength(nPaddingLen);
+		if (nLastDataSize>0)
+		{
+			pFastcgiRequestInfo->SetPrevPaddingLen(nPaddingLen);
+			pFastcgiRequestInfo->ClearLastData();
+			if (nLastDataSize>FCGI_HEADER_LEN)
+			{
+				pFastcgiRequestInfo->SetResponsePaddingLength(nContentLen-(nLastDataSize-FCGI_HEADER_LEN));
+				ParseFastcgi(pFastcgiRequestInfo,pData,nSize,nUserData);
+			}else
+			{
+				pFastcgiRequestInfo->SetResponsePaddingLength(nContentLen);
+				ParseFastcgi(pFastcgiRequestInfo,pData+(FCGI_HEADER_LEN-nLastDataSize),nSize-(FCGI_HEADER_LEN-nLastDataSize),nUserData);
+			}
+			return;
+		}else if (pFastcgiRequestInfo->GetPrevPaddingLen()>0)
+		{
+			pFastcgiRequestInfo->SetPrevPaddingLen(0);
+		}
 
 		try
 		{
@@ -825,9 +908,11 @@ public:
 				//const char * findSearch = NULL;
 				if (pFastcgiRequestInfo->GetParsedHead())
 				{
-					CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 					if (nBodyLength>0)
+					{
+						CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 						pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
+					}
 				}else
 				{
 					pFastcgiRequestInfo->SetParsedHead(true);
@@ -901,7 +986,9 @@ public:
 				}
 			}else if (header.type == FCGI_STDERR)
 			{
-				pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nContentLen);
+				const int nBodyLength = min(nContentLen,(int)nSize-FCGI_HEADER_LEN);
+				pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nBodyLength);
+				//pFastcgiRequestInfo->response()->writeData((const char*)(pData+FCGI_HEADER_LEN),nContentLen);
 				//CGC_LOG((mycp::LOG_ERROR, "RequestId=%d FCGI_STDERR:%s\n", nRequestId, std::string(pData+FCGI_HEADER_LEN,nContentLen).c_str()));
 				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST,false);
 				return;

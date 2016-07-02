@@ -88,6 +88,7 @@ public:
 	cgcParameterMap::pointer getParameters(void) const {return m_parameters;}
 	void clearParameters(void) {m_parameters->clear();}
 	bool isDisableLogSign(int nSign) const {return m_pDisableLogSignList.exist(nSign,false);}
+	bool isDisableLogApi(const tstring& sApi) const {return m_pDisableLogApiList.exist(sApi,false);}
 
 	long getMajorVersion(void) const {return m_nMajorVersion;}
 	long getMinorVersion(void) const {return m_nMinorVersion;}
@@ -166,6 +167,8 @@ private:
 
 			const std::string sDisableSigns = v.second.get("disable_log_signs", "");
 			ParseString(sDisableSigns.c_str(),",",m_pDisableLogSignList);
+			const std::string sDisableApis = v.second.get("disable_log_apis", "");
+			ParseString(sDisableApis.c_str(),",",m_pDisableLogApiList);
 		}else if (v.first.compare("version") == 0)
 		{
 			m_nMajorVersion = v.second.get("Major", 0);
@@ -195,6 +198,7 @@ private:
 	}
 	static void ParseString(const char * lpszString, const char * lpszInterval, CLockMap<int,bool> & pOut)
 	{
+		if (lpszString==NULL || strlen(lpszString)==0) return;
 		const tstring sIn(lpszString);
 		const size_t nInLen = sIn.size();
 		const size_t nIntervalLen = strlen(lpszInterval);
@@ -218,6 +222,32 @@ private:
 			nFindBegin = find+nIntervalLen;
 		}
 	}
+	static void ParseString(const char * lpszString, const char * lpszInterval, CLockMap<tstring,bool> & pOut)
+	{
+		if (lpszString==NULL || strlen(lpszString)==0) return;
+		const tstring sIn(lpszString);
+		const size_t nInLen = sIn.size();
+		const size_t nIntervalLen = strlen(lpszInterval);
+		pOut.clear();
+		std::string::size_type nFindBegin = 0;
+		while (nFindBegin<nInLen)
+		{
+			std::string::size_type find = sIn.find(lpszInterval,nFindBegin);
+			if (find == std::string::npos)
+			{
+				pOut.insert(sIn.substr(nFindBegin),true,false);
+				break;
+			}
+			if (find==nFindBegin)
+			{
+				//pOut.push_back("");	// Пе
+			}else
+			{
+				pOut.insert(sIn.substr(nFindBegin, (find-nFindBegin)),true,false);
+			}
+			nFindBegin = find+nIntervalLen;
+		}
+	}
 private:
 	long m_nMajorVersion;
 	long m_nMinorVersion;
@@ -232,7 +262,8 @@ private:
 	tstring m_sLocale;	// default "chs"
 
 	cgcParameterMap::pointer m_parameters;
-	CLockMap<int,bool> m_pDisableLogSignList;
+	CLockMap<int,bool> m_pDisableLogSignList;	// for sign
+	CLockMap<tstring,bool> m_pDisableLogApiList;	// for api name
 	// for sync
 	//CSyncInfo::pointer m_pSyncInfo;
 	bool m_bEnableSync;

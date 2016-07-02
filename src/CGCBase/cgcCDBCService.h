@@ -75,6 +75,9 @@ public:
 	virtual bool trans_rollback(int nTransaction) {return false;}
 	virtual mycp::bigint trans_commit(int nTransaction) {return 0;}
 
+	virtual bool backup_database(const char * sBackupTo, const char* sProgram) {return false;}
+	virtual bool restore_database(const char * sRestoreFrom, const char* sProgram) {return false;}
+
 	// * old version
 	virtual bool auto_commit(bool autocommit) {return false;}
 	virtual bool commit(void) {return false;}

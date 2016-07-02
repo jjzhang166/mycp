@@ -19,7 +19,7 @@
 #define USES_SQLITECDBC		1		// [0,1]
 
 #ifdef WIN32
-#pragma warning(disable:4267)
+#pragma warning(disable:4267 4311)
 #include <winsock2.h>
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -272,7 +272,11 @@ private:
 				const tstring& sConnection = m_cdbcInfo->getConnection();
 				if (!sConnection.empty() && sConnection.find(sDatabase)!=std::string::npos)
 				{
+#ifdef WIN32
+					sDatabase = convert(sConnection.c_str(), CP_ACP, CP_UTF8);
+#else
 					sDatabase = sConnection;
+#endif
 				}else
 				{
 #ifdef WIN32
@@ -283,14 +287,6 @@ private:
 #endif
 					sDatabase.append(m_cdbcInfo->getDatabase());
 				}
-				//FILE * f = fopen(sDatabase.c_str(),"r");
-				//if (f==NULL)
-				//{
-				//	f = fopen(sDatabase.c_str(),"r+b");	// create database
-				//	if (f==NULL)
-				//		return false;
-				//}
-				//fclose(f);
 			}
 			//sqlite3_initialize()
 			//sqlite3_config(SQLITE_CONFIG_SERIALIZED)
@@ -331,6 +327,59 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
+	virtual bool backup_database(const char * sBackupTo, const char* sProgram)
+	{
+		if (!isServiceInited() || sProgram==NULL || sBackupTo==NULL) return false;
+		if (!open()) return false;
+
+		bool ret = false;
+		int rc;                   /* Function return code */
+		sqlite3 *pFile = NULL;    /* Database connection opened on zFilename */
+		sqlite3_backup *pBackup;  /* Backup object used to copy data */
+		sqlite3 *pTo;             /* Database to copy to (pFile or pInMemory) */
+		sqlite3 *pFrom;           /* Database to copy from (pFile or pInMemory) */
+		/* Open the database file identified by zFilename. Exit early if this fails
+		** for any reason. */
+#ifdef WIN32
+		const std::string sBackupToTemp = convert(sBackupTo, CP_ACP, CP_UTF8);
+		rc = sqlite3_open(sBackupToTemp.c_str(), &pFile);
+#else
+		rc = sqlite3_open(sBackupTo, &pFile);
+#endif
+		if( rc==SQLITE_OK ){
+			/* If this is a 'load' operation (isSave==0), then data is copied
+			** from the database file just opened to database pInMemory. 
+			** Otherwise, if this is a 'save' operation (isSave==1), then data
+			** is copied from pInMemory to pFile.  Set the variables pFrom and
+			** pTo accordingly. */
+			pFrom = m_pSqlite;
+			pTo   = pFile;
+			/* Set up the backup procedure to copy from the "main" database of 
+			** connection pFile to the main database of connection pInMemory.
+			** If something goes wrong, pBackup will be set to NULL and an error
+			** code and  message left in connection pTo.
+			**
+			** If the backup object is successfully created, call backup_step()
+			** to copy data from pFile to pInMemory. Then call backup_finish()
+			** to release resources associated with the pBackup object.  If an
+			** error occurred, then  an error code and message will be left in
+			** connection pTo. If no error occurred, then the error code belonging
+			** to pTo is set to SQLITE_OK.
+			*/
+			//boost::mutex::scoped_lock lock(m_mutex);
+			pBackup = sqlite3_backup_init(pTo, "main", pFrom, "main");
+			if ( pBackup ){
+				(void)sqlite3_backup_step(pBackup, -1);
+				(void)sqlite3_backup_finish(pBackup);
+				rc = sqlite3_errcode(pTo);
+				ret = rc==SQLITE_OK?true:false;
+			}
+		}
+		/* Close the database connection opened on database file zFilename
+		** and return the result of this function. */
+		(void)sqlite3_close(pFile);
+		return ret;
+	}
 	//static int sqlite_callback(
 	//	void* pv,    /* 由 sqlite3_exec() 的第四个参数传递而来 */
 	//	int argc,        /* 表的列数 */

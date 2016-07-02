@@ -268,6 +268,10 @@ private:
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
 
+	virtual bool backup_database(const char * sBackupTo, const char* sProgram)
+	{
+		return false;
+	}
 	virtual mycp::bigint execute(const char * exeSql, int nTransaction)
 	{
 		if (exeSql == NULL || !isServiceInited()) return -1;

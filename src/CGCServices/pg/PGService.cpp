@@ -230,6 +230,7 @@ public:
 	CPgCdbc(int nIndex)
 		: m_nIndex(nIndex), m_isopen(false)
 		, m_tLastTime(0)
+		, m_nDbPort(0)
 	{}
 	virtual ~CPgCdbc(void)
 	{
@@ -248,6 +249,8 @@ public:
 		close();
 		m_cdbcInfo.reset();
 		m_bServiceInited = false;
+		m_sDbHost.clear();
+		m_nDbPort = 0;
 	}
 private:
 	virtual tstring serviceName(void) const {return _T("PGCDBC");}
@@ -309,19 +312,19 @@ private:
 
 		try
 		{
-			tstring sHost = m_cdbcInfo->getHost();
+			const tstring sHost = m_cdbcInfo->getHost();
 			std::string::size_type find = sHost.find(_T(":"));
 			if (find == std::string::npos)
 				return false;
-			tstring sDbHost = sHost.substr(0, find);
-			int nDbPort = atoi(sHost.substr(find+1).c_str());
-			unsigned short nMin = m_cdbcInfo->getMinSize();
-			unsigned short nMax = m_cdbcInfo->getMaxSize();
+			m_sDbHost = sHost.substr(0, find);
+			m_nDbPort = atoi(sHost.substr(find+1).c_str());
+			const unsigned short nMin = m_cdbcInfo->getMinSize();
+			const unsigned short nMax = m_cdbcInfo->getMaxSize();
 
-			int ret = sink_pool_init(POSTSINK,
+			const int ret = sink_pool_init(POSTSINK,
 				nMin, nMax,
-				sDbHost.c_str(),
-				nDbPort,
+				m_sDbHost.c_str(),
+				m_nDbPort,
 				0,
 				m_cdbcInfo->getDatabase().c_str(),
 				m_cdbcInfo->getAccount().c_str(),
@@ -366,6 +369,49 @@ private:
 		return m_isopen;
 	}
 	virtual time_t lasttime(void) const {return m_tLastTime;}
+
+#ifdef WIN32
+	bool ExecDosCmd(const char* sAppName,const char* sCommandLine)
+	{
+		TCHAR               CommandLine[1024*10]   = {0};
+		GetSystemDirectory(CommandLine, MAX_PATH);
+		strcat_s(CommandLine, MAX_PATH, _T("\\cmd.exe /c "));  
+		strcat_s(CommandLine, 8*1024, sCommandLine);  
+
+		STARTUPINFO si;  
+		PROCESS_INFORMATION pi;
+		memset(&si,0,sizeof(STARTUPINFO));
+		memset(&pi,0,sizeof(PROCESS_INFORMATION));
+		si.cb = sizeof(STARTUPINFO);  
+		GetStartupInfo(&si);   
+		si.wShowWindow = SW_HIDE;  
+		si.dwFlags = STARTF_USESHOWWINDOW;  
+		if (!CreateProcess(sAppName, CommandLine,NULL,NULL,TRUE,NULL,NULL,NULL,&si,&pi))
+		{
+			return false;
+		}
+		WaitForSingleObject(pi.hProcess,INFINITE);
+		return true;
+	}
+#endif
+	virtual bool backup_database(const char * sBackupTo, const char* sProgram)
+	{
+		if (!isServiceInited() || sProgram==NULL || sBackupTo==NULL) return false;
+		if (!open()) return false;
+
+		char lpszCommand[512];
+#ifdef WIN32
+		// pg_dump.exe -D -h localhost -p port -U user mydb >  mydb.bak
+		sprintf(lpszCommand,"set PGPASSWORD=%s&\"%s\" -h %s -p %d -U %s --blobs %s > \"%s\"",m_cdbcInfo->getSecure().c_str(),sProgram,
+			m_sDbHost.c_str(),m_nDbPort,m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getDatabase().c_str(),sBackupTo);
+		return ExecDosCmd(NULL,lpszCommand);
+#else
+		sprintf(lpszCommand,"export PGPASSWORD=%s ; \"%s\" -h %s -p %d -U %s --blobs %s > \"%s\"",m_cdbcInfo->getSecure().c_str(),sProgram,
+			m_sDbHost.c_str(),m_nDbPort,m_cdbcInfo->getAccount().c_str(),m_cdbcInfo->getDatabase().c_str(),sBackupTo);
+		system(lpszCommand);
+		return true;
+#endif
+	}
 
 	virtual mycp::bigint execute(const char * exeSql, int nTransaction)
 	{
@@ -670,6 +716,8 @@ private:
 	time_t m_tLastTime;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;
 	cgcCDBCInfo::pointer m_cdbcInfo;
+	tstring m_sDbHost;
+	int m_nDbPort;
 };
 
 const int ATTRIBUTE_NAME = 1;
