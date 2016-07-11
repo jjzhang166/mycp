@@ -26,6 +26,8 @@
 
 #include "TimerInfo.h"
 
+#define USES_ONE_SHOT_NEWVERSION
+
 //
 // TimerInfo class 
 TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam)
@@ -71,6 +73,10 @@ void TimerInfo::do_timer(void)
 	{
 		//
 	}
+#ifdef USES_ONE_SHOT_NEWVERSION
+	if (m_bOneShot)
+		delete this;
+#endif
 }
 
 void TimerInfo::RunTimer(void)
@@ -211,6 +217,15 @@ TimerTable::~TimerTable(void)
 bool TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam)
 {
 	if (nIDEvent <= 0 || nElapse <= 0 || handler.get() == NULL) return false;
+
+#ifdef USES_ONE_SHOT_NEWVERSION
+	if (bOneShot)
+	{
+		TimerInfo * pTimerInfo = new TimerInfo(nIDEvent, nElapse, handler, bOneShot, pvParam);
+		pTimerInfo->RunTimer();
+		return true;
+	}
+#endif
 
 	TimerInfo * pTimerInfo = m_mapTimerInfo.find(nIDEvent, false);
 	if (pTimerInfo == 0)

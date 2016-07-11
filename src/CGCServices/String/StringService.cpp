@@ -754,7 +754,7 @@ protected:
 		{
 			if (inParam.get() == NULL) return false;
 			const tstring & sInString = inParam->getStr();
-			const std::string sOutString = URLDecode(sInString.c_str());
+			const std::string sOutString = URLDecode(sInString.c_str(),true);
 			//·µ»Ø½á¹û
 			cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
 			pOutParam->totype(cgcValueInfo::TYPE_STRING);
@@ -1193,7 +1193,7 @@ protected:
 		return sOut;
 	}
 
-	std::string URLDecode(const char *sIn)
+	std::string URLDecode(const char *sIn, bool bTranPlusSign)	// '+'->' '
 	{
 		std::string sOut;
 		for( size_t ix = 0; ix < strlen(sIn); ix++ )
@@ -1205,7 +1205,7 @@ protected:
 				ch |= fromHex(sIn[ix+2]);
 				ix += 2;
 			}
-			else if(sIn[ix] == '+')
+			else if(bTranPlusSign && sIn[ix] == '+')
 			{
 				ch = ' ';
 			}
