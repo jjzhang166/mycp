@@ -79,6 +79,7 @@ public:
 		typedef boost::shared_ptr<CIndexInfo> pointer;
 		//std::string m_sSessionId;
 		tstring m_sSslPassword;
+		//int m_nAcceptEncoding;
 
 		static CIndexInfo::pointer create(void)
 		{
@@ -92,6 +93,7 @@ public:
 		//	: m_sSessionId(sSessionId), m_sSslPassword(sSslPassword)
 		//{}
 		CIndexInfo(void)
+			//: m_nAcceptEncoding(SOTP_DATA_ENCODING_UNKNOWN);
 		{}
 	};
 
@@ -139,12 +141,12 @@ protected:
 	virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach, unsigned long * pOutCallId){
 		return sendAppCall(nCallSign,sCallName,bNeedAck,pAttach,pOutCallId);}
 	virtual unsigned long doGetNextCallId(void) {return getNextCallId();}
-	virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
-		return sendAppCall2(nCallId,nCallSign,sCallName,bNeedAck,pAttach);}
+	virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment,bool bDisableZip=false){
+		return sendAppCall2(nCallId,nCallSign,sCallName,bNeedAck,pAttach,bDisableZip);}
 	virtual bool doSendSyncCall(unsigned long nCallId, const tstring& sSyncName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
 		return sendSyncCall(nCallId,sSyncName,bNeedAck,pAttach);}
-	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign=0,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment){
-		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach);}
+	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign=0,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment,bool bDisableZip=false){
+		return sendCallResult(nResult,nCallId,nCallSign,bNeedAck,pAttach,bDisableZip);}
 	virtual void doSendP2PTry(unsigned short nTryCount) {sendP2PTry(nTryCount);}
 
 	unsigned int m_nUserData;
@@ -298,9 +300,9 @@ public:
 	//int sendAppCall(unsigned long nCallSign, const tstring & sCallName, const tstring & sAppName=L"", const Attachment * pAttach = NULL, unsigned long * pCallId = 0);
 	void beginCallLock(void);	// lock
 	bool sendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pCallId = 0);
-	bool sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment);
+	bool sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment,bool bDisableZip=false);
 	bool sendSyncCall(unsigned long nCallId, const tstring& sSyncName, bool bNeedAck,const cgcAttachment::pointer& pAttach = constNullAttchment);
-	bool sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment);
+	bool sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment,bool bDisableZip=false);
 
 	//
 	// cid ptr(data)
@@ -356,6 +358,7 @@ protected:
 
 	// ssl
 	tstring m_sSslPassword;	// from mycp server
+	int m_nAcceptEncoding;
 	CRSA m_pRsaSrc;
 	int m_nUserSslInfo;		// 1=mem; 2=file
 	CIndexInfo::pointer m_pCurrentIndexInfo;

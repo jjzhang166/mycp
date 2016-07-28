@@ -54,7 +54,7 @@ public:
 	unsigned char * toAttachString(SOTP_PROTO_VERSION nVersion,const cgcAttachment::pointer& pAttach, unsigned int & pOutSize) const;
 	unsigned char * toSslDataString(SOTP_PROTO_VERSION nVersion,const unsigned char * pSslData, int nSize, unsigned int & pOutSize) const;
 	// result
-	std::string toSessionResult(SOTP_PROTO_VERSION nVersion,int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
+	std::string toSessionResult(SOTP_PROTO_VERSION nVersion,int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey, int nAcceptEncoding) const;
 	std::string toAppCallResult(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, int retCode, unsigned short seq, bool bNeedAck);
 	std::string toAppCallResultHead(SOTP_PROTO_VERSION nVersion,int retCode);
 	std::string toAppCallResultData(SOTP_PROTO_VERSION nVersion,unsigned long cid, unsigned long sign, unsigned short seq, bool bNeedAck);
@@ -123,7 +123,7 @@ protected:
 	//tstring m_sSslPrivateKey;
 	//tstring m_sSslPrivatePwd;
 	//tstring m_sSslPassword;
-
+	int m_nSetAcceptEncoding;
 private:
 	unsigned long m_nCurrentCallId;
 	unsigned short m_nCurrentSeq;

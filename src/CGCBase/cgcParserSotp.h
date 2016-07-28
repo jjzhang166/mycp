@@ -65,6 +65,7 @@ public:
 	virtual void setSslPublicKey(const tstring & newValue) = 0;
 	virtual const tstring & getSslPublicKey(void) const = 0;
 	virtual bool isSslRequest(void) const = 0;
+	virtual bool getProtoItem(int nItemType, unsigned long * pOutItemValue) const = 0;
 	
 	virtual bool isRtpCommand(void) const = 0;
 	virtual bool isRtpData(void) const = 0;
@@ -92,7 +93,7 @@ public:
 	//////////////////////////////////////////////////
 	// Response:
 	virtual void setResEncoding(const tstring & sEncoding = _T("GBK")) = 0;
-	virtual tstring getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck,const tstring& sSslPublicKey) const = 0;
+	virtual tstring getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck,const tstring& sSslPublicKey, int nAcceptEncoding) const = 0;
 	virtual tstring getAppCallResult(int retCode, unsigned short seq, bool bNeedAck) = 0;
 	virtual tstring getAppCallResultHead(int retCode) = 0;
 	virtual tstring getAppCallResultData(unsigned short seq, bool bNeedAck) = 0;

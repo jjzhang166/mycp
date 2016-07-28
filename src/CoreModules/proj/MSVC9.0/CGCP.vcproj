@@ -155,6 +155,7 @@
 				OutputFile="../../build/$(ProjectName).exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\build;..\..\..\ThirdParty\build;&quot;$(BOOST_ROOT)\stage\lib&quot;"
+				IgnoreDefaultLibraryNames="libcmt.lib"
 				ModuleDefinitionFile=""
 				GenerateDebugInformation="true"
 				SubSystem="1"

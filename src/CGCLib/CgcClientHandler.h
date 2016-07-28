@@ -60,6 +60,7 @@ enum SOTP_CLIENT_CONFIG_TYPE
 	, SOTP_CLIENT_CONFIG_PUBLIC_FILE								// const char* (set only)
 	, SOTP_CLIENT_CONFIG_PRIVATE_FILE								// const char* (set only)
 	, SOTP_CLIENT_CONFIG_PRIVATE_PWD								// const char* (set only)
+	, SOTP_CLIENT_CONFIG_ACCEPT_ENCODING						// 0x1=gzip,0x2=deflate,0x3=both
 	, SOTP_CLIENT_CONFIG_HAS_SSL_PASSWORD						// 0/1 (get only)
 	, SOTP_CLIENT_CONFIG_SOTP_VERSION					= 10	// 20,21 default 20
 	, SOTP_CLIENT_CONFIG_CURRENT_INDEX							// for sid and ssl pwd,...
@@ -100,9 +101,9 @@ public:
 	virtual void doBeginCallLock(void) = 0;
 	virtual bool doSendAppCall(unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment, unsigned long * pOutCallId = 0) = 0;
 	virtual unsigned long doGetNextCallId(void) = 0;
-	virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
+	virtual bool doSendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment,bool bDisableZip=false) = 0;
 	virtual bool doSendSyncCall(unsigned long nCallId, const tstring & sSyncName, bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
-	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment) = 0;
+	virtual bool doSendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck = true,const cgcAttachment::pointer& pAttach = constNullAttchment,bool bDisableZip=false) = 0;
 	virtual void doSendP2PTry(unsigned short nTryCount=3) = 0;
 
 	// sotp rtp

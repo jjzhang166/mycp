@@ -23,6 +23,10 @@
 //#include "../../CGCBase/cgcString.h"
 #include "SessionMgr.h"
 #include <ThirdParty/stl/aes.h>
+//#define USES_DATA_ENCODING
+#ifdef USES_DATA_ENCODING
+#include <ThirdParty/stl/zlib.h>
+#endif
 
 CSotpResponseImpl::CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const cgcParserSotp::pointer& pcgcParser, CResponseHandler * pHandler, CParserSotpHandler* pParserSotpHandler)
 : m_cgcRemote(pcgcRemote)
@@ -37,6 +41,7 @@ CSotpResponseImpl::CSotpResponseImpl(const cgcRemote::pointer& pcgcRemote, const
 {
 	BOOST_ASSERT (m_cgcRemote.get() != 0);
 	BOOST_ASSERT (m_cgcParser.get() != 0);
+	m_bDisableZip = false;
 }
 
 CSotpResponseImpl::~CSotpResponseImpl(void)
@@ -69,7 +74,7 @@ int CSotpResponseImpl::sendSessionResult(long retCode, const tstring & sSessionI
 			CSessionImpl* pSessionImpl = (CSessionImpl*)m_session.get();
 			sSslPassword = pSessionImpl->GetSslPassword();
 		}
-		const tstring responseData(m_cgcParser->getSessionResult(retCode, sSessionId, seq, true, m_sSslPublicKey));
+		const tstring responseData(m_cgcParser->getSessionResult(retCode, sSessionId, seq, true, m_sSslPublicKey, SOTP_DATA_ENCODING_GZIP|SOTP_DATA_ENCODING_DEFLATE));
 		if (m_cgcParser->isSslRequest() && !sSslPassword.empty())
 		{
 			unsigned int nAttachSize = 0;
@@ -108,7 +113,16 @@ int CSotpResponseImpl::sendSessionResult(long retCode, const tstring & sSessionI
 	{}
 	return -1;
 }
-
+//#ifdef USES_DATA_ENCODING
+//inline bool IsEnableZipAttach(const cgcAttachment::pointer& pAttach)
+//{
+//	if (pAttach.get()==NULL || pAttach->getName().size()<3) return true;
+//	const size_t nSize = pAttach->getName().size();
+//	tstring sExt(pAttach->getName().substr(nSize-3));
+//	std::transform(sExt.begin(), sExt.end(), sExt.begin(), ::tolower);
+//	return (sExt=="zip" || sExt=="rar" || sExt=="zip" || sExt.find("7z")!=std::string::npos)?false:true;
+//}
+//#endif
 int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool bNeedAck)
 {
 	if (isInvalidate() || m_cgcParser.get() == NULL)
@@ -187,21 +201,59 @@ int CSotpResponseImpl::sendAppCallResult(long retCode, unsigned long sign, bool 
 		int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
 		const int nSslSize = nDataSize;
 		nDataSize += sAppCallHead.size();
-		unsigned char * pSendData = new unsigned char[nDataSize+1];
+		unsigned char * pSendData = new unsigned char[nDataSize+70];
 		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
 		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
 		{
 			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
 		}
-		unsigned char * pSendDataTemp = new unsigned char[nDataSize+24];
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+50];
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
 		int n = 0;
+		int nEncryptSize = sAppCallData.size()+nAttachSize;
 		if (m_cgcParser->getSotpVersion()==SOTP_PROTO_VERSION_21)
-			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
-		else
+		{
+#ifdef USES_DATA_ENCODING
+			if (nEncryptSize>128 && !m_bDisableZip)//IsEnableZipAttach(m_cgcParser->getResAttachment()))
+			{
+				unsigned long nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+				m_cgcParser->getProtoItem(SOTP_PROTO_ITEM_TYPE_ACCEPT_ENCODING,&nAcceptEncoding);
+				//printf("**** nEncryptSize£½%d, nAcceptEncoding=%d\n",nEncryptSize,(int)nAcceptEncoding);
+				if ((nAcceptEncoding&SOTP_DATA_ENCODING_DEFLATE)==SOTP_DATA_ENCODING_DEFLATE)
+				{
+					uLong nZipDataSize = nDataSize+50-sAppCallHead.size();
+					const int nZipRet = ZipData(pSendData+sAppCallHead.size(),(uLong)nEncryptSize,pSendDataTemp+sAppCallHead.size(),&nZipDataSize,Z_DEFAULT_COMPRESSION,0);
+					//printf("**** ZipData nZipRet=%d,nZipDataSize=%d\n",(int)nZipRet, (int)nZipDataSize);
+					if (nZipRet==Z_OK && (int)nZipDataSize<(nEncryptSize-30))
+					{
+						memmove(pSendData+sAppCallHead.size(),pSendDataTemp+sAppCallHead.size(),nZipDataSize);
+						n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"G2%d\n",(int)nEncryptSize);		// * deflate encoding
+						nEncryptSize = nZipDataSize;
+						nDataSize = ((nZipDataSize+15)/16)*16;
+						nDataSize += sAppCallHead.size();
+					}
+				}else if ((nAcceptEncoding&SOTP_DATA_ENCODING_GZIP)==SOTP_DATA_ENCODING_GZIP)
+				{
+					uLong nZipDataSize = nDataSize+50-sAppCallHead.size();
+					const int nZipRet = GZipData(pSendData+sAppCallHead.size(),(uLong)nEncryptSize,pSendDataTemp+sAppCallHead.size(),&nZipDataSize);
+					//printf("**** GZipData nZipRet=%d,nZipDataSize=%d\n",(int)nZipRet, (int)nZipDataSize);
+					if (nZipRet==Z_OK && (int)nZipDataSize<(nEncryptSize-30))
+					{
+						memmove(pSendData+sAppCallHead.size(),pSendDataTemp+sAppCallHead.size(),nZipDataSize);
+						n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"G1%d\n",(int)nEncryptSize);		// * gzip encoding
+						nEncryptSize = nZipDataSize;
+						nDataSize = ((nZipDataSize+15)/16)*16;
+						nDataSize += sAppCallHead.size();
+					}
+				}
+			}
+#endif
+			n += sprintf((char*)(pSendDataTemp+(sAppCallHead.size()+n)),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+		}else
 			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
-		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),nEncryptSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		//if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
 		{
 			if (pSendLockTemp)
 				delete pSendLockTemp;
@@ -432,3 +484,16 @@ tstring CSotpResponseImpl::GetResponseClusters(const ClusterSvrList & clusters)
 	return result;
 }
 */
+#define MYCP_RESPONSE_CONFIG_DISABLE_ZIP 1
+bool CSotpResponseImpl::setConfigValue(int nConfigItem, unsigned int nConfigValue)
+{
+	switch(nConfigItem)
+	{
+	case MYCP_RESPONSE_CONFIG_DISABLE_ZIP:
+		m_bDisableZip = nConfigValue==1?true:false;
+		return true;
+	default:
+		break;
+	}
+	return false;
+}

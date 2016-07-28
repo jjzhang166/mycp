@@ -86,6 +86,7 @@ public:
 	const tstring & getSid(void) const {return m_sSid;}
 	void setSslPublicKey(const tstring & newValue) {m_sSslPublicKey = newValue;}
 	bool isSslRequest(void) const {return m_sSslPublicKey.empty()?false:true;}
+	bool getProtoItem(int nItemType, unsigned long * pOutItemValue) const;
 	const tstring & getSslPublicKey(void) const {return m_sSslPublicKey;}
 	//void setSslPrivateKey(const tstring & newValue) {m_sSslPrivateKey = newValue;}
 	//const tstring & getSslPrivateKey(void) const {return m_sSslPrivateKey;}
@@ -93,6 +94,8 @@ public:
 	//const tstring & getSslPrivatePwd(void) const {return m_sSslPrivatePwd;}
 	//void setSslPassword(const tstring & newValue) {m_sSslPassword = newValue;}
 	const tstring & getSslPassword(void) const {return m_sSslPassword;}
+	int getAcceptEncoding(void) const {return m_nAcceptEncoding;}
+	int getDataEncoding(void) const {return m_nDataEncoding;}
 	void setCallid(unsigned long newValue) {m_nCallId = newValue;}
 	unsigned long getCallid(void) const {return m_nCallId;}
 	void setSign(unsigned long newValue) {m_nSign = newValue;}
@@ -138,7 +141,11 @@ protected:
 #endif
 	const char * parseOneLine(const char * pLineBuffer,size_t nBufferSize);
 	bool sotpCompare(const char * pBuffer, const char * pCompare, int & leftIndex);
-
+	//char* m_pUnZipDataTBuffer;
+	//size_t m_nUnZipDataBufferSize;
+	//size_t m_nUnZipDataBufferIndex;
+	//static bool MyUnZipDataCallBack(const unsigned char* pData, unsigned long nSize, unsigned int nUserData);
+	unsigned char* rebuildBuffer(size_t bBufferSize);
 private:
 	tstring m_sEncoding;
 	cgcParameterMap m_parameterMap;
@@ -164,7 +171,11 @@ private:
 	//tstring m_sSslPrivateKey;
 	//tstring m_sSslPrivatePwd;
 	tstring m_sSslPassword;			// *
+	int m_nAcceptEncoding;
+	int m_nDataEncoding;
+	int m_nDataSize;
 	unsigned char* m_pSslDecryptData;
+	size_t m_nSslDecrptyBufferSize;
 	unsigned long m_nCallId;			// call id
 	unsigned long m_nSign;				// sign
 	bool m_bResulted;

@@ -133,9 +133,9 @@ double CPPSotp2::getRecvParameterValue(const tstring & sParamName, double fDefau
 
 ////////////////////////////////////////////////////////
 // Response
-tstring CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
+tstring CPPSotp2::getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey, int nAcceptEncoding) const
 {
-	return toSessionResult(getSotpVersion(),getProtoType(), getCallid(), retCode, sSessionId, seq, bNeedAck, sSslPublicKey);
+	return toSessionResult(getSotpVersion(),getProtoType(), getCallid(), retCode, sSessionId, seq, bNeedAck, sSslPublicKey, nAcceptEncoding);
 //	tstring sNeedAck = _T("");
 //	if (bNeedAck)
 //	{

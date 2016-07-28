@@ -68,6 +68,7 @@ SotpCallTable2::SotpCallTable2(void)
 , m_sSessionId(_T("")), m_sAppName(_T(""))
 , m_sAccount(_T("")), m_sPasswd(_T(""))
 , m_et(ModuleItem::ET_NONE)
+, m_nSetAcceptEncoding(SOTP_DATA_ENCODING_UNKNOWN)
 , m_nCurrentCallId(0)
 , m_nCurrentSeq(0)
 {}
@@ -102,17 +103,19 @@ std::string SotpCallTable2::toSesString(SOTP_PROTO_VERSION nVersion,int pt, cons
 				char lpszBuffer[250];
 				sprintf(lpszBuffer,(_T("%c SOTP/2.1\n")
 					_T("%s")
+					_T("F%d\n")	// * accept-encoding: gzip,deflate(?)
 					_T("3%lu\n")
-					_T("A%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),cid,sValue.c_str());
+					_T("A%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),m_nSetAcceptEncoding,cid,sValue.c_str());
 				return lpszBuffer;
 			}else
 			{
 				char lpszBuffer[8*1024];
 				sprintf(lpszBuffer,(_T("%c SOTP/2.1\n")
 					_T("%s")
+					_T("F%d\n")	// * accept-encoding: gzip,deflate
 					_T("3%lu\n")
 					_T("A%s\n")
-					_T("B%d\n%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),cid,sValue.c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+					_T("B%d\n%s\n")),SotpInt2Char(pt),sNeedAck.c_str(),m_nSetAcceptEncoding,cid,sValue.c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
 				return lpszBuffer;
 			}
 		}else
@@ -214,19 +217,21 @@ std::string SotpCallTable2::toOpenSesString(SOTP_PROTO_VERSION nVersion,unsigned
 				char lpszBuffer[1024];
 				sprintf(lpszBuffer,(_T("1 SOTP/2.1\n")
 					_T("%s")
+					_T("F%d\n")	// * accept-encoding: gzip,deflate(?)
 					_T("3%lu\n")
 					_T("A%s\n")
-					_T("C%s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
+					_T("C%s;pwd=%s;enc=%s\n")),sNeedAck.c_str(),m_nSetAcceptEncoding,cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str());
 				return lpszBuffer;
 			}else
 			{
 				char lpszBuffer[8*1024];
 				sprintf(lpszBuffer,(_T("1 SOTP/2.1\n")
 					_T("%s")
+					_T("F%d\n")	// * accept-encoding: gzip,deflate
 					_T("3%lu\n")
 					_T("A%s\n")
 					_T("C%s;pwd=%s;enc=%s\n")
-					_T("B%d\n%s\n")),sNeedAck.c_str(),cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
+					_T("B%d\n%s\n")),sNeedAck.c_str(),m_nSetAcceptEncoding,cid,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),ModuleItem::getEncryption(m_et).c_str(),(int)sPublicKey.size(),sPublicKey.c_str());
 				return lpszBuffer;
 			}
 		}else
@@ -299,19 +304,21 @@ std::string SotpCallTable2::toAppCallString(SOTP_PROTO_VERSION nVersion,unsigned
 			// 2.0
 			sprintf(lpszBuffer,(_T("A SOTP/2.1\n")
 				_T("%s")
+				_T("F%d\n")	// * accept-encoding: gzip,deflate
 				_T("A%s\n")
 				_T("C%s;pwd=%s;enc=\n")
 				_T("3%lu\n")
 				_T("6%lu\n")
-				_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
+				_T("7%s\n")),sNeedAck.c_str(),m_nSetAcceptEncoding,m_sAppName.c_str(),m_sAccount.c_str(),m_sPasswd.c_str(),cid,nCallSign,sCallName.c_str());
 		}else
 		{
 			sprintf(lpszBuffer,(_T("A SOTP/2.1\n")
 				_T("%s")
+				_T("F%d\n")	// * accept-encoding: gzip,deflate
 				_T("1%s\n")
 				_T("3%lu\n")
 				_T("6%lu\n")
-				_T("7%s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
+				_T("7%s\n")),sNeedAck.c_str(),m_nSetAcceptEncoding,m_sSessionId.c_str(),cid,nCallSign,sCallName.c_str());
 		}
 		tstring result(lpszBuffer);
 		result.append(sParameters);
@@ -357,10 +364,11 @@ std::string SotpCallTable2::toAppCallHead(SOTP_PROTO_VERSION nVersion) const
 {
 	if (nVersion==SOTP_PROTO_VERSION_21)
 	{
-		if (m_sSessionId.empty())
-			return "A SOTP/2.1\n";
 		char lpszBuffer[60];
-		sprintf(lpszBuffer,"A SOTP/2.1\n1%s\n",m_sSessionId.c_str());
+		if (m_sSessionId.empty())
+			sprintf(lpszBuffer,"A SOTP/2.1\nF%d\n",m_nSetAcceptEncoding);	// * accept-encoding: gzip,deflate
+		else
+			sprintf(lpszBuffer,"A SOTP/2.1\n1%s\nF%d\n",m_sSessionId.c_str(),m_nSetAcceptEncoding);
 		return lpszBuffer;
 	}else
 	{
@@ -445,16 +453,18 @@ std::string SotpCallTable2::toSyncCallString(SOTP_PROTO_VERSION nVersion,unsigne
 			// 2.1
 			sprintf(lpszBuffer,(_T("5 SOTP/2.1\n")
 				_T("%s")
+				_T("F%d\n")	// * accept-encoding: gzip,deflate
 				_T("A%s\n")
 				_T("3%lu\n")
-				_T("7%s\n")),sNeedAck.c_str(),m_sAppName.c_str(),cid,sSyncName.c_str());
+				_T("7%s\n")),sNeedAck.c_str(),m_nSetAcceptEncoding,m_sAppName.c_str(),cid,sSyncName.c_str());
 		}else
 		{
 			sprintf(lpszBuffer,(_T("5 SOTP/2.1\n")
 				_T("%s")
+				_T("F%d\n")	// * accept-encoding: gzip,deflate(?)
 				_T("1%s\n")
 				_T("3%lu\n")
-				_T("7%s\n")),sNeedAck.c_str(),m_sSessionId.c_str(),cid,sSyncName.c_str());
+				_T("7%s\n")),sNeedAck.c_str(),m_nSetAcceptEncoding,m_sSessionId.c_str(),cid,sSyncName.c_str());
 		}
 		tstring result(lpszBuffer);
 		result.append(sParameters);
@@ -503,10 +513,11 @@ std::string SotpCallTable2::toSyncCallHead(SOTP_PROTO_VERSION nVersion) const
 {
 	if (nVersion==SOTP_PROTO_VERSION_21)
 	{
-		if (m_sSessionId.empty())
-			return "5 SOTP/2.1\n";
 		char lpszBuffer[60];
-		sprintf(lpszBuffer,"5 SOTP/2.1\n1%s\n",m_sSessionId.c_str());
+		if (m_sSessionId.empty())
+			sprintf(lpszBuffer,"5 SOTP/2.1\nF%d\n",m_nSetAcceptEncoding);
+		else
+			sprintf(lpszBuffer,"5 SOTP/2.1\n1%s\n",m_sSessionId.c_str());
 		return lpszBuffer;
 	}else
 	{
@@ -614,7 +625,7 @@ unsigned char * SotpCallTable2::toSslDataString(SOTP_PROTO_VERSION nVersion,cons
 }
 
 
-std::string SotpCallTable2::toSessionResult(SOTP_PROTO_VERSION nVersion,int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const
+std::string SotpCallTable2::toSessionResult(SOTP_PROTO_VERSION nVersion,int prototype, unsigned long cid, int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey, int nAcceptEncoding) const
 {
 	if (nVersion==SOTP_PROTO_VERSION_21)
 	{
@@ -653,17 +664,19 @@ std::string SotpCallTable2::toSessionResult(SOTP_PROTO_VERSION nVersion,int prot
 			char lpszBuffer[8*1024];
 			sprintf(lpszBuffer,(_T("%c SOTP/2.1 %d\n")
 				_T("1%s\n")
+				_T("F%d\n")	// * accept-encoding: gzip,deflate(?)
 				_T("%s")
 				_T("3%lu\n")
-				_T("B%d\n%s\n")),SotpInt2Char(prototype),retCode,sSessionId.c_str(),sNeedAck.c_str(),cid,(int)sSslPublicKey.size(),sSslPublicKey.c_str());
+				_T("B%d\n%s\n")),SotpInt2Char(prototype),retCode,sSessionId.c_str(),nAcceptEncoding,sNeedAck.c_str(),cid,(int)sSslPublicKey.size(),sSslPublicKey.c_str());
 			return lpszBuffer;
 		}else
 		{
 			char lpszBuffer[100];
 			sprintf(lpszBuffer,(_T("%c SOTP/2.1 %d\n")
 				_T("1%s\n")
+				_T("F%d\n")	// * accept-encoding: gzip,deflate(?)
 				_T("%s")
-				_T("3%lu\n")),SotpInt2Char(prototype),retCode,sSessionId.c_str(),sNeedAck.c_str(),cid);
+				_T("3%lu\n")),SotpInt2Char(prototype),retCode,sSessionId.c_str(),nAcceptEncoding,sNeedAck.c_str(),cid);
 			return lpszBuffer;
 		}
 	}else

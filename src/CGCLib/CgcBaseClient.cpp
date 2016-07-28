@@ -27,6 +27,10 @@
 #ifdef WIN32
 #include <tchar.h>
 #endif // WIN32
+#define USES_DATA_ENCODING
+#ifdef USES_DATA_ENCODING
+#include "../ThirdParty/stl/zlib.h"
+#endif
 
 namespace mycp {
 //#ifdef _UNICODE
@@ -476,6 +480,7 @@ void CgcBaseClient::StopClient(bool exitClient)
 
 	// clear info
 	m_sSessionId.clear();
+	m_nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
 	RemoveAllCidData();
 
 	if (exitClient)
@@ -534,6 +539,9 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 	bool ret = true;
 	switch (nConfig)
 	{
+	case SOTP_CLIENT_CONFIG_ACCEPT_ENCODING:
+		m_nSetAcceptEncoding = nInValue;
+		break;
 	case SOTP_CLIENT_CONFIG_USER_DATA:
 		m_nUserData = nInValue;
 		break;
@@ -712,6 +720,9 @@ void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 	case SOTP_CLIENT_CONFIG_USER_DATA:
 		*nOutValue = m_nUserData;
 		break;
+	case SOTP_CLIENT_CONFIG_ACCEPT_ENCODING:
+		*nOutValue = m_nSetAcceptEncoding;
+		break;
 	case SOTP_CLIENT_CONFIG_TRAN_SPEED_LIMIT:
 		*nOutValue = m_nTranSpeedLimit;
 		break;
@@ -802,6 +813,7 @@ void CgcBaseClient::sendCloseSession(unsigned long * pCallId)
 	sendData((const unsigned char*)requestData.c_str(), requestData.size());
 	// ?
 	m_sSessionId = "";
+	m_nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
 	m_sSslPassword = "";
 	m_pIndexInfoList.clear();
 	m_pCurrentIndexInfo.reset();
@@ -1128,7 +1140,7 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 	const unsigned long cid = getNextCallId();
 	if (pCallId)
 		*pCallId = cid;
-	return sendAppCall2(cid,nCallSign,sCallName,bNeedAck,pAttach);
+	return sendAppCall2(cid,nCallSign,sCallName,bNeedAck,pAttach,false);
 	//boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
 	//m_pSendLock = NULL;
 	//if (sCallName.empty() || this->isInvalidate())
@@ -1236,7 +1248,17 @@ bool CgcBaseClient::sendAppCall(unsigned long nCallSign, const tstring & sCallNa
 	//	return true;
 	//}
 }
-bool CgcBaseClient::sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach)
+//#ifdef USES_DATA_ENCODING
+//inline bool IsEnableZipAttach(const cgcAttachment::pointer& pAttach)
+//{
+//	if (pAttach.get()==NULL || pAttach->getName().size()<3) return true;
+//	const size_t nSize = pAttach->getName().size();
+//	tstring sExt(pAttach->getName().substr(nSize-3));
+//	std::transform(sExt.begin(), sExt.end(), sExt.begin(), ::tolower);
+//	return (sExt=="zip" || sExt=="rar" || sExt=="zip" || sExt.find("7z")!=std::string::npos)?false:true;
+//}
+//#endif
+bool CgcBaseClient::sendAppCall2(unsigned long nCallId, unsigned long nCallSign, const tstring & sCallName, bool bNeedAck,const cgcAttachment::pointer& pAttach,bool bDisableZip)
 {
 	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
 	m_pSendLock = NULL;
@@ -1260,21 +1282,54 @@ bool CgcBaseClient::sendAppCall2(unsigned long nCallId, unsigned long nCallSign,
 		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
 		int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
 		nDataSize += sAppCallHead.size();
-		unsigned char * pSendData = new unsigned char[nDataSize+1];
+		unsigned char * pSendData = new unsigned char[nDataSize+70];
 		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
 		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
 		{
 			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
 		}
-		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+50];
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
 		int n = 0;
+		int nEncryptSize = sAppCallData.size()+nAttachSize;
 		if (theProtoVersion==SOTP_PROTO_VERSION_21)
-			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
-		else
+		{
+#ifdef USES_DATA_ENCODING
+			if (nEncryptSize>128 && !bDisableZip)//IsEnableZipAttach(pAttach))
+			{
+				if ((this->m_nAcceptEncoding&SOTP_DATA_ENCODING_DEFLATE)==SOTP_DATA_ENCODING_DEFLATE)
+				{
+					uLong nZipDataSize = nDataSize+50-sAppCallHead.size();
+					const int nZipRet = ZipData(pSendData+sAppCallHead.size(),(uLong)nEncryptSize,pSendDataTemp+sAppCallHead.size(),&nZipDataSize,Z_DEFAULT_COMPRESSION,0);
+					if (nZipRet==Z_OK && (int)nZipDataSize<(nEncryptSize-30))
+					{
+						memmove(pSendData+sAppCallHead.size(),pSendDataTemp+sAppCallHead.size(),nZipDataSize);
+						n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"G2%d\n",(int)nEncryptSize);		// * deflate encoding
+						nEncryptSize = nZipDataSize;
+						nDataSize = ((nZipDataSize+15)/16)*16;
+						nDataSize += sAppCallHead.size();
+					}
+				}else if ((this->m_nAcceptEncoding&SOTP_DATA_ENCODING_GZIP)==SOTP_DATA_ENCODING_GZIP)
+				{
+					uLong nZipDataSize = nDataSize+50-sAppCallHead.size();
+					const int nZipRet = GZipData(pSendData+sAppCallHead.size(),(uLong)nEncryptSize,pSendDataTemp+sAppCallHead.size(),&nZipDataSize);
+					if (nZipRet==Z_OK && (int)nZipDataSize<(nEncryptSize-30))
+					{
+						memmove(pSendData+sAppCallHead.size(),pSendDataTemp+sAppCallHead.size(),nZipDataSize);
+						n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"G1%d\n",(int)nEncryptSize);		// * gzip encoding
+						nEncryptSize = nZipDataSize;
+						nDataSize = ((nZipDataSize+15)/16)*16;
+						nDataSize += sAppCallHead.size();
+					}
+				}
+			}
+#endif
+			n += sprintf((char*)(pSendDataTemp+(sAppCallHead.size()+n)),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+		}else
 			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
-		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),nEncryptSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		//if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
 		{
 			if (pLockTemp)
 				delete pLockTemp;
@@ -1451,7 +1506,7 @@ bool CgcBaseClient::sendSyncCall(unsigned long nCallId, const tstring& sSyncName
 		return true;
 	}
 }
-bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck,const cgcAttachment::pointer& pAttach)
+bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned long nCallSign,bool bNeedAck,const cgcAttachment::pointer& pAttach,bool bDisableZip)
 {
 	boost::mutex::scoped_lock * pLockTemp = m_pSendLock;
 	m_pSendLock = NULL;
@@ -1475,21 +1530,54 @@ bool CgcBaseClient::sendCallResult(long nResult,unsigned long nCallId,unsigned l
 		unsigned char * pAttachData = toAttachString(theProtoVersion,pAttach, nAttachSize);
 		int nDataSize = ((sAppCallData.size()+nAttachSize+15)/16)*16;
 		nDataSize += sAppCallHead.size();
-		unsigned char * pSendData = new unsigned char[nDataSize+1];
+		unsigned char * pSendData = new unsigned char[nDataSize+70];
 		memcpy(pSendData, sAppCallHead.c_str(), sAppCallHead.size());
 		memcpy(pSendData+sAppCallHead.size(), sAppCallData.c_str(), sAppCallData.size());
 		if (pAttachData != NULL)
 		{
 			memcpy(pSendData+sAppCallHead.size()+sAppCallData.size(), pAttachData, nAttachSize);
 		}
-		unsigned char * pSendDataTemp = new unsigned char[nDataSize+20];
+		unsigned char * pSendDataTemp = new unsigned char[nDataSize+50];
 		memcpy(pSendDataTemp, sAppCallHead.c_str(), sAppCallHead.size());
 		int n = 0;
+		int nEncryptSize = sAppCallData.size()+nAttachSize;
 		if (theProtoVersion==SOTP_PROTO_VERSION_21)
-			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
-		else
+		{
+#ifdef USES_DATA_ENCODING
+			if (nEncryptSize>128 && !bDisableZip)//IsEnableZipAttach(pAttach))
+			{
+				if ((this->m_nAcceptEncoding&SOTP_DATA_ENCODING_DEFLATE)==SOTP_DATA_ENCODING_DEFLATE)
+				{
+					uLong nZipDataSize = nDataSize+50-sAppCallHead.size();
+					const int nZipRet = ZipData(pSendData+sAppCallHead.size(),(uLong)nEncryptSize,pSendDataTemp+sAppCallHead.size(),&nZipDataSize,Z_DEFAULT_COMPRESSION,0);
+					if (nZipRet==Z_OK && (int)nZipDataSize<(nEncryptSize-30))
+					{
+						memmove(pSendData+sAppCallHead.size(),pSendDataTemp+sAppCallHead.size(),nZipDataSize);
+						n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"G2%d\n",(int)nEncryptSize);		// * deflate encoding
+						nEncryptSize = nZipDataSize;
+						nDataSize = ((nZipDataSize+15)/16)*16;
+						nDataSize += sAppCallHead.size();
+					}
+				}else if ((this->m_nAcceptEncoding&SOTP_DATA_ENCODING_GZIP)==SOTP_DATA_ENCODING_GZIP)
+				{
+					uLong nZipDataSize = nDataSize+50-sAppCallHead.size();
+					const int nZipRet = GZipData(pSendData+sAppCallHead.size(),(uLong)nEncryptSize,pSendDataTemp+sAppCallHead.size(),&nZipDataSize);
+					if (nZipRet==Z_OK && (int)nZipDataSize<(nEncryptSize-30))
+					{
+						memmove(pSendData+sAppCallHead.size(),pSendDataTemp+sAppCallHead.size(),nZipDataSize);
+						n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"G1%d\n",(int)nEncryptSize);		// * gzip encoding
+						nEncryptSize = nZipDataSize;
+						nDataSize = ((nZipDataSize+15)/16)*16;
+						nDataSize += sAppCallHead.size();
+					}
+				}
+			}
+#endif
+			n += sprintf((char*)(pSendDataTemp+(sAppCallHead.size()+n)),"2%d\n",(int)(nDataSize-sAppCallHead.size()));
+		}else
 			n = sprintf((char*)(pSendDataTemp+sAppCallHead.size()),"Sd: %d\n",(int)(nDataSize-sAppCallHead.size()));
-		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),nEncryptSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
+		//if (aes_cbc_encrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSendData+sAppCallHead.size(),sAppCallData.size()+nAttachSize,pSendDataTemp+(sAppCallHead.size()+n))!=0)
 		{
 			if (pLockTemp)
 				delete pLockTemp;
@@ -1769,16 +1857,21 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 					if (!ppSotp.getSid().empty())
 						m_sSessionId = ppSotp.getSid();
 					m_sSslPassword = ppSotp.GetSslPassword();
+					m_nAcceptEncoding = ppSotp.GetAcceptEncoding();
 					if (m_pCurrentIndexInfo.get()!=NULL)
 					{
 						//m_pCurrentIndexInfo->m_sSessionId = m_sSessionId;
-						m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword.c_str();
+						m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword;
+						//m_pCurrentIndexInfo->m_nAcceptEncoding = m_nAcceptEncoding;
 					}
 					//
 					// save client info
 					this->SaveClientInfo();
 				}else if (ppSotp.isCloseType())
+				{
 					m_sSessionId.clear();
+					m_nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+				}
 
 /*			}else if (ppSotp.isClusterProto())
 			{
@@ -1806,11 +1899,12 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 				m_sSslPassword = GetSaltString(24);
 			if (m_pCurrentIndexInfo.get()!=NULL)
 			{
-				m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword.c_str();
+				m_pCurrentIndexInfo->m_sSslPassword = m_sSslPassword;
+				//m_pCurrentIndexInfo->m_nAcceptEncoding
 			}
 			const tstring sSslPassword = m_pCurrentIndexInfo.get()==NULL?m_sSslPassword:m_pCurrentIndexInfo->m_sSslPassword;
 			const unsigned short seq = getNextSeq();
-			const tstring responseData = ppSotp.getSessionResult(0, ppSotp.getSid(), seq, true, "");	// m_sSslPublicKey
+			const tstring responseData = ppSotp.getSessionResult(0, ppSotp.getSid(), seq, true, "", this->m_nSetAcceptEncoding);	// m_sSslPublicKey
 			unsigned int nAttachSize = 0;
 			unsigned char * pAttachData = ppSotp.getResSslString(sSslPassword, nAttachSize);
 			if (pAttachData != NULL)
@@ -1830,15 +1924,17 @@ void CgcBaseClient::parseData(const unsigned char * data, size_t size,unsigned l
 		{
 			if (!m_sSessionId.empty())
 			{
-				const std::string requestData = toSessionResult(ppSotp.getSotpVersion(),ppSotp.getProtoType(),ppSotp.getCallid(),0,ppSotp.getSid(),0,false,"");
+				const std::string requestData = toSessionResult(ppSotp.getSotpVersion(),ppSotp.getProtoType(),ppSotp.getCallid(),0,ppSotp.getSid(),0,false,"",0);
 				sendData((const unsigned char*)requestData.c_str(), requestData.size());
 			}
 			return;
 		}
 
 		if (nResultValue == -103)
+		{
 			m_sSessionId.clear();
-		else if (nResultValue == -117)
+			m_nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+		}else if (nResultValue == -117)
 			m_mapSeqInfo.clear();
 
 		//

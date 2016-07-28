@@ -28,19 +28,40 @@ namespace mycp {
 
 const size_t MAX_HTTPHEAD_SIZE		= 4*1024;
 const size_t INCREASE_BODY_SIZE		= 20*1024;
-const char * SERVERNAME		= "MYCP Http Server/2.0";
+const char * SERVERNAME		= "MYCP/2.0";
 
 #define USES_BUFFER_ALLOC
+#ifdef USES_ZLIB
+inline bool IsDisableContentEncoding(const tstring& sContentType)
+{
+	//theContentTypeInfoList.insert("gz",CContentTypeInfo::create("application/x-gzip",true));
+	//theContentTypeInfoList.insert("tgz",CContentTypeInfo::create("application/x-gzip",true));
+	//theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true));
+	//theContentTypeInfoList.insert("tbz",CContentTypeInfo::create("application/x-bzip2",true));
+	//theContentTypeInfoList.insert("zip",CContentTypeInfo::create("application/zip",true));
+	//theContentTypeInfoList.insert("rar",CContentTypeInfo::create("application/x-rar",true));
+	//theContentTypeInfoList.insert("tar",CContentTypeInfo::create("application/x-tar",true));
+	//theContentTypeInfoList.insert("7z",CContentTypeInfo::create("application/x-7z-compressed",true));
+	return (sContentType.find("zip")!=std::string::npos ||
+		sContentType.find("rar")!=std::string::npos ||
+		sContentType.find("tar")!=std::string::npos ||
+		sContentType.find("7z")!=std::string::npos ||
+		sContentType.find("octet-stream")!=std::string::npos)?true:false;
+}
+#endif
 
 CPpHttp::CPpHttp(void)
 : m_host("127.0.0.1"), m_account(""), m_secure(""), m_moduleName(""), m_functionName("doHttpFunc"), m_httpVersion("HTTP/1.1"),m_restVersion("v01"), m_contentLength(0), m_method(HTTP_NONE), m_bHttpResponse(false), m_pResponseSaveFile(NULL)
 , m_requestURL(""), m_requestURI(""), m_queryString(""),m_postString(""), m_fileName("")
 , m_nRangeFrom(0), m_nRangeTo(0)
 , m_keepAlive(true), m_keepAliveInterval(0), /*m_contentData(NULL), */m_contentSize(0),m_receiveSize(0)/*,m_nCookieExpiresMinute(0)*/
-, m_statusCode(STATUS_CODE_200), m_addDateHeader(false),m_addContentLength(true), m_sReqContentType(""), m_sResContentType("text/html"), m_sLocation("")
+, m_statusCode(STATUS_CODE_200), m_addDateHeader(false),m_addContentLength(true), m_sReqContentType(""),m_sReqContentEncoding(""),m_sReqAcceptEncoding(""), m_sResContentType("text/html"), m_sLocation("")
 , m_forwardFromURL("")
 , m_pHeaderBufferTemp(NULL), m_pHeaderTemp(NULL), m_pCookieTemp(NULL)
 {
+#ifdef USES_ZLIB
+	m_nZipCallBackDataSize = 0;
+#endif
 	m_bodySize = 0;
 	m_bodyBufferSize = INCREASE_BODY_SIZE;
 #ifdef USES_BUFFER_ALLOC
@@ -271,6 +292,8 @@ void CPpHttp::init(void)
 	m_contentSize = 0;
 	m_receiveSize = 0;
 	m_sReqContentType = "";
+	m_sReqContentEncoding = "";
+	m_sReqAcceptEncoding = "";
 	m_forwardFromURL = "";
 	m_fileName = "";
 	if (m_bodyBufferSize>1*1024*1024)	// 1MB
@@ -343,6 +366,9 @@ void CPpHttp::setHeader(const tstring& name, const tstring& value)
 		{
 			this->setContentType(value);
 			return;
+		}else if (sStringTemp == "content-length")
+		{
+			addContentLength(false);
 		}
 		//m_pResHeaders.remove(name);
 		m_pResHeaders.insert(name,CGC_VALUEINFO(value));
@@ -468,6 +494,45 @@ inline std::string GetMonthName(int nMonth)
 	}
 }
 
+#ifdef USES_ZLIB
+bool CPpHttp::MyZipDataCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+{
+	if (nSize>0 && nUserData!=0)
+	{
+		CPpHttp * pHttp = (CPpHttp*)nUserData;
+		memcpy(pHttp->m_resultBuffer+(MAX_HTTPHEAD_SIZE+pHttp->m_nZipCallBackDataSize), pData, nSize);
+		pHttp->m_nZipCallBackDataSize += nSize;
+	}
+	return true;
+}
+bool CPpHttp::UnZipPostStringCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+{
+	if (nSize>0 && nUserData!=0)
+	{
+		CPpHttp * pHttp = (CPpHttp*)nUserData;
+		pHttp->m_postString.append((const char*)pData,nSize);
+	}
+	return true;
+}
+bool CPpHttp::UnZipWriteFileCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+{
+	if (nSize>0 && nUserData!=0)
+	{
+		FILE * f = (FILE*)nUserData;
+		fwrite(pData,1,nSize,f);
+	}
+	return true;
+}
+bool CPpHttp::UnZipWriteCurrentMultiPartCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+{
+	if (nSize>0 && nUserData!=0)
+	{
+		CPpHttp * pHttp = (CPpHttp*)nUserData;
+		pHttp->m_currentMultiPart->write((const char*)pData,nSize);
+	}
+	return true;
+}
+#endif
 const char * CPpHttp::getHttpResult(size_t& outSize) const
 {
 	if (m_resultBuffer==NULL) return NULL;
@@ -496,12 +561,20 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	{
 		sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\nContent-Type: %s\r\n",cgcGetStatusCode(m_statusCode).c_str(), m_sResContentType.c_str());
 	}
+	bool bFindContentEncodingHead = false;	// Http_ContentEncoding
 	size_t nHeadSize = strlen(m_pHeaderBufferTemp);
 	{
 		CLockMap<tstring,cgcValueInfo::pointer>::const_iterator pIter = m_pResHeaders.begin();
 		for (;pIter!=m_pResHeaders.end();pIter++)
 		{
 			const tstring sKey(pIter->first);
+			if (!bFindContentEncodingHead)
+			{
+				tstring sStringTemp(sKey);
+				std::transform(sStringTemp.begin(), sStringTemp.end(), sStringTemp.begin(), ::tolower);
+				if (sStringTemp=="content-encoding")
+					bFindContentEncodingHead = true;
+			}
 			const cgcValueInfo::pointer pValue = pIter->second;
 			sprintf(m_pHeaderTemp,"%s: %s\r\n",sKey.c_str(),pValue->getStr().c_str());
 			//sHeaders.append(m_pHeaderTemp);
@@ -625,7 +698,40 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	nHeadSize += strlen(m_pHeaderTemp);
 	//sHeaders.append(m_pHeaderTemp);
 	// Content-Length: xxx
-	if (m_addContentLength)
+#ifdef USES_ZLIB
+	////sprintf(m_pHeaderTemp,"Accept-Encoding: gzip\r\n");
+	//sprintf(m_pHeaderTemp,"Accept-Encoding: gzip, deflate\r\n");
+	//strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+	//nHeadSize += strlen(m_pHeaderTemp);
+	if (!bFindContentEncodingHead && m_bodySize>=128  && !IsDisableContentEncoding(m_sResContentType))
+	{
+		// gzip,deflate,compress
+		if (m_sReqAcceptEncoding.find("gzip")!=std::string::npos)
+		{
+			const_cast<CPpHttp*>(this)->m_nZipCallBackDataSize = 0;
+			if (GZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned int)this)==Z_OK)
+			{
+				//printf("*********** GZipDataCb m_sReqAcceptEncoding=%s,bodysize=%d,m_nZipCallBackDataSize=%d\n",m_sReqAcceptEncoding.c_str(),(int)m_bodySize,(int)m_nZipCallBackDataSize);
+				const_cast<CPpHttp*>(this)->m_bodySize = m_nZipCallBackDataSize;
+				sprintf(m_pHeaderTemp,"Content-Encoding: gzip\r\n");
+				strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+				nHeadSize += strlen(m_pHeaderTemp);
+			}
+		}else if (m_sReqAcceptEncoding.find("deflate")!=std::string::npos)
+		{
+			const_cast<CPpHttp*>(this)->m_nZipCallBackDataSize = 0;
+			if (ZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,0,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned int)this)==Z_OK)
+			{
+				//printf("*********** GZipDataCb m_sReqAcceptEncoding=%s,bodysize=%d,m_nZipCallBackDataSize=%d\n",m_sReqAcceptEncoding.c_str(),(int)m_bodySize,(int)m_nZipCallBackDataSize);
+				const_cast<CPpHttp*>(this)->m_bodySize = m_nZipCallBackDataSize;
+				sprintf(m_pHeaderTemp,"Content-Encoding: deflate\r\n");
+				strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+				nHeadSize += strlen(m_pHeaderTemp);
+			}
+		}
+	}
+#endif
+	if (m_addContentLength && m_bodySize>0)
 	{
 		sprintf(m_pHeaderTemp,"Content-Length: %d\r\n",m_bodySize);
 		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
@@ -666,6 +772,12 @@ bool CPpHttp::doParse(const unsigned char * requestData, size_t requestSize,cons
 		m_keepAliveInterval = atoi(sKeepAlive.c_str());
 		m_sReqContentType = getHeader(Http_ContentType, "");
 		std::transform(m_sReqContentType.begin(), m_sReqContentType.end(), m_sReqContentType.begin(), ::tolower);
+//#ifdef USES_ZLIB
+//		m_sReqContentEncoding = getHeader(Http_ContentEncoding, "");
+//		m_sReqAcceptEncoding = getHeader(Http_AcceptEncoding, "");
+//		std::transform(m_sReqAcceptEncoding.begin(), m_sReqAcceptEncoding.end(), m_sReqAcceptEncoding.begin(), ::tolower);
+//		//printf("*********** %s : %s\n",Http_AcceptEncoding.c_str(),m_sReqAcceptEncoding.c_str());
+//#endif
 		m_host = getHeader(Http_Host, "");
 		m_sMyCookieSessionId = getCookie(Http_CookieSessionId, "");
 		const tstring sRange = getHeader(Http_Range, "");
@@ -974,36 +1086,93 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		{
 			m_currentMultiPart.reset();
 
+			unsigned int nUnZipSize = 0;
+			bool bUnZipOk = false;
 			if (m_bHttpResponse && !m_sResponseSaveFile.empty())
 			{
 				if (m_pResponseSaveFile!=NULL)
 				{
-					fwrite(httpRequest,1,requestSize,m_pResponseSaveFile);
+#ifdef USES_ZLIB
+					if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+					{
+						if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteFileCallBack,(unsigned int)m_pResponseSaveFile)==Z_OK)
+						{
+							bUnZipOk = true;
+						}
+					}
+#endif
+					if (!bUnZipOk)
+						fwrite(httpRequest,1,requestSize,m_pResponseSaveFile);
 					fclose(m_pResponseSaveFile);
 					m_pResponseSaveFile = NULL;
 				}
 			}else
 			{
-				m_queryString = httpRequest;
-				m_postString = m_queryString;
+#ifdef USES_ZLIB
+				if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+				{
+					m_postString.clear();
+					if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+					{
+						bUnZipOk = true;
+						m_queryString = m_postString;
+					}
+				}
+#endif
+				if (!bUnZipOk)
+				{
+					m_queryString = httpRequest;
+					m_postString = m_queryString;
+				}
 			}
-			m_receiveSize = requestSize;
+			if (bUnZipOk)
+				m_receiveSize = nUnZipSize;
+			else
+				m_receiveSize = requestSize;
 			return true;
 		}else if (m_contentSize >= (m_receiveSize + requestSize) && m_currentMultiPart->getBoundary().empty())
 		{
 			//strncpy(m_contentData+m_receiveSize,httpRequest,requestSize);
+			unsigned int nUnZipSize = 0;
+			bool bUnZipOk = false;
 			if (m_bHttpResponse && !m_sResponseSaveFile.empty())
 			{
 				if (m_pResponseSaveFile!=NULL)
 				{
-					fwrite(httpRequest,1,requestSize,m_pResponseSaveFile);
+#ifdef USES_ZLIB
+					if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+					{
+						if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteFileCallBack,(unsigned int)m_pResponseSaveFile)==Z_OK)
+						{
+							bUnZipOk = true;
+						}
+					}
+#endif
+					if (!bUnZipOk)
+						fwrite(httpRequest,1,requestSize,m_pResponseSaveFile);
 				}
 			}else
 			{
-				m_queryString.append(httpRequest);
-				m_postString.append(httpRequest);
+#ifdef USES_ZLIB
+				if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+				{
+					if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+					{
+						bUnZipOk = true;
+						m_queryString = m_postString;
+					}
+				}
+#endif
+				if (!bUnZipOk)
+				{
+					m_queryString.append(httpRequest);
+					m_postString.append(httpRequest);
+				}
 			}
-			m_receiveSize += requestSize;
+			if (bUnZipOk)
+				m_receiveSize += nUnZipSize;
+			else
+				m_receiveSize += requestSize;
 			if (m_receiveSize>=m_contentSize)
 			{
 				m_currentMultiPart.reset();
@@ -1021,9 +1190,10 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		if (!m_sCurrentParameterData.empty() && m_currentMultiPart->getFileName().empty() && m_currentMultiPart->getName().empty() && !m_currentMultiPart->getBoundary().empty())
 		{
 			// 普通参数，前面有处理未完成数据；
-			m_queryString.append(httpRequest);
-			m_postString.append(httpRequest);
-			m_receiveSize += requestSize;
+			// * by hd 2016-07-23
+			//m_queryString.append(httpRequest);
+			//m_postString.append(httpRequest);
+			//m_receiveSize += requestSize;
 			findBoundary = true;
 			multipartyBoundary = m_currentMultiPart->getBoundary();
 			m_sCurrentParameterData.append(httpRequest,requestSize);
@@ -1031,6 +1201,25 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 			{
 				httpRequest = m_sCurrentParameterData.c_str();
 				requestSize = m_sCurrentParameterData.size();
+			}
+			bool bUnZipOk = false;
+#ifdef USES_ZLIB
+			if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+			{
+				unsigned int nUnZipSize = 0;
+				if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+				{
+					bUnZipOk = true;
+					m_queryString = m_postString;
+					m_receiveSize += nUnZipSize;
+				}
+			}
+#endif
+			if (!bUnZipOk)
+			{
+				m_queryString.append(httpRequest);
+				m_postString.append(httpRequest);
+				m_receiveSize += requestSize;
 			}
 		}else if (m_currentMultiPart->getFileName().empty() ||				// 普通参数，不是文件
 			requestSize >= m_currentMultiPart->getBoundary().size()+2)		// 文件
@@ -1050,7 +1239,18 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					findBoundary = true;
 					if (m_currentMultiPart->getUploadFile()->getFileSize() > 0)
 					{
-						m_currentMultiPart->write((const char*)httpRequest, find-(const char*)httpRequest);
+						bool bUnZipOk = false;
+#ifdef USES_ZLIB
+						if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+						{
+							if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)(find-(const char*)httpRequest),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+							{
+								bUnZipOk = true;
+							}
+						}
+#endif
+						if (!bUnZipOk)
+							m_currentMultiPart->write((const char*)httpRequest, find-(const char*)httpRequest);
 						m_currentMultiPart->close();
 						m_currentMultiPart->setParser(cgcNullParserBaseService);
 						m_files.push_back(m_currentMultiPart);
@@ -1083,7 +1283,18 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 
 		if (!findBoundary)
 		{
-			m_currentMultiPart->write((const char*)httpRequest, requestSize);
+			bool bUnZipOk = false;
+#ifdef USES_ZLIB
+			if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+			{
+				if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+				{
+					bUnZipOk = true;
+				}
+			}
+#endif
+			if (!bUnZipOk)
+				m_currentMultiPart->write((const char*)httpRequest, requestSize);
 			// getMaxFileSize & isGreaterMaxSize
 			if ((theUpload.getMaxFileSize() > 0 && (int)(m_currentMultiPart->getUploadFile()->getFileSize() / 1024) > theUpload.getMaxFileSize())
 				|| isGreaterMaxSize())
@@ -1245,6 +1456,19 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		//tstring value(findSearch+nOffset, findSearchEnd-findSearch-nOffset);
 
 		pOutHeader = true;
+#ifdef USES_ZLIB
+		//printf("IsComplete: %s: %s\n",sParamReal.c_str(),value.c_str());
+		if (param=="content-encoding")
+		{
+			m_sReqContentEncoding = value;
+			std::transform(m_sReqContentEncoding.begin(), m_sReqContentEncoding.end(), m_sReqContentEncoding.begin(), ::tolower);
+			//printf("*********** %s : %s\n",Http_ContentEncoding.c_str(),m_sReqContentEncoding.c_str());
+		}else if (param=="accept-encoding")
+		{
+			m_sReqAcceptEncoding = value;
+			std::transform(m_sReqAcceptEncoding.begin(), m_sReqAcceptEncoding.end(), m_sReqAcceptEncoding.begin(), ::tolower);
+		}
+#endif
 		if (param != "content-disposition")	// Http_ContentDisposition
 		{
 			m_pReqHeaders.insert(param, CGC_PARAMETER(sParamReal,value),false);
@@ -1389,11 +1613,32 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				const char * find = strstrl((const char*)findSearchEnd, boundaryEnd.c_str(), requestSize-(findSearchEnd-httpRequestOld), boundaryEnd.size());
 				if (find == NULL)
 				{
-					m_currentMultiPart->write(findSearchEnd+4, m_contentLength-size_t(findSearchEnd-httpRequestOld)-4);
+					bool bUnZipOk = false;
+#ifdef USES_ZLIB
+					if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+					{
+						if (UnGZipDataCb((const unsigned char*)findSearchEnd+4,(uLong)(m_contentLength-size_t(findSearchEnd-httpRequestOld)-4),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+						{
+							bUnZipOk = true;
+						}
+					}
+#endif
+					if (!bUnZipOk)
+						m_currentMultiPart->write(findSearchEnd+4, m_contentLength-size_t(findSearchEnd-httpRequestOld)-4);
 					return false;
 				}
-
-				m_currentMultiPart->write(findSearchEnd+4, find-findSearchEnd-4);
+				bool bUnZipOk = false;
+#ifdef USES_ZLIB
+				if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+				{
+					if (UnGZipDataCb((const unsigned char*)findSearchEnd+4,(uLong)(find-findSearchEnd-4),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+					{
+						bUnZipOk = true;
+					}
+				}
+#endif
+				if (!bUnZipOk)
+					m_currentMultiPart->write(findSearchEnd+4, find-findSearchEnd-4);
 				m_currentMultiPart->close();
 				m_currentMultiPart->setParser(cgcNullParserBaseService);
 				m_files.push_back(m_currentMultiPart);
@@ -1482,7 +1727,18 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 								}
 								if (m_pResponseSaveFile!=NULL && findContent!=NULL)
 								{
-									fwrite(findContent,1,m_receiveSize,m_pResponseSaveFile);
+									bool bUnZipOk = false;
+#ifdef USES_ZLIB
+									if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+									{
+										if (UnGZipDataCb((const unsigned char*)findContent,(uLong)m_receiveSize,NULL,UnZipWriteFileCallBack,(unsigned int)m_pResponseSaveFile)==Z_OK)
+										{
+											bUnZipOk = true;
+										}
+									}
+#endif
+									if (!bUnZipOk)
+										fwrite(findContent,1,m_receiveSize,m_pResponseSaveFile);
 									if (m_receiveSize>=m_contentSize)
 									{
 										fclose(m_pResponseSaveFile);
@@ -1495,7 +1751,25 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 									m_queryString = findContent;
 								if (m_queryString.size()>m_contentSize)
 									m_queryString = m_queryString.substr(0,m_contentSize);
-								m_postString = m_queryString;
+								bool bUnZipOk = false;
+#ifdef USES_ZLIB
+								if (!m_queryString.empty())
+								{
+									if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
+									{
+										m_postString.clear();
+										if (UnGZipDataCb((const unsigned char*)m_queryString.c_str(),(uLong)m_queryString.size(),NULL,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+										{
+											bUnZipOk = true;
+											m_queryString = m_postString;
+										}
+									}
+								}
+#endif
+								if (!bUnZipOk)
+								{
+									m_postString = m_queryString;
+								}
 							}
 							if (m_contentSize > m_receiveSize)
 							{

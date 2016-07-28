@@ -153,6 +153,7 @@
 				OutputFile="../../build/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\build;&quot;$(BOOST_ROOT)\stage\lib&quot;"
+				IgnoreDefaultLibraryNames="libcmt.lib"
 				ModuleDefinitionFile=""
 				GenerateDebugInformation="true"
 				SubSystem="2"

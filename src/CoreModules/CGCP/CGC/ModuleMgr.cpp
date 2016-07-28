@@ -26,8 +26,9 @@
 #include <stdarg.h>
 using namespace std;
 #include <CGCBase/cgcfunc.h>
+#include <CGCBase/cgcaddress.h>
 
-//#define USES_SOTP_CLIENT
+#define USES_SOTP_CLIENT
 
 namespace mycp {
 

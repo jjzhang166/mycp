@@ -28,6 +28,10 @@ typedef long							LPARAM;
 #include "ParseCgcSotp2.h"
 #include "../ThirdParty/stl/rsa.h"
 #include "../ThirdParty/stl/aes.h"
+#define USES_DATA_ENCODING
+#ifdef USES_DATA_ENCODING
+#include "../ThirdParty/stl/zlib.h"
+#endif
 
 namespace mycp {
 
@@ -69,7 +73,7 @@ ParseCgcSotp2::ParseCgcSotp2(void)
 : m_pCallback(NULL)
 , m_nSotpVersion(SOTP_PROTO_VERSION_20)
 , /*m_nCgcProto(0),*/ m_nProtoType(SOTP_PROTO_TYPE_UNKNOWN),m_bHasSeq(false),m_seq(0), m_bNeedAck(false)
-, m_sSid(_T("")), m_sApp(_T("")), m_sApi(_T("")), m_sSslPublicKey(""), m_pSslDecryptData(NULL)
+, m_sSid(_T("")), m_sApp(_T("")), m_sApi(_T("")), m_sSslPublicKey(""), m_nAcceptEncoding(SOTP_DATA_ENCODING_UNKNOWN),m_nDataEncoding(SOTP_DATA_ENCODING_UNKNOWN),m_nDataSize(0),/*m_pUnZipDataTBuffer(NULL),m_nUnZipDataBufferSize(0),m_nUnZipDataBufferIndex(0),*/m_pSslDecryptData(NULL),m_nSslDecrptyBufferSize(0)
 , m_nCallId(0), m_nSign(0), m_bResulted(false), m_nResultValue(0)
 , m_sAccount(_T("")), m_sPasswd(_T(""))
 , m_et(ModuleItem::ET_NONE)
@@ -80,6 +84,11 @@ ParseCgcSotp2::ParseCgcSotp2(void)
 }
 ParseCgcSotp2::~ParseCgcSotp2(void)
 {
+	//if (m_pUnZipDataTBuffer!=NULL)
+	//{
+	//	free(m_pUnZipDataTBuffer);
+	//	m_pUnZipDataTBuffer = NULL;
+	//}
 	if (m_pSslDecryptData!=NULL)
 	{
 		delete[] m_pSslDecryptData;
@@ -139,11 +148,21 @@ void ParseCgcSotp2::Reset(bool bResetAttach)
 	m_sApi = _T("");
 	m_sSid = _T("");
 	m_sSslPublicKey.clear();
-	if (m_pSslDecryptData!=NULL)
-	{
-		delete[] m_pSslDecryptData;
-		m_pSslDecryptData = NULL;
-	}
+	m_nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+	m_nDataEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+	m_nDataSize = 0;
+	//if (m_pUnZipDataTBuffer!=NULL)
+	//{
+	//	free(m_pUnZipDataTBuffer);
+	//	m_pUnZipDataTBuffer = NULL;
+	//}
+	//m_nUnZipDataBufferSize = 0
+	//m_nUnZipDataBufferIndex = 0;
+	//if (m_pSslDecryptData!=NULL)
+	//{
+	//	delete[] m_pSslDecryptData;
+	//	m_pSslDecryptData = NULL;
+	//}
 	m_nCallId = 0;
 	m_nSign = 0;
 	m_bResulted = false;
@@ -274,6 +293,45 @@ bool ParseCgcSotp2::parseBuffer(const unsigned char * pBuffer,size_t nBufferSize
 	//return m_nCgcProto > 0;
 }
 
+//bool ParseCgcSotp2::MyUnZipDataCallBack(const unsigned char* pData, unsigned long nSize, unsigned int nUserData)
+//{
+//	if (nSize>0 && nUserData!=NULL)
+//	{
+//		ParseCgcSotp2* pOwner = (ParseCgcSotp2*)nUserData;
+//		if (pOwner->m_nUnZipDataBufferIndex+nSize>=pOwner->m_nUnZipDataBufferSize)
+//		{
+//			const size_t nSizeTemp = pOwner->m_nUnZipDataBufferSize + (nSize*2) + 8*1024;
+//			char * bufferTemp = (char*)realloc(pOwner->m_pUnZipDataTBuffer,nSizeTemp);
+//			if (bufferTemp==NULL)
+//			{
+//				bufferTemp = (char*)realloc(pOwner->m_pUnZipDataTBuffer,nSizeTemp);
+//				if (bufferTemp==NULL)
+//					return false;
+//			}
+//			pOwner->m_pUnZipDataTBuffer = bufferTemp;
+//			pOwner->m_nUnZipDataBufferSize = nSizeTemp;
+//		}
+//		memcpy(pOwner->m_pUnZipDataTBuffer+pOwner->m_nUnZipDataBufferIndex,pData,nSize);
+//		pOwner->m_nUnZipDataBufferIndex += nSize;
+//	}
+//	return true;
+//}
+
+unsigned char* ParseCgcSotp2::rebuildBuffer(size_t bBufferSize)
+{
+	if (m_pSslDecryptData==NULL)
+	{
+		m_nSslDecrptyBufferSize = bBufferSize;
+		m_pSslDecryptData = new unsigned char[m_nSslDecrptyBufferSize];
+	}else if (m_nSslDecrptyBufferSize<bBufferSize)
+	{
+		m_nSslDecrptyBufferSize = bBufferSize;
+		delete[] m_pSslDecryptData;
+		m_pSslDecryptData = new unsigned char[m_nSslDecrptyBufferSize];
+	}
+	return m_pSslDecryptData;
+}
+
 	// 把SOTP协议，改到2.0版本
 const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBufferSize)
 {
@@ -286,6 +344,7 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 	if (m_nSotpVersion==SOTP_PROTO_VERSION_21)
 	{
 		const int nSotpItemType = SotpChar2Int(pLineBuffer[0]);
+		//printf("**** parseOneLine nBufferSize=%d, nSotpItemType=%d\n",(int)nBufferSize,nSotpItemType);
 		switch (nSotpItemType)
 		{
 		case SOTP_PROTO_ITEM_TYPE_RTP_COMMAND:
@@ -343,6 +402,38 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 				if (pNextLineFind == NULL) return NULL;
 				m_sSid = std::string(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
 			}break;
+		case SOTP_PROTO_ITEM_TYPE_ACCEPT_ENCODING:
+			{
+				if (pNextLineFind == NULL) return NULL;
+				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
+				//printf("**** parseOneLine SOTP_PROTO_ITEM_TYPE_ACCEPT_ENCODING=%s\n",sDest.c_str());
+				try
+				{
+					m_nAcceptEncoding = atoi(sDest.c_str());
+				}catch(...)
+				{
+					m_nAcceptEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+				}
+			}break;
+		case SOTP_PROTO_ITEM_TYPE_DATA_ENCODING:
+			{
+				if (pNextLineFind == NULL) return NULL;
+				const std::string sDest(pLineBuffer+1, pNextLineFind-pLineBuffer-1-const_r_offset);
+				//printf("**** parseOneLine SOTP_PROTO_ITEM_TYPE_DATA_ENCODING=%s\n",sDest.c_str());
+				if (sDest.size()<=1)  return NULL;
+				try
+				{
+					// G1L\n
+					char buf[2];
+					memcpy(buf,sDest.c_str(),1);
+					buf[1] = '\0';
+					m_nDataEncoding = atoi(buf);
+					m_nDataSize= atoi(sDest.c_str()+1);
+				}catch(...)
+				{
+					m_nDataEncoding = SOTP_DATA_ENCODING_UNKNOWN;
+				}
+			}break;
 		case SOTP_PROTO_ITEM_TYPE_SSLDATA:
 			{
 				if (pNextLineFind == NULL) return NULL;
@@ -378,20 +469,63 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 							const tstring sSslPassword = m_pCallback->onGetSslPassword(getSid());
 							if (sSslPassword.empty())
 								return pSslEnd;
-							unsigned char * pSotpData = new unsigned char[nSslSize+20];	// 2
-							pSotpData[0] = '\n';	// **
-							pSotpData[nSslSize+1] = '\0';		// **
-							const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
-							if (ret != 0)
+
+#ifdef USES_DATA_ENCODING
+							if (m_nDataEncoding!=SOTP_DATA_ENCODING_UNKNOWN)
 							{
+								//printf("**** parseOneLine m_nDataEncoding=%d,m_nDataSize=%d,nSslSize=%d\n",(int)m_nDataEncoding,(int)m_nDataSize,(int)nSslSize);
+								if (rebuildBuffer(m_nDataSize+20)==NULL)
+								{
+									return NULL;
+								}
+								unsigned char * pSotpData = new unsigned char[nSslSize+20];
+								pSotpData[nSslSize] = '\0';		// **
+								const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData);
+								//printf("**** aes_cbc_decrypt_full ret=%d\n",(int)ret);
+								if (ret != 0)
+								{
+									delete[] pSotpData;
+									return NULL;
+								}
+								m_pSslDecryptData[0] = '\n';	// **
+								if (m_nDataEncoding==SOTP_DATA_ENCODING_DEFLATE)
+								{
+									uLong nUnZipDestSize = m_nDataSize+20-1;
+									const int nUnZipRet = UnZipData(pSotpData,nSslSize,m_pSslDecryptData+1,&nUnZipDestSize,0);
+									if (nUnZipRet!=Z_OK)
+									{
+										delete[] pSotpData;
+										return NULL;
+									}
+								}else if (m_nDataEncoding==SOTP_DATA_ENCODING_GZIP)
+								{
+									uLong nUnZipDestSize = m_nDataSize+20-1;
+									const int nUnZipRet = UnGZipData(pSotpData,nSslSize,m_pSslDecryptData+1,&nUnZipDestSize);
+									//printf("**** UnGZipData nUnZipRet=%d,nUnZipDestSize=%d\n",(int)nUnZipRet,(int)nUnZipDestSize);
+									if (nUnZipRet!=Z_OK)
+									{
+										delete[] pSotpData;
+										return NULL;
+									}
+								}
 								delete[] pSotpData;
+								m_pSslDecryptData[m_nDataSize+1] = '\0';		// **
+								return (const char*)m_pSslDecryptData;
+							}
+#endif
+							if (rebuildBuffer(nSslSize+20)==NULL)
+							{
 								return pSslEnd;
 							}
-							if (m_pSslDecryptData!=NULL)
+							m_pSslDecryptData[0] = '\n';	// **
+							m_pSslDecryptData[nSslSize+1] = '\0';		// **
+							const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,m_pSslDecryptData+1);
+							if (ret != 0)
 							{
-								delete[] m_pSslDecryptData;
+								//delete[] m_pSslDecryptData;
+								//m_pSslDecryptData = NULL;
+								return pSslEnd;
 							}
-							m_pSslDecryptData = pSotpData;
 							return (const char*)m_pSslDecryptData;
 						}
 					}catch(const std::exception&)
@@ -711,21 +845,38 @@ const char * ParseCgcSotp2::parseOneLine(const char * pLineBuffer,size_t nBuffer
 						const tstring sSslPassword = m_pCallback->onGetSslPassword(getSid());
 						if (sSslPassword.empty())
 							return pSslEnd;
-						unsigned char * pSotpData = new unsigned char[nSslSize+20];	// 2
-						pSotpData[0] = '\n';	// **
-						pSotpData[nSslSize+1] = '\0';		// **
-						const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
-						if (ret != 0)
+
+						// new version
+						if (rebuildBuffer(nSslSize+20)==NULL)
 						{
-							delete[] pSotpData;
 							return pSslEnd;
 						}
-						if (m_pSslDecryptData!=NULL)
+						m_pSslDecryptData[0] = '\n';	// **
+						m_pSslDecryptData[nSslSize+1] = '\0';		// **
+						const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,m_pSslDecryptData+1);
+						if (ret != 0)
 						{
-							delete[] m_pSslDecryptData;
+							//delete[] m_pSslDecryptData;
+							//m_pSslDecryptData = NULL;
+							return pSslEnd;
 						}
-						m_pSslDecryptData = pSotpData;
 						return (const char*)m_pSslDecryptData;
+						// old version
+						//unsigned char * pSotpData = new unsigned char[nSslSize+20];	// 2
+						//pSotpData[0] = '\n';	// **
+						//pSotpData[nSslSize+1] = '\0';		// **
+						//const int ret = aes_cbc_decrypt_full((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),pSslData,nSslSize,pSotpData+1);
+						//if (ret != 0)
+						//{
+						//	delete[] pSotpData;
+						//	return pSslEnd;
+						//}
+						//if (m_pSslDecryptData!=NULL)
+						//{
+						//	delete[] m_pSslDecryptData;
+						//}
+						//m_pSslDecryptData = pSotpData;
+						//return (const char*)m_pSslDecryptData;
 					}
 				}catch(const std::exception&)
 				{
@@ -1025,6 +1176,21 @@ bool ParseCgcSotp2::sotpCompare(const char * pBuffer, const char * pCompare, int
 		i1++;
 	}
 	return true;
+}
+bool ParseCgcSotp2::getProtoItem(int nItemType, unsigned long * pOutItemValue) const
+{
+	switch(nItemType)
+	{
+	case SOTP_PROTO_ITEM_TYPE_ACCEPT_ENCODING:
+		*pOutItemValue = m_nAcceptEncoding;
+		return true;
+	case SOTP_PROTO_ITEM_TYPE_DATA_ENCODING:
+		*pOutItemValue = m_nDataEncoding;
+		return true;
+	default:
+		break;
+	}
+	return false;
 }
 
 }	// namespace mycp

@@ -54,10 +54,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #endif // WIN32
 
 //#define USES_PRINT_DEBUG
-
 // cgc head
 #include <CGCBase/comm.h>
+//#define USES_PROTOCOL_HSOTP
+#ifdef USES_PROTOCOL_HSOTP
 #include <CGCClass/cgcclassinclude.h>
+#endif
 #include <ThirdParty/stl/locklist.h>
 #include <ThirdParty/stl/lockmap.h>
 #include <ThirdParty/Boost/asio/IoService.h>
@@ -107,7 +109,9 @@ private:
 	unsigned long m_ipAddress;
 	int m_protocol;
 	int m_serverPort;
+#ifdef USES_PROTOCOL_HSOTP
 	cgcParserHttp::pointer m_pParserHttp;
+#endif
 
 #ifdef USES_CONNECTION_CLOSE_EVENT
 #ifdef WIN32
@@ -212,8 +216,10 @@ public:
 #endif
 	}
 	void SetServerPort(int v) {m_serverPort = v;}
+#ifdef USES_PROTOCOL_HSOTP
 	void SetParserHttp(const cgcParserHttp::pointer& p) {m_pParserHttp=p;}
 	const cgcParserHttp::pointer& GetParserhttp(void) const {return m_pParserHttp;}
+#endif
 
 #ifdef USES_CONNECTION_CLOSE_EVENT
 	void SetCloseEvent(void)
@@ -296,6 +302,7 @@ private:
 			// ºöÂÔbroken pipeÐÅÌ–
 			//signal(SIGPIPE, SIG_IGN);
 #endif
+#ifdef USES_PROTOCOL_HSOTP
 			if ((m_protocol & (int)PROTOCOL_HSOTP) && m_pParserHttp.get()!=NULL)
 			{
 				m_pParserHttp->reset();
@@ -434,6 +441,7 @@ private:
 					invalidate(true);
 				}
 			}else
+#endif
 			{
 				//boost::asio::async_write(m_connection->socket(), boost::asio::buffer(data, size), boost::bind(&TcpConnection::write_handler,m_connection,boost::asio::placeholders::error));
 				boost::system::error_code ignored_error;
@@ -1328,6 +1336,7 @@ protected:
 			pEventData->setCommEventType(CCommEventData::CET_Recv);
 			pEventData->setRemote(pCgcRemote);
 			pEventData->setRemoteId(pCgcRemote->getRemoteId());
+#ifdef USES_PROTOCOL_HSOTP
 			if (m_protocol & (int)PROTOCOL_HSOTP)
 			{
 				//printf("****recv****\n%s\n",data->data());
@@ -1372,6 +1381,7 @@ protected:
 					}
 				}
 			}else
+#endif
 			{
 				pEventData->setRecvData(data->data(), data->size());
 			}
@@ -1434,10 +1444,12 @@ protected:
 			{
 				pCgcRemote = cgcRemote::pointer(new CcgcRemote((CRemoteHandler*)this,pRemote,getId(),nRemoteId,m_protocol));
 				((CcgcRemote*)pCgcRemote.get())->SetServerPort(m_commPort);
+#ifdef USES_PROTOCOL_HSOTP
 				if (m_protocol & (int)PROTOCOL_HSOTP)
 				{
 					((CcgcRemote*)pCgcRemote.get())->SetParserHttp(cgcParserHttp::pointer(new CPpHttp()));
 				}
+#endif
 				m_mapCgcRemote.insert(nRemoteId, pCgcRemote);
 			}
 			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Accept);

@@ -21,10 +21,15 @@
 #ifndef __pp_http_h__
 #define __pp_http_h__
 
+#define USES_ZLIB
+
 #include "dlldefine.h"
 #include "../CGCBase/cgcParserHttp.h"
 #include "AttributesImpl.h"
 #include "XmlParseUpload.h"
+#ifdef USES_ZLIB
+#include "../ThirdParty/stl/zlib.h"
+#endif
 
 namespace mycp {
 
@@ -95,6 +100,8 @@ private:
 	bool m_addDateHeader;
 	bool m_addContentLength;
 	tstring m_sReqContentType;
+	tstring m_sReqContentEncoding;	// Content-Encoding
+	tstring m_sReqAcceptEncoding;		// Accept-Encoding
 	tstring m_sResContentType;
 	tstring m_sResCharset;	// utf-8,gb2312,...
 	tstring m_sLocation;
@@ -156,7 +163,13 @@ protected:
 	//bool getParameter(const tstring & paramName, std::vector<cgcValueInfo::pointer>& outParameters) const {return m_propertys.getProperty(paramName, outParameters);}
 	virtual bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const;
 	//bool getParameters(std::vector<cgcKeyValue::pointer>& outParameters) const {return m_propertys.getSPropertys(outParameters);}
-
+#ifdef USES_ZLIB
+	uLong m_nZipCallBackDataSize;
+	static bool MyZipDataCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData);
+	static bool UnZipPostStringCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData);
+	static bool UnZipWriteFileCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData);
+	static bool UnZipWriteCurrentMultiPartCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData);
+#endif
 	/////////////////////////////////////////////
 	// Response
 	virtual void println(const char * text, size_t size);

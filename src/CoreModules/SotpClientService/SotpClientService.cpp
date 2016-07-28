@@ -75,13 +75,14 @@ public:
 				mycp::CCGCSotpClient::pointer pPOPSotpClient = pIter->second;
 				const time_t tSendRecvTime = pPOPSotpClient->sotp()->doGetLastSendRecvTime();
 				const unsigned int nSendReceiveTimeout = pPOPSotpClient->GetUserData();
-				printf("**** OnCheckTimeout lasttime=%lld, timeout=%d\n",(bigint)tSendRecvTime,nSendReceiveTimeout);
+				//printf("**** OnCheckTimeout lasttime=%lld, timeout=%d\n",(bigint)tSendRecvTime,nSendReceiveTimeout);
 				if (tSendRecvTime > 0 && (tSendRecvTime+nSendReceiveTimeout)<tNow)
 				{
 					// 已经通过 XX 秒没有数据，清空该sotp client
-					printf("**** OnCheckTimeout clear um client\n");
+					//printf("**** OnCheckTimeout clear um client\n");
+					CGC_LOG((mycp::LOG_TRACE, "OnCheckTimeout clear um client\n"));
 					theModuleSotpClientList.erase(pIter);
-					if ((++nEraseCount)>=200 || theModuleSotpClientList.empty(false))
+					if ((++nEraseCount)>=500 || theModuleSotpClientList.empty(false))
 						break;
 					else
 						pIter = theModuleSotpClientList.begin();

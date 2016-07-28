@@ -60,6 +60,7 @@ public:
 	//const tstring& GetSslPrivatePwd(void) const {return m_cgcInvoke.getSslPrivatePwd();}
 	//void SetSslPassword(const tstring& newv) {m_cgcInvoke.setSslPassword(newv);}
 	const tstring& GetSslPassword(void) const {return m_cgcInvoke.getSslPassword();}
+	int GetAcceptEncoding(void) const {return m_cgcInvoke.getAcceptEncoding();}
 
 	//////////////////////////////////////////////
 	// Request
@@ -97,6 +98,7 @@ public:
 	virtual void setSslPublicKey(const tstring & newValue) {m_cgcInvoke.setSslPublicKey(newValue);}
 	virtual const tstring & getSslPublicKey(void) const {return m_cgcInvoke.getSslPublicKey();}
 	virtual bool isSslRequest(void) const {return m_cgcInvoke.isSslRequest();}
+	virtual bool getProtoItem(int nItemType, unsigned long * pOutItemValue) const {return m_cgcInvoke.getProtoItem(nItemType, pOutItemValue);}
 
 	virtual bool isRtpCommand(void) const {return m_cgcInvoke.isRtpCommand();}
 	virtual bool isRtpData(void) const {return m_cgcInvoke.isRtpData();}
@@ -128,7 +130,7 @@ public:
 	////////////////////////////////////////////////////////
 	// Response
 	virtual void setResEncoding(const tstring & sEncoding) {SotpCallTable2::setEncoding(sEncoding);}
-	virtual tstring getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey) const;
+	virtual tstring getSessionResult(int retCode, const tstring & sSessionId, unsigned short seq, bool bNeedAck, const tstring& sSslPublicKey, int nAcceptEncoding) const;
 	virtual tstring getAppCallResult(int retCode, unsigned short seq, bool bNeedAck);
 	virtual tstring getAppCallResultHead(int retCode);
 	virtual tstring getAppCallResultData(unsigned short seq, bool bNeedAck);

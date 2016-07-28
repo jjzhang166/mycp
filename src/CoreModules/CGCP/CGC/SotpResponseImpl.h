@@ -90,6 +90,8 @@ public:
 	//void SetSslPassword(const tstring & newValue) {m_sSslPassword = newValue;}
 
 protected:
+	bool m_bDisableZip;
+	virtual bool setConfigValue(int nConfigItem, unsigned int nConfigValue);
 	// for attachment
 	virtual void setAttachName(const tstring & name) {if (m_cgcParser.get() != NULL) m_cgcParser->setResAttachName(name);}
 	virtual void setAttachInfo(bigint total, bigint index) {if (m_cgcParser.get() != NULL) m_cgcParser->setResAttachInfo(total, index);}

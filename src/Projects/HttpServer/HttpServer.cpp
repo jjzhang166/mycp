@@ -2574,11 +2574,13 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		//printf("**** %s\n",lpszFileName);
 		unsigned int nRangeFrom = request->getRangeFrom();
 		unsigned int nRangeTo = request->getRangeTo();
-		const tstring sRange = request->getHeader(Http_Range);
+		const tstring sRange(request->getHeader(Http_Range));
 		//printf("**** %s\n",sRange.c_str());
 		//printf("**** Range %d-%d\n",nRangeFrom,nRangeTo);
 		if (nRangeTo == 0 && pResInfo->m_nSize>0)
+		{
 			nRangeTo = pResInfo->m_nSize-1;
+		}
 		const unsigned int nReadTotal = nRangeTo>0?(nRangeTo-nRangeFrom+1):0;			// 重设数据长度
 		//printf("**** RangeFrom=%d, RangeTo=%d, nReadTotal=%d\n",nRangeFrom,nRangeTo,nReadTotal);
 		//if (nReadTotal >= 1024)
@@ -2619,6 +2621,9 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		if (statusCode == STATUS_CODE_206)
 		{
 			response->setHeader(Http_AcceptRanges,"bytes");
+			char lpszBuffer[128];
+			sprintf(lpszBuffer,"bytes %d-%d/%d",nRangeFrom,nRangeTo,pResInfo->m_nSize);
+			response->setHeader(Http_ContentRange,lpszBuffer);
 		}
 //		if (statusCode == STATUS_CODE_206)
 //		{
@@ -2669,6 +2674,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 //		}
 		if (nReadTotal > 0)
 		{
+			//printf("*********** %d-%d send...\n",nRangeFrom,nReadTotal);
 			//CGC_LOG((mycp::LOG_TRACE, "filepath=%s, Data=0x%x, Size=%d, nReadTotal=%d\n",sFilePath.c_str(),(int)pResInfo->m_pData,(int)pResInfo->m_nSize,(int)nReadTotal));
 			if (pResInfo->m_pData == NULL)
 			{
@@ -2712,6 +2718,8 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					return STATUS_CODE_500;
 				}
 			}
+			//response->sendResponse(statusCode);
+			//printf("*********** %d-%d send ok\n",nRangeFrom,nReadTotal);
 		}else
 		{
 			// *有可能是空文件
