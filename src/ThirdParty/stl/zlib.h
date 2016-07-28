@@ -380,6 +380,7 @@ inline int ZipFile2File(FILE *source, uLong nSourceSize, FILE *dest, uLong* pOut
 	(void)deflateEnd(&strm);
 	delete[] in;
 	delete[] out;
+	fflush(dest);
 	return Z_OK;
 }
 inline int GZipFile2File(FILE *source, uLong nSourceSize, FILE *dest, uLong* pOutSize, int level=Z_DEFAULT_COMPRESSION)
@@ -465,6 +466,8 @@ inline int UnZipData2File(const unsigned char *source, uLong nSourceSize, FILE *
 	/* clean up and return */
 	(void)inflateEnd(&strm);
 	delete[] out;
+	if (ret == Z_STREAM_END)
+		fflush(dest);
 	return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
 }
 inline int UnGZipData2File(const unsigned char *source, uLong nSourceSize, FILE *dest, unsigned int * pOutSize=NULL)
@@ -574,6 +577,8 @@ inline int UnZipFile2File(FILE *source, uLong nSourceSize, FILE *dest, int gzip,
 	(void)inflateEnd(&strm);
 	delete[] in;
 	delete[] out;
+	if (ret == Z_STREAM_END)
+		fflush(dest);
 	return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
 }
 inline int UnGZipFile2File(FILE *source, uLong nSourceSize, FILE *dest, unsigned int * pOutSize=NULL)
