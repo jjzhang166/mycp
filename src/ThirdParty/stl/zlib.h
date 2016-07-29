@@ -159,7 +159,7 @@ inline int ZipFile2Data(FILE *source, uLong nSourceSize, unsigned char *dest, uL
 	unsigned char * in = new unsigned char[const_pack_size];
 	if (in==NULL)
 	{
-		(void)inflateEnd(&strm);
+		(void)deflateEnd(&strm);
 		return Z_MEM_ERROR;
 	}
 
@@ -172,7 +172,7 @@ inline int ZipFile2Data(FILE *source, uLong nSourceSize, unsigned char *dest, uL
 		nSourceIndex += nIn;
 		strm.avail_in = (unsigned int)fread(in, 1, nIn, source);
 		if (ferror(source)) {
-			(void)inflateEnd(&strm);
+			(void)deflateEnd(&strm);
 			delete[] in;
 			return Z_ERRNO;
 		}
@@ -185,7 +185,7 @@ inline int ZipFile2Data(FILE *source, uLong nSourceSize, unsigned char *dest, uL
 			const unsigned int nOut = min((nDestSize-(*pDestSize)),const_pack_size);
 			if (nOut==0)
 			{
-				(void)inflateEnd(&strm);
+				(void)deflateEnd(&strm);
 				delete[] in;
 				return Z_MEM_ERROR;
 			}
@@ -244,13 +244,13 @@ inline int ZipFile2Cb(FILE *source, uLong nSourceSize, ZipDataCallBack pCb, unsi
 	unsigned char * in = new unsigned char[const_pack_size];
 	if (in==NULL)
 	{
-		(void)inflateEnd(&strm);
+		(void)deflateEnd(&strm);
 		return Z_MEM_ERROR;
 	}
 	unsigned char * out = new unsigned char[const_pack_size];
 	if (out==NULL)
 	{
-		(void)inflateEnd(&strm);
+		(void)deflateEnd(&strm);
 		delete[] in;
 		return Z_MEM_ERROR;
 	}
@@ -264,7 +264,7 @@ inline int ZipFile2Cb(FILE *source, uLong nSourceSize, ZipDataCallBack pCb, unsi
 		nSourceIndex += nIn;
 		strm.avail_in = (unsigned int)fread(in, 1, nIn, source);
 		if (ferror(source)) {
-			(void)inflateEnd(&strm);
+			(void)deflateEnd(&strm);
 			delete[] in;
 			delete[] out;
 			return Z_ERRNO;
@@ -284,7 +284,7 @@ inline int ZipFile2Cb(FILE *source, uLong nSourceSize, ZipDataCallBack pCb, unsi
 				*pOutSize += have;
 			if (!pCb((nSourceIndex-nIn),out,have,nUserData))
 			{
-				(void)inflateEnd(&strm);
+				(void)deflateEnd(&strm);
 				delete[] in;
 				delete[] out;
 				return Z_ERRNO;
@@ -327,13 +327,13 @@ inline int ZipFile2File(FILE *source, uLong nSourceSize, FILE *dest, uLong* pOut
 	unsigned char * in = new unsigned char[const_pack_size];
 	if (in==NULL)
 	{
-		(void)inflateEnd(&strm);
+		(void)deflateEnd(&strm);
 		return Z_MEM_ERROR;
 	}
 	unsigned char * out = new unsigned char[const_pack_size];
 	if (out==NULL)
 	{
-		(void)inflateEnd(&strm);
+		(void)deflateEnd(&strm);
 		delete[] in;
 		return Z_MEM_ERROR;
 	}
@@ -347,7 +347,7 @@ inline int ZipFile2File(FILE *source, uLong nSourceSize, FILE *dest, uLong* pOut
 		nSourceIndex += nIn;
 		strm.avail_in = (unsigned int)fread(in, 1, nIn, source);
 		if (ferror(source)) {
-			(void)inflateEnd(&strm);
+			(void)deflateEnd(&strm);
 			delete[] in;
 			delete[] out;
 			return Z_ERRNO;
@@ -638,6 +638,7 @@ inline int UnZipFile2Data(FILE *source, uLong nSourceSize, unsigned char *dest, 
 			if (nOut==0)
 			{
 				(void)inflateEnd(&strm);
+				delete[] in;
 				return Z_MEM_ERROR;
 			}
 			strm.avail_out = nOut;
@@ -811,7 +812,7 @@ inline int ZipData(const unsigned char *source, uLong nSourceSize, unsigned char
 			const unsigned int nOut = min((nDestSize-(*pDestSize)),const_pack_size);
 			if (nOut==0)
 			{
-				(void)inflateEnd(&strm);
+				(void)deflateEnd(&strm);
 				return Z_MEM_ERROR;
 			}
 			strm.avail_out = nOut;
@@ -859,7 +860,7 @@ inline int ZipDataCb(const unsigned char *source, uLong nSourceSize, int gzip, i
 	unsigned char * out = new unsigned char[const_pack_size];
 	if (out==NULL)
 	{
-		(void)inflateEnd(&strm);
+		(void)deflateEnd(&strm);
 		return Z_MEM_ERROR;
 	}
 	uLong nSourceIndex = 0;
@@ -880,7 +881,7 @@ inline int ZipDataCb(const unsigned char *source, uLong nSourceSize, int gzip, i
 			have = const_pack_size - strm.avail_out;
 			if (!pCb((nSourceIndex-nIn),out,have,nUserData))
 			{
-				(void)inflateEnd(&strm);
+				(void)deflateEnd(&strm);
 				delete[] out;
 				return Z_ERRNO;
 			}
@@ -943,13 +944,14 @@ inline int UnZipData(const unsigned char *source, uLong nSourceSize, unsigned ch
 			strm.next_out = dest+(*pDestSize);
 			ret = inflate(&strm, Z_NO_FLUSH);
 			//assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
-			switch (ret) {
-						case Z_NEED_DICT:
-							ret = Z_DATA_ERROR;     /* and fall through */
-						case Z_DATA_ERROR:
-						case Z_MEM_ERROR:
-							(void)inflateEnd(&strm);
-							return ret;
+			switch (ret)
+			{
+			case Z_NEED_DICT:
+				ret = Z_DATA_ERROR;     /* and fall through */
+			case Z_DATA_ERROR:
+			case Z_MEM_ERROR:
+				(void)inflateEnd(&strm);
+				return ret;
 			}
 			have = nOut - strm.avail_out;
 			*pDestSize += have;
