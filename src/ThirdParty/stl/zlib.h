@@ -700,6 +700,18 @@ inline int UnZipFile2Cb(FILE *source, uLong nSourceSize, int gzip, unsigned int 
 	if (ret != Z_OK)
 		return ret;
 
+	if (nSourceSize==0)
+	{
+#ifdef WIN32
+			_fseeki64(source, 0, SEEK_END);
+			nSourceSize = (uLong)_ftelli64(source);
+			_fseeki64(source, 0, SEEK_SET);
+#else
+			fseeko(source, 0, SEEK_END);
+			nSourceSize = (uLong)ftello(source);
+			fseeko(source, 0, SEEK_SET);
+#endif
+	}
 	const uLong const_pack_size = CONST_UZIP_PACK_SIZE(nSourceSize);	
 	unsigned char * in = new unsigned char[const_pack_size];
 	if (in==NULL)

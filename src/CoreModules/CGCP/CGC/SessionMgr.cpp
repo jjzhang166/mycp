@@ -87,6 +87,7 @@ CSessionImpl::~CSessionImpl(void)
 	m_attributes.reset();
 	m_pcgcRemote.reset();
 	m_pcgcParser.reset();
+	m_pLastResponse.reset();
 	m_pSessionModuleList.clear();
 	m_pHoldResponseList.clear();
 	delPrevDatathread(true);
@@ -190,6 +191,7 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 //	}
 //#endif
 
+	m_pLastResponse.reset();
 	BoostReadLock rdlock(m_pSessionModuleList.mutex());
 	CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
 	for (;pIter!=m_pSessionModuleList.end(); pIter++)
@@ -204,7 +206,10 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 //			continue;
 //#endif
 		if (pSessionModuleInfo->m_pRemote->getRemoteId() == nRemoteId)
+		{
 			pSessionModuleInfo->m_pRemote->invalidate();
+			pSessionModuleInfo->m_pLastResponse.reset();
+		}
 	}
 }
 void CSessionImpl::OnRunCGC_Remote_Change(const cgcRemote::pointer& pcgcRemote)
@@ -330,6 +335,7 @@ void CSessionImpl::OnServerStop(void)
 {
 	//OnRunCGC_Session_Close();
 	m_pcgcRemote->invalidate();
+	m_pLastResponse.reset();
 }
 
 void CSessionImpl::ProcHoldResponseTimeout(void)
@@ -427,6 +433,7 @@ void CSessionImpl::onRemoteClose(unsigned long remoteId,int nErrorCode)
 	if (m_pcgcRemote.get() != NULL && m_pcgcRemote->getRemoteId() == remoteId)
 	{
 		m_pcgcRemote->invalidate();	// 清除connection
+		m_pLastResponse.reset();
 //#ifdef USES_HTTP_REMOTE_CLOSE
 //		if ((nErrorCode == 10054 ||		// 远程主机强迫关闭了一个现有的连接
 //			nErrorCode == 104 ||		// Connection reset by peer
@@ -497,6 +504,7 @@ void CSessionImpl::invalidate(void)
 	if (getProtocol()!=PROTOCOL_SOTP)
 	{
 		m_pcgcRemote->invalidate();
+		m_pLastResponse.reset();
 	}
 }
 
@@ -522,26 +530,42 @@ cgcResponse::pointer CSessionImpl::getLastResponse(const tstring& moduleName) co
 	CSessionModuleInfo::pointer pSessionModuleItem;
 	if (!moduleName.empty() && m_pSessionModuleList.find(moduleName,pSessionModuleItem))
 	{
+		if (pSessionModuleItem->m_pLastResponse.get()!=NULL) return pSessionModuleItem->m_pLastResponse;
+
 		if (m_pcgcRemote->getProtocol() == PROTOCOL_SOTP)
 		{
 			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this,NULL);
 			pSotpResponseImpl->setSession(const_cast<CSessionImpl*>(this)->shared_from_this());
-			return cgcSotpResponse::pointer(pSotpResponseImpl);
+			//return cgcSotpResponse::pointer(pSotpResponseImpl);
+			pSessionModuleItem->m_pLastResponse = cgcSotpResponse::pointer(pSotpResponseImpl);
 		}else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
-			return cgcResponse::pointer(new CHttpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
-		else
-			return cgcResponse::pointer(new CResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+		{
+			pSessionModuleItem->m_pLastResponse = cgcResponse::pointer(new CHttpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+			//return cgcResponse::pointer(new CHttpResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+		}else
+		{
+			pSessionModuleItem->m_pLastResponse = cgcResponse::pointer(new CResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+			//return cgcResponse::pointer(new CResponseImpl(pSessionModuleItem->m_pRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+		}
+		return pSessionModuleItem->m_pLastResponse;
 	}else
 	{
+		if (m_pLastResponse.get()!=NULL) return m_pLastResponse;
 		if (m_pcgcRemote->getProtocol() == PROTOCOL_SOTP)
 		{
 			CSotpResponseImpl* pSotpResponseImpl = new CSotpResponseImpl(m_pcgcRemote, CGC_PARSERSOTPSERVICE_DEF(m_pcgcParser), (CResponseHandler*)this,NULL);
 			pSotpResponseImpl->setSession(const_cast<CSessionImpl*>(this)->shared_from_this());
-			return cgcSotpResponse::pointer(pSotpResponseImpl);
+			const_cast<CSessionImpl*>(this)->m_pLastResponse = cgcSotpResponse::pointer(pSotpResponseImpl);
+			//return cgcSotpResponse::pointer(pSotpResponseImpl);
 		}else if (m_pcgcRemote->getProtocol() & PROTOCOL_HTTP)
+		{
 			return cgcNullResponse;//cgcResponse::pointer(new CHttpResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
-		else
-			return cgcResponse::pointer(new CResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+		}else
+		{
+			const_cast<CSessionImpl*>(this)->m_pLastResponse = cgcResponse::pointer(new CResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+			//return cgcResponse::pointer(new CResponseImpl(m_pcgcRemote, CGC_PARSERHTTPSERVICE_DEF(m_pcgcParser)));
+		}
+		return m_pLastResponse;
 	}
 }
 
@@ -558,7 +582,11 @@ cgcResponse::pointer CSessionImpl::getHoldResponse(unsigned long nRemoteId)
 void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& pcgcRemote, const cgcParserBase::pointer& pcgcParser)
 {
 	if (pcgcRemote.get() == NULL || pcgcRemote->isInvalidate() || pcgcParser.get() == NULL) return;
-	m_pcgcParser = pcgcParser;
+	if (m_pcgcParser.get()!=pcgcParser.get())
+	{
+		m_pcgcParser = pcgcParser;
+		m_pLastResponse.reset();
+	}
 	setDataResponseImpl(sModuleName,pcgcRemote);
 }
 void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& pcgcRemote)
@@ -578,15 +606,24 @@ void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemot
 			if (pIter != m_pSessionModuleList.end())
 			{
 				pSessionModuleItem = pIter->second;
-				pSessionModuleItem->m_pRemote = pcgcRemote;
+				if (pSessionModuleItem->m_pRemote.get()==NULL || pSessionModuleItem->m_pRemote->getRemoteId() != pcgcRemote->getRemoteId())
+				{
+					pSessionModuleItem->m_pRemote = pcgcRemote;
+					pSessionModuleItem->m_pLastResponse.reset();
+				}
 				pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true, false);
 			}
 		}else if (m_pSessionModuleList.find(sModuleName,pSessionModuleItem))
 		{
-			pSessionModuleItem->m_pRemote = pcgcRemote;
+			if (pSessionModuleItem->m_pRemote.get()==NULL || pSessionModuleItem->m_pRemote->getRemoteId() != pcgcRemote->getRemoteId())
+			{
+				pSessionModuleItem->m_pRemote = pcgcRemote;
+				pSessionModuleItem->m_pLastResponse.reset();
+			}
 			pSessionModuleItem->m_pRemoteList.insert(pcgcRemote->getRemoteId(), true, false);
 		}
 		m_pcgcRemote = pcgcRemote;
+		m_pLastResponse.reset();
 	}
 }
 
@@ -669,9 +706,10 @@ CSessionModuleInfo::pointer CSessionImpl::addModuleItem(const ModuleItem::pointe
 	{
 		pSessionModuleItem = CSessionModuleInfo::create(pModuleItem,wssRemote);
 		m_pSessionModuleList.insert(pModuleItem->getName(),pSessionModuleItem);
-	}else
+	}else if (pSessionModuleItem->m_pRemote.get()==NULL || pSessionModuleItem->m_pRemote->getRemoteId()!=wssRemote->getRemoteId())
 	{
 		pSessionModuleItem->m_pRemote = wssRemote;
+		pSessionModuleItem->m_pLastResponse.reset();
 	}
 	pSessionModuleItem->m_pRemoteList.insert(wssRemote->getRemoteId(),true,false);
 	return pSessionModuleItem;

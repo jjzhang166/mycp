@@ -69,6 +69,7 @@ public:
 	{}
 	ModuleItem::pointer m_pModuleItem;
 	cgcRemote::pointer m_pRemote;
+	cgcResponse::pointer m_pLastResponse;
 	CLockMap<unsigned long,bool> m_pRemoteList; // remoteid->
 	bool m_bOpenSessioned;
 };
@@ -104,6 +105,7 @@ private:
 	bool m_bInvalidate;
 	cgcRemote::pointer m_pcgcRemote;	// default remote
 	cgcParserBase::pointer m_pcgcParser;
+	cgcResponse::pointer m_pLastResponse;
 	//cgcCDBCService::pointer m_pCdbcService;	// for sync
 
 	// session ¶ÔÓ¦µÄModuleItem
