@@ -99,6 +99,7 @@ private:
 	mycp::asio::TcpConnectionPointer m_connection;
 #ifdef USES_SUPPORT_HTTP_CONNECTION
 	bool m_bIsInvalidate;
+	time_t m_tCloseTime;
 #else
 	mycp::asio::TcpConnectionPointer m_pCloseConnection;
 #endif
@@ -125,7 +126,7 @@ public:
 	CcgcRemote(CRemoteHandler * handler, const mycp::asio::TcpConnectionPointer& pConnection,unsigned long commId,  unsigned long remoteId, int protocol)
 		: m_handler(handler), m_connection(pConnection)
 #ifdef USES_SUPPORT_HTTP_CONNECTION
-		, m_bIsInvalidate(false)
+		, m_bIsInvalidate(false), m_tCloseTime(0)
 #endif
 		, m_commId(commId),m_remoteId(remoteId),m_ipAddress(0), m_protocol(protocol)
 		, m_serverPort(0)
@@ -198,6 +199,7 @@ public:
 #endif
 	}
 	
+	time_t GetCloseTime(void) const {return m_tCloseTime;}
 	void UpdateConnection(const mycp::asio::TcpConnectionPointer& pConnection)
 	{
 		if (pConnection.get()==NULL || pConnection->is_closed()) return;
@@ -213,6 +215,7 @@ public:
 		}
 #ifdef USES_SUPPORT_HTTP_CONNECTION
 		m_bIsInvalidate = false;
+		m_tCloseTime = 0;
 #endif
 	}
 	void SetServerPort(int v) {m_serverPort = v;}
@@ -464,6 +467,8 @@ private:
 	{
 #ifdef USES_SUPPORT_HTTP_CONNECTION
 		m_bIsInvalidate = true;
+		if (m_tCloseTime==0)
+			m_tCloseTime = time(0);
 #else
 		try
 		{
@@ -1036,10 +1041,10 @@ protected:
 
 			static unsigned int theIndex = 0;
 			theIndex++;
-			if ((theIndex%500)==499)	// 3 second
+			if ((theIndex%400)==399)	// 3 second
 			{
 				m_tNowTime = time(0);
-//#ifndef USES_SUPPORT_HTTP_CONNECTION
+				//#ifndef USES_SUPPORT_HTTP_CONNECTION
 				CCloseConnectionInfo::pointer pCloseInfo;
 				CCloseConnectionInfo::pointer pFirstErrorCloseInfo;
 				while (theCloseList.front(pCloseInfo))
@@ -1063,7 +1068,7 @@ protected:
 						break;
 					}
 				}
-//#endif
+				//#endif
 			}
 
 			return;
@@ -1312,10 +1317,10 @@ protected:
 		m_listMgr.add(pEventData);
 	}
 	// TcpConnection_Handler
-	virtual void OnRemoteRecv(const mycp::asio::TcpConnectionPointer& pRemote, const mycp::asio::ReceiveBuffer::pointer& data)
+	virtual bool OnRemoteRecv(const mycp::asio::TcpConnectionPointer& pRemote, const mycp::asio::ReceiveBuffer::pointer& data)
 	{
 		BOOST_ASSERT(pRemote.get() != 0);
-		if (data->size() == 0 || pRemote == 0) return;
+		if (data->size() == 0 || pRemote == 0) return true;
 		const unsigned long nRemoteId = pRemote->getId();
 		//printf("******** OnRemoteRecv:%lu size=%d\n",nRemoteId,data->size());
 		if (m_commHandler.get() != NULL)
@@ -1324,10 +1329,23 @@ protected:
 			if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote))
 			{
 				//printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
-				return;
+				return false;
 			}
 			if (pCgcRemote->isInvalidate())
 			{
+				if (m_bIsHttp)
+				{
+					pRemote->close();
+					return false;
+					//if (this->m_tNowTime>(((CcgcRemote*)pCgcRemote.get())->GetCloseTime()+2))
+					//{
+					//	printf("******* set close flag\n");
+					//	pRemote->close();
+					//	return false;
+					//}
+					//theCloseList.add(CCloseConnectionInfo::create(pRemote, 2, true));
+					//return true;	// **HTTP不处理，直接返回
+				}
 				//printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
 				((CcgcRemote*)pCgcRemote.get())->UpdateConnection(pRemote);
 			}
@@ -1390,7 +1408,7 @@ protected:
 				CRemoteWaitData::pointer pHttpRemoteWaitData;
 				if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
 				{
-					return;
+					return true;
 				}
 				pHttpRemoteWaitData->m_listMgr.add(pEventData);
 			}
@@ -1412,6 +1430,7 @@ protected:
 #endif
 			m_listMgr.add(pEventData);
 		}
+		return true;
 	}
 	//unsigned long GetNextRemoteId(void)
 	//{

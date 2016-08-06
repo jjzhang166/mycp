@@ -25,7 +25,7 @@ class TcpConnection_Handler
 public:
 	typedef boost::shared_ptr<TcpConnection_Handler> pointer;
 	virtual void OnRemoteAccept(const TcpConnectionPointer& pRemote)=0;
-	virtual void OnRemoteRecv(const TcpConnectionPointer& pRemote, const ReceiveBuffer::pointer& data)=0;
+	virtual bool OnRemoteRecv(const TcpConnectionPointer& pRemote, const ReceiveBuffer::pointer& data)=0;
 	virtual void OnRemoteClose(const TcpConnection* pRemote, int nErrorCode)=0;
 };
 
@@ -231,11 +231,12 @@ public:
 		{
 			buffer->size(size);
 			//m_datas.add(buffer);
+			bool bStartRead = true;
 			if (m_handler.get() != NULL)
 			{
 				try
 				{
-					m_handler->OnRemoteRecv(pOwner, buffer);
+					bStartRead = m_handler->OnRemoteRecv(pOwner, buffer);
 				}catch(std::exception&)
 				{
 				}catch(boost::exception&)
@@ -243,7 +244,8 @@ public:
 				}catch(...)
 				{}
 			}
-			start_read();
+			if (bStartRead)
+				start_read();
 		}else
 		{
 			ShowNetWorkError(error);

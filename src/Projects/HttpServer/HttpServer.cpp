@@ -147,12 +147,12 @@ public:
 	CResInfo(const std::string& sFileName, const std::string& sMimeType)
 		: m_sFileName(sFileName),m_sMimeType(sMimeType)
 		, m_tModifyTime(0),m_tRequestTime(0)
-		, m_nSize(0),m_pData(NULL)
+		, m_nSize(0),m_pData(NULL),m_nDataBufferSize(0),m_pFile(NULL)
 	{
 	}
 	CResInfo(void)
 		: m_tModifyTime(0),m_tRequestTime(0)
-		, m_nSize(0),m_pData(NULL)
+		, m_nSize(0),m_pData(NULL),m_nDataBufferSize(0), m_pFile(NULL)
 	{
 	}
 	virtual ~CResInfo(void)
@@ -161,6 +161,11 @@ public:
 		{
 			delete[] m_pData;
 			m_pData = NULL;
+		}
+		if (m_pFile!=NULL)
+		{
+			fclose(m_pFile);
+			m_pFile = NULL;
 		}
 		//m_fs.close();
 	}
@@ -173,7 +178,10 @@ public:
 	std::string m_sETag;
 	time_t m_tRequestTime;
 	unsigned int m_nSize;
+	boost::mutex	m_mutexFile;
 	char * m_pData;
+	size_t m_nDataBufferSize;
+	FILE * m_pFile;
 };
 
 enum REQUEST_INFO_STATE
@@ -762,7 +770,7 @@ public:
 	virtual void OnDisconnect(int nUserData)
 	{
 		//theWaitDataList.remove(nUserData);
-		CGC_LOG((mycp::LOG_TRACE, "OnDisconnect UserData=%d\n", nUserData));
+		//CGC_LOG((mycp::LOG_TRACE, "OnDisconnect UserData=%d\n", nUserData));
 		//printf("******** OnDisconnect UserData=%d\n",nUserData);
 		const int nTcpRequestId = nUserData;
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
@@ -875,7 +883,7 @@ public:
 			return;
 		const int nContentLen = (header.contentLengthB1 << 8)	+ header.contentLengthB0;
 		const int nPaddingLen = header.paddingLength;
-		CGC_LOG((mycp::LOG_TRACE, "RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n", nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen));
+		//CGC_LOG((mycp::LOG_TRACE, "RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n", nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen));
 		//printf("******** RequestId=%d,type=%d,DataSize=%d,ContentLen=%d,PaddingLen=%d\n",nRequestId,(int)header.type,nSize,nContentLen,nPaddingLen);
 		//pFastcgiRequestInfo->SetResponsePaddingLength(nPaddingLen);
 		if (nLastDataSize>0)
@@ -910,7 +918,7 @@ public:
 				{
 					if (nBodyLength>0)
 					{
-						CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
+						//CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 						pFastcgiRequestInfo->response()->writeData(pData+FCGI_HEADER_LEN,nBodyLength);
 					}
 				}else
@@ -927,7 +935,7 @@ public:
 							//printf("******** 1 length=%d,data=%s\n",nBodyLength,httpRequest);
 							if (nBodyLength>0)
 							{
-								CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
+								//CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 								pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
 							}
 							break;
@@ -945,7 +953,7 @@ public:
 							//printf("******** 2 length=%d,data=%s\n",nBodyLength,httpRequest);
 							if (nBodyLength>0)
 							{
-								CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
+								//CGC_LOG((mycp::LOG_TRACE, "response()->writeData size=%d\n", nBodyLength));
 								pFastcgiRequestInfo->response()->writeData(httpRequest,nBodyLength);
 							}
 							break;
@@ -1006,7 +1014,7 @@ public:
 					nEndStatus = pEndRequestBody.protocolStatus;
 				}
 
-				CGC_LOG((mycp::LOG_TRACE, "RequestId=%d set REQUEST_INFO_STATE_FCGI_END_REQUEST EndStatus=%d\n", nRequestId, nEndStatus));
+				//CGC_LOG((mycp::LOG_TRACE, "RequestId=%d set REQUEST_INFO_STATE_FCGI_END_REQUEST EndStatus=%d\n", nRequestId, nEndStatus));
 				const bool bResponseError = nEndStatus == FCGI_REQUEST_COMPLETE?false:true;
 				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_FCGI_END_REQUEST,bResponseError);
 				//pFastcgiRequestInfo->GetRequestPassInfo()->SetCloseEvent();
@@ -1044,7 +1052,7 @@ public:
 	{
 		//theWaitDataList.remove(nUserData);
 
-		CGC_LOG((mycp::LOG_TRACE, "OnReceiveData size=%d,UserData=%d\n", data->size(),nUserData));
+		//CGC_LOG((mycp::LOG_TRACE, "OnReceiveData size=%d,UserData=%d\n", data->size(),nUserData));
 		//printf("******** OnReceiveData size=%d,UserData=%d\n",data->size(),nUserData);
 		const int nTcpRequestId = nUserData;
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
@@ -1642,7 +1650,7 @@ void insertScriptItem(const tstring& code, const tstring & sFileNameTemp, const 
 }
 #endif
 
-void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTime, bool bIsImageOrBinary)
+inline void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTime, bool bIsImageOrBinary)
 {
 	const int nExpireSecond = bIsImageOrBinary?(10*const_one_day_seconds):(2*const_one_day_seconds);	// 文本文件：2天；其他图片等10天；
 	const time_t tExpiresTime = tRequestTime + nExpireSecond;
@@ -1653,6 +1661,60 @@ void SetExpiresCache(const cgcHttpResponse::pointer& response,time_t tRequestTim
 	sprintf(lpszBuffer, "max-age=%d", nExpireSecond);
 	response->setHeader("Cache-Control",lpszBuffer);
 }
+const unsigned int theOneMB = 1024*1024;
+inline bool ReadFileDataToResponse(FILE * f, mycp::bigint nFileSize, const cgcHttpResponse::pointer& response)
+{
+	const unsigned int nPackSize = (unsigned int)(nFileSize>theOneMB?theOneMB:nFileSize);
+	char * lpszBuffer = new char[nPackSize+1];
+	if (lpszBuffer==NULL) return false;
+	mycp::bigint nReadIndex = 0;
+	while (true)
+	{
+		const size_t nOut = min(nPackSize,nFileSize-nReadIndex);
+		if (nOut==0) break;
+		nReadIndex += nOut;
+		const size_t nReadSize = fread(lpszBuffer,1,nOut,f);
+		if (nReadSize==0) break;
+		response->writeData((const char*)lpszBuffer, nReadSize);
+	}
+	delete[] lpszBuffer;
+	return true;
+}
+inline bool GetFileMd5(FILE* f,mycp::bigint& pOutFileSize,tstring& pOutFileMd5)
+{
+	if (f == NULL)
+	{
+		return false;
+	}
+#ifdef WIN32
+	_fseeki64(f, 0, SEEK_END);
+	pOutFileSize = _ftelli64(f);
+#else
+	fseeko(f, 0, SEEK_END);
+	pOutFileSize = ftello(f);
+#endif
+	// 获取文件MD5
+	MD5 md5;
+	const unsigned int nPackSize = (unsigned int)(pOutFileSize>theOneMB?theOneMB:pOutFileSize);
+	unsigned char * lpszBuffer = new unsigned char[nPackSize+1];
+#ifdef WIN32
+	_fseeki64(f, 0, SEEK_SET);
+#else
+	fseeko(f, 0, SEEK_SET);
+#endif
+	while (true)
+	{
+		const size_t nReadSize = fread(lpszBuffer,1,nPackSize,f);
+		if (nReadSize==0)
+			break;
+		md5.update(lpszBuffer, (unsigned int)nReadSize);
+	}
+	md5.finalize();
+	pOutFileMd5 = md5.hex_digest();
+	delete[] lpszBuffer;
+	return true;
+}
+
 extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	HTTP_STATUSCODE statusCode = STATUS_CODE_200;
@@ -2009,7 +2071,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 
 		const int nRequestId = pFastcgiRequestInfo->GetRequestId();
-		CGC_LOG((mycp::LOG_TRACE, "RequestId=%d waitting...(%s)\n", nRequestId,sFileName.c_str()));
+		//CGC_LOG((mycp::LOG_TRACE, "RequestId=%d waitting...(%s)\n", nRequestId,sFileName.c_str()));
 #ifdef USES_FASTCGI_KEEP_CONN
 		mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->GetRequestPassInfo()->m_pFastCgiServer;
 #else
@@ -2459,7 +2521,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				}
 				theTimerHandler->RemoveRequestInfo(pFastcgiRequestInfo);
 #endif
-				CGC_LOG((mycp::LOG_TRACE, "RequestId=%d return STATUS_CODE_200, error=%d\n", nRequestId, (int)(bResponseError?1:0)));
+				//CGC_LOG((mycp::LOG_TRACE, "RequestId=%d return STATUS_CODE_200, error=%d\n", nRequestId, (int)(bResponseError?1:0)));
 				return STATUS_CODE_200;
 			}else if (!theApplication->isInited())
 				break;
@@ -2519,45 +2581,62 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			boost::mutex::scoped_lock lock(pResInfo->m_mutex);
 			if (pResInfo->m_tModifyTime==0 || pResInfo->m_tModifyTime != lastTime)
 			{
-				std::fstream stream;
-				stream.open(sFilePath.c_str(), std::ios::in|std::ios::binary);
-				if (!stream.is_open())
-				{
+				// * 
+				// response-body-only
+				FILE * f = fopen(sFilePath.c_str(),"rb");
+				if (f==NULL)
 					return STATUS_CODE_404;
-				}
-				pResInfo->m_nSize = (unsigned int)fs::file_size(src_path);
+				mycp::bigint nFileSize = 0;
+				tstring sFileMd5String;
+				GetFileMd5(f,nFileSize,sFileMd5String);
+				char lpszETag[33];
+				sprintf(lpszETag,"\"%s\"",sFileMd5String.c_str());
+				pResInfo->m_sETag = lpszETag;
+				pResInfo->m_nSize = (unsigned int)nFileSize;
 				pResInfo->m_tModifyTime = lastTime;
 				struct tm * tmModifyTime = gmtime(&pResInfo->m_tModifyTime);
 				char lpszModifyTime[128];
 				strftime(lpszModifyTime, 128, "%a, %d %b %Y %H:%M:%S GMT", tmModifyTime);
 				pResInfo->m_sModifyTime = lpszModifyTime;
-				//// ETag
-				//sprintf(lpszModifyTime,"\"%lld\"",(mycp::bigint)pResInfo->m_tModifyTime);
-				//pResInfo->m_sETag = lpszModifyTime;
-				// 先处理前面内存数据
-				char * lpszTemp = pResInfo->m_pData;
-				pResInfo->m_pData = NULL;
+				boost::mutex::scoped_lock lockFile(pResInfo->m_mutexFile);
 				// 读文件内容到内存（只读取小于50MB，超过的直接从文件读取）
 				if (pResInfo->m_nSize<=const_memory_size)
 				{
-					char * buffer = new char[pResInfo->m_nSize+1];
-					//memset(buffer, 0, pResInfo->m_nSize+1);
-					stream.seekg(0, std::ios::beg);
-					stream.read(buffer, pResInfo->m_nSize);
-					buffer[pResInfo->m_nSize] = '\0';
-					pResInfo->m_pData = buffer;
-
-					// 计算MD5
-					MD5 md5;
-					md5.update((const unsigned char*)buffer, pResInfo->m_nSize);
-					md5.finalize();
-					const std::string sFileMd5String = (const char*)md5.hex_digest();
-					sprintf(lpszModifyTime,"\"%s\"",sFileMd5String.c_str());
-					pResInfo->m_sETag = lpszModifyTime;
+					if (pResInfo->m_pData==NULL)
+					{
+						pResInfo->m_nDataBufferSize = pResInfo->m_nSize;
+						pResInfo->m_pData = new char[pResInfo->m_nDataBufferSize+1];
+					}else if (pResInfo->m_nDataBufferSize<pResInfo->m_nSize)
+					{
+						delete[] pResInfo->m_pData;
+						pResInfo->m_nDataBufferSize = pResInfo->m_nSize;
+						pResInfo->m_pData = new char[pResInfo->m_nDataBufferSize+1];
+					}
+					if (pResInfo->m_pData==NULL)
+						return STATUS_CODE_400;
+#ifdef WIN32
+					_fseeki64(f, 0, SEEK_SET);
+#else
+					fseeko(f, 0, SEEK_SET);
+#endif
+					fread(pResInfo->m_pData,1,pResInfo->m_nSize,f);
+					pResInfo->m_pData[pResInfo->m_nSize] = '\0';
+					fclose(f);
+					if (pResInfo->m_pFile!=NULL)
+						fclose(pResInfo->m_pFile);
+					pResInfo->m_pFile = NULL;
+				}else
+				{
+					if (pResInfo->m_pFile!=NULL)
+						fclose(pResInfo->m_pFile);
+					pResInfo->m_pFile = f;
+					if (pResInfo->m_pData!=NULL)
+					{
+						delete[] pResInfo->m_pData;
+						pResInfo->m_pData = NULL;
+						pResInfo->m_nDataBufferSize = 0;
+					}
 				}
-				stream.close();
-				if (lpszTemp != NULL)
-					delete[] lpszTemp;
 			}
 		}
 		if (sIfModifiedSince==pResInfo->m_sModifyTime)
@@ -2581,7 +2660,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		{
 			nRangeTo = pResInfo->m_nSize-1;
 		}
-		const unsigned int nReadTotal = nRangeTo>0?(nRangeTo-nRangeFrom+1):0;			// 重设数据长度
+		unsigned int nReadTotal = nRangeTo>0?(nRangeTo-nRangeFrom+1):0;			// 重设数据长度
 		//printf("**** RangeFrom=%d, RangeTo=%d, nReadTotal=%d\n",nRangeFrom,nRangeTo,nReadTotal);
 		//if (nReadTotal >= 1024)
 		//{
@@ -2591,8 +2670,17 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		//}
 		if (nRangeTo>=pResInfo->m_nSize && pResInfo->m_nSize>0)
 			return STATUS_CODE_416;					// 416 Requested Range Not Satisfiable
+		//else if (nReadTotal>1024*1024)	// 分包下载
 		else if (nReadTotal>theMaxSize)	// 分包下载
 		{
+			//statusCode = STATUS_CODE_206;				// 206 Partial Content
+			//nReadTotal = 1024;
+			//nRangeTo = nRangeFrom+nReadTotal-1;
+			//printf("**** EB_MAX_MEMORY_SIZE data, pResInfo->m_sETag=%s\n",pResInfo->m_sETag.c_str());
+			//if (!pResInfo->m_sETag.empty())
+			//	response->setHeader("ETag",pResInfo->m_sETag);
+			//response->setHeader("Accept-Ranges","bytes");
+			//return STATUS_CODE_200;					// 413 Request Entity Too Large
 			return STATUS_CODE_413;					// 413 Request Entity Too Large
 		}else if (!sRange.empty())
 		{
@@ -2613,20 +2701,20 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		//sprintf(lpszBuffer,"attachment;filename=%s%s",sResourceId.c_str(),sExt.c_str());	// 附件方式下载
 		//sprintf(lpszBuffer,"inline;filename=%s%s",sResourceId.c_str(),sExt.c_str());		// 网页打开
 		//response->setHeader(Http_ContentDisposition,lpszBuffer);
-		if (pResInfo->m_pData!=NULL && !pResInfo->m_sETag.empty())
+		if (!pResInfo->m_sETag.empty())
 			response->setHeader("ETag",pResInfo->m_sETag);
 		response->setHeader("Last-Modified",pResInfo->m_sModifyTime);
 		//printf("************ ContentType : %s\n",sMimeType.c_str());
 		response->setContentType(sMimeType);
-		if (statusCode == STATUS_CODE_206)
-		{
-			response->setHeader(Http_AcceptRanges,"bytes");
-			char lpszBuffer[128];
-			sprintf(lpszBuffer,"bytes %d-%d/%d",nRangeFrom,nRangeTo,pResInfo->m_nSize);
-			response->setHeader(Http_ContentRange,lpszBuffer);
-		}
-//		if (statusCode == STATUS_CODE_206)
+//		if (sRange.empty() && statusCode == STATUS_CODE_206 && pResInfo->m_pFile!=NULL)
 //		{
+//			boost::mutex::scoped_lock lockFile(pResInfo->m_mutexFile);
+//#ifdef WIN32
+//			_fseeki64(pResInfo->m_pFile, 0, SEEK_SET);
+//#else
+//			fseeko(pResInfo->m_pFile, 0, SEEK_SET);
+//#endif
+//			char lpszBuffer[64];
 //			//HTTP/1.1 200 OK  
 //			//Transfer-Encoding: chunked  
 //			//...  
@@ -2635,75 +2723,99 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 //			//6  
 //			//world!  
 //			//0 
+//#define USES_CHUNKED
+//			printf("**** response for chunked: %d-%d/%d\n",nRangeFrom,nRangeTo,pResInfo->m_nSize);
+//#ifdef USES_CHUNKED
 //			response->setHeader("Transfer-Encoding","chunked");	// 分段传输
-//
+//			//response->setHeader("Vary","Accept-Encoding");	// 分段传输
 //			response->setHeader(Http_AcceptRanges,"bytes");
-//			response->setHeader("ETag",sFilePath);
+//			//sprintf(lpszBuffer,"bytes %d-%d/%d",nRangeFrom,nRangeTo,pResInfo->m_nSize);
 //			response->setHeader("Connection","Keep-Alive");
-//			response->setContentType(sMimeType);
 //			//response->setContentType("multipart/byteranges");
 //			//response->setContentType("application/octet-stream");	// 会提示下载
+//			//response->setHeader(Http_ContentRange,lpszBuffer);
+//#else
+//			sprintf(lpszBuffer,"%d",(int)pResInfo->m_nSize);
+//			response->setHeader("Connection","Keep-Alive");
+//			response->setHeader("Content-Length",lpszBuffer);
+//#endif
+//			mycp::bigint nReadIndex = 0;
+//			char* lpszReadBuffer = NULL;
 //			while(!response->isInvalidate())
 //			{
-//				printf("**** read from memory: %d-%d/%d\n",nRangeFrom,nRangeTo,pResInfo->m_nSize);
-//				sprintf(lpszBuffer,"bytes %d-%d/%d",nRangeFrom,nRangeTo,pResInfo->m_nSize);
-//				response->setHeader(Http_ContentRange,lpszBuffer);
-//				response->writeData(pResInfo->m_pData+nRangeFrom, nReadTotal);
-//				if (nRangeFrom == 0)
-//					response->sendResponse(STATUS_CODE_200);
-//				else if (nRangeTo>=(pResInfo->m_nSize-1))
+//				const size_t nReadBufferSize = min(8*1024,(pResInfo->m_nSize-nReadIndex));
+//				//const size_t nReadBufferSize = min(theOneMB,(pResInfo->m_nSize-nReadIndex));
+//				if (lpszReadBuffer==NULL)
+//					lpszReadBuffer = new char[nReadBufferSize+1];
+//				const size_t nReadSize = fread(lpszReadBuffer,1,nReadBufferSize,pResInfo->m_pFile);
+//				nReadIndex += nReadSize;
+//				printf("**** response %x,nReadIndex=%d\n", (int)nReadSize,(int)nReadIndex);
+//#ifdef USES_CHUNKED
+//				sprintf(lpszBuffer,"%x",(int)nReadSize);
+//				response->writeData(lpszBuffer, strlen(lpszBuffer));
+//				response->newline();
+//				if (nReadSize==0)
 //				{
+//					response->newline();
+//					response->newline();
+//					response->sendResponse(STATUS_CODE_200);
+//					break;
+//				}
+//				response->writeData(lpszReadBuffer, nReadSize);
+//				response->newline();
+//				if (nReadIndex>=pResInfo->m_nSize)
+//				{
+//					response->writeData("0", 1);
+//					response->newline();
+//					response->newline();
 //					response->sendResponse(STATUS_CODE_200);
 //					break;
 //				}else
+//				{
 //					response->sendResponse(STATUS_CODE_206);
-//				nRangeFrom += nReadTotal;
-//				nRangeTo += nReadTotal;
-//				if (nRangeTo>pResInfo->m_nSize-1)
-//					nRangeTo=pResInfo->m_nSize-1;
-//#ifdef WIN32
-//				Sleep(100);
+//				}
 //#else
-//				usleep(100000);
+//				if (nReadSize==0)
+//					break;
+//				response->writeData(lpszReadBuffer, nReadSize);
+//				if (nReadIndex>=pResInfo->m_nSize)
+//				{
+//					response->newline();
+//					response->newline();
+//					response->sendResponse(STATUS_CODE_200);
+//					break;
+//				}else
+//				{
+//					response->sendResponse(STATUS_CODE_206);
+//					response->setHeader("response-body-only","");
+//					//response->setHeader("reset-body-size","");
+//				}
 //#endif
+////#ifdef WIN32
+////				Sleep(10);
+////#else
+////				usleep(10000);
+////#endif
 //			}
-//			return statusCode;;
-//		}else
-//		{
-//			response->setContentType(sMimeType);
+//			if (lpszReadBuffer!=NULL)
+//				delete[] lpszReadBuffer;
+//			return STATUS_CODE_200;;
 //		}
+
+		if (statusCode == STATUS_CODE_206)
+		//if (!sRange.empty() && statusCode == STATUS_CODE_206)
+		{
+			response->setHeader(Http_AcceptRanges,"bytes");
+			char lpszBuffer[128];
+			sprintf(lpszBuffer,"bytes %d-%d/%d",nRangeFrom,nRangeTo,pResInfo->m_nSize);
+			response->setHeader(Http_ContentRange,lpszBuffer);
+		}
 		if (nReadTotal > 0)
 		{
 			//printf("*********** %d-%d send...\n",nRangeFrom,nReadTotal);
 			//CGC_LOG((mycp::LOG_TRACE, "filepath=%s, Data=0x%x, Size=%d, nReadTotal=%d\n",sFilePath.c_str(),(int)pResInfo->m_pData,(int)pResInfo->m_nSize,(int)nReadTotal));
-			if (pResInfo->m_pData == NULL)
-			{
-				// 读文件
-				//printf("**** read from file: %d-%d/%d\n",nRangeFrom,nRangeTo,pResInfo->m_nSize);
-				std::fstream stream;
-				stream.open(pResInfo->m_sFileName.c_str(), std::ios::in|std::ios::binary);
-				if (!stream.is_open())
-				{
-					return STATUS_CODE_404;
-				}
-				stream.seekg(nRangeFrom, std::ios::beg);
-				char * buffer = new char[nReadTotal+1];
-				//memset(buffer, 0, nReadTotal+1);
-				stream.read(buffer, nReadTotal);
-				stream.clear();
-				stream.close();
-				buffer[nReadTotal] = '\0';
-				response->writeData(buffer, nReadTotal);
-				// 计算MD5
-				MD5 md5;
-				md5.update((const unsigned char*)buffer, nReadTotal);
-				md5.finalize();
-				const std::string sFileMd5String = (const char*)md5.hex_digest();
-				sprintf(buffer,"\"%s\"",sFileMd5String.c_str());
-				pResInfo->m_sETag = buffer;
-				response->setHeader("ETag",pResInfo->m_sETag);
-				delete[] buffer;
-			}else
+			boost::mutex::scoped_lock lockFile(pResInfo->m_mutexFile);
+			if (pResInfo->m_pData != NULL)
 			{
 				// 读内存
 				//printf("**** read from memory: %d-%d/%d\n",nRangeFrom,nRangeTo,pResInfo->m_nSize);
@@ -2717,6 +2829,22 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				{
 					return STATUS_CODE_500;
 				}
+			}else
+			{
+				// 读文件
+				//printf("**** read from file: %d-%d/%d\n",nRangeFrom,nRangeTo,pResInfo->m_nSize);
+				if (pResInfo->m_pFile == NULL)
+				{
+					pResInfo->m_pFile = fopen(pResInfo->m_sFileName.c_str(),"rb");
+					if (pResInfo->m_pFile==NULL)
+						return STATUS_CODE_404;
+				}
+#ifdef WIN32
+				_fseeki64(pResInfo->m_pFile, nRangeFrom, SEEK_SET);
+#else
+				fseeko(pResInfo->m_pFile, nRangeFrom, SEEK_SET);
+#endif
+				ReadFileDataToResponse(pResInfo->m_pFile,nReadTotal,response);
 			}
 			//response->sendResponse(statusCode);
 			//printf("*********** %d-%d send ok\n",nRangeFrom,nReadTotal);
@@ -2724,82 +2852,9 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		{
 			// *有可能是空文件
 		}
-	//	tfstream stream;
-	//	stream.open(sFilePath.c_str(), std::ios::in|std::ios::binary);
-	//	if (!stream.is_open())
-	//	{
-	//		return STATUS_CODE_404;
-	//	}
-	//	int nRangeFrom = request->getRangeFrom();
-	//	int nRangeTo = request->getRangeTo();
-	//	const tstring sRange = request->getHeader(Http_Range);
-	//	//printf("**** %s\n",sRange.c_str());
-	//	//printf("**** Range %d-%d\n",nRangeFrom,nRangeTo);
-	//	stream.seekg(0, std::ios::end);
-	//	int nTotal = stream.tellg();
-	//	if (nRangeTo == 0)
-	//		nRangeTo = nTotal;
-	//	int nReadTotal = nRangeTo-nRangeFrom;				// 重设数据长度
-	//	if (nReadTotal > const_max_size)					// 分包下载
-	//	{
-	//		return STATUS_CODE_413;							// 413 Request Entity Too Large
-	//		nReadTotal = const_max_size;
-	//		statusCode = STATUS_CODE_206;
-	//	}else if (!sRange.empty())
-	//	{
-	//		statusCode = STATUS_CODE_206;
-	//	}
-	//	char lpszBuffer[512];
-	//	//sprintf(lpszBuffer,"attachment;filename=%s%s",sResourceId.c_str(),sExt.c_str());	// 附件方式下载
-	//	//sprintf(lpszBuffer,"inline;filename=%s%s",sResourceId.c_str(),sExt.c_str());		// 网页打开
-	//	//response->setHeader(Http_ContentDisposition,lpszBuffer);
-	//	if (statusCode == STATUS_CODE_206)
-	//	{
-	//		sprintf(lpszBuffer,"bytes %d-%d/%d",nRangeFrom,nRangeTo,nTotal);
-	//		response->setHeader(Http_ContentRange,lpszBuffer);
-	//	}
-	//	response->setHeader("Last-Modified",lpszModifyTime);
-	//	response->setHeader("Cache-Control","max-age=8640000");	// 86400=1天
-	//	response->setHeader(Http_AcceptRanges,"bytes");
-	//	response->setContentType(sMimeType);
-	//	if (nReadTotal > 0)
-	//	{
-	//		stream.seekg(nRangeFrom, std::ios::beg);
-	//		char * buffer = new char[nReadTotal+1];
-	//		memset(buffer, 0, nReadTotal+1);
-	//		stream.read(buffer, nReadTotal);
-	//		buffer[nReadTotal] = '\0';
-	//		response->writeData(buffer, nReadTotal);
-	//		delete[] buffer;
-	//	}else
-	//	{
-	//		// ?
-	//	}
-	//	//nTotal = nRangeTo-nRangeFrom;	// 重设数据长度
-	//	////nTotal = std::min(2*1024,nRangeTo-nRangeFrom);	// 重设数据长度
-
-	//	//// STATUS_CODE_100
-
-	//	//response->setHeader("Accept-Ranges","bytes");
-	//	//response->setContentType(sMimeType);
-	//	//if (nTotal > 0)
-	//	//{
-	//	//	stream.seekg(nRangeFrom, std::ios::beg);
-	//	//	char * buffer = new char[nTotal+1];
-	//	//	memset(buffer, 0, nTotal+1);
-	//	//	stream.read(buffer, nTotal);
-	//	//	buffer[nTotal] = '\0';
-	//	//	response->writeData(buffer, nTotal);
-	//	//	delete[] buffer;
-	//	//}else
-	//	//{
-	//	//	// ?
-	//	//}
-
-	//	stream.clear();
-	//	stream.close();
 	}
 
 	//printf("**** return =%d\n",statusCode);
+	//return STATUS_CODE_200;
 	return statusCode;
 }

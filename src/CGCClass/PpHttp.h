@@ -95,10 +95,12 @@ private:
 	// Content-Type: text/plain
 	// Content-Type属性没有的话表示普通的字符串数据，如"company"＝XX
 
-
 	HTTP_STATUSCODE m_statusCode;
 	bool m_addDateHeader;
 	bool m_addContentLength;
+	bool m_bTransferEncoding;
+	bool m_bResponseHeader;
+	bool m_bResponseBodyOnly;
 	tstring m_sReqContentType;
 	tstring m_sReqContentEncoding;	// Content-Encoding
 	tstring m_sReqAcceptEncoding;		// Accept-Encoding

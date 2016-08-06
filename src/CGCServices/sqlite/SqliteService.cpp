@@ -81,7 +81,10 @@ public:
 			const mycp::bigint offset = 0;
 			for (int i=0 ; i<m_fields; i++ )
 			{
-				const tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
+				tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
+				const std::string::size_type find = s.find(".");
+				if (find!=std::string::npos)
+					s = s.substr(find+1);
 				record.push_back(CGC_VALUEINFO(s));
 			}
 		}catch(...)

@@ -59,6 +59,9 @@ CPpHttp::CPpHttp(void)
 , m_forwardFromURL("")
 , m_pHeaderBufferTemp(NULL), m_pHeaderTemp(NULL), m_pCookieTemp(NULL)
 {
+	m_bTransferEncoding = false;
+	m_bResponseHeader = false;
+	m_bResponseBodyOnly = false;
 #ifdef USES_ZLIB
 	m_nZipCallBackDataSize = 0;
 #endif
@@ -262,6 +265,9 @@ void CPpHttp::reset(void)
 	m_functionName = "";
 	m_addDateHeader = false;
 	m_addContentLength = true;
+	m_bTransferEncoding = false;
+	m_bResponseHeader = false;
+	m_bResponseBodyOnly = false;
 	m_bodySize = 0;
 	if (m_resultBuffer!=NULL && m_bodyBufferSize>0)
 		memset(m_resultBuffer, 0, m_bodyBufferSize);
@@ -369,7 +375,22 @@ void CPpHttp::setHeader(const tstring& name, const tstring& value)
 		}else if (sStringTemp == "content-length")
 		{
 			addContentLength(false);
+		//}else if (sStringTemp == "reset-body-size")
+		//{
+		//	// **
+		//	m_bodySize = 0;
+		//	return;
+		}else if (!m_bResponseBodyOnly && sStringTemp == "response-body-only")
+		{
+			// **
+			m_bResponseBodyOnly = true;
+			return;
+		}else if (!m_bTransferEncoding && sStringTemp == "transfer-encoding")
+		{
+			// **
+			m_bTransferEncoding = true;
 		}
+		
 		//m_pResHeaders.remove(name);
 		m_pResHeaders.insert(name,CGC_VALUEINFO(value));
 		//m_pResHeaders.push_back(CGC_KEYVALUE(name,CGC_VALUEINFO(value)));
@@ -536,6 +557,10 @@ bool CPpHttp::UnZipWriteCurrentMultiPartCallBack(uLong nSourceIndex, const unsig
 const char * CPpHttp::getHttpResult(size_t& outSize) const
 {
 	if (m_resultBuffer==NULL) return NULL;
+	//if (m_bResponseBodyOnly)
+	//{
+	//	return ;
+	//}
 	// Make Response
 	if (m_pHeaderBufferTemp==NULL)
 	{
@@ -552,6 +577,15 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		const_cast<CPpHttp*>(this)->m_pCookieTemp = new char[1024*4];
 		if (m_pCookieTemp==NULL) return NULL;
 	}
+
+	if (m_bResponseBodyOnly || (m_bTransferEncoding && m_bResponseHeader))
+	{
+		outSize = m_bodySize;
+		return m_resultBuffer+MAX_HTTPHEAD_SIZE;
+	}else if (m_bTransferEncoding)
+	{
+		const_cast<CPpHttp*>(this)->m_bResponseHeader = true;
+	}
 	// get all headers
 	//std::string sHeaders;
 	if (m_sResContentType.empty())
@@ -561,19 +595,27 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	{
 		sprintf(m_pHeaderBufferTemp, "HTTP/1.1 %s\r\nContent-Type: %s\r\n",cgcGetStatusCode(m_statusCode).c_str(), m_sResContentType.c_str());
 	}
-	bool bFindContentEncodingHead = false;	// Http_ContentEncoding
+	bool bFindContentionHeader = false;	// Http_Contention
+	bool bFindContentEncodingHeader = false;	// Http_ContentEncoding
 	size_t nHeadSize = strlen(m_pHeaderBufferTemp);
 	{
 		CLockMap<tstring,cgcValueInfo::pointer>::const_iterator pIter = m_pResHeaders.begin();
 		for (;pIter!=m_pResHeaders.end();pIter++)
 		{
 			const tstring sKey(pIter->first);
-			if (!bFindContentEncodingHead)
+			if (!bFindContentEncodingHeader)
 			{
 				tstring sStringTemp(sKey);
 				std::transform(sStringTemp.begin(), sStringTemp.end(), sStringTemp.begin(), ::tolower);
 				if (sStringTemp=="content-encoding")
-					bFindContentEncodingHead = true;
+					bFindContentEncodingHeader = true;
+			}
+			if (!bFindContentionHeader)
+			{
+				tstring sStringTemp(sKey);
+				std::transform(sStringTemp.begin(), sStringTemp.end(), sStringTemp.begin(), ::tolower);
+				if (sStringTemp=="connection")
+					bFindContentionHeader = true;
 			}
 			const cgcValueInfo::pointer pValue = pIter->second;
 			sprintf(m_pHeaderTemp,"%s: %s\r\n",sKey.c_str(),pValue->getStr().c_str());
@@ -608,19 +650,19 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 					sprintf(szDT,"%s, %02d %s %d %02d:%02d:%02d GMT", GetWeekdayName(newtime->tm_wday).c_str(),newtime->tm_mday,
 						GetMonthName(newtime->tm_mon).c_str(),(newtime->tm_year+1900),newtime->tm_hour,newtime->tm_min,newtime->tm_sec);
 					sDTTemp = szDT;
-//					printf("**** DATE=%s\n",sDTTemp.c_str());
-//					printf("**** DATE1=%s,m_sResCharset=%s\n",szDT,m_sResCharset.c_str());
-//					if (m_sResCharset=="utf-8")
-//					{
-//#ifdef WIN32
-//						sDTTemp = CGC_ACP2UTF8(szDT);
-//#else
-//						CGC_XXX2UTF8("gb2312",szDT,strlen(szDT),sDTTemp);
-//#endif
-//					}else
-//					{
-//						sDTTemp = szDT;
-//					}
+					//					printf("**** DATE=%s\n",sDTTemp.c_str());
+					//					printf("**** DATE1=%s,m_sResCharset=%s\n",szDT,m_sResCharset.c_str());
+					//					if (m_sResCharset=="utf-8")
+					//					{
+					//#ifdef WIN32
+					//						sDTTemp = CGC_ACP2UTF8(szDT);
+					//#else
+					//						CGC_XXX2UTF8("gb2312",szDT,strlen(szDT),sDTTemp);
+					//#endif
+					//					}else
+					//					{
+					//						sDTTemp = szDT;
+					//					}
 				}
 				sprintf(m_pHeaderTemp, "Set-Cookie: %s; expires=%s\r\n", m_pCookieTemp,sDTTemp.c_str());
 			}else
@@ -646,18 +688,18 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 			sprintf(szDT,"%s, %02d %s %d %02d:%02d:%02d GMT", GetWeekdayName(newtime->tm_wday).c_str(),newtime->tm_mday,
 				GetMonthName(newtime->tm_mon).c_str(),(newtime->tm_year+1900),newtime->tm_hour,newtime->tm_min,newtime->tm_sec);
 			sDTTemp = szDT;
-//			strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
-//			if (m_sResCharset=="utf-8")
-//			{
-//#ifdef WIN32
-//				sDTTemp = CGC_ACP2UTF8(szDT);
-//#else
-//				CGC_XXX2UTF8("gb2312",szDT,strlen(szDT),sDTTemp);
-//#endif
-//			}else
-//			{
-//				sDTTemp = szDT;
-//			}
+			//			strftime(szDT, 128, "%a, %d %b %Y %H:%M:%S GMT", newtime);
+			//			if (m_sResCharset=="utf-8")
+			//			{
+			//#ifdef WIN32
+			//				sDTTemp = CGC_ACP2UTF8(szDT);
+			//#else
+			//				CGC_XXX2UTF8("gb2312",szDT,strlen(szDT),sDTTemp);
+			//#endif
+			//			}else
+			//			{
+			//				sDTTemp = szDT;
+			//			}
 		}
 		sprintf(m_pHeaderTemp, "Date: %s\r\n", sDTTemp.c_str());
 		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
@@ -680,17 +722,20 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		nHeadSize += strlen(m_pHeaderTemp);
 		//sHeaders.append(m_pHeaderTemp);
 	}
-	// Connection: xxx
-	if (m_keepAlive && m_keepAliveInterval>=0)
+	if (!bFindContentionHeader)
 	{
-		sprintf(m_pHeaderTemp, "Connection: Keep-Alive\r\n");
-		//sprintf(m_pHeaderTemp, "Connection: Keep-Alive\r\nKeep-Alive: 300\r\n");
-	}else
-	{
-		sprintf(m_pHeaderTemp, "Connection: close\r\n");
+		// Connection: xxx
+		if (m_keepAlive && m_keepAliveInterval>=0)
+		{
+			sprintf(m_pHeaderTemp, "Connection: Keep-Alive\r\n");
+			//sprintf(m_pHeaderTemp, "Connection: Keep-Alive\r\nKeep-Alive: 300\r\n");
+		}else
+		{
+			sprintf(m_pHeaderTemp, "Connection: close\r\n");
+		}
+		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
+		nHeadSize += strlen(m_pHeaderTemp);
 	}
-	strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
-	nHeadSize += strlen(m_pHeaderTemp);
 	//sHeaders.append(m_pHeaderTemp);
 	// Server: xxx
 	sprintf(m_pHeaderTemp,"Server: %s\r\n",SERVERNAME);
@@ -703,7 +748,8 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	//sprintf(m_pHeaderTemp,"Accept-Encoding: gzip, deflate\r\n");
 	//strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
 	//nHeadSize += strlen(m_pHeaderTemp);
-	if (!bFindContentEncodingHead && m_bodySize>=128  && !IsDisableContentEncoding(m_sResContentType))
+	if (!m_bTransferEncoding && 
+		!bFindContentEncodingHeader && m_bodySize>=128  && !IsDisableContentEncoding(m_sResContentType))
 	{
 		// gzip,deflate,compress
 		if (m_sReqAcceptEncoding.find("gzip")!=std::string::npos)
@@ -731,7 +777,8 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		}
 	}
 #endif
-	if (m_addContentLength && m_bodySize>0)
+	if (!m_bTransferEncoding && 
+		m_addContentLength && m_bodySize>0)
 	{
 		sprintf(m_pHeaderTemp,"Content-Length: %d\r\n",m_bodySize);
 		strcpy(m_pHeaderBufferTemp+nHeadSize,m_pHeaderTemp);
@@ -753,6 +800,7 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 	memmove(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);	// ***
 	//memcpy(m_resultBuffer+headerSize, m_resultBuffer+MAX_HTTPHEAD_SIZE, m_bodySize);	// xxx
 	m_resultBuffer[outSize] = '\0';
+	const_cast<CPpHttp*>(this)->m_bodySize = 0;
 	return m_resultBuffer;
 }
 

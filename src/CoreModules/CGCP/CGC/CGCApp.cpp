@@ -1688,6 +1688,18 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 		responseImpl = cgcHttpResponse::pointer(new CHttpResponseImpl(pcgcRemote, phttpParser));
 	}else// if (parseResult)
 	{
+		//printf("**** phttpParser->getStatusCode()=%d!\n", phttpParser->getStatusCode());
+		if (phttpParser->getStatusCode()!=STATUS_CODE_200)
+		{
+			statusCode = phttpParser->getStatusCode();
+			CHttpResponseImpl pResponseImpl(pcgcRemote, phttpParser);
+			pResponseImpl.sendResponse();
+			pcgcRemote->invalidate(true);
+			if (bCanSetParserToPool)
+				SetHttpParserPool(phttpParser);
+			return statusCode;
+		}
+
 		cgcHttpRequest::pointer requestImpl(new CHttpRequestImpl(pcgcRemote, phttpParser));
 		responseImpl = cgcHttpResponse::pointer(new CHttpResponseImpl(pcgcRemote, phttpParser));
 		((CHttpRequestImpl*)requestImpl.get())->setContent((const char*)recvData, dataSize);
@@ -3327,7 +3339,7 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 #else
 		FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
 #endif
-		printf("**** m_fpGetSotpClientHandler=0x%x\n",(int)(void*)fpGetSotpClientHandler);
+		//printf("**** m_fpGetSotpClientHandler=0x%x\n",(int)(void*)fpGetSotpClientHandler);
 		if (fpGetSotpClientHandler!=NULL)
 		{
 			m_fpGetSotpClientHandler = fpGetSotpClientHandler;
