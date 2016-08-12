@@ -19,8 +19,6 @@
 
 // CommTcpServer.cpp : Defines the exported functions for the DLL application.
 // 
-//#define USES_TCP_TEST_CONNECT
-
 #ifdef WIN32
 #pragma warning(disable:4018 4267 4311 4996)
 #ifndef _WIN32_WINNT            // Specifies that the minimum required platform is Windows Vista.
@@ -51,6 +49,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <arpa/inet.h>
 #include <semaphore.h>
 #include <time.h>
+#define USES_TCP_TEST_CONNECT	// linux
 #endif // WIN32
 
 //#define USES_PRINT_DEBUG
@@ -538,7 +537,7 @@ bool FileIsExist(const char* pFile)
 //#define USES_PRINT_DEBUG
 #ifdef USES_TCP_TEST_CONNECT
 class CTcpTestConnect
-	: public TcpClient_Handler
+	: public mycp::asio::TcpClient_Handler
 	, public boost::enable_shared_from_this<CTcpTestConnect>
 {
 public:
@@ -569,9 +568,9 @@ public:
 			}
 
 			if (m_ipService.get()==NULL)
-				m_ipService = IoService::create();
+				m_ipService = mycp::asio::IoService::create();
 			if (m_tcpClient.get()==NULL)
-				m_tcpClient = TcpClient::create(shared_from_this());
+				m_tcpClient = mycp::asio::TcpClient::create(shared_from_this());
 			boost::system::error_code ec;
 			tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp,ec), nPort);
 			m_tcpClient->connect(m_ipService->ioservice(), endpoint, sslctx, false);
@@ -623,6 +622,14 @@ public:
 	{}
 	virtual ~CTcpTestConnect(void)
 	{
+		if (m_ipService.get() != 0)
+		{
+			m_ipService->stop();
+		}
+		if (m_tcpClient.get() != 0)
+		{
+			m_tcpClient->disconnect();
+		}
 		m_tcpClient.reset();
 		m_ipService.reset();
 		if (m_sslctx!=0)
@@ -634,15 +641,15 @@ public:
 private:
 	///////////////////////////////////////////////
 	// for TcpClient_Handler
-	virtual void OnConnected(const TcpClientPointer& tcpClient){m_connectReturned=true;m_bDisconnect=false;}
-	virtual void OnConnectError(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
-	virtual void OnReceiveData(const TcpClientPointer& tcpClient, const ReceiveBuffer::pointer& data){}
-	virtual void OnDisconnect(const TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
+	virtual void OnConnected(const mycp::asio::TcpClientPointer& tcpClient){m_connectReturned=true;m_bDisconnect=false;}
+	virtual void OnConnectError(const mycp::asio::TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
+	virtual void OnReceiveData(const mycp::asio::TcpClientPointer& tcpClient, const mycp::asio::ReceiveBuffer::pointer& data){}
+	virtual void OnDisconnect(const mycp::asio::TcpClientPointer& tcpClient, const boost::system::error_code & error){m_connectReturned = true;m_bDisconnect=true;}
 
 	bool m_connectReturned;
 	bool m_bDisconnect;
-	IoService::pointer m_ipService;
-	TcpClient::pointer m_tcpClient;
+	mycp::asio::IoService::pointer m_ipService;
+	mycp::asio::TcpClient::pointer m_tcpClient;
 	boost::asio::ssl::context * m_sslctx;
 };
 #endif
@@ -1005,38 +1012,43 @@ protected:
 					m_nCurrentThread--;
 				}
 
-				//if (m_bCheckComm)
-				//{
-				//	static unsigned int theIndex = 0;
-				//	theIndex++;
-				//	if ((theIndex%1000)==999)	// 10 second
-				//	{
-				//		const time_t m_tNowTime = time(0);
-				//		static time_t theLastCheckTime = m_tNowTime;
-				//		if (nSize>0)
-				//		{
-				//			theLastCheckTime = m_tNowTime;
-				//		}else if ((m_tNowTime-theLastCheckTime)>3*60)	// 3分钟没有收到数据，检查一次；
-				//		{
-				//			theLastCheckTime = m_tNowTime;
-				//			CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
-				//			if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
-				//			{
-				//				static short theError = 0;
-				//				CGC_LOG((LOG_ERROR, _T("**** CONNECT ERROR %d ****\n"), m_bIsSsl));
-				//				if ((++theError)>=2)
-				//				{
-				//					theError = 0;
-				//					OnIoServiceException();
-				//				}else
-				//				{
-				//					theLastCheckTime -= 2*60;	// ** 实现1分钟后，下次检查
-				//				}
-				//			}
-				//			pTestConnect.reset();
-				//		}
-				//	}
-				//}
+
+#ifdef USES_TCP_TEST_CONNECT
+				if (m_bCheckComm)
+				{
+					static unsigned int theIndex = 0;
+					theIndex++;
+					if ((theIndex%1000)==999)	// 10 second
+					{
+						const time_t tNowTime = time(0);
+						static time_t theLastCheckTime = 0;
+						if (nSize>0)
+						{
+							m_bCheckComm = false;
+						}else if (theLastCheckTime==0 || (tNowTime-theLastCheckTime)>30)	// 开始检查一次，后期每30秒检查一次
+						{
+							theLastCheckTime = tNowTime;
+							CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
+							if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
+							{
+								CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) Error ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
+								static short theError = 0;
+								if ((++theError)>=2)
+								{
+									theError = 0;
+									CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) OnIoServiceException Restart ****\n"),m_commPort));
+									OnIoServiceException();
+								}
+							}else
+							{
+								//CGC_LOG((LOG_INFO, _T("**** TestConnect(%d) OK ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
+								m_bCheckComm = false;			// ** 检查成功，直接退出，只检查一次
+							}
+							pTestConnect.reset();
+						}
+					}
+				}
+#endif
 			}
 
 			static unsigned int theIndex = 0;
@@ -1188,7 +1200,7 @@ protected:
 			}break;
 		case CCommEventData::CET_Exception:
 			{
-
+				printf("**** CCommEventData::CET_Exception...\n");
 				//if (!m_listMgr.empty())
 				{
 					AUTO_WLOCK(m_listMgr);
@@ -1202,8 +1214,17 @@ protected:
 				}
 				m_mapCgcRemote.clear();
 				const bool bFirstStart = m_ioservice.get()==NULL?true:false;
-				m_acceptor.reset();
-				m_ioservice.reset();
+				if (m_ioservice.get()!=NULL)
+				{
+					m_ioservice->stop();
+					m_ioservice.reset();
+				}
+				if (m_acceptor.get()!=NULL)
+				{
+					m_acceptor->stop();
+					m_acceptor.reset();
+				}
+				printf("**** CCommEventData::CET_Exception 111\n");
 #ifdef USES_OPENSSL
 				if (this->m_sslctx!=NULL)
 				{
@@ -1250,6 +1271,7 @@ protected:
 				}
 #endif
 				m_acceptor->start(m_ioservice->ioservice(), m_commPort, shared_from_this());
+				printf("**** CCommEventData::CET_Exception ok\n");
 			}break;
 		default:
 			break;

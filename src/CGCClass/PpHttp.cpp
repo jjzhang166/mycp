@@ -986,19 +986,26 @@ void CPpHttp::GeRequestInfo(void)
 		{
 			m_requestURI = m_requestURL.substr(0, find);
 			m_queryString = m_requestURL.substr(find+1);
-			const std::string::size_type findFileName = m_requestURI.rfind("/");
-			if (findFileName != std::string::npos)
-			{
-				m_fileName = m_requestURI.substr(findFileName+1);
-			}
+		}
+		const std::string::size_type findFileName = m_requestURI.rfind("/");
+		if (findFileName != std::string::npos)
+		{
+			m_fileName = m_requestURI.substr(findFileName+1);
 		}
 	}
-	const std::string::size_type nFind = m_sReqContentType.find("application/x-www-form-urlencoded");
-	const bool bUrlDecode = nFind != std::string::npos?true:false;
-	GetPropertys(m_queryString, bUrlDecode);
-	if (!m_postString.empty() && m_postString!=m_queryString)
+	const std::string::size_type findExt = m_requestURI.rfind(".");
+	tstring sFileExt = (findExt!=std::string::npos)?m_requestURI.substr(findExt+1):"";
+	if (findExt!=std::string::npos)
+		std::transform(sFileExt.begin(), sFileExt.end(), sFileExt.begin(), ::tolower);
+	const bool bPHP = sFileExt=="php"?true:false;
+
+	const std::string::size_type nFindUrlEncoded = bPHP?std::string::npos:m_sReqContentType.find("application/x-www-form-urlencoded");
+	const bool bUrlDecode = (nFindUrlEncoded!=std::string::npos)?true:false;
+	if (!bPHP)
+		GetPropertys(m_queryString, bUrlDecode);
+	if (!bPHP && !m_postString.empty() && m_postString!=m_queryString)
 		GetPropertys(m_postString, bUrlDecode);
-	if (bUrlDecode)
+	if (!bPHP && bUrlDecode)
 	{
 		m_queryString = URLDecode(m_queryString.c_str());
 		if (!m_postString.empty())

@@ -2433,10 +2433,9 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				}
 			}else if (request->getContentLength()>0 && !sHttpQueryString.empty())	// * 这里只处理 POST 数据
 			{
-				//printf("******** sQueryString=%s,content_length=%d\n",sHttpQueryString.c_str(),(int)request->getContentLength());
 				bAlreadySetContentType = true;
 				const tstring& sContentType = request->getContentType();
-				//printf("******** sContentType=%s\n",sContentType.c_str());
+				//printf("******** sContentType=%s,sQueryString=%s,content_length=%d\n",sContentType.c_str(),sHttpQueryString.c_str(),(int)request->getContentLength());
 				if (!sContentType.empty())
 				{
 					FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_CONTENT_TYPE.c_str(),FASTCGI_PARAM_CONTENT_TYPE.size(),sContentType.c_str(),sContentType.size(),&nNameValue1Size,lpszSendBuffer);
