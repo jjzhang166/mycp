@@ -31,19 +31,33 @@ public:
 #endif
 	size_t GetReadSleep(void) const {return m_nReadSleep;}
 	void SetReadSleep(size_t v) {m_nReadSleep = v;}
-	void start(boost::asio::io_service & ioservice, size_t tcpPort, const TcpConnection_Handler::pointer& handler)
+	bool start(boost::asio::io_service & ioservice, size_t tcpPort, const TcpConnection_Handler::pointer& handler)
 	{
-		m_handler = handler;
-
-		if (m_acceptor == NULL)
-			m_acceptor = new tcp::acceptor(ioservice, tcp::endpoint(tcp::v4(), tcpPort));
-		boost::system::error_code ec;
-		m_acceptor->set_option(boost::asio::socket_base::reuse_address(true),ec);
-		//m_acceptor->set_option(boost::asio::socket_base::enable_connection_aborted(true));
-		//m_acceptor->set_option(boost::asio::socket_base::keep_alive(true));
-		m_acceptor->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
-		m_acceptor->set_option(boost::asio::socket_base::receive_buffer_size(64*1024),ec);
-		start_accept();
+		try
+		{
+			m_handler = handler;
+			if (m_acceptor == NULL)
+				m_acceptor = new tcp::acceptor(ioservice, tcp::endpoint(tcp::v4(), tcpPort));
+			boost::system::error_code ec;
+			m_acceptor->set_option(boost::asio::socket_base::reuse_address(true),ec);
+			//m_acceptor->set_option(boost::asio::socket_base::enable_connection_aborted(true));
+			//m_acceptor->set_option(boost::asio::socket_base::keep_alive(true));
+			m_acceptor->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
+			m_acceptor->set_option(boost::asio::socket_base::receive_buffer_size(64*1024),ec);
+			start_accept();
+			return true;
+		}catch (std::exception & e)
+		{
+#ifdef WIN32
+			printf("start exception. %s, lasterror=%d\n", e.what(), GetLastError());
+#else
+			printf("start exception. %s\n", e.what());
+#endif
+		}catch (boost::exception&)
+		{
+		}catch(...)
+		{}
+		return false;
 	}
 	void stop(void)
 	{
