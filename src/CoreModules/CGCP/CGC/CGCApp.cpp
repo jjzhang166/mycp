@@ -755,7 +755,6 @@ int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDa
 	}
 
 	AppExit();
-
 	return 0;
 }
 
@@ -3437,7 +3436,10 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 					list.push_back(CGC_VALUEINFO(nCapacity));
 					list.push_back(CGC_VALUEINFO(moduleItem->getProtocol()));
 					if (!commService->initService(CGC_VALUEINFO(list)))
-						this->resetService(serviceInterface);
+					{
+						if ((moduleItem->getProtocol()&PROTOCOL_HTTP)==0 || !commService->initService(CGC_VALUEINFO(list)))	// ** 多尝试一次，部分TCP端口会报 bind: Address already in use 错误
+							this->resetService(serviceInterface);
+					}
 				}
 			}
 		}break;

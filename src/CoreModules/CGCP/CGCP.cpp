@@ -132,9 +132,9 @@ int main(int argc, char* argv[])
 	const std::string sProgram(argv[0]);
 	bool bService = false;
 	bool bProtect = false;
-#ifdef WIN32
+//#ifdef WIN32
 	bool bSingleProcess = false;
-#endif
+//#endif
 	//int nWaitSeconds=0;
 	if (argc>1)
 	{
@@ -152,17 +152,18 @@ int main(int argc, char* argv[])
 			//	nWaitSeconds = atoi(argv[i+1]);
 			//	//printf("******* nWaitSeconds = %d\n",nWaitSeconds);
 			//	i++;
-#ifdef WIN32
+//#ifdef WIN32
 			}else if (sParam == "-s")
 			{
 				bSingleProcess = true;
-#endif
+//#endif
 			}
 		}
 	}
 
 	const unsigned long nSystemBootTime = GetSystemBootTime();
-	const int nWaitSeconds = nSystemBootTime<300?10:0;
+	const int nWaitSeconds = nSystemBootTime<120?12:0;
+	//const int nWaitSeconds = nSystemBootTime<300?10:0;
 	//printf("**** nSystemBootTime=%d\n",(int)nSystemBootTime);
 
 	tstring sModulePath;
@@ -256,8 +257,11 @@ int main(int argc, char* argv[])
 				ShellExecute(NULL,"open",sProgram.c_str(),"-P",sModulePath.c_str(),SW_HIDE);
 			}
 #else
-			sprintf(lpszBuffer,"\"%s\" -P &",sProgram.c_str());
-			system(lpszBuffer);
+			if (!bSingleProcess)
+			{
+				sprintf(lpszBuffer,"\"%s\" -P &",sProgram.c_str());
+				system(lpszBuffer);
+			}
 #endif
 		}
 	}

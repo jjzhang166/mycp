@@ -536,6 +536,7 @@ bool FileIsExist(const char* pFile)
 }
 //#define USES_PRINT_DEBUG
 #ifdef USES_TCP_TEST_CONNECT
+short theLocalIpTestCount = 0;
 class CTcpTestConnect
 	: public mycp::asio::TcpClient_Handler
 	, public boost::enable_shared_from_this<CTcpTestConnect>
@@ -587,7 +588,10 @@ public:
 #endif
 			}
 			bResult = !m_bDisconnect;
-
+			if (bResult)
+			{
+				m_tcpClient->write((const unsigned char*)"test",4);
+			}
 #ifdef USES_PRINT_DEBUG
 			printf("**** %d TestConnect.... bResult=%d\n",nPort,(int)bResult?1:0);
 #endif
@@ -905,7 +909,12 @@ public:
 			m_acceptor->set_ssl_ctx(m_sslctx);
 		}
 #endif
-		m_acceptor->start(m_ioservice->ioservice(), m_commPort, shared_from_this());
+		if (!m_acceptor->start(m_ioservice->ioservice(), m_commPort, shared_from_this()))
+		{
+			m_acceptor.reset();
+			m_ioservice.reset();
+			return false;
+		}
 
 		m_nCurrentThread = MIN_EVENT_THREAD;
 		for (int i=1; i<=m_nCurrentThread; i++)
@@ -1012,7 +1021,6 @@ protected:
 					m_nCurrentThread--;
 				}
 
-
 #ifdef USES_TCP_TEST_CONNECT
 				if (m_bCheckComm)
 				{
@@ -1025,24 +1033,26 @@ protected:
 						if (nSize>0)
 						{
 							m_bCheckComm = false;
-						}else if (theLastCheckTime==0 || (tNowTime-theLastCheckTime)>30)	// 开始检查一次，后期每30秒检查一次
+						}else if (theLastCheckTime==0 || (tNowTime-theLastCheckTime)>20)	// 开始检查一次，后期每20秒检查一次
 						{
 							theLastCheckTime = tNowTime;
 							CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
-							if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
+							pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl);
+							//if (!pTestConnect->TestConnect(sLocalIp.c_str(),this->m_commPort,m_bIsSsl))
+							//if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
 							{
-								CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) Error ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
-								static short theError = 0;
-								if ((++theError)>=2)
+								//CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) Error ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
+								if ((++theLocalIpTestCount)>=2)
 								{
-									theError = 0;
+									theLocalIpTestCount = 0;
 									CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) OnIoServiceException Restart ****\n"),m_commPort));
 									OnIoServiceException();
 								}
-							}else
-							{
-								//CGC_LOG((LOG_INFO, _T("**** TestConnect(%d) OK ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
-								m_bCheckComm = false;			// ** 检查成功，直接退出，只检查一次
+							//}else
+							//{
+							//	CGC_LOG((LOG_INFO, _T("**** TestConnect(%s:%d) OK ssl=%d ****\n"),sLocalIp.c_str(),m_commPort,(int)(m_bIsSsl?1:0)));
+							//	// * 发送数据成功，对方会自动设为 false
+							//	//m_bCheckComm = false;			// ** 检查成功，直接退出，只检查一次
 							}
 							pTestConnect.reset();
 						}
@@ -1095,6 +1105,11 @@ protected:
 			}
 			m_tProcessReceDataTime = 0;
 			return;
+#ifdef USES_TCP_TEST_CONNECT
+		}else if (m_bCheckComm)
+		{
+			m_bCheckComm = false;
+#endif
 		}
 
 		m_tProcessReceDataTime = time(0);
@@ -1200,7 +1215,6 @@ protected:
 			}break;
 		case CCommEventData::CET_Exception:
 			{
-				printf("**** CCommEventData::CET_Exception...\n");
 				//if (!m_listMgr.empty())
 				{
 					AUTO_WLOCK(m_listMgr);
@@ -1224,7 +1238,6 @@ protected:
 					m_acceptor->stop();
 					m_acceptor.reset();
 				}
-				printf("**** CCommEventData::CET_Exception 111\n");
 #ifdef USES_OPENSSL
 				if (this->m_sslctx!=NULL)
 				{
@@ -1271,7 +1284,6 @@ protected:
 				}
 #endif
 				m_acceptor->start(m_ioservice->ioservice(), m_commPort, shared_from_this());
-				printf("**** CCommEventData::CET_Exception ok\n");
 			}break;
 		default:
 			break;
