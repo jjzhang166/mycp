@@ -65,6 +65,10 @@ void TimerInfo::do_timer(void)
 		}
 
 		doTimerExit();
+	}catch (const boost::exception &)
+	{
+	}catch (const boost::thread_exception &)
+	{
 	}catch (const std::exception& e)
 	{
 		//
@@ -85,22 +89,38 @@ void TimerInfo::RunTimer(void)
 	ftime(&m_tLastRunTime);
 	if (m_timerThread.get() == NULL)
 	{
-		boost::thread_attributes attrs;
-		attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-		m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
+		try
+		{
+			boost::thread_attributes attrs;
+			attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+			m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
+		}catch (const boost::exception &)
+		{
+			m_timerState = TS_Exit;
+		}catch (const boost::thread_exception &)
+		{
+			m_timerState = TS_Exit;
+		}catch (const std::exception &)
+		{
+			m_timerState = TS_Exit;
+		}catch (...)
+		{
+			m_timerState = TS_Exit;
+		}
 	}
 }
 
 void TimerInfo::KillTimer(void)
 {
 	m_timerState = TS_Exit;
+	if (m_bOneShot) return;	// add by hd 2016-08-27
 	//boost::mutex::scoped_lock lockTimer(m_mutex);
 	//m_timerHandler.reset();
 	boost::shared_ptr<boost::thread> timerThreadTemp = m_timerThread;
 	m_timerThread.reset();
 	if (timerThreadTemp.get()!=NULL)
 	{
-		if (!m_bOneShot)
+		//if (!m_bOneShot)
 			timerThreadTemp->join();
 		timerThreadTemp.reset();
 	}
@@ -159,6 +179,10 @@ void TimerInfo::doRunTimer(void)
 					lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
 				ftime(&m_tLastRunTime);
 				m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
+			}catch (const boost::exception &)
+			{
+			}catch (const boost::thread_exception &)
+			{
 			}catch (const std::exception & e)
 			{
 				printf("******* timeout exception: %s\n",e.what());
@@ -214,16 +238,16 @@ TimerTable::~TimerTable(void)
 }
 
 
-bool TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam)
+unsigned int TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam)
 {
-	if (nIDEvent <= 0 || nElapse <= 0 || handler.get() == NULL) return false;
+	if (nIDEvent <= 0 || nElapse <= 0 || handler.get() == NULL) return 0;
 
 #ifdef USES_ONE_SHOT_NEWVERSION
 	if (bOneShot)
 	{
 		TimerInfo * pTimerInfo = new TimerInfo(nIDEvent, nElapse, handler, bOneShot, pvParam);
 		pTimerInfo->RunTimer();
-		return true;
+		return (unsigned int)pTimerInfo;
 	}
 #endif
 
@@ -242,7 +266,8 @@ bool TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgc
 	}
 
 	pTimerInfo->RunTimer();
-	return true;
+	return (unsigned int)pTimerInfo;
+	//return true;
 }
 
 void TimerTable::KillTimer(unsigned int nIDEvent)

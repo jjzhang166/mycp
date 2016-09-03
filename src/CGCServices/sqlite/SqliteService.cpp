@@ -404,6 +404,15 @@ private:
 		mycp::bigint ret = 0;
 		try
 		{
+			// * 去掉前面乱码
+			const size_t nSqlLen = strlen(exeSql);
+			for (size_t i=0; i<nSqlLen; i++)
+			{
+				if (exeSql[0]<0)
+					exeSql = exeSql+1;
+				else
+					break;
+			}
 			char *zErrMsg = 0;
 			boost::mutex::scoped_lock lock(m_mutex);
 			int rc = sqlite3_exec( m_pSqlite , exeSql, 0, 0, &zErrMsg);
@@ -444,6 +453,16 @@ private:
 		mycp::bigint rows = 0;
 		try
 		{
+			// * 去掉前面乱码
+			const size_t nSqlLen = strlen(selectSql);
+			for (size_t i=0; i<nSqlLen; i++)
+			{
+				if (selectSql[0]<0)
+					selectSql = selectSql+1;
+				else
+					break;
+			}
+
 			int nrow = 0, ncolumn = 0;  
 			char *zErrMsg = 0;
 			char **azResult = 0; //二维数组存放结果  

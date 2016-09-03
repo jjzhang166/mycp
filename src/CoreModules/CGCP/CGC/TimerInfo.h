@@ -85,7 +85,7 @@ public:
 	virtual ~TimerTable(void);
 
 public:
-	bool SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam);
+	unsigned int SetTimer(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTimerHandler::pointer& handler, bool bOneShot, const void * pvParam);
 	void KillTimer(unsigned int nIDEvent);
 
 	void KillAll(void);

@@ -29,6 +29,8 @@
 #include <CGCBase/cgcSeqInfo.h>
 #include <CGCBase/cgcfunc.h>
 
+#define USES_DISABLE_PREV_DATA
+
 #define DEFAULT_HTTP_SESSIONID_LENGTH 32
 #define MAX_SEQ_MASKS_SIZE 500//120
 
@@ -95,12 +97,13 @@ private:
 	cgcAttributes::pointer m_attributes;
 
 	// Used for save the previous pending data.
+#ifndef USES_DISABLE_PREV_DATA
 	std::string m_sPrevData;
-
 	// Used for processing XML format error, timeout for remote data is returned.
 	boost::shared_ptr<boost::thread> m_pProcPrevData;
 	time_t m_tNewProcPrevThread;
 	time_t m_tPrevDataTime;
+#endif
 
 	bool m_bInvalidate;
 	cgcRemote::pointer m_pcgcRemote;	// default remote
@@ -165,6 +168,7 @@ public:
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser);
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote);	// sModuleName="": setdefault
 
+#ifndef USES_DISABLE_PREV_DATA
 	void do_prevdata(void);
 
 	time_t getNewPrevDataThreadTime(void) const {return m_tNewProcPrevThread;}
@@ -177,6 +181,7 @@ public:
 	size_t getPrevDataLength(void) const {return m_sPrevData.size();}
 	void clearPrevData(void) {m_sPrevData.clear();m_tPrevDataTime=0;delPrevDatathread(false);}
 	time_t getPrevDataTime(void) const {return m_tPrevDataTime;}
+#endif
 
 	// module
 	CSessionModuleInfo::pointer addModuleItem(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& wssRemote);

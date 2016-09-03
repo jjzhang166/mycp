@@ -254,7 +254,7 @@ private:
 	virtual long getMinorVersion(void) const;
 
 	// timer
-	virtual bool SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam);
+	virtual unsigned int SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam);
 	virtual void KillTimer(unsigned int nIDEvent);
 	virtual void KillAllTimer(void);
 

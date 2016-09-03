@@ -40,14 +40,16 @@ CSessionImpl::CSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemot
 : m_bKilled(false)
 , m_bIsNewSession(true),m_bRemoteClosed(false)
 //, m_fpFreeParser(NULL)
-, m_tNewProcPrevThread(0)
-, m_tPrevDataTime(0)
 , m_bInvalidate(false), m_pcgcRemote(pcgcRemote), m_pcgcParser(pcgcParser)
 , m_sSessionId(_T(""))
 , m_interval(DEFAULT_MAX_INACTIVE_INTERVAL)
 //, m_sAccount(_T(""))
 //, m_sPasswd(_T(""))
+#ifndef USES_DISABLE_PREV_DATA
 , m_sPrevData("")
+, m_tNewProcPrevThread(0)
+, m_tPrevDataTime(0)
+#endif
 
 {
 	BOOST_ASSERT (m_pcgcRemote.get() != NULL);
@@ -90,7 +92,9 @@ CSessionImpl::~CSessionImpl(void)
 	m_pLastResponse.reset();
 	m_pSessionModuleList.clear();
 	m_pHoldResponseList.clear();
+#ifndef USES_DISABLE_PREV_DATA
 	delPrevDatathread(true);
+#endif
 }
 
 bool CSessionImpl::lockSessionApi(int nLockType, int nLockSeconds)
@@ -627,6 +631,7 @@ void CSessionImpl::setDataResponseImpl(const tstring& sModuleName,const cgcRemot
 	}
 }
 
+#ifndef USES_DISABLE_PREV_DATA
 void CSessionImpl::do_prevdata(void)
 {
 	//assert (pSessionImpl != 0);
@@ -697,6 +702,7 @@ void CSessionImpl::delPrevDatathread(bool bJoin)
 		pProcPrevDataTemp.reset();
 	}
 }
+#endif
 
 CSessionModuleInfo::pointer CSessionImpl::addModuleItem(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& wssRemote)
 {
@@ -809,6 +815,7 @@ bool CSessionImpl::ProcessDuplationSeq(unsigned short seq)
 	return false;
 }
 
+#ifndef USES_DISABLE_PREV_DATA
 const std::string & CSessionImpl::addPrevData(const char * sUnPrecData)
 {
 	if (sUnPrecData != NULL)
@@ -816,9 +823,9 @@ const std::string & CSessionImpl::addPrevData(const char * sUnPrecData)
 		m_sPrevData.append(sUnPrecData);
 		m_tPrevDataTime = time(0);
 	}
-
 	return m_sPrevData;
 }
+#endif
 
 int CSessionImpl::onAddSeqInfo(const unsigned char * callData, unsigned int dataSize, unsigned short seq, unsigned long cid, unsigned long sign)
 {

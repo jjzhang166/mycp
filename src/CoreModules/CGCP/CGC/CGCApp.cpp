@@ -602,7 +602,7 @@ void CGCApp::CheckScriptExecute(int nScriptType)
 		sprintf(lpszCommand,"chmod +x \"%s\"",sUpdateScriptFile.c_str());
 		system(lpszCommand);
 
-		sprintf(lpszCommand,"cd \"%s\" ; \"%s\"",lpszScriptDir,sUpdateScriptFile.c_str());
+		sprintf(lpszCommand,"cd \"%s\" ; \"%s\" ; cd ..",lpszScriptDir,sUpdateScriptFile.c_str());
 		system(lpszCommand);
 #endif
 		if (nScriptType==SCRIPT_TYPE_ONCE)
@@ -2142,12 +2142,14 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				const tstring responseData(pcgcParser->getAckResult(seq));
 				pcgcRemote->sendData((const unsigned char*)responseData.c_str(), responseData.length());
 			}
-			size_t nContentLength = dataSize;
+			//size_t nContentLength = dataSize;
 			if (pSessionImpl)
 			{
-				if (pSessionImpl->isHasPrevData())
-					nContentLength = pSessionImpl->getPrevDataLength();
+				//if (pSessionImpl->isHasPrevData())
+				//	nContentLength = pSessionImpl->getPrevDataLength();
+#ifndef USES_DISABLE_PREV_DATA
 				pSessionImpl->clearPrevData();
+#endif
 
 				//printf("seq=%d,sid=%s\n", seq, sessionImpl->getId().c_str());
 				if (pSessionImpl->ProcessDuplationSeq(seq))
@@ -2204,6 +2206,11 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		if (pSessionImpl)
 		{
 			// 第一次处理不成功，保存未处理数据
+#ifdef USES_DISABLE_PREV_DATA
+			CSotpResponseImpl responseImpl(pcgcRemote, pcgcParser, pSessionImpl,NULL);
+			responseImpl.SetEncoding(m_parseDefault.getDefaultEncoding());
+			responseImpl.sendAppCallResult(-106);
+#else
 			if (!pSessionImpl->isHasPrevData())
 			{
 				pSessionImpl->delPrevDatathread(false);
@@ -2212,6 +2219,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				// 创建一个超时处理线程
 				pSessionImpl->newPrevDataThread();
 			}
+#endif
 		}else
 		{
 			// 之前没有SESSION，直接返回XML错误

@@ -674,24 +674,30 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 				{
 					m_pRsaSrc.SetPrivatePwd(GetSaltString());
 				}
-				for (int i=0;i<20;i++)
+				try
 				{
-					m_pRsaSrc.rsa_generatekey_mem(1024);
-					if (m_pRsaSrc.GetPublicKey().empty() || m_pRsaSrc.GetPrivateKey().empty())
-						continue;
-					if (!m_pRsaSrc.rsa_open_public_mem())
-						continue;
-					const std::string sFrom("mycp");
-					unsigned char* pTo = NULL;
-					m_pRsaSrc.rsa_public_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
-					if (pTo!=NULL)
+					for (int i=0;i<20;i++)
 					{
-						delete[] pTo;
+						m_pRsaSrc.rsa_generatekey_mem(1024);
+						if (m_pRsaSrc.GetPublicKey().empty() || m_pRsaSrc.GetPrivateKey().empty())
+							continue;
+						if (!m_pRsaSrc.rsa_open_public_mem())
+							continue;
+						const std::string sFrom("mycp");
+						unsigned char* pTo = NULL;
+						m_pRsaSrc.rsa_public_encrypt((const unsigned char*)sFrom.c_str(),sFrom.size(),&pTo);
+						if (pTo!=NULL)
+						{
+							delete[] pTo;
+							m_pRsaSrc.rsa_close_public();
+							return true;
+						}	
 						m_pRsaSrc.rsa_close_public();
-						return true;
-					}				
-					m_pRsaSrc.rsa_close_public();
-				}
+					}
+				}catch (const std::exception &)
+				{
+				}catch(...)
+				{}
 				m_pRsaSrc.rsa_close_public();
 				m_pRsaSrc.SetPrivatePwd("");
 				return false;

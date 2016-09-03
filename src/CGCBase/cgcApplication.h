@@ -78,7 +78,7 @@ public:
 	virtual void log(LogLevel level, const wchar_t* format,...) = 0;
 
 	// The SetTimer method sets a timer on the clock.
-	virtual bool SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot = false, const void * pvParam = NULL) = 0;
+	virtual unsigned int SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot = false, const void * pvParam = NULL) = 0;
 	// The KillTimer method destroys the specified timer.
 	virtual void KillTimer(unsigned int nIDEvent) = 0;
 	// The KillAllTimer method destroys all timers.

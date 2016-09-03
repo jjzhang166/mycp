@@ -260,17 +260,23 @@ unsigned char * CPPSotp2::getResSslString(const tstring& sSslPassword,unsigned i
 {
 	if (getProtoType()==SOTP_PROTO_TYPE_OPEN && isSslRequest() && !sSslPassword.empty())
 	{
-		CRSA pRsa;
-		pRsa.SetPublicKey(getSslPublicKey());
-		if (!pRsa.rsa_open_public_mem())
-			return NULL;
-		unsigned char * pSslData = NULL;
-		const int nLen = pRsa.rsa_public_encrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),&pSslData);
-		if (nLen<0)
-			return NULL;
-		unsigned char* result = toSslDataString(this->getSotpVersion(),pSslData,nLen,pOutSize);
-		delete[] pSslData;
-		return result;
+		try
+		{
+			CRSA pRsa;
+			pRsa.SetPublicKey(getSslPublicKey());
+			if (!pRsa.rsa_open_public_mem())
+				return NULL;
+			unsigned char * pSslData = NULL;
+			const int nLen = pRsa.rsa_public_encrypt((const unsigned char*)sSslPassword.c_str(),(int)sSslPassword.size(),&pSslData);
+			if (nLen<0)
+				return NULL;
+			unsigned char* result = toSslDataString(this->getSotpVersion(),pSslData,nLen,pOutSize);
+			delete[] pSslData;
+			return result;
+		}catch (const std::exception &)
+		{
+		}catch(...)
+		{}
 	}
 	return NULL;
 }

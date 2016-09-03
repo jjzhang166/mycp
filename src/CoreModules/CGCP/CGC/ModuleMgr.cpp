@@ -137,9 +137,12 @@ long CModuleImpl::getMinorVersion(void) const
 	return m_moduleParams.getMinorVersion();
 }
 
-bool CModuleImpl::SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam)
+unsigned int CModuleImpl::SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam)
 {
-	return m_timerTable.SetTimer(nIDEvent, nElapse, handler, bOneShot, pvParam);
+	log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam);
+	const unsigned int ret = m_timerTable.SetTimer(nIDEvent, nElapse, handler, bOneShot, pvParam);
+	log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d, return = 0x%x", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam, (int)ret);
+	return ret;
 }
 
 void CModuleImpl::KillTimer(unsigned int nIDEvent)
