@@ -139,9 +139,13 @@ long CModuleImpl::getMinorVersion(void) const
 
 unsigned int CModuleImpl::SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam)
 {
+#ifndef WIN32
 	log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam);
+#endif
 	const unsigned int ret = m_timerTable.SetTimer(nIDEvent, nElapse, handler, bOneShot, pvParam);
+#ifndef WIN32
 	log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d, return = 0x%x", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam, (int)ret);
+#endif
 	return ret;
 }
 

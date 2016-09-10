@@ -1370,6 +1370,7 @@ protected:
 				if (m_bIsHttp)
 				{
 					pRemote->close();
+					m_mapCgcRemote.remove(nRemoteId);
 					return false;
 					//if (this->m_tNowTime>(((CcgcRemote*)pCgcRemote.get())->GetCloseTime()+2))
 					//{

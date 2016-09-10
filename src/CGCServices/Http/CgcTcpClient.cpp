@@ -46,29 +46,65 @@ CgcTcpClient::~CgcTcpClient(void)
 {
 	stopClient();
 }
-
+bool CgcTcpClient::IsIpAddress(const char* pString, size_t nLen)
+{
+	for (size_t i=0;i<nLen; i++)
+	{
+		const char pChar = pString[i];
+		if (pChar== '.' || (pChar>='0' && pChar<='9'))
+			continue;
+		return false;
+	}
+	return true;
+}
 std::string CgcTcpClient::GetHostIp(const char * lpszHostName,const char* lpszDefault)
 {
-	struct hostent *host_entry;
-	//struct sockaddr_in addr;
-	/* 即要解析的域名或主机名 */
-	host_entry=gethostbyname(lpszHostName);
-	//printf("%s\n", dn_or_ip);
-	char lpszIpAddress[50];
-	memset(lpszIpAddress, 0, sizeof(lpszIpAddress));
-	if(host_entry!=0)
+	try
 	{
-		//printf("解析IP地址: ");
-		sprintf(lpszIpAddress, "%d.%d.%d.%d",
-			(host_entry->h_addr_list[0][0]&0x00ff),
-			(host_entry->h_addr_list[0][1]&0x00ff),
-			(host_entry->h_addr_list[0][2]&0x00ff),
-			(host_entry->h_addr_list[0][3]&0x00ff));
-		return lpszIpAddress;
-	}else
+		if (IsIpAddress(lpszHostName,strlen(lpszHostName))) return lpszHostName;
+		struct hostent *host_entry;
+		//struct sockaddr_in addr;
+		/* 即要解析的域名或主机名 */
+		host_entry=gethostbyname(lpszHostName);
+		//printf("%s\n", dn_or_ip);
+		if(host_entry!=0)
+		{
+			char lpszIpAddress[50];
+			memset(lpszIpAddress, 0, sizeof(lpszIpAddress));
+			//printf("解析IP地址: ");
+			sprintf(lpszIpAddress, "%d.%d.%d.%d",
+				(host_entry->h_addr_list[0][0]&0x00ff),
+				(host_entry->h_addr_list[0][1]&0x00ff),
+				(host_entry->h_addr_list[0][2]&0x00ff),
+				(host_entry->h_addr_list[0][3]&0x00ff));
+			return lpszIpAddress;
+		}
+	}catch(std::exception&)
 	{
-		return lpszDefault;
-	}
+	}catch(...)
+	{}
+	return lpszDefault;
+
+	//struct hostent *host_entry;
+	////struct sockaddr_in addr;
+	///* 即要解析的域名或主机名 */
+	//host_entry=gethostbyname(lpszHostName);
+	////printf("%s\n", dn_or_ip);
+	//char lpszIpAddress[50];
+	//memset(lpszIpAddress, 0, sizeof(lpszIpAddress));
+	//if(host_entry!=0)
+	//{
+	//	//printf("解析IP地址: ");
+	//	sprintf(lpszIpAddress, "%d.%d.%d.%d",
+	//		(host_entry->h_addr_list[0][0]&0x00ff),
+	//		(host_entry->h_addr_list[0][1]&0x00ff),
+	//		(host_entry->h_addr_list[0][2]&0x00ff),
+	//		(host_entry->h_addr_list[0][3]&0x00ff));
+	//	return lpszIpAddress;
+	//}else
+	//{
+	//	return lpszDefault;
+	//}
 }
 
 #ifdef USES_OPENSSL

@@ -71,6 +71,7 @@ public:
 	virtual ~CgcBaseClient(void);
 
 	static int ParseString(const char * lpszString, const char * lpszInterval, std::vector<std::string> & pOut);
+	static bool IsIpAddress(const char* pString, size_t nLen);
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
 
 	class CIndexInfo

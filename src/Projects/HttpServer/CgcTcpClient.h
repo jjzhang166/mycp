@@ -84,11 +84,22 @@ public:
 	{
 		stopClient();
 	}
-
+	static bool IsIpAddress(const char* pString, size_t nLen)
+	{
+		for (size_t i=0;i<nLen; i++)
+		{
+			const char pChar = pString[i];
+			if (pChar== '.' || (pChar>='0' && pChar<='9'))
+				continue;
+			return false;
+		}
+		return true;
+	}
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault)
 	{
 		try
 		{
+			if (IsIpAddress(lpszHostName,strlen(lpszHostName))) return lpszHostName;
 			struct hostent *host_entry;
 			//struct sockaddr_in addr;
 			/* 即要解析的域名或主机名 */
@@ -118,66 +129,73 @@ public:
 	int startClient(const mycp::tstring & sCgcServerAddr, unsigned int bindPort)
 #endif
 	{
-		if (m_tcpClient.get() != 0) return 0;
-
-		mycp::CCgcAddress cgcAddress = mycp::CCgcAddress(sCgcServerAddr, mycp::CCgcAddress::ST_TCP);
-		const unsigned short nPort = (unsigned short)cgcAddress.getport();
-		if (nPort==0) return -1;
-
-		const mycp::tstring sInIp = cgcAddress.getip();
-		std::string sIp;
-		for (int i=0;i<5;i++)
+		try
 		{
-			sIp = mycp::httpserver::CgcTcpClient::GetHostIp(sInIp.c_str(),"");
-			if (!sIp.empty())
-				break;
+			if (m_tcpClient.get() != 0) return 0;
+
+			mycp::CCgcAddress cgcAddress = mycp::CCgcAddress(sCgcServerAddr, mycp::CCgcAddress::ST_TCP);
+			const unsigned short nPort = (unsigned short)cgcAddress.getport();
+			if (nPort==0) return -1;
+
+			const mycp::tstring sInIp = cgcAddress.getip();
+			std::string sIp;
+			for (int i=0;i<5;i++)
+			{
+				sIp = mycp::httpserver::CgcTcpClient::GetHostIp(sInIp.c_str(),"");
+				if (!sIp.empty())
+					break;
 #ifdef WIN32
-			Sleep(100);
+				Sleep(100);
 #else
-			usleep(100000);
+				usleep(100000);
 #endif
-		}
-		if (sIp.empty())
-			sIp = sInIp.c_str();
+			}
+			if (sIp.empty())
+				sIp = sInIp.c_str();
 
-		if (m_ipService.get() == 0)
-			m_ipService = mycp::asio::IoService::create();
+			if (m_ipService.get() == 0)
+				m_ipService = mycp::asio::IoService::create();
 
-		TcpClient_Handler::pointer clientHandler = boost::enable_shared_from_this<CgcTcpClient>::shared_from_this();
-		//CgcTcpClient::pointer clientHandler = boost::static_pointer_cast<CgcTcpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
+			TcpClient_Handler::pointer clientHandler = boost::enable_shared_from_this<CgcTcpClient>::shared_from_this();
+			//CgcTcpClient::pointer clientHandler = boost::static_pointer_cast<CgcTcpClient, CgcBaseClient>(boost::enable_shared_from_this<CgcBaseClient>::shared_from_this());
 
-		m_tcpClient = TcpClient::create(clientHandler);
+			m_tcpClient = TcpClient::create(clientHandler);
 
-		m_connectReturned = false;
-		// ?? bindPort
-		boost::system::error_code ec;
-		tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str(),ec), nPort);
+			m_connectReturned = false;
+			// ?? bindPort
+			boost::system::error_code ec;
+			tcp::endpoint endpoint(boost::asio::ip::address_v4::from_string(sIp.c_str(),ec), nPort);
 #ifdef USES_OPENSSL
-		m_tcpClient->connect(m_ipService->ioservice(), endpoint,ctx);
+			m_tcpClient->connect(m_ipService->ioservice(), endpoint,ctx);
 #else
-		m_tcpClient->connect(m_ipService->ioservice(), endpoint);
+			m_tcpClient->connect(m_ipService->ioservice(), endpoint);
 #endif
-		m_ipService->start(shared_from_this());
-		for (int i=0; i<1000; i++)	// max 10S
-		{
-			if (m_connectReturned) break;
+			m_ipService->start(shared_from_this());
+			for (int i=0; i<1000; i++)	// max 10S
+			{
+				if (m_connectReturned) break;
 #ifdef WIN32
-			Sleep(10);
+				Sleep(10);
 #else
-			usleep(10000);
+				usleep(10000);
 #endif
-		}
-//	while (!m_connectReturned)
-//#ifdef WIN32
-//		Sleep(100);
-//#else
-//		uslee
-		//if (!m_bDisconnect)
-		//{
-		//	m_tcpClient->socket()->get_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
-		//	m_tcpClient->socket()->get_socket()->set_option(boost::asio::socket_base::receive_buffer_size(6*1024),ec);
-		//}
-		return 0;
+			}
+			//	while (!m_connectReturned)
+			//#ifdef WIN32
+			//		Sleep(100);
+			//#else
+			//		uslee
+			//if (!m_bDisconnect)
+			//{
+			//	m_tcpClient->socket()->get_socket()->set_option(boost::asio::socket_base::send_buffer_size(64*1024),ec);
+			//	m_tcpClient->socket()->get_socket()->set_option(boost::asio::socket_base::receive_buffer_size(6*1024),ec);
+			//}
+			return 0;
+		}catch(std::exception&)
+		{
+		}catch(...)
+		{}
+		return -1;
 	}
 	void stopClient(void)
 	{

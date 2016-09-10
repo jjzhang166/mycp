@@ -68,6 +68,7 @@ public:
 
 	void setDeleteFile(bool v) {m_bDeleteFile = v;}
 	void setResponseSaveFile(const tstring& s) {m_sResponseSaveFile = s;}
+	static bool IsIpAddress(const char* pString, size_t nLen);
 	static std::string GetHostIp(const char * lpszHostName,const char* lpszDefault);
 
 #ifdef USES_OPENSSL

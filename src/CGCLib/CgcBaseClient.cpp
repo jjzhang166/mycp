@@ -157,10 +157,22 @@ int CgcBaseClient::ParseString(const char * lpszString, const char * lpszInterva
 	}
 	return (int)pOut.size();
 }
+bool CgcBaseClient::IsIpAddress(const char* pString, size_t nLen)
+{
+	for (size_t i=0;i<nLen; i++)
+	{
+		const char pChar = pString[i];
+		if (pChar== '.' || (pChar>='0' && pChar<='9'))
+			continue;
+		return false;
+	}
+	return true;
+}
 std::string CgcBaseClient::GetHostIp(const char * lpszHostName,const char* lpszDefault)
 {
 	try
 	{
+		if (IsIpAddress(lpszHostName,strlen(lpszHostName))) return lpszHostName;
 		struct hostent *host_entry;
 		//struct sockaddr_in addr;
 		/* 即要解析的域名或主机名 */
