@@ -917,7 +917,8 @@ cgcParameterMap::pointer CGCApp::getInitParameters(void) const
 
 bool CGCApp::onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData)
 {
-	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
+	const int nServerPort = pUserData==NULL?0:(int)pUserData;
+	//const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
 	if (portApp.get() == NULL)
 	{
@@ -962,7 +963,8 @@ bool CGCApp::onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, v
 }
 void CGCApp::onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData)
 {
-	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
+	const int nServerPort = pUserData==NULL?0:(int)pUserData;
+	//const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
 	if (portApp.get() == NULL)
 	{
@@ -982,7 +984,8 @@ void CGCApp::onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam,
 }
 bool CGCApp::onRegisterSink(bigint nRoomId, bigint nSourceId, bigint nDestId, void* pUserData)
 {
-	const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
+	const int nServerPort = pUserData==NULL?0:(int)pUserData;
+	//const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
 	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
 	if (portApp.get() == NULL)
 	{
@@ -2075,8 +2078,8 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 				if (pRtpSessionTemp.get()!=NULL)
 					pRtpSession = pRtpSessionTemp;
 			}
-			pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)&serverPort);
-			//pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
+			//pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)&serverPort);
+			pRtpSession->doRtpCommand(pcgcParser->getRtpCommand(),pcgcRemote,false,this,(void*)serverPort);
 		}else if (pcgcParser->isRtpData())
 		{
 			const int serverPort = pcgcRemote->getServerPort();
