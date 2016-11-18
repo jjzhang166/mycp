@@ -112,6 +112,8 @@ int CHttpResponseImpl::sendResponse(bool bSendForce)
 			delete pSendLockTemp;
 		const int ret = m_cgcRemote->sendData((const unsigned char*)responseData, outSize);
 		const Http_StatusCode nHttpStatusCode = getStatusCode();
+		//if (nHttpStatusCode==STATUS_CODE_302)
+		//	printf("**** CHttpResponseImpl::getHttpResult...\n%s\n",responseData);
 		//printf("**** CHttpResponseImpl->m_cgcRemote->sendData ok, StatusCode=%d, reset(?)\n",(int)nHttpStatusCode);
 		if (nHttpStatusCode != STATUS_CODE_206 && nHttpStatusCode != STATUS_CODE_100)
 			reset();

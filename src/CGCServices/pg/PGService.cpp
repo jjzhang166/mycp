@@ -429,19 +429,29 @@ private:
 				return -1;
 
 			Result * res = sink_exec (sink, exeSql);
-			const int state = result_state (sink, res);
+			int state = result_state (sink, res);
 			if((state != RES_COMMAND_OK) &&
 				(state != RES_TUPLES_OK)  &&
 				(state != RES_COPY_IN)  &&
 				(state != RES_COPY_OUT))
 			{
-				result_clean(sink, res);
-				if (nTransaction==0)
-					sink_pool_put (sink);
-				//else
-				//	trans_rollback(nTransaction);
-				CGC_LOG((mycp::LOG_WARNING, "%s\n", exeSql));
-				return -1;
+				//result_clean(sink, res);
+				//CGC_LOG((mycp::LOG_WARNING, "1 state=%d,%s\n", state, exeSql));
+				//res = sink_exec (sink, exeSql);
+				//state = result_state (sink, res);
+				//if((state != RES_COMMAND_OK) &&
+				//	(state != RES_TUPLES_OK)  &&
+				//	(state != RES_COPY_IN)  &&
+				//	(state != RES_COPY_OUT))
+				{
+					result_clean(sink, res);
+					if (nTransaction==0)
+						sink_pool_put (sink);
+					//else
+					//	trans_rollback(nTransaction);
+					CGC_LOG((mycp::LOG_WARNING, "2 state=%d,%s\n", state, exeSql));
+					return -1;
+				}
 			}
 			//ret = result_rn (sink, res);
 			const tstring& sSyncName = this->get_datasource();

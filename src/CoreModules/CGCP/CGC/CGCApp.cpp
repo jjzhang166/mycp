@@ -1254,7 +1254,20 @@ void CGCApp::resetService(const cgcServiceInterface::pointer & service)
 	}
 	m_mapServiceModule.remove(service);
 }
-
+inline std::string::size_type findPathOrExt(const tstring& pBuffer, std::string::size_type off=0)
+{
+	if (off>=pBuffer.size()) return std::string::npos;
+	int index = 0;
+	const char * pCompare = pBuffer.c_str()+off;
+	while (pCompare[index] != '\0')
+	{
+		const char c = pCompare[index];
+		if (c=='/' || c=='.')
+			return off+index;
+		index++;
+	}
+	return std::string::npos;
+}
 HTTP_STATUSCODE CGCApp::executeInclude(const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	BOOST_ASSERT (request.get() != NULL);
@@ -1287,13 +1300,14 @@ HTTP_STATUSCODE CGCApp::executeInclude(const tstring & url, const cgcHttpRequest
 		do
 		{
 			if (count++ == MAX_FORWARDS) break;
+			tstring sAppModuleName;
 			if (((CHttpResponseImpl*)response.get())->getForward())
 			{
 				((CHttpResponseImpl*)response.get())->setForward(false);
 				if (requestImpl->getSession().get() != NULL)
 				{
-					tstring sAppModuleName;
-					if (phttpParser->isServletRequest())
+					if (phttpParser->isServletRequest() && findPathOrExt(phttpParser->getFunctionName())==std::string::npos)
+					//if (phttpParser->isServletRequest())
 						sAppModuleName = phttpParser->getModuleName();
 					else
 						sAppModuleName = m_sHttpServerName;
@@ -1320,8 +1334,8 @@ HTTP_STATUSCODE CGCApp::executeInclude(const tstring & url, const cgcHttpRequest
 				}
 			}
 
-			if (phttpParser->isServletRequest())
-				statusCode = ProcHttpAppProto(requestImpl, response, phttpParser);
+			if (phttpParser->isServletRequest() && sAppModuleName!=m_sHttpServerName)
+				statusCode = ProcHttpAppProto(sAppModuleName,requestImpl, response, phttpParser);
 			else
 				statusCode = m_fpHttpServer == NULL ? STATUS_CODE_503 : m_fpHttpServer(requestImpl, response);
 		}while (statusCode == STATUS_CODE_200 && ((CHttpResponseImpl*)response.get())->getForward());
@@ -1762,14 +1776,18 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 		// ****解决IE多窗口COOKIE丢失问题
 		phttpParser->setHeader("P3P","CP=\"CAO PSA OUR\"");
 
-		tstring sAppModuleName;
+		tstring sAppModuleName(phttpParser->getModuleName());
 		if (phttpParser->isServletRequest())
 		{
-			sAppModuleName = phttpParser->getModuleName();
-			CServletInfo::pointer servletInfo = m_parseWeb.setServletInfo(sAppModuleName);
+			CServletInfo::pointer servletInfo = m_parseWeb.getServletInfo(sAppModuleName);
 			if (servletInfo.get() != NULL)
 			{
 				sAppModuleName = servletInfo->getServletApp();
+				if (sAppModuleName.empty())
+					sAppModuleName = m_sHttpServerName;
+			}else if (findPathOrExt(phttpParser->getFunctionName())!=std::string::npos)
+			{
+				sAppModuleName = m_sHttpServerName;
 			}
 		}else
 		{
@@ -1885,14 +1903,19 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 					{
 						((CHttpResponseImpl*)responseImpl.get())->setForward(false);
 
-						tstring sAppModuleName;
+						//tstring sAppModuleName;
 						if (phttpParser->isServletRequest())
 						{
 							sAppModuleName = phttpParser->getModuleName();
-							CServletInfo::pointer servletInfo = m_parseWeb.setServletInfo(sAppModuleName);
+							CServletInfo::pointer servletInfo = m_parseWeb.getServletInfo(sAppModuleName);
 							if (servletInfo.get() != NULL)
 							{
 								sAppModuleName = servletInfo->getServletApp();
+								if (sAppModuleName.empty())
+									sAppModuleName = m_sHttpServerName;
+							}else if (findPathOrExt(phttpParser->getFunctionName())!=std::string::npos)
+							{
+								sAppModuleName = m_sHttpServerName;
 							}
 						}else
 						{
@@ -1921,8 +1944,8 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 
 					((CHttpRequestImpl*)requestImpl.get())->setSession(sessionImpl);
 					((CHttpResponseImpl*)responseImpl.get())->setSession(sessionImpl);
-					if (phttpParser->isServletRequest())
-						statusCode = ProcHttpAppProto(requestImpl, responseImpl, phttpParser);
+					if (phttpParser->isServletRequest() && sAppModuleName!=m_sHttpServerName)
+						statusCode = ProcHttpAppProto(sAppModuleName, requestImpl, responseImpl, phttpParser);
 					else
 						statusCode = m_fpHttpServer == NULL ? STATUS_CODE_503 : m_fpHttpServer(requestImpl, responseImpl);
 				}while (statusCode == STATUS_CODE_200 && ((CHttpResponseImpl*)responseImpl.get())->getForward());
@@ -2404,7 +2427,7 @@ int CGCApp::ProcSyncProto(const cgcSotpRequest::pointer& pRequestImpl, const cgc
 	//}
 	return 0;
 }
-HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestImpl,const cgcHttpResponse::pointer& responseImpl,const cgcParserHttp::pointer& pcgcParser)
+HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const tstring& sAppModuleName,const cgcHttpRequest::pointer& requestImpl,const cgcHttpResponse::pointer& responseImpl,const cgcParserHttp::pointer& pcgcParser)
 {
 	assert (requestImpl.get() != NULL);
 	assert (requestImpl->getSession() != NULL);
@@ -2422,11 +2445,11 @@ HTTP_STATUSCODE CGCApp::ProcHttpAppProto(const cgcHttpRequest::pointer& requestI
 	tstring methodName(sCallName);
 	tstring sSessionId(remoteSessionImpl->getId());
 
-	tstring sAppModuleName;
-	if (pcgcParser->isServletRequest())
-		sAppModuleName = pcgcParser->getModuleName();
-	else
-		sAppModuleName = m_sHttpServerName;
+	//tstring sAppModuleName;
+	//if (pcgcParser->isServletRequest())
+	//	sAppModuleName = pcgcParser->getModuleName();
+	//else
+	//	sAppModuleName = m_sHttpServerName;
 	ModuleItem::pointer pModuleItem = pHttpRemoteSessionImpl->getModuleItem(sAppModuleName,true);
 	assert (pModuleItem.get() != NULL);
 	if (!pModuleItem->getAllowMethod(sCallName, methodName))
@@ -2898,12 +2921,15 @@ void CGCApp::InitLibModules(unsigned int mt)
 
 	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
-	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
+	int nExceptionTryCount = 0;
+	for (int i=0;i<(int)m_parseModules.m_modules.size();i++)
 	{
 		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
+		//else if ((moduleItem->getProtocol() & MODULE_PROTOCOL_WEB_PROXY)==MODULE_PROTOCOL_WEB_PROXY)
+		//	continue;
 
 		void * hModule = moduleItem->getModuleHandle();
 		cgcApplication::pointer application;
@@ -2912,7 +2938,7 @@ void CGCApp::InitLibModules(unsigned int mt)
 #else
 		if (!m_mapOpenModules.find(hModule, application)) continue;
 #endif
-		MODULETYPE moduleMT = application->getModuleType();
+		const MODULETYPE moduleMT = application->getModuleType();
 		if ((mt & (int)moduleMT) != (int)moduleMT)
 		{
 			continue;
@@ -2924,9 +2950,30 @@ void CGCApp::InitLibModules(unsigned int mt)
 				CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
 				pModuleImpl->SetInited(true);
 				m_logModuleImpl.log(LOG_INFO, _T("MODULE \'%s\' load succeeded\n"), application->getApplicationName().c_str());
+				nExceptionTryCount = 0;
 			}else
 			{
 				m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' load failed\n"), application->getApplicationName().c_str());
+				if (moduleMT==MODULE_COMM)
+				{
+					if ((++nExceptionTryCount)>5)
+					{
+#ifdef WIN32
+						nExceptionTryCount = 0;	// ?
+						continue;
+#else
+						exit(0);
+						break;
+#endif
+					}
+#ifdef WIN32
+					Sleep(3000);
+#else
+					sleep(3);
+#endif
+					i-=1;	// retry again
+					m_logModuleImpl.log(LOG_INFO, _T("MODULE \'%s\' retry again(%d)...\n"), application->getApplicationName().c_str(),nExceptionTryCount);
+				}
 			}
 #ifdef USES_HDCID
 			if (!m_bLicensed)
@@ -2939,12 +2986,54 @@ void CGCApp::InitLibModules(unsigned int mt)
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' load exception.\n"), application->getApplicationName().c_str());
 			m_logModuleImpl.log(LOG_ERROR, _T("%s\n"), e.what());
+			if (moduleMT==MODULE_COMM)
+			{
+				if ((++nExceptionTryCount)>5)
+				{
+#ifdef WIN32
+					nExceptionTryCount = 0;	// ?
+					continue;
+#else
+					exit(0);
+					break;
+#endif
+				}
+#ifdef WIN32
+				Sleep(3000);
+#else
+				sleep(3);
+#endif
+				i-=1;	// retry again
+				m_logModuleImpl.log(LOG_INFO, _T("MODULE \'%s\' retry again(%d)...\n"), application->getApplicationName().c_str(),nExceptionTryCount);
+			}
 		}catch(...)
 		{
 			m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' load exception\n"), application->getApplicationName().c_str());
+			if (moduleMT==MODULE_COMM)
+			{
+				if ((++nExceptionTryCount)>5)
+				{
+#ifdef WIN32
+					nExceptionTryCount = 0;	// ?
+					continue;
+#else
+					exit(0);
+					break;
+#endif
+				}
+#ifdef WIN32
+				Sleep(3000);
+#else
+				sleep(3);
+#endif
+				i-=1;	// retry again
+				m_logModuleImpl.log(LOG_INFO, _T("MODULE \'%s\' retry again(%d)...\n"), application->getApplicationName().c_str(),nExceptionTryCount);
+			}
 		}
 	}
 }
+
+#define USES_TEMP_MODULE_FILE2
 
 void CGCApp::OpenLibrarys(void)
 {
@@ -2956,6 +3045,8 @@ void CGCApp::OpenLibrarys(void)
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
+		//else if ((moduleItem->getProtocol() & MODULE_PROTOCOL_WEB_PROXY)==MODULE_PROTOCOL_WEB_PROXY)
+		//	continue;
 
 		std::string sTempFile;
 		void * hModule = moduleItem->getModuleHandle();
@@ -2964,8 +3055,22 @@ void CGCApp::OpenLibrarys(void)
 			tstring sModuleName(m_sModulePath);
 			sModuleName.append(_T("/modules/"));
 			sModuleName.append(moduleItem->getModule());
-			
-			//m_logModuleImpl.log(LOG_INFO, _T("%s\n"), sModuleName.c_str());
+#ifdef USES_TEMP_MODULE_FILE2
+			if (!moduleItem->getName().empty() && moduleItem->getModule().find(moduleItem->getName())==std::string::npos)
+			{
+				// * 新建临时文件
+				namespace fs = boost::filesystem;
+				boosttpath pathFileFrom(sModuleName.c_str());
+				char lpszBuffer[260];
+				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
+				sTempFile = lpszBuffer;
+				boosttpath pathFileTo(sTempFile);
+				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+				m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
+				sModuleName = sTempFile;
+			}
+#endif
+			//m_logModuleImpl.log(LOG_INFO, _T("OpenLibrarys:%s\n"), sModuleName.c_str());
 
 #ifdef WIN32
 			hModule = LoadLibrary(sModuleName.c_str());
@@ -3016,7 +3121,7 @@ void CGCApp::OpenLibrarys(void)
 					boost::filesystem::remove(boosttpath(sTempFile));
 					continue;
 				}
-				m_logModuleImpl.log(LOG_INFO, _T("Open temp file: %s\n"), sTempFile.c_str());
+				m_logModuleImpl.log(LOG_INFO, _T("Open temp file2: %s\n"), sTempFile.c_str());
 			}
 		}
 		cgcApplication::pointer application;
@@ -3123,6 +3228,8 @@ void CGCApp::FreeLibrarys(void)
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
+		//else if ((moduleItem->getProtocol() & MODULE_PROTOCOL_WEB_PROXY)==MODULE_PROTOCOL_WEB_PROXY)
+		//	continue;
 
 		void * hModule = moduleItem->getModuleHandle();
 		printf("**** Free Module(0x%x) %02d -> %s\n", (int)hModule, i+1, moduleItem->getName().c_str());
@@ -3449,7 +3556,11 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 					if (!commService->initService(CGC_VALUEINFO(list)))
 					{
 						if ((moduleItem->getProtocol()&PROTOCOL_HTTP)==0 || !commService->initService(CGC_VALUEINFO(list)))	// ** 多尝试一次，部分TCP端口会报 bind: Address already in use 错误
+						{
 							this->resetService(serviceInterface);
+							m_logModuleImpl.log(LOG_ERROR, _T("InitLibModule '%s' initService failed\n"), moduleItem->getName().c_str());
+							return false;
+						}
 					}
 				}
 			}

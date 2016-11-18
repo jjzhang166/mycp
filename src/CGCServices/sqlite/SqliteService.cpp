@@ -596,7 +596,7 @@ private:
 	}
 	virtual mycp::bigint trans_commit(int nTransaction)
 	{
-		if (!isopen()) return false;
+		if (!isopen()) return -1;
 		try
 		{
 			char *zErrMsg = 0;

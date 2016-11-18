@@ -36,15 +36,18 @@ public:
 	const tstring & getServletRequest(void) const {return m_sServletRequest;}
 	const tstring & getServletApp(void) const {return m_sServletApp;}
 	//const tstring & getServletRunction(void) const {return m_sServletFunction;}
+	//const tstring& getServletWebPath(void) const {return m_sServletWebPath;}
 
 	CServletInfo(const tstring & request, const tstring & app)
 		: m_sServletRequest(request), m_sServletApp(app)
+		//, m_sServletWebPath(webPath)
 	{
 	}
 
 private:
 	tstring m_sServletRequest;
 	tstring m_sServletApp;
+	//tstring m_sServletWebPath;
 	//tstring m_sServletFunction;
 };
 const CServletInfo::pointer cgcNullServletInfo;
@@ -64,7 +67,7 @@ public:
 
 public:
 	void FreeHandle(void) {m_servlets.clear();}
-	CServletInfo::pointer setServletInfo(const tstring& request) const
+	CServletInfo::pointer getServletInfo(const tstring& request) const
 	{
 		CServletInfo::pointer result;
 		return m_servlets.find(request, result) ? result : cgcNullServletInfo;
@@ -92,11 +95,12 @@ private:
 			int disable = v.second.get("disable", 0);
 			if (disable == 1) return;
 
-			std::string request = v.second.get("servlet-request", "");
-			std::string app = v.second.get("servlet-app", "");
-			if (request.empty() || app.empty()) return;
+			const std::string request = v.second.get("servlet-request", "");
+			const std::string app = v.second.get("servlet-app", "");
+			if (request.empty()) return;
 
 			//std::string function = v.second.get("servlet-funcntion", "doGET");
+			//const std::string webPath = v.second.get("servlet-web-path", "");
 
 			CServletInfo::pointer servletInfo = CServletInfo::pointer(new CServletInfo(request, app));
 			m_servlets.insert(request, servletInfo);

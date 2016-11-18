@@ -133,6 +133,7 @@ CLockMap<tstring, CCSPFileInfo::pointer> theIdleFileInfos;	// 记录空闲文件，超过
 cgcAttributes::pointer theAppAttributes;
 const int ATTRIBUTE_FILE_INFO = 8;				// filepath->
 const unsigned int TIMERID_1_SECOND = 1;		// 1秒检查一次
+cgcParameterMap::pointer theAppInitParameters;
 
 //CLockMap<int,bool> theWaitDataList;
 
@@ -1158,19 +1159,20 @@ class CContentTypeInfo
 {
 public:
 	typedef boost::shared_ptr<CContentTypeInfo> pointer;
-	static CContentTypeInfo::pointer create(const tstring& sContentType, bool bDownload, SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN)
+	static CContentTypeInfo::pointer create(const tstring& sContentType, bool bDownload, bool bImageOrBinary=false, SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN)
 	{
-		return CContentTypeInfo::pointer(new CContentTypeInfo(sContentType, bDownload, nScriptFileType));
+		return CContentTypeInfo::pointer(new CContentTypeInfo(sContentType, bDownload, bImageOrBinary, nScriptFileType));
 	}
 	tstring m_sContentType;
 	bool m_bDownload;
+	bool m_bImageOrBinary;
 	SCRIPT_FILE_TYPE m_nScriptFileType;
 
-	CContentTypeInfo(const tstring& sContentType, bool bDownload, SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN)
-		: m_sContentType(sContentType), m_bDownload(bDownload), m_nScriptFileType(nScriptFileType)
+	CContentTypeInfo(const tstring& sContentType, bool bDownload, bool bImageOrBinary=false, SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN)
+		: m_sContentType(sContentType), m_bDownload(bDownload), m_bImageOrBinary(bImageOrBinary), m_nScriptFileType(nScriptFileType)
 	{}
 	CContentTypeInfo(void)
-		: m_bDownload(false), m_nScriptFileType(SCRIPT_FILE_TYPE_UNKNOWN)
+		: m_bDownload(false), m_bImageOrBinary(false), m_nScriptFileType(SCRIPT_FILE_TYPE_UNKNOWN)
 	{}
 };
 //mycp::cgcApplication2::pointer theApplication2;
@@ -1197,7 +1199,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	//	return false;
 	//}
 
-	cgcParameterMap::pointer initParameters = theApplication->getInitParameters();
+	theAppInitParameters = theApplication->getInitParameters();
 
 	// Load APP calls.
 	tstring xmlFile(theApplication->getAppConfPath());
@@ -1307,45 +1309,47 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	}
 	theDefaultHost->m_bBuildDocumentRoot = true;
 
-	theContentTypeInfoList.insert("ai",CContentTypeInfo::create("application/postscript",true));
-	theContentTypeInfoList.insert("eps",CContentTypeInfo::create("application/postscript",true));
-	theContentTypeInfoList.insert("exe",CContentTypeInfo::create("application/octet-stream",true));
-	theContentTypeInfoList.insert("hlp",CContentTypeInfo::create("application/mshelp",true));
-	theContentTypeInfoList.insert("chm",CContentTypeInfo::create("application/mshelp",true));
-	theContentTypeInfoList.insert("doc",CContentTypeInfo::create("application/msword",true));	// application/vnd.ms-word
-	theContentTypeInfoList.insert("dotx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.template",true));
-	theContentTypeInfoList.insert("docm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.document",true));
-	theContentTypeInfoList.insert("docx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.document",true));
-	theContentTypeInfoList.insert("odt",CContentTypeInfo::create("application/vnd.oasis.opendocument.text",true));
-	theContentTypeInfoList.insert("xls",CContentTypeInfo::create("application/vnd.ms-excel",true));
-	theContentTypeInfoList.insert("xla",CContentTypeInfo::create("application/vnd.ms-excel",true));
-	theContentTypeInfoList.insert("xltx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.template",true));
-	theContentTypeInfoList.insert("xlsm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",true));
-	theContentTypeInfoList.insert("xlsx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",true));
-	theContentTypeInfoList.insert("ppt",CContentTypeInfo::create("application/vnd.ms-powerpoint",true));
-	theContentTypeInfoList.insert("potx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.template",true));
-	theContentTypeInfoList.insert("pptm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.presentation",true));
-	theContentTypeInfoList.insert("ppsx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.slideshow",true));
-	theContentTypeInfoList.insert("pptx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.presentation",true));
-	theContentTypeInfoList.insert("pps",CContentTypeInfo::create("application/vnd.ms-powerpoint",true));
-	theContentTypeInfoList.insert("pdf",CContentTypeInfo::create("application/pdf",false));
+	theContentTypeInfoList.insert("ipa",CContentTypeInfo::create("application/application/vnd.iphone",true,true));
+	theContentTypeInfoList.insert("apk",CContentTypeInfo::create("application/vnd.android.package-archive",true,true));
+	theContentTypeInfoList.insert("ai",CContentTypeInfo::create("application/postscript",true,true));
+	theContentTypeInfoList.insert("eps",CContentTypeInfo::create("application/postscript",true,true));
+	theContentTypeInfoList.insert("exe",CContentTypeInfo::create("application/octet-stream",true,true));
+	theContentTypeInfoList.insert("hlp",CContentTypeInfo::create("application/mshelp",true,true));
+	theContentTypeInfoList.insert("chm",CContentTypeInfo::create("application/mshelp",true,true));
+	theContentTypeInfoList.insert("doc",CContentTypeInfo::create("application/msword",true,true));	// application/vnd.ms-word
+	theContentTypeInfoList.insert("dotx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.template",true,true));
+	theContentTypeInfoList.insert("docm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.document",true,true));
+	theContentTypeInfoList.insert("docx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.wordprocessingml.document",true,true));
+	theContentTypeInfoList.insert("odt",CContentTypeInfo::create("application/vnd.oasis.opendocument.text",true,true));
+	theContentTypeInfoList.insert("xls",CContentTypeInfo::create("application/vnd.ms-excel",true,true));
+	theContentTypeInfoList.insert("xla",CContentTypeInfo::create("application/vnd.ms-excel",true,true));
+	theContentTypeInfoList.insert("xltx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.template",true,true));
+	theContentTypeInfoList.insert("xlsm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",true,true));
+	theContentTypeInfoList.insert("xlsx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",true,true));
+	theContentTypeInfoList.insert("ppt",CContentTypeInfo::create("application/vnd.ms-powerpoint",true,true));
+	theContentTypeInfoList.insert("potx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.template",true,true));
+	theContentTypeInfoList.insert("pptm",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.presentation",true,true));
+	theContentTypeInfoList.insert("ppsx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.slideshow",true,true));
+	theContentTypeInfoList.insert("pptx",CContentTypeInfo::create("application/vnd.openxmlformats-officedocument.presentationml.presentation",true,true));
+	theContentTypeInfoList.insert("pps",CContentTypeInfo::create("application/vnd.ms-powerpoint",true,true));
+	theContentTypeInfoList.insert("pdf",CContentTypeInfo::create("application/pdf",false,true));
 	theContentTypeInfoList.insert("xml",CContentTypeInfo::create("application/xml",false));
-	theContentTypeInfoList.insert("swf",CContentTypeInfo::create("application/x-shockwave-flash",false));
-	theContentTypeInfoList.insert("cab",CContentTypeInfo::create("application/x-shockwave-flash",false));
+	theContentTypeInfoList.insert("swf",CContentTypeInfo::create("application/x-shockwave-flash",false,true));
+	theContentTypeInfoList.insert("cab",CContentTypeInfo::create("application/x-shockwave-flash",false,true));
 	// archives
-	theContentTypeInfoList.insert("gz",CContentTypeInfo::create("application/x-gzip",true));
-	theContentTypeInfoList.insert("tgz",CContentTypeInfo::create("application/x-gzip",true));
-	theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true));
-	theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true));
-	theContentTypeInfoList.insert("tbz",CContentTypeInfo::create("application/x-bzip2",true));
-	theContentTypeInfoList.insert("zip",CContentTypeInfo::create("application/zip",true));
-	theContentTypeInfoList.insert("rar",CContentTypeInfo::create("application/x-rar",true));
-	theContentTypeInfoList.insert("tar",CContentTypeInfo::create("application/x-tar",true));
-	theContentTypeInfoList.insert("7z",CContentTypeInfo::create("application/x-7z-compressed",true));
+	theContentTypeInfoList.insert("gz",CContentTypeInfo::create("application/x-gzip",true,true));
+	theContentTypeInfoList.insert("tgz",CContentTypeInfo::create("application/x-gzip",true,true));
+	theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true,true));
+	theContentTypeInfoList.insert("bz",CContentTypeInfo::create("application/x-bzip2",true,true));
+	theContentTypeInfoList.insert("tbz",CContentTypeInfo::create("application/x-bzip2",true,true));
+	theContentTypeInfoList.insert("zip",CContentTypeInfo::create("application/zip",true,true));
+	theContentTypeInfoList.insert("rar",CContentTypeInfo::create("application/x-rar",true,true));
+	theContentTypeInfoList.insert("tar",CContentTypeInfo::create("application/x-tar",true,true));
+	theContentTypeInfoList.insert("7z",CContentTypeInfo::create("application/x-7z-compressed",true,true));
 	// texts
-	theContentTypeInfoList.insert("csp",CContentTypeInfo::create("text/csp",false,SCRIPT_FILE_TYPE_CSP));
+	theContentTypeInfoList.insert("csp",CContentTypeInfo::create("text/csp",false,false,SCRIPT_FILE_TYPE_CSP));
 	theContentTypeInfoList.insert("txt",CContentTypeInfo::create("text/plain",false));
-	theContentTypeInfoList.insert("php",CContentTypeInfo::create("text/x-php",false,SCRIPT_FILE_TYPE_PHP));
+	theContentTypeInfoList.insert("php",CContentTypeInfo::create("text/x-php",false,false,SCRIPT_FILE_TYPE_PHP));
 	theContentTypeInfoList.insert("shtml",CContentTypeInfo::create("text/html",false));
 	theContentTypeInfoList.insert("html",CContentTypeInfo::create("text/html",false));
 	theContentTypeInfoList.insert("htm",CContentTypeInfo::create("text/html",false));
@@ -1360,31 +1364,31 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theContentTypeInfoList.insert("pl",CContentTypeInfo::create("text/x-perl",false));
 	theContentTypeInfoList.insert("sql",CContentTypeInfo::create("text/x-sql",false));
 	// images
-	theContentTypeInfoList.insert("bmp",CContentTypeInfo::create("image/x-ms-bmp",false));
-	theContentTypeInfoList.insert("jpg",CContentTypeInfo::create("image/jpeg",false));
-	theContentTypeInfoList.insert("jpeg",CContentTypeInfo::create("image/jpeg",false));
-	theContentTypeInfoList.insert("gif",CContentTypeInfo::create("image/gif",false));
-	theContentTypeInfoList.insert("png",CContentTypeInfo::create("image/png",false));
-	theContentTypeInfoList.insert("tif",CContentTypeInfo::create("image/tiff",false));
-	theContentTypeInfoList.insert("tiff",CContentTypeInfo::create("image/tiff",false));
-	theContentTypeInfoList.insert("tga",CContentTypeInfo::create("image/x-targa",true));
+	theContentTypeInfoList.insert("bmp",CContentTypeInfo::create("image/x-ms-bmp",false,true));
+	theContentTypeInfoList.insert("jpg",CContentTypeInfo::create("image/jpeg",false,true));
+	theContentTypeInfoList.insert("jpeg",CContentTypeInfo::create("image/jpeg",false,true));
+	theContentTypeInfoList.insert("gif",CContentTypeInfo::create("image/gif",false,true));
+	theContentTypeInfoList.insert("png",CContentTypeInfo::create("image/png",false,true));
+	theContentTypeInfoList.insert("tif",CContentTypeInfo::create("image/tiff",false,true));
+	theContentTypeInfoList.insert("tiff",CContentTypeInfo::create("image/tiff",false,true));
+	theContentTypeInfoList.insert("tga",CContentTypeInfo::create("image/x-targa",true,true));
 	//audio
-	theContentTypeInfoList.insert("mp3",CContentTypeInfo::create("audio/mpeg",false));
-	theContentTypeInfoList.insert("mid",CContentTypeInfo::create("audio/midi",false));
-	theContentTypeInfoList.insert("ogg",CContentTypeInfo::create("audio/ogg",false));
-	theContentTypeInfoList.insert("mp4a",CContentTypeInfo::create("audio/mp4",false));
-	theContentTypeInfoList.insert("wav",CContentTypeInfo::create("audio/wav",false));
-	theContentTypeInfoList.insert("wma",CContentTypeInfo::create("audio/x-ms-wma",false));
+	theContentTypeInfoList.insert("mp3",CContentTypeInfo::create("audio/mpeg",false,true));
+	theContentTypeInfoList.insert("mid",CContentTypeInfo::create("audio/midi",false,true));
+	theContentTypeInfoList.insert("ogg",CContentTypeInfo::create("audio/ogg",false,true));
+	theContentTypeInfoList.insert("mp4a",CContentTypeInfo::create("audio/mp4",false,true));
+	theContentTypeInfoList.insert("wav",CContentTypeInfo::create("audio/wav",false,true));
+	theContentTypeInfoList.insert("wma",CContentTypeInfo::create("audio/x-ms-wma",false,true));
 	// video
-	theContentTypeInfoList.insert("avi",CContentTypeInfo::create("video/x-msvideo",true));
-	theContentTypeInfoList.insert("dv",CContentTypeInfo::create("video/x-dv",true));
-	theContentTypeInfoList.insert("mp4",CContentTypeInfo::create("video/mp4",true));
-	theContentTypeInfoList.insert("mpeg",CContentTypeInfo::create("video/mpeg",true));
-	theContentTypeInfoList.insert("mpg",CContentTypeInfo::create("video/mpeg",true));
-	theContentTypeInfoList.insert("mov",CContentTypeInfo::create("video/quicktime",true));
-	theContentTypeInfoList.insert("wm",CContentTypeInfo::create("video/x-ms-wmv",true));
-	theContentTypeInfoList.insert("flv",CContentTypeInfo::create("video/x-flv",true));
-	theContentTypeInfoList.insert("mkv",CContentTypeInfo::create("video/x-matroska",true));
+	theContentTypeInfoList.insert("avi",CContentTypeInfo::create("video/x-msvideo",true,true));
+	theContentTypeInfoList.insert("dv",CContentTypeInfo::create("video/x-dv",true,true));
+	theContentTypeInfoList.insert("mp4",CContentTypeInfo::create("video/mp4",true,true));
+	theContentTypeInfoList.insert("mpeg",CContentTypeInfo::create("video/mpeg",true,true));
+	theContentTypeInfoList.insert("mpg",CContentTypeInfo::create("video/mpeg",true,true));
+	theContentTypeInfoList.insert("mov",CContentTypeInfo::create("video/quicktime",true,true));
+	theContentTypeInfoList.insert("wm",CContentTypeInfo::create("video/x-ms-wmv",true,true));
+	theContentTypeInfoList.insert("flv",CContentTypeInfo::create("video/x-flv",true,true));
+	theContentTypeInfoList.insert("mkv",CContentTypeInfo::create("video/x-matroska",true,true));
 
 	theContentTypeInfoList.insert("woff",CContentTypeInfo::create("application/x-font-woff",false));
 	theContentTypeInfoList.insert("woff2",CContentTypeInfo::create("application/x-font-woff",false));
@@ -1392,13 +1396,13 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theContentTypeInfoList.insert("eot",CContentTypeInfo::create("application/octet-stream",false));
 	theContentTypeInfoList.insert("svg",CContentTypeInfo::create("image/svg+xml",false));
 
-	theMaxSize = (unsigned int)initParameters->getParameterValue("max-download-size", 120)*1024*1024;
-	//theFastcgiPHPServer = initParameters->getParameterValue("fast_cgi_php_server");
-	theEnableDataSource = initParameters->getParameterValue("enable-datasource", (int)0)==1?true:false;
+	theMaxSize = (unsigned int)theAppInitParameters->getParameterValue("max-download-size", 120)*1024*1024;
+	//theFastcgiPHPServer = theAppInitParameters->getParameterValue("fast_cgi_php_server");
+	theEnableDataSource = theAppInitParameters->getParameterValue("enable-datasource", (int)0)==1?true:false;
 #ifdef USES_BODB_SCRIPT
 	if (theEnableDataSource)
 	{
-		tstring cdbcDataSource = initParameters->getParameterValue("CDBCDataSource", "ds_httpserver");
+		tstring cdbcDataSource = theAppInitParameters->getParameterValue("CDBCDataSource", "ds_httpserver");
 		theCdbcService = theServiceManager->getCDBDService(cdbcDataSource);
 		if (theCdbcService.get() == NULL)
 		{
@@ -1448,6 +1452,7 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 
 extern "C" void CGC_API CGC_Module_Free(void)
 {
+	theAppInitParameters.reset();
 	cgcAttributes::pointer attributes = theApplication->getAttributes();
 	if (attributes.get() != NULL)
 	{
@@ -1529,11 +1534,12 @@ video/vnd.vivo                       *viv *.vivo             Vivo-Dateien
 void GetScriptFileType(const tstring& filename, tstring& outMimeType,bool& pOutImageOrBinary,SCRIPT_FILE_TYPE& pOutScriptFileType)
 {
 	pOutScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN;
-	outMimeType = "text/html";
+	outMimeType = "application/octet-stream";
+	//outMimeType = "text/html";
 	std::string::size_type find = filename.rfind(".");
 	if (find == std::string::npos)
 	{
-		outMimeType = "application/octet-stream";
+		//outMimeType = "application/octet-stream";
 		return;
 	}
 
@@ -1545,8 +1551,20 @@ void GetScriptFileType(const tstring& filename, tstring& outMimeType,bool& pOutI
 	{
 		pOutScriptFileType = pContentTypeInfo->m_nScriptFileType;
 		outMimeType = pContentTypeInfo->m_sContentType;
-		pOutImageOrBinary = false;
+		pOutImageOrBinary = pContentTypeInfo->m_bImageOrBinary;
+		//pOutImageOrBinary = false;
+	}else if (theAppInitParameters.get()!=NULL)
+	{
+		cgcParameter::pointer pParam = theAppInitParameters->getParameter(ext);
+		if (pParam.get()!=NULL)
+		{
+			pOutScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN;
+			outMimeType = pParam->getStrValue();
+			pOutImageOrBinary = false;
+			theContentTypeInfoList.insert(ext,CContentTypeInfo::create(outMimeType,false,false));
+		}
 	}
+
 	//if (ext == "csp")
 	//{
 	//	pOutScriptFileType = SCRIPT_FILE_TYPE_CSP;
@@ -1798,12 +1816,37 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	if (requestHost.get() == NULL)
 		requestHost = theDefaultHost;
 
-	tstring sFileName(request->getRequestURI());
+	const tstring& sModuleName = request->getModuleName();
+	const tstring& sFunctionName = request->getFunctionName();
+	tstring sFileName;
+	if (sModuleName.empty() || sFunctionName.empty())
+	{
+		sFileName = request->getRequestURI();
+		if (sFileName == "/")
+			sFileName.append(requestHost->getIndex());
+		else if (sFileName.substr(0,1) != "/")
+			sFileName.insert(0, "/");
+	}else
+	{
+		// ** /rest/v03/modulename/func.php
+		// ** /rest/v03/modulename/path/func.php
+		sFileName = "/rest/";
+		if (!request->getRestVersion().empty())
+		{
+			sFileName.append(request->getRestVersion());
+			sFileName.append("/");
+		}
+		sFileName.append(sModuleName);
+		sFileName.append("/");
+		sFileName.append(sFunctionName);
+	}
+
+	//tstring sFileName(request->getRequestURI());
 	//printf("**** FileName=%s\n",sFileName.c_str());
-	if (sFileName == "/")
-		sFileName.append(requestHost->getIndex());
-	else if (sFileName.substr(0,1) != "/")
-		sFileName.insert(0, "/");
+	//if (sFileName == "/")
+	//	sFileName.append(requestHost->getIndex());
+	//else if (sFileName.substr(0,1) != "/")
+	//	sFileName.insert(0, "/");
 	tstring sMimeType;
 	bool bIsImageOrBinary = false;
 	SCRIPT_FILE_TYPE nScriptFileType = SCRIPT_FILE_TYPE_UNKNOWN;

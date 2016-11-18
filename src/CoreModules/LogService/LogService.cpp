@@ -107,45 +107,88 @@ public:
 
 	bool DoLog(void)
 	{
-		if (!m_stream.is_open()) return false;
-
 		CLogInfo::pointer logInfo;
 		if (!m_logs.front(logInfo))
 			return false;
 
-		// Add time information.
-		if (this->m_setting.isTimeFormat())
+		if (this->m_setting.isOneLineFormat())
 		{
-			try{
-				tformat formatDatetime(_T("%02d:%02d:%02d.%03d "));
-				struct tm * ptm = localtime(&logInfo->m_logtime.time);
-				std::string sTemp((formatDatetime%ptm->tm_hour%ptm->tm_min%ptm->tm_sec%logInfo->m_logtime.millitm).str());
-				logInfo->m_msg.insert(0, sTemp);
-			}catch (const std::exception &)
-			{
-			}catch (...)
-			{
-			}
+			string_replace(logInfo->m_msg, _T("\n"), _T(" "));
+			logInfo->m_msg.append(_T("\n"));
 		}
+		if (this->m_setting.isAddLevelString())
+		{
+			logInfo->m_msg.insert(0, getLevelString(logInfo->m_level));
+		}
+
+		if (this->m_setting.isLogToStderr())
+		{
+			std::cerr << m_name.c_str() << _T(": ") << logInfo->m_msg.c_str();// << std::endl;
+		}
+
+		if (!m_stream.is_open()) return false;
+
 		// Add date information.
 		if (this->m_setting.isDateFormat())
 		{
 			try{
 				tformat formatDatetime(_T("%d-%02d-%02d "));
 				struct tm * ptm = localtime(&logInfo->m_logtime.time);
-				tstring sTemp((formatDatetime%(1900+ptm->tm_year)%(ptm->tm_mon+1)%ptm->tm_mday).str());
-				logInfo->m_msg.insert(0, sTemp);
+				const tstring sTemp((formatDatetime%(1900+ptm->tm_year)%(ptm->tm_mon+1)%ptm->tm_mday).str());
+				m_stream.write(sTemp.c_str(), sTemp.size());
 			}catch (const std::exception &)
 			{
 			}catch (...)
 			{
 			}
 		}
-		m_stream.write(logInfo->m_msg.c_str(), logInfo->m_msg.length());
+		// Add time information.
+		if (this->m_setting.isTimeFormat())
+		{
+			try{
+				tformat formatDatetime(_T("%02d:%02d:%02d.%03d "));
+				struct tm * ptm = localtime(&logInfo->m_logtime.time);
+				const std::string sTemp((formatDatetime%ptm->tm_hour%ptm->tm_min%ptm->tm_sec%logInfo->m_logtime.millitm).str());
+				m_stream.write(sTemp.c_str(), sTemp.size());
+			}catch (const std::exception &)
+			{
+			}catch (...)
+			{
+			}
+		}
+		//// Add time information.
+		//if (this->m_setting.isTimeFormat())
+		//{
+		//	try{
+		//		tformat formatDatetime(_T("%02d:%02d:%02d.%03d "));
+		//		struct tm * ptm = localtime(&logInfo->m_logtime.time);
+		//		const std::string sTemp((formatDatetime%ptm->tm_hour%ptm->tm_min%ptm->tm_sec%logInfo->m_logtime.millitm).str());
+		//		logInfo->m_msg.insert(0, sTemp);
+		//	}catch (const std::exception &)
+		//	{
+		//	}catch (...)
+		//	{
+		//	}
+		//}
+		//// Add date information.
+		//if (this->m_setting.isDateFormat())
+		//{
+		//	try{
+		//		tformat formatDatetime(_T("%d-%02d-%02d "));
+		//		struct tm * ptm = localtime(&logInfo->m_logtime.time);
+		//		const tstring sTemp((formatDatetime%(1900+ptm->tm_year)%(ptm->tm_mon+1)%ptm->tm_mday).str());
+		//		logInfo->m_msg.insert(0, sTemp);
+		//	}catch (const std::exception &)
+		//	{
+		//	}catch (...)
+		//	{
+		//	}
+		//}
+		m_stream.write(logInfo->m_msg.c_str(), logInfo->m_msg.size());
 		m_stream.flush();
 
-		tfstream::pos_type fsize = m_stream.tellg();
-
+		if (((m_nIndex++)%3)!=2) return true;
+		const tfstream::pos_type fsize = m_stream.tellg();
 		// Backup log file.
 		if (fsize >= this->m_setting.getMaxSize()*1024*1024)
 		{
@@ -303,25 +346,27 @@ protected:
 	void afterLog(LogLevel level, const char * msg)
 	{
 		CLogInfo::pointer logInfo = CLogInfo::create(level, msg);
-		if (this->m_setting.isOneLineFormat())
-		{
-			string_replace(logInfo->m_msg, _T("\n"), _T(" "));
-			logInfo->m_msg.append(_T("\n"));
-		}
-		if (this->m_setting.isAddLevelString())
-		{
-			logInfo->m_msg.insert(0, getLevelString(level));
-		}
+		//if (this->m_setting.isOneLineFormat())
+		//{
+		//	string_replace(logInfo->m_msg, _T("\n"), _T(" "));
+		//	logInfo->m_msg.append(_T("\n"));
+		//}
+		//if (this->m_setting.isAddLevelString())
+		//{
+		//	logInfo->m_msg.insert(0, getLevelString(level));
+		//}
 
 		if (this->m_setting.isLogToStderr())
-		//if (level==LOG_ERROR && this->m_setting.isLogToStderr())
 		{
-			std::cerr << m_name.c_str() << _T(": ") << logInfo->m_msg.c_str();// << std::endl;
+			m_logs.add(logInfo);
+			return;	// **
+			//std::cerr << m_name.c_str() << _T(": ") << logInfo->m_msg.c_str();// << std::endl;
 		}
 
 		if (this->m_setting.isLogToFile())
 		{
 			m_logs.add(logInfo);
+			return;
 		}
 
 		// ???
@@ -490,6 +535,7 @@ protected:
 public:
 	CLogService(const tstring& name, const tstring& xmlfile)
 		: m_name(name), m_xmlfile(xmlfile), m_currentBackup(0)
+		, m_nIndex(0)
 	{
 	}
 	~CLogService(void)
@@ -504,6 +550,7 @@ private:
 	int m_currentBackup;
 	XmlParseLogSetting m_setting;
 
+	unsigned int m_nIndex;
 	tfstream m_stream;
 	CLockList<CLogInfo::pointer> m_logs;
 

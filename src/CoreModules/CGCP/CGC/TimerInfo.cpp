@@ -23,7 +23,6 @@
 #include <netinet/in.h> 
 #include <arpa/inet.h>
 #endif
-
 #include "TimerInfo.h"
 
 #define USES_ONE_SHOT_NEWVERSION
@@ -91,8 +90,39 @@ void TimerInfo::RunTimer(void)
 	{
 		try
 		{
+			//class HelloWorld
+			//{
+			//public:
+			//	void hello()
+			//	{
+			//		std::cout <<
+			//			"Hello world, I''m a thread!"
+			//			<< std::endl;
+			//	}
+			//	void start()
+			//	{
+			//		boost::function0< void> f =  boost::bind(&HelloWorld::hello,this);
+			//		boost::thread thrd( f );
+			//		thrd.join();
+			//	}
+			//}; 
+			/*class HelloWorld
+			{
+			public:
+				void hello(const std::string& str)
+				{
+					std::cout < }
+			}; 
+			HelloWorld obj;
+			boost::thread thrd( boost::bind(&HelloWorld::hello,&obj,"Hello 
+				world, I''m a thread!" ) ) ;*/
+			//boost::function0< void> f =  boost::bind(&TimerInfo::do_timer,this);
+			//boost::thread thrd( f );
+
 			boost::thread_attributes attrs;
 			attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+			//boost::thread thrd1( boost::bind(&TimerInfo::do_timer,this) );
+			//boost::thread thrd2(attrs,boost::bind(&TimerInfo::do_timer,this));
 			m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
 		}catch (const boost::exception &)
 		{
@@ -126,7 +156,6 @@ void TimerInfo::KillTimer(void)
 	}
 }
 
-
 void TimerInfo::doRunTimer(void)
 {
 	struct timeb tNow;
@@ -157,7 +186,7 @@ void TimerInfo::doRunTimer(void)
 	if (tNow.time == m_tLastRunTime.time + m_nElapse/1000)
 	{
 		const long nOff = m_tLastRunTime.millitm+(m_nElapse%1000) - tNow.millitm;
-		if (nOff > 0)
+		if (nOff > 1)	// 0
 		{
 #ifdef WIN32
 			Sleep(nOff);
@@ -168,31 +197,28 @@ void TimerInfo::doRunTimer(void)
 	}
 
 	// OnTimer
+	if (m_timerHandler.get() != NULL)
 	{
-		//boost::mutex::scoped_lock lockTimer(m_mutex);
-		if (m_timerHandler.get() != NULL)
+		boost::mutex::scoped_lock * lock = NULL;
+		try
 		{
-			boost::mutex::scoped_lock * lock = NULL;
-			try
-			{
-				if (m_timerHandler->IsThreadSafe())
-					lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
-				ftime(&m_tLastRunTime);
-				m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
-			}catch (const boost::exception &)
-			{
-			}catch (const boost::thread_exception &)
-			{
-			}catch (const std::exception & e)
-			{
-				printf("******* timeout exception: %s\n",e.what());
-			}catch(...)
-			{
-				printf("******* timeout exception.\n");
-			}
-			if (lock != NULL)
-				delete lock;
+			if (m_timerHandler->IsThreadSafe())
+				lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
+			ftime(&m_tLastRunTime);
+			m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
+		}catch (const boost::exception &)
+		{
+		}catch (const boost::thread_exception &)
+		{
+		}catch (const std::exception & e)
+		{
+			printf("******* timeout exception: %s\n",e.what());
+		}catch(...)
+		{
+			printf("******* timeout exception.\n");
 		}
+		if (lock != NULL)
+			delete lock;
 	}
 	if (m_bOneShot)
 	{
@@ -200,21 +226,20 @@ void TimerInfo::doRunTimer(void)
 		return;
 	}
 	//ftime(&m_tLastRunTime);
-	
 	if (m_nElapse < 100)
 	{
-#ifdef WIN32
-		Sleep(2);
-#else
-		usleep(2000);
-#endif
+//#ifdef WIN32
+//		Sleep(2);
+//#else
+//		usleep(2000);
+//#endif
 		return;
 	}
 
 #ifdef WIN32
-	Sleep(m_nElapse > 300 ? 300 : (m_nElapse-5));
+	Sleep(m_nElapse > 1000 ? 1000 : (m_nElapse-5));
 #else
-	usleep(m_nElapse > 300 ? 300000 : (m_nElapse-5)*1000);
+	usleep(m_nElapse > 1000 ? 1000000 : (m_nElapse-5)*1000);
 #endif
 }
 

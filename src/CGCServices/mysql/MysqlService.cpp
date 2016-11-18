@@ -1021,7 +1021,7 @@ private:
 		if (!open()) return 0;
 
 		CMysqlSink* pSink = NULL;
-		mycp::bigint ret = 0;
+		//mycp::bigint ret = 0;
 		try
 		{
 			if (CMysqlPool::IsServerError(m_nLastErrorCode) && (m_tLastErrorTime+10)>time(0))
@@ -1134,7 +1134,7 @@ private:
 
 		CMysqlSink* pSink = (CMysqlSink*)nTransaction;
 		if (pSink==NULL) return -1;
-		mycp::bigint result = -1;
+		mycp::bigint ret = -1;
 		try
 		{
 			MYSQL * pMysql = pSink->GetMYSQL();
@@ -1168,7 +1168,7 @@ private:
 				}
 			}
 			m_nLastErrorCode = 0;
-			result = (mycp::bigint)mysql_affected_rows(pMysql);
+			ret = (mycp::bigint)mysql_affected_rows(pMysql);
 			MYSQL_RES * result = 0;
 			do
 			{
@@ -1186,7 +1186,7 @@ private:
 			CGC_LOG((mycp::LOG_ERROR, "trans_commit exception\n"));
 		}
 		CMysqlPool::SinkPut(pSink);
-		return result;
+		return ret;
 	}
 
 	virtual bool auto_commit(bool autocommit)

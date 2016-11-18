@@ -42,6 +42,8 @@ CModuleImpl::CModuleImpl(void)
 , m_nCurrentCallId(0)
 
 {
+	m_debugmsg1 = new char[MAX_LOG_SIZE+1];
+	m_debugmsg2 = new wchar_t[MAX_LOG_SIZE+1];
 }
 
 CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager, CModuleHandler* pModuleHandler)
@@ -55,11 +57,15 @@ CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* p
 , m_nCurrentCallId(0)
 
 {
+	m_debugmsg1 = new char[MAX_LOG_SIZE+1];
+	m_debugmsg2 = new wchar_t[MAX_LOG_SIZE+1];
 }
 
 CModuleImpl::~CModuleImpl(void)
 {
 	StopModule();
+	delete[] m_debugmsg1;
+	delete[] m_debugmsg2;
 }
 
 void CModuleImpl::StopModule(void)
@@ -378,7 +384,7 @@ void CModuleImpl::ProcSyncResponse(unsigned long nCallId, int nResultValue)
 		(bSyncWarning && m_moduleParams.getSyncResultProcessMode()==CGC_SYNC_RESULT_PROCESS_WARNING_STOP))
 	{
 		// stop
-		log(LOG_ERROR, "CGC_SYNC_STOP\n");
+		log2(LOG_ERROR, "CGC_SYNC_STOP\n");
 		m_pSyncErrorStoped = true;
 		m_pSyncList.clear();				// **
 		m_pSyncRequestList.remove(nCallId);
@@ -514,7 +520,7 @@ void CModuleImpl::StartSyncThread(void)
 		boost::thread_attributes attrs;
 		attrs.set_stack_size(CGC_THREAD_STACK_MIN);
 		m_pSyncThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CModuleImpl::procSyncThread, this)));
-		log(LOG_INFO, "StartSyncThread ok\n");
+		log2(LOG_INFO, "StartSyncThread ok\n");
 	}
 }
 
@@ -749,24 +755,24 @@ void CModuleImpl::log(LogLevel level, const char* format,...)
 	}
 	try
 	{
-		char debugmsg[MAX_LOG_SIZE];
-		//memset(debugmsg, 0, MAX_LOG_SIZE);
+		boost::mutex::scoped_lock lock(m_mutexLog1);
+		//char debugmsg[MAX_LOG_SIZE];
 		va_list   vl;
 		va_start(vl, format);
-		int len = vsnprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
+		int len = vsnprintf(m_debugmsg1, MAX_LOG_SIZE-1, format, vl);
 		va_end(vl);
 		if (len > MAX_LOG_SIZE)
 			len = MAX_LOG_SIZE;
 		else if (len<=0)
 			return;
-		debugmsg[len] = '\0';
+		m_debugmsg1[len] = '\0';
 
 		if (m_logService.get() != NULL)
 		{
-			m_logService->log2(level, debugmsg);
+			m_logService->log2(level, m_debugmsg1);
 		}else if (m_moduleParams.isLts())
 		{
-			std::cerr << debugmsg;
+			std::cerr << m_debugmsg1;
 		}
 	}catch(std::exception const &)
 	{
@@ -791,23 +797,22 @@ void CModuleImpl::log(LogLevel level, const wchar_t* format,...)
 	}
 	try
 	{
-		//boost::mutex::scoped_lock lock(m_mutex2);
-		wchar_t debugmsg[MAX_LOG_SIZE];
-		//memset(debugmsg, 0, MAX_LOG_SIZE);
+		boost::mutex::scoped_lock lock(m_mutexLog2);
+		//wchar_t debugmsg[MAX_LOG_SIZE];
 		va_list   vl;
 		va_start(vl, format);
-		int len = vswprintf(debugmsg, MAX_LOG_SIZE-1, format, vl);
+		int len = vswprintf(m_debugmsg2, MAX_LOG_SIZE-1, format, vl);
 		va_end(vl);
 		if (len > MAX_LOG_SIZE)
 			len = MAX_LOG_SIZE;
-		debugmsg[len] = L'\0';
+		m_debugmsg2[len] = L'\0';
 
 		if (m_logService.get() != NULL)
 		{
-			m_logService->log2(level, debugmsg);
+			m_logService->log2(level, m_debugmsg2);
 		}else if (m_moduleParams.isLts())
 		{
-			std::wcerr<< debugmsg;
+			std::wcerr<< m_debugmsg2;
 		}
 	}catch(std::exception const &)
 	{
@@ -817,7 +822,64 @@ void CModuleImpl::log(LogLevel level, const wchar_t* format,...)
 		return;
 	}
 }
+void CModuleImpl::log2(LogLevel level, const char* sData)
+{
+	if (m_logService.get() != NULL)
+	{
+		if (!m_logService->isLogLevel(level))
+			return;
+	}else if (!m_moduleParams.isLts())
+	//}else if ((m_moduleParams.getLogLevel()&(int)level)==0)
+	{
+		return;
+	}
+	try
+	{
+		if (m_logService.get() != NULL)
+		{
+			m_logService->log2(level, sData);
+		}else if (m_moduleParams.isLts())
+		{
+			std::cerr << sData;
+		}
+	}catch(std::exception const &)
+	{
+		return;
+	}catch(...)
+	{
+		return;
+	}
 
+}
+
+void CModuleImpl::log2(LogLevel level, const wchar_t* sData)
+{
+	if (m_logService.get() != NULL)
+	{
+		if (!m_logService->isLogLevel(level))
+			return;
+	}else if (!m_moduleParams.isLts())
+	//}else if ((m_moduleParams.getLogLevel()&(int)level)==0)
+	{
+		return;
+	}
+	try
+	{
+		if (m_logService.get() != NULL)
+		{
+			m_logService->log2(level, sData);
+		}else if (m_moduleParams.isLts())
+		{
+			std::wcerr<< sData;
+		}
+	}catch(std::exception const &)
+	{
+		return;
+	}catch(...)
+	{
+		return;
+	}
+}
 
 // CModuleMgr
 CModuleMgr::CModuleMgr(void)

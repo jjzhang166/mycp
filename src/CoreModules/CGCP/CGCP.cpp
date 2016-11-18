@@ -128,7 +128,8 @@ int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char* argv[])
 #endif
 {
-	setlocale(LC_ALL, ".936");
+	setlocale(LC_ALL, "");
+	//setlocale(LC_ALL, ".936");
 	const std::string sProgram(argv[0]);
 	bool bService = false;
 	bool bProtect = false;

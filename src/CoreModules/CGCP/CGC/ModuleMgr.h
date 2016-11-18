@@ -175,8 +175,10 @@ private:
 	CLockMap<tstring,bool> m_pDataSourceList;
 
 	tstring m_sExecuteResult;
-	//boost::mutex m_mutex1;
-	//boost::mutex m_mutex2;
+	boost::mutex m_mutexLog1;
+	boost::mutex m_mutexLog2;
+	char* m_debugmsg1;
+	wchar_t* m_debugmsg2;
 	// for sync
 	cgcCDBCServicePointer m_pSyncCdbcService;
 	cgcServiceManager* m_pServiceManager;
@@ -277,6 +279,9 @@ public:
 	virtual void logService(cgcLogService::pointer logService) {m_logService = logService;}
 	virtual void log(LogLevel level, const char* format,...);
 	virtual void log(LogLevel level, const wchar_t* format,...);
+	virtual void log2(LogLevel level, const char* sData);
+	virtual void log2(LogLevel level, const wchar_t* sData);
+
 };
 
 // CModuleMgr

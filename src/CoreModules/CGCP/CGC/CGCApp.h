@@ -223,7 +223,7 @@ private:
 	//CgcTcpClient::pointer m_pFastCgiServer;
 	//virtual void OnReceiveData(const ReceiveBuffer::pointer& data);
 	HTTP_STATUSCODE ProcHttpData(const unsigned char * recvData, size_t dataSize,const cgcRemote::pointer& pcgcRemote);
-	HTTP_STATUSCODE ProcHttpAppProto(const cgcHttpRequest::pointer& pRequestImpl,const cgcHttpResponse::pointer& pResponseImpl,const cgcParserHttp::pointer& pcgcParser);
+	HTTP_STATUSCODE ProcHttpAppProto(const tstring& sAppModuleName,const cgcHttpRequest::pointer& pRequestImpl,const cgcHttpResponse::pointer& pResponseImpl,const cgcParserHttp::pointer& pcgcParser);
 	HTTP_STATUSCODE ProcHttpLibMethod(const ModuleItem::pointer& moduleItem,const tstring& sMethodName,const cgcHttpRequest::pointer& pRequest,const cgcHttpResponse::pointer& pResponse);
 	void GetSotpParserPool(cgcParserSotp::pointer& pcgcParser);
 	void SetSotpParserPool(const cgcParserSotp::pointer& pcgcParser);
