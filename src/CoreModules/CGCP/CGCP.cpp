@@ -43,6 +43,37 @@ tstring theModulePath;
 #include "tlhelp32.h"
 #include "Psapi.h"
 #pragma comment(lib, "Psapi.lib")
+static BOOL CALLBACK EnumWindowsCloseWindow(HWND hwnd,LPARAM lParam)
+{
+	TCHAR lpszBuffer[255];
+	memset(lpszBuffer, 0, sizeof(lpszBuffer));
+	::GetWindowText(hwnd, lpszBuffer, sizeof(lpszBuffer));
+	if (strstr(lpszBuffer, "CGCP.exe")==lpszBuffer)
+	{
+		const DWORD nCurrentProcessId = (DWORD)lParam;
+		DWORD dwWndProcessId = 0;
+		GetWindowThreadProcessId(hwnd,&dwWndProcessId);
+		if (dwWndProcessId>0 && dwWndProcessId!=nCurrentProcessId)
+		{
+			HANDLE hProcess = OpenProcess(SYNCHRONIZE|PROCESS_TERMINATE, FALSE, dwWndProcessId);
+			if(NULL != hProcess)
+			{
+				TerminateProcess(hProcess, 0);
+			}
+		}
+		//::SetWindowPos(hwnd,HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE);
+		//::SetActiveWindow(hwnd);
+		//::SetForegroundWindow(hwnd);
+		//RECT rect;
+		//::GetWindowRect(hwnd,&rect);
+		//int x = rect.right-18;
+		//int y = rect.top+5;
+		//::SetCursorPos(x, y);
+		//mouse_event (MOUSEEVENTF_LEFTDOWN|MOUSEEVENTF_LEFTUP, x, y, 0, 0);//Êó±ê°´ÏÂ
+		return FALSE;
+	}
+	return TRUE;
+}
 void KillCGCP(void)
 {
 	const DWORD nCurrentProcessId = GetCurrentProcessId();
@@ -90,21 +121,23 @@ void KillCGCP(void)
 	}
 	CloseHandle(hProcessSnap);
 
-	HWND hHwnd = FindWindow(NULL,"CGCP.exe");
-	if (hHwnd!=NULL)
-	{
-		DWORD dwWndProcessId = 0;
-		GetWindowThreadProcessId(hHwnd,&dwWndProcessId);
-		if (dwWndProcessId>0 && dwWndProcessId!=nCurrentProcessId)
-		{
-			HANDLE hProcess = OpenProcess(SYNCHRONIZE|PROCESS_TERMINATE, FALSE, dwWndProcessId);
-			if(NULL != hProcess)
-			{
-				TerminateProcess(hProcess, 0);
-			}
-		}
-	}
+	EnumWindows(EnumWindowsCloseWindow, (LPARAM)nCurrentProcessId);
+	//HWND hHwnd = FindWindow(NULL,"CGCP.exe");
+	//if (hHwnd!=NULL)
+	//{
+	//	DWORD dwWndProcessId = 0;
+	//	GetWindowThreadProcessId(hHwnd,&dwWndProcessId);
+	//	if (dwWndProcessId>0 && dwWndProcessId!=nCurrentProcessId)
+	//	{
+	//		HANDLE hProcess = OpenProcess(SYNCHRONIZE|PROCESS_TERMINATE, FALSE, dwWndProcessId);
+	//		if(NULL != hProcess)
+	//		{
+	//			TerminateProcess(hProcess, 0);
+	//		}
+	//	}
+	//}
 }
+
 unsigned long GetSystemBootTime(void)
 {
 	return timeGetTime()/1000;

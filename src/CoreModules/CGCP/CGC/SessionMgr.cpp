@@ -144,19 +144,24 @@ void CSessionImpl::unlockSessionApi(int nLockType)
 //	m_tLockApiList.remove(sApi);
 //}
 
+//#define USES_FUNC_HANDLE2
 bool CSessionImpl::OnRunCGC_Session_Open(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pcgcRemote)
 {
 	// call CGC_Session_Open
 	CSessionModuleInfo::pointer pSessionModuleInfo = addModuleItem(pModuleItem,pcgcRemote);
 	if (pSessionModuleInfo.get() == NULL) return false;
 	if (pSessionModuleInfo->m_bOpenSessioned) return true;
+#ifdef USES_FUNC_HANDLE2
+	void * hModule = pModuleItem->getModuleHandle();
+	if (hModule == NULL) return true;
+#ifdef WIN32
+	FPCGC_Session_Open fp = (FPCGC_Session_Open)GetProcAddress((HMODULE)hModule, "CGC_Session_Open");
+#else
+	FPCGC_Session_Open fp = (FPCGC_Session_Open)dlsym(hModule, "CGC_Session_Open");
+#endif
+#else
 	FPCGC_Session_Open fp = (FPCGC_Session_Open)pModuleItem->getFpSessionOpen();
-//	void * hModule = pModuleItem->getModuleHandle();
-//#ifdef WIN32
-//	FPCGC_Session_Open fp = (FPCGC_Session_Open)GetProcAddress((HMODULE)hModule, "CGC_Session_Open");
-//#else
-//	FPCGC_Session_Open fp = (FPCGC_Session_Open)dlsym(hModule, "CGC_Session_Open");
-//#endif
+#endif
 	if (fp)
 	{
 		bool ret = false;
@@ -237,7 +242,17 @@ void CSessionImpl::OnRunCGC_Remote_Change(const CSessionModuleInfo::pointer& pSe
 	{
 		//pSessionModuleInfo->m_bOpenSessioned = false;
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+#ifdef USES_FUNC_HANDLE2
+		void * hModule = pModuleItem->getModuleHandle();
+		if (hModule == NULL) return;
+#ifdef WIN32
+		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)GetProcAddress((HMODULE)hModule, "CGC_Remote_Change");
+#else
+		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)dlsym(hModule, "CGC_Remote_Change");
+#endif
+#else
 		FPCGC_Remote_Change fp = (FPCGC_Remote_Change)pModuleItem->getFpRemoteChange();
+#endif
 		if (fp)
 		{
 			try
@@ -280,14 +295,17 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 //		}
 		//printf("**** OnRunCGC_Remote_Close remove modulete_remoteid=%d\n",nRemoteId);
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+#ifdef USES_FUNC_HANDLE2
+		void * hModule = pModuleItem->getModuleHandle();
+		if (hModule == NULL) return;
+#ifdef WIN32
+		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)GetProcAddress((HMODULE)hModule, "CGC_Remote_Close");
+#else
+		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)dlsym(hModule, "CGC_Remote_Close");
+#endif
+#else
 		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)pModuleItem->getFpRemoteClose();
-//		void * hModule = pModuleItem->getModuleHandle();
-//		if (hModule == NULL) return;
-//#ifdef WIN32
-//		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)GetProcAddress((HMODULE)hModule, "CGC_Remote_Close");
-//#else
-//		FPCGC_Remote_Close fp = (FPCGC_Remote_Close)dlsym(hModule, "CGC_Remote_Close");
-//#endif
+#endif
 		if (fp)
 		{
 			try
@@ -322,7 +340,17 @@ void CSessionImpl::OnRunCGC_Session_Close(const CSessionModuleInfo::pointer& pSe
 	{
 		pSessionModuleInfo->m_bOpenSessioned = false;
 		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+#ifdef USES_FUNC_HANDLE2
+		void * hModule = pModuleItem->getModuleHandle();
+		if (hModule == NULL) return;
+#ifdef WIN32
+		FPCGC_Session_Close fp = (FPCGC_Session_Close)GetProcAddress((HMODULE)hModule, "CGC_Session_Close");
+#else
+		FPCGC_Session_Close fp = (FPCGC_Session_Close)dlsym(hModule, "CGC_Session_Close");
+#endif
+#else
 		FPCGC_Session_Close fp = (FPCGC_Session_Close)pModuleItem->getFpSessionClose();
+#endif
 		if (fp)
 		{
 			try
@@ -738,16 +766,21 @@ ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool
 	}
 	return result;
 }
-
+#define USES_WRITE_LOCK
 bool CSessionImpl::ProcessDataResend(void)
 {
 	if (m_pcgcRemote->isInvalidate()) return false;
-	const time_t tNow = time(0);
-	if (m_tLastSeqInfoTime==0 || m_tLastSeqInfoTime==tNow)
-	//if (m_tLastSeqInfoTime==0 || (m_tLastSeqInfoTime+1)>=tNow)
-		return false;
+	if (m_tLastSeqInfoTime==0) return false;
+	//const time_t tNow = time(0);
+	//if (m_tLastSeqInfoTime==0 || m_tLastSeqInfoTime==tNow)
+	////if (m_tLastSeqInfoTime==0 || (m_tLastSeqInfoTime+1)>=tNow)
+	//	return false;
 
+#ifdef USES_WRITE_LOCK
+	BoostWriteLock wtlock(m_mapSeqInfo.mutex());
+#else
 	BoostReadLock rdlock(m_mapSeqInfo.mutex());
+#endif
 	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
 	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)
 	{
@@ -756,6 +789,9 @@ bool CSessionImpl::ProcessDataResend(void)
 		{
 			if (pCidInfo->canResendAgain() && !m_pcgcRemote->isInvalidate())
 			{
+#ifdef USES_WRITE_LOCK
+				wtlock.unlock();
+#endif
 				pCidInfo->increaseResends();
 				pCidInfo->setSendTime();
 				// resend
@@ -766,15 +802,19 @@ bool CSessionImpl::ProcessDataResend(void)
 			}else
 			{
 				// 
+#ifdef USES_WRITE_LOCK
+				m_mapSeqInfo.erase(pIter);
+				wtlock.unlock();
+#else
 				unsigned short nSeq = pIter->first;
 				rdlock.unlock();
 				m_mapSeqInfo.remove(nSeq);
-
+#endif
 				//// OnCidResend
 				//if (m_pHandler)
 				//	m_pHandler->OnCidTimeout(pCidInfo->getCid(), pCidInfo->getSign(), false);
 			}
-			return true;
+			return m_mapSeqInfo.empty(false)?false:true;
 		}
 	}
 	return false;

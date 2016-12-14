@@ -36,7 +36,10 @@ CModuleImpl::CModuleImpl(void)
 : m_callRef(0)
 , m_moduleState(0)
 , m_nInited(false)
-, m_pServiceManager(NULL), m_pModuleHandler(NULL)
+#ifndef USES_MODULE_SERVICE_MANAGER
+, m_pServiceManager(NULL)
+#endif
+, m_pModuleHandler(NULL)
 , m_pSyncErrorStoped(false), m_pSyncThreadKilled(false)
 , m_tProcSyncHostsTime(0), m_bLoadBackupFromCdbcService(false)
 , m_nCurrentCallId(0)
@@ -46,12 +49,19 @@ CModuleImpl::CModuleImpl(void)
 	m_debugmsg2 = new wchar_t[MAX_LOG_SIZE+1];
 }
 
+#ifdef USES_MODULE_SERVICE_MANAGER
+CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, CModuleHandler* pModuleHandler)
+#else
 CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager, CModuleHandler* pModuleHandler)
+#endif
 : m_module(module)
 , m_callRef(0)
 , m_moduleState(0)
 , m_nInited(false)
-, m_pServiceManager(pServiceManager), m_pModuleHandler(pModuleHandler)
+#ifndef USES_MODULE_SERVICE_MANAGER
+, m_pServiceManager(pServiceManager)
+#endif
+, m_pModuleHandler(pModuleHandler)
 , m_pSyncErrorStoped(false), m_pSyncThreadKilled(false)
 , m_tProcSyncHostsTime(0), m_bLoadBackupFromCdbcService(false)
 , m_nCurrentCallId(0)
@@ -63,6 +73,8 @@ CModuleImpl::CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* p
 
 CModuleImpl::~CModuleImpl(void)
 {
+	if (m_pModuleHandler!=NULL)
+		m_pModuleHandler->exitModule(this);
 	StopModule();
 	delete[] m_debugmsg1;
 	delete[] m_debugmsg2;
@@ -76,11 +88,19 @@ void CModuleImpl::StopModule(void)
 	m_moduleParams.clearParameters();
 	m_attributes.reset();
 
+#ifdef USES_MODULE_SERVICE_MANAGER
+	if (m_pSyncCdbcService.get()!=NULL)
+	{
+		resetService(m_pSyncCdbcService);
+		m_pSyncCdbcService.reset();
+	}
+#else
 	if (m_pServiceManager!=NULL && m_pSyncCdbcService.get()!=NULL)
 	{
 		m_pServiceManager->resetService(m_pSyncCdbcService);
 		m_pSyncCdbcService.reset();
 	}
+#endif
 	if (m_pSyncThread.get()!=NULL)
 	{
 		m_pSyncThreadKilled = true;
@@ -123,6 +143,39 @@ void CModuleImpl::StopModule(void)
 //#endif
 //
 //}
+#ifdef USES_MODULE_SERVICE_MANAGER
+cgcServiceInterface::pointer CModuleImpl::getService(const tstring & serviceName, const cgcValueInfo::pointer& parameter)
+{
+	return m_pModuleHandler!=NULL?m_pModuleHandler->getService(this,serviceName,parameter):cgcNullServiceInterface;
+}
+void CModuleImpl::resetService(const cgcServiceInterface::pointer & service)
+{
+	if (m_pModuleHandler!=NULL)
+		m_pModuleHandler->resetService(this,service);
+}
+cgcCDBCInfo::pointer CModuleImpl::getCDBDInfo(const tstring& datasource) const
+{
+	return m_pModuleHandler!=NULL?m_pModuleHandler->getCDBDInfo(this,datasource):cgcNullCDBCInfo;
+}
+cgcCDBCService::pointer CModuleImpl::getCDBDService(const tstring& datasource)
+{
+	return m_pModuleHandler!=NULL?m_pModuleHandler->getCDBDService(this,datasource):cgcNullCDBCService;
+}
+void CModuleImpl::retCDBDService(cgcCDBCServicePointer& cdbcservice)
+{
+	if (m_pModuleHandler!=NULL)
+		m_pModuleHandler->retCDBDService(this,cdbcservice);
+}
+HTTP_STATUSCODE CModuleImpl::executeInclude(const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
+{
+	return m_pModuleHandler!=NULL?m_pModuleHandler->executeInclude(this,url,request,response):STATUS_CODE_500;
+}
+HTTP_STATUSCODE CModuleImpl::executeService(const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult)
+{
+	return m_pModuleHandler!=NULL?m_pModuleHandler->executeService(this,serviceName,function,request,response,outExecuteResult):STATUS_CODE_500;
+}
+
+#endif
 
 tstring CModuleImpl::getAppConfPath(void) const
 {
@@ -450,9 +503,17 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 		if (!bCreateForce && !FileIsExist(sDatabasePath.c_str())) return false;
 
 		const std::string& sCdbcService = m_moduleParams.getSyncCdbcService();
+#ifdef USES_MODULE_SERVICE_MANAGER
+		if (!sCdbcService.empty())
+#else
 		if (m_pServiceManager!=NULL && !sCdbcService.empty())
+#endif
 		{
+#ifdef USES_MODULE_SERVICE_MANAGER
+			cgcServiceInterface::pointer serviceInterface = getService(sCdbcService);
+#else
 			cgcServiceInterface::pointer serviceInterface = m_pServiceManager->getService(sCdbcService);
+#endif
 			if (serviceInterface.get() == NULL)
 			{
 				log(LOG_ERROR, "getService(%s) NULL ERROR\n", sCdbcService.c_str());
@@ -462,7 +523,11 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 			m_pSyncCdbcService = CGC_CDBCSERVICE_DEF(serviceInterface);
 			if (!m_pSyncCdbcService->initService())
 			{
+#ifdef USES_MODULE_SERVICE_MANAGER
+				resetService(m_pSyncCdbcService);
+#else
 				m_pServiceManager->resetService(m_pSyncCdbcService);
+#endif
 				m_pSyncCdbcService.reset();
 				log(LOG_ERROR, "%s Service initService() error\n", sCdbcService.c_str());
 				return false;
@@ -472,7 +537,11 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 			m_cdbcInfo->setConnection(sDatabasePath);
 			if (!m_pSyncCdbcService->open(m_cdbcInfo))
 			{
+#ifdef USES_MODULE_SERVICE_MANAGER
+				resetService(m_pSyncCdbcService);
+#else
 				m_pServiceManager->resetService(m_pSyncCdbcService);
+#endif
 				m_pSyncCdbcService.reset();
 				log(LOG_ERROR, "%s Service open(%s) error\n", sCdbcService.c_str(),sDatabaseName.c_str());
 				return false;
@@ -501,7 +570,11 @@ bool CModuleImpl::loadSyncData(bool bCreateForce)
 				if (m_pSyncCdbcService->execute(pCreateSyncDatabaseTable)==-1)
 				{
 					log(LOG_ERROR, "create %s Error.\n", sDatabaseName.c_str());
+#ifdef USES_MODULE_SERVICE_MANAGER
+					resetService(m_pSyncCdbcService);
+#else
 					m_pServiceManager->resetService(m_pSyncCdbcService);
+#endif
 					m_pSyncCdbcService.reset();
 					return false;
 				}

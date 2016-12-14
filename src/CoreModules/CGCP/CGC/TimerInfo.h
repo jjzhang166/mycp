@@ -25,6 +25,7 @@
 #include "IncludeBase.h"
 #include <sys/timeb.h>
 
+//#define USES_STATIC_DO_TIMER
 // TimerInfo class
 class TimerInfo
 {
@@ -63,12 +64,16 @@ public:
 	unsigned int getElapse(void) const {return m_nElapse;}
 	void setTimerHandler(const cgcOnTimerHandler::pointer& newv) {m_timerHandler = newv;}
 	void setOneShot(bool newv) {m_bOneShot = newv;}
+	bool getOneShot(void) const {return m_bOneShot;}
 	void setParam(const void * newv) {m_pvParam = newv;}
 	const void * getParam(void) const {return m_pvParam;}
 
 protected:
+#ifdef USES_STATIC_DO_TIMER
+	static void do_timer(TimerInfo * pTimerInfo);
+#else
 	void do_timer(void);
-	//static void do_timer(TimerInfo * pTimerInfo);
+#endif
 	void doRunTimer(void);
 	void doTimerExit(void);
 };

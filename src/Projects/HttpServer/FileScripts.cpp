@@ -121,9 +121,11 @@ bool CFileScripts::getCSPObject(const char * pLineBuffer, CScriptItem::pointer s
 				scriptItem->setOperateObject2(CScriptItem::CSP_Operate_Id);
 
 			scriptItem->setId(std::string(tempBuffer, wordLen));
-		}else if ((int)(scriptObjectType & TYPE_SCOPY) == (int)TYPE_SCOPY && sotpCompare(pLineBuffer+leftIndex, CSP_TAB_OBJECT_SCOPY.c_str(), leftIndexTemp))
+		//}else if ((int)(scriptObjectType & TYPE_SCOPE) == (int)TYPE_SCOPE &&
+		//	(sotpCompare(pLineBuffer+leftIndex, CSP_TAB_OBJECT_SCOPE.c_str(), leftIndexTemp) || sotpCompare(pLineBuffer+leftIndex, "scopy", leftIndexTemp)))
+		}else if ((int)(scriptObjectType & TYPE_SCOPE) == (int)TYPE_SCOPE && sotpCompare(pLineBuffer+leftIndex, CSP_TAB_OBJECT_SCOPE.c_str(), leftIndexTemp))
 		{
-			leftIndex += (leftIndexTemp+CSP_TAB_OBJECT_SCOPY.size());
+			leftIndex += (leftIndexTemp+CSP_TAB_OBJECT_SCOPE.size());
 			if (!sotpCompare(pLineBuffer+leftIndex, CSP_TAB_OBJECT_EQUAL.c_str(), leftIndexTemp))
 			{
 				break;
@@ -772,7 +774,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_FUNCTION))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_FUNCTION))
 		{
 			return NULL;
 		}
@@ -800,7 +802,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_IN))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_IN))
 		{
 			return NULL;
 		}
@@ -814,7 +816,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE))
 		{
 			return NULL;
 		}
@@ -828,7 +830,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME|TYPE_OUT))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME|TYPE_OUT))
 		{
 			return NULL;
 		}
@@ -842,7 +844,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME|TYPE_IN))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME|TYPE_IN))
 		{
 			return NULL;
 		}
@@ -856,7 +858,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME|TYPE_IN))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME|TYPE_IN))
 		{
 			return NULL;
 		}
@@ -870,7 +872,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -884,7 +886,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_OUT))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_OUT))
 		{
 			return NULL;
 		}
@@ -954,7 +956,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))	// TYPE_NAME = sql
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))	// TYPE_NAME = sql
 		{
 			return NULL;
 		}
@@ -968,7 +970,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME|TYPE_OUT))	// TYPE_NAME = sql
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME|TYPE_OUT))	// TYPE_NAME = sql
 		{
 			return NULL;
 		}
@@ -982,7 +984,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME|TYPE_INDEX))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME|TYPE_INDEX))
 		{
 			return NULL;
 		}
@@ -996,7 +998,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))	// TYPE_NAME = cookie
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))	// TYPE_NAME = cookie
 		{
 			return NULL;
 		}
@@ -1010,7 +1012,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -1024,7 +1026,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -1038,7 +1040,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -1052,7 +1054,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -1066,7 +1068,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -1080,7 +1082,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_NAME))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_NAME))
 		{
 			return NULL;
 		}
@@ -1276,7 +1278,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE))
 		{
 			return NULL;
 		}
@@ -1290,7 +1292,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE))
 		{
 			return NULL;
 		}
@@ -1304,7 +1306,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_OUT))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_OUT))
 		{
 			return NULL;
 		}
@@ -1318,7 +1320,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE))
 		{
 			return NULL;
 		}
@@ -1332,7 +1334,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE))
 		{
 			return NULL;
 		}
@@ -1346,7 +1348,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_OUT))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_OUT))
 		{
 			return NULL;
 		}
@@ -1360,7 +1362,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_TYPE))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_TYPE))
 		{
 			return NULL;
 		}
@@ -1374,7 +1376,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY|TYPE_INDEX|TYPE_OUT))
+		if (!getCSPObject(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE|TYPE_INDEX|TYPE_OUT))
 		{
 			return NULL;
 		}
@@ -1834,7 +1836,7 @@ const char * CFileScripts::parseOneLine(const char * pLineBuffer, CScriptItem::p
 			scriptItem->m_subs.push_back(scriptItemNew);
 
 		int leftIndexTemp = 0;
-		if (!getCSPIF(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPY))
+		if (!getCSPIF(pLineBuffer+leftIndex+1, scriptItemNew, leftIndexTemp, TYPE_ID|TYPE_SCOPE))
 		{
 			return NULL;
 		}

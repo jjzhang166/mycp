@@ -258,9 +258,9 @@ private:
 const int escape_in_size = 2;
 const tstring escape_in[] = {"''","\\\\"};
 const tstring escape_out[] = {"'","\\"};
-const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
-const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
-const tstring escape_old_out[] = {"'","\\"};
+//const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
+//const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
+//const tstring escape_old_out[] = {"'","\\"};
 
 //const int escape_in_size = 2;
 //const int escape_out_size = 4;	// ?ºÊ»›æ…∞Ê±æ
@@ -340,8 +340,9 @@ private:
 	}
 	virtual void escape_string_out(tstring & str)
 	{
-		for (int i=0; i<escape_old_out_size; i++)
-			replace(str, escape_old_in[i], escape_old_out[i]);
+		//return;
+		//for (int i=0; i<escape_old_out_size; i++)
+		//	replace(str, escape_old_in[i], escape_old_out[i]);
 	}
 
 	virtual bool open(const cgcCDBCInfo::pointer& cdbcInfo)

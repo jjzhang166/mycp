@@ -42,6 +42,12 @@ typedef enum Variable_Type
 // 最大循环次数
 const int MAX_WHILE_TIMERS	= 1000;
 
+const std::string CSP_SCOPE_TYPE_APPLICATIONL				= "application";
+const std::string CSP_SCOPE_TYPE_SESSION						= "session";
+const std::string CSP_SCOPE_TYPE_REQUEST						= "request";
+const std::string CSP_SCOPE_TYPE_SERVER							= "server";
+const std::string CSP_SCOPE_TYPE_PAGE								= "page";
+
 // 变量类型标识 Variable Type Identiry
 const std::string VTI_USER			= "$";
 const std::string VTI_SYSTEM		= "S$";
@@ -241,7 +247,8 @@ const std::string CSP_TAB_OBJECT_ID				= "id";
 const std::string CSP_TAB_OBJECT_NAME			= "name";
 const std::string CSP_TAB_OBJECT_TYPE			= "type";
 const std::string CSP_TAB_OBJECT_VALUE			= "value";
-const std::string CSP_TAB_OBJECT_SCOPY			= "scopy";
+const std::string CSP_TAB_OBJECT_SCOPE			= "scope";
+//const std::string CSP_TAB_OBJECT_SCOPY			= "scopy";
 const std::string CSP_TAB_OBJECT_PROPERTY		= "property";
 const std::string CSP_TAB_OBJECT_EQUAL			= "=";
 const std::string CSP_TAB_OBJECT_END			= "/>";

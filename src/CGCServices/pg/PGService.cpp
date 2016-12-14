@@ -213,11 +213,11 @@ private:
 const int escape_in_size = 2;
 const tstring escape_in[] = {"''","\\\\"};
 const tstring escape_out[] = {"'","\\"};
-const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
-const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
-const tstring escape_old_out[] = {"'","\\"};
-//const std::string escape_in[] = {"&lsquo;","&pge0;"};
-//const std::string escape_out[] = {"'","\\"};
+//const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
+//const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
+//const tstring escape_old_out[] = {"'","\\"};
+////const std::string escape_in[] = {"&lsquo;","&pge0;"};
+////const std::string escape_out[] = {"'","\\"};
 
 class CPgCdbc
 	: public cgcCDBCService
@@ -294,8 +294,9 @@ private:
 	}
 	virtual void escape_string_out(tstring & str)
 	{
-		for (int i=0; i<escape_old_out_size; i++)
-			replace(str, escape_old_in[i], escape_old_out[i]);
+		//return;
+		//for (int i=0; i<escape_old_out_size; i++)
+		//	replace(str, escape_old_in[i], escape_old_out[i]);
 	}
 	
 	virtual bool open(const cgcCDBCInfo::pointer& cdbcInfo)
@@ -331,7 +332,8 @@ private:
 				m_cdbcInfo->getSecure().c_str());
 			if (ret < 0)
 			{
-				printf("%s\n", "connect to database failed!, start failed!");
+				CGC_LOG((mycp::LOG_ERROR, "Can't open database: %s(%s)\n", m_cdbcInfo->getDatabase().c_str()));
+				//printf("%s\n", "connect to database failed!, start failed!");
 				return false;
 			}
 		}catch(std::exception&)

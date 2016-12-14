@@ -134,7 +134,6 @@ cgcAttributes::pointer theAppAttributes;
 const int ATTRIBUTE_FILE_INFO = 8;				// filepath->
 const unsigned int TIMERID_1_SECOND = 1;		// 1√ÎºÏ≤È“ª¥Œ
 cgcParameterMap::pointer theAppInitParameters;
-
 //CLockMap<int,bool> theWaitDataList;
 
 class CResInfo : public cgcObject

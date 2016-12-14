@@ -192,9 +192,9 @@ private:
 const int escape_in_size = 1;
 const tstring escape_in[] = {"''"};
 const tstring escape_out[] = {"'"};
-const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
-const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
-const tstring escape_old_out[] = {"'","\\"};
+//const int escape_old_out_size = 2;	// ?ºÊ»›æ…∞Ê±æ
+//const tstring escape_old_in[] = {"&lsquo;","&pge0;"};
+//const tstring escape_old_out[] = {"'","\\"};
 
 //const int escape_size = 2;
 //const std::string escape_in[] = {"&lsquo;","&mse0;"};
@@ -221,6 +221,7 @@ public:
 	}
 	virtual void finalService(void)
 	{
+		//printf("**** CSqliteCdbc::finalService()\n");
 		close();
 		m_cdbcInfo.reset();
 		m_bServiceInited = false;
@@ -248,15 +249,23 @@ private:
 	}
 	virtual void escape_string_out(tstring & str)
 	{
-		for (int i=0; i<escape_old_out_size; i++)
-			replace(str, escape_old_in[i], escape_old_out[i]);
+		//return;
+		//for (int i=0; i<escape_old_out_size; i++)
+		//	replace(str, escape_old_in[i], escape_old_out[i]);
 	}
 
 	virtual bool open(const cgcCDBCInfo::pointer& cdbcInfo)
 	{
-		if (cdbcInfo.get() == NULL) return false;
-		if (!isServiceInited()) return false;
-
+		if (cdbcInfo.get() == NULL)
+		{
+			printf("**** CSqliteCdbc::open() cdbcInfo is NULL\n");
+			return false;
+		}
+		if (!isServiceInited())
+		{
+			printf("**** CSqliteCdbc::open() isServiceInited is FALSE\n");
+			return false;
+		}
 		if (m_cdbcInfo.get() == cdbcInfo.get() && this->isopen()) return true;
 
 		// close old database;
@@ -296,7 +305,7 @@ private:
 			const int rc = sqlite3_open(sDatabase.c_str(), &m_pSqlite);
 			if ( rc!=SQLITE_OK )  
 			{  
-				CGC_LOG((mycp::LOG_WARNING, "Can't open database: %s(%s)\n", sDatabase.c_str(),sqlite3_errmsg(m_pSqlite)));
+				CGC_LOG((mycp::LOG_ERROR, "Can't open database: %s(%s)\n", sDatabase.c_str(),sqlite3_errmsg(m_pSqlite)));
 				sqlite3_close(m_pSqlite);
 				m_pSqlite = 0;
 				return false;  
@@ -315,6 +324,7 @@ private:
 		{
 			if (m_pSqlite!=0)
 			{
+				//printf("**** CSqliteCdbc::close\n");
 				sqlite3_close(m_pSqlite);
 				m_pSqlite = 0;
 				m_tLastTime = time(0);

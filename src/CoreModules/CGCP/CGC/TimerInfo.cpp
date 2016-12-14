@@ -51,10 +51,24 @@ void TimerInfo::PauseTimer(void)
 	m_timerState = TS_Pause;
 }
 
+#ifdef USES_STATIC_DO_TIMER
+void TimerInfo::do_timer(TimerInfo * pTimerInfo)
+#else
 void TimerInfo::do_timer(void)
+#endif
 {
 	try
 	{
+#ifdef USES_STATIC_DO_TIMER
+		while (pTimerInfo->getTimerState() != TimerInfo::TS_Exit)
+		{
+			if (pTimerInfo->getTimerState() == TimerInfo::TS_Running)
+			{
+				pTimerInfo->doRunTimer();
+			}
+		}
+		pTimerInfo->doTimerExit();
+#else
 		while (getTimerState() != TimerInfo::TS_Exit)
 		{
 			if (getTimerState() == TimerInfo::TS_Running)
@@ -62,8 +76,8 @@ void TimerInfo::do_timer(void)
 				doRunTimer();
 			}
 		}
-
 		doTimerExit();
+#endif
 	}catch (const boost::exception &)
 	{
 	}catch (const boost::thread_exception &)
@@ -77,10 +91,16 @@ void TimerInfo::do_timer(void)
 		//
 	}
 #ifdef USES_ONE_SHOT_NEWVERSION
+#ifdef USES_STATIC_DO_TIMER
+	if (pTimerInfo->getOneShot())
+		delete pTimerInfo;
+#else	// USES_STATIC_DO_TIMER
 	if (m_bOneShot)
 		delete this;
-#endif
+#endif	// USES_STATIC_DO_TIMER
+#endif	// USES_ONE_SHOT_NEWVERSION
 }
+
 
 void TimerInfo::RunTimer(void)
 {
@@ -90,40 +110,11 @@ void TimerInfo::RunTimer(void)
 	{
 		try
 		{
-			//class HelloWorld
-			//{
-			//public:
-			//	void hello()
-			//	{
-			//		std::cout <<
-			//			"Hello world, I''m a thread!"
-			//			<< std::endl;
-			//	}
-			//	void start()
-			//	{
-			//		boost::function0< void> f =  boost::bind(&HelloWorld::hello,this);
-			//		boost::thread thrd( f );
-			//		thrd.join();
-			//	}
-			//}; 
-			/*class HelloWorld
-			{
-			public:
-				void hello(const std::string& str)
-				{
-					std::cout < }
-			}; 
-			HelloWorld obj;
-			boost::thread thrd( boost::bind(&HelloWorld::hello,&obj,"Hello 
-				world, I''m a thread!" ) ) ;*/
-			//boost::function0< void> f =  boost::bind(&TimerInfo::do_timer,this);
-			//boost::thread thrd( f );
-
 			boost::thread_attributes attrs;
 			attrs.set_stack_size(CGC_THREAD_STACK_MIN);
-			//boost::thread thrd1( boost::bind(&TimerInfo::do_timer,this) );
-			//boost::thread thrd2(attrs,boost::bind(&TimerInfo::do_timer,this));
 			m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
+			if (getOneShot())
+				m_timerThread->detach();
 		}catch (const boost::exception &)
 		{
 			m_timerState = TS_Exit;
@@ -204,7 +195,8 @@ void TimerInfo::doRunTimer(void)
 		{
 			if (m_timerHandler->IsThreadSafe())
 				lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
-			ftime(&m_tLastRunTime);
+			if (!m_bOneShot)
+				ftime(&m_tLastRunTime);
 			m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
 		}catch (const boost::exception &)
 		{

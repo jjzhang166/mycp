@@ -114,7 +114,10 @@ private:
 #define USES_CMODULEMGR
 class CGCApp
 	: public cgcSystem
-	, public cgcServiceManager, public CModuleHandler
+#ifndef USES_MODULE_SERVICE_MANAGER
+	, public cgcServiceManager
+#endif
+	, public CModuleHandler
 	, public cgcCommHandler
 	, public cgcParserCallback
 	, public CSotpRtpCallback	// for sotp rtp
@@ -154,9 +157,6 @@ public:
 	void PrintHelp(void);
 	void CheckScriptExecute(int nScriptType);
 
-	// cgcServiceManager handler
-	virtual cgcServiceInterface::pointer getService(const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
-	virtual void resetService(const cgcServiceInterface::pointer & service);
 	// CModuleHandler
 	virtual void* onGetFPGetSotpClientHandler(void) const {return (void*)m_fpGetSotpClientHandler;}
 
@@ -192,13 +192,25 @@ private:
 	virtual int onRecvData(const cgcRemote::pointer& pcgcRemote, const unsigned char * recvData, size_t recvLen);
 	virtual int onRemoteClose(unsigned long remoteId, int nErrorCode);
 
+#ifdef USES_MODULE_SERVICE_MANAGER
+	virtual void exitModule(const CModuleImpl* pFromModuleImpl);
+	virtual cgcCDBCInfo::pointer getCDBDInfo(const CModuleImpl* pFromModuleImpl, const tstring& datasource) const;
+	virtual cgcCDBCService::pointer getCDBDService(const CModuleImpl* pFromModuleImpl, const tstring& datasource);
+	virtual void retCDBDService(const CModuleImpl* pFromModuleImpl, cgcCDBCServicePointer& cdbcservice);
+	virtual cgcServiceInterface::pointer getService(const CModuleImpl* pFromModuleImpl, const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
+	virtual void resetService(const CModuleImpl* pFromModuleImpl, const cgcServiceInterface::pointer & service);
+	virtual HTTP_STATUSCODE executeInclude(const CModuleImpl* pFromModuleImpl, const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
+	virtual HTTP_STATUSCODE executeService(const CModuleImpl* pFromModuleImpl, const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult);
+#else
 	// cgcServiceManager handler
 	virtual cgcCDBCInfo::pointer getCDBDInfo(const tstring& datasource) const;
 	virtual cgcCDBCService::pointer getCDBDService(const tstring& datasource);
 	virtual void retCDBDService(cgcCDBCServicePointer& cdbcservice);
+	virtual cgcServiceInterface::pointer getService(const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
+	virtual void resetService(const cgcServiceInterface::pointer & service);
 	virtual HTTP_STATUSCODE executeInclude(const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
 	virtual HTTP_STATUSCODE executeService(const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult);
-
+#endif
 	// cgcSystem handler
 	virtual cgcParameterMap::pointer getInitParameters(void) const;
 	//virtual cgcCDBCInfo::pointer getCDBCInfo(const tstring& name) const {return m_cdbcs.getCDBCInfo(name);}
@@ -260,6 +272,9 @@ private:
 	XmlParseParams m_systemParams;
 	XmlParseCdbcs m_cdbcs;
 	CDataServiceMgr m_cdbcServices;
+#ifdef USES_MODULE_SERVICE_MANAGER
+	CLockMultiMap<const cgcCDBCService*,const CModuleImpl*> m_pFromCDBCList;
+#endif
 	cgcAttributes::pointer m_attributes;
 
 	CModuleImpl m_logModuleImpl;

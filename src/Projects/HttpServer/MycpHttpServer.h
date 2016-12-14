@@ -93,7 +93,7 @@ private:
 	bool getCompareValueInfo(const CScriptItem::pointer & scriptItem, cgcValueInfo::pointer& compare1_value, cgcValueInfo::pointer& compare2_value);
 
 	VARIABLE_TYPE getVariableType(const tstring& varstring) const;
-	cgcValueInfo::pointer getStringValueInfo(const tstring& string, const tstring& scopy = cgcEmptyTString, bool create = true) const;
+	cgcValueInfo::pointer getStringValueInfo(const CScriptItem::pointer & scriptItem,const tstring& string, const tstring& scopy = cgcEmptyTString, bool create = true) const;
 
 	void OutputScriptItem(const CScriptItem::pointer & scriptItem);
 

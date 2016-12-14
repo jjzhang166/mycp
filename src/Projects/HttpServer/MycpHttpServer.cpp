@@ -104,17 +104,17 @@ int CMycpHttpServer::doIt(const CFileScripts::pointer& fileScripts)
 
 cgcAttributes::pointer CMycpHttpServer::getAttributes(const tstring& scopy) const
 {
-	if (scopy == "application")
+	if (scopy == CSP_SCOPE_TYPE_APPLICATIONL)//"application")
 	{
 		assert (m_virtualHost.get() != NULL && m_virtualHost->getPropertys().get() != NULL);
 		return m_virtualHost->getPropertys();
-	}else if (scopy == "session")
+	}else if (scopy == CSP_SCOPE_TYPE_SESSION)//"session")
 	{
 		return request->getSession()->getAttributes(true);
-	}else if (scopy == "request")
+	}else if (scopy == CSP_SCOPE_TYPE_REQUEST)//"request")
 	{
 		return request->getAttributes(true);
-	}else if (scopy == "server")
+	}else if (scopy == CSP_SCOPE_TYPE_SERVER)//"server")
 	{
 		return theApplication->getAttributes(true);
 	}else
@@ -145,7 +145,7 @@ VARIABLE_TYPE CMycpHttpServer::getVariableType(const tstring& varstring) const
 	return VARIABLE_VALUE;
 }
 
-cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string, const tstring& scopy, bool create) const
+cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const CScriptItem::pointer & scriptItem, const tstring& string, const tstring& scopy, bool create) const
 {
 	if (string.empty()) return cgcNullValueInfo;
 
@@ -208,17 +208,64 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const tstring& string,
 			cgcAttributes::pointer attributes = getAttributes(scopy);
 			assert (attributes.get() != NULL);
 			var_value = attributes->getProperty(string);
+			//printf("**** VARIABLE_USER script_scope=%s,script_id=%s,script_value=%s,scope=%s,string=%s,value=0x%x\n",
+			//	scriptItem->getScope().c_str(),scriptItem->getId().c_str(),scriptItem->getValue().c_str(),scopy.c_str(),string.c_str(),(int)var_value.get());
+			if (var_value.get() == NULL && scopy.empty() && scopy!=CSP_SCOPE_TYPE_SESSION)
+			{
+				attributes = getAttributes(CSP_SCOPE_TYPE_SESSION);
+				var_value = attributes->getProperty(string);
+				//printf("**** CSP_SCOPE_TYPE_SESSION, string=%s, value=0x%x\n",string.c_str(),(int)var_value.get());
+				//if (var_value.get() != NULL)
+				//{
+				//	scriptItem->setScope(CSP_SCOPE_TYPE_SESSION);
+				//}
+			}
+			if (var_value.get() == NULL && scopy.empty() && scopy!=CSP_SCOPE_TYPE_REQUEST)
+			{
+				attributes = getAttributes(CSP_SCOPE_TYPE_REQUEST);
+				var_value = attributes->getProperty(string);
+				//if (var_value.get() != NULL)
+				//{
+				//	scriptItem->setScope(CSP_SCOPE_TYPE_REQUEST);
+				//}
+			}
+			if (var_value.get() == NULL && scopy.empty() && scopy!=CSP_SCOPE_TYPE_APPLICATIONL)
+			{
+				attributes = getAttributes(CSP_SCOPE_TYPE_APPLICATIONL);
+				var_value = attributes->getProperty(string);
+				//if (var_value.get() != NULL)
+				//{
+				//	scriptItem->setScope(CSP_SCOPE_TYPE_APPLICATIONL);
+				//}
+			}
+			if (var_value.get() == NULL && scopy.empty() && scopy!=CSP_SCOPE_TYPE_SERVER)
+			{
+				attributes = getAttributes(CSP_SCOPE_TYPE_SERVER);
+				var_value = attributes->getProperty(string);
+				//if (var_value.get() != NULL)
+				//{
+				//	scriptItem->setScope(CSP_SCOPE_TYPE_SERVER);
+				//}
+			}
+			//if (var_value.get() != NULL)
+			//{
+			//	printf("**** value_string=%s\n",var_value->getStrValue().c_str());
+			//}
 
 			if (var_value.get() == NULL && create)
 			{
 				var_value = CGC_VALUEINFO((tstring)"");
 				attributes->setProperty(string, var_value);
+				//var_value->setAttribute(cgcValueInfo::ATTRIBUTE_READONLY);
 			}
 
 		}break;
 	case VARIABLE_REQUESTPARAM:
 		{
 			var_value = m_pageParameters->getProperty(string);
+			//printf("**** VARIABLE_REQUESTPARAM script_scope=%s,script_id=%s,script_value=%s,scope=%s,string=%s,value=0x%x\n",
+			//	scriptItem->getScope().c_str(),scriptItem->getId().c_str(),scriptItem->getValue().c_str(),scopy.c_str(),string.c_str(),(int)var_value.get());
+
 			if (var_value.get() == NULL)
 			{
 				const tstring strParamName(string.substr(VTI_REQUESTPARAM.size()));
@@ -646,13 +693,13 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo1(const CScriptItem::po
 	cgcValueInfo::pointer value;
 	if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Id)
 	{
-		value = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), create);
+		value = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), create);
 	}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Name)
 	{
-		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName(), cgcEmptyTString, create);
+		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getName(), cgcEmptyTString, create);
 		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return cgcNullValueInfo;
 
-		cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+		cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 		if (var_property.get() == NULL) return cgcNullValueInfo;
 
 		cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -661,7 +708,7 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo1(const CScriptItem::po
 		value = appAttributes->getProperty(var_property->getStr());
 	}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Value)
 	{
-		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue(), cgcEmptyTString, create);
+		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue(), cgcEmptyTString, create);
 		if (var_value.get() != NULL)
 			value = var_value->copy();
 	}
@@ -719,10 +766,10 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo2(const CScriptItem::po
 	cgcValueInfo::pointer value;
 	if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Name)
 	{
-		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName(), cgcEmptyTString, create);
+		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getName(), cgcEmptyTString, create);
 		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return cgcNullValueInfo;
 
-		cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty(), cgcEmptyTString, create);
+		cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty(), cgcEmptyTString, create);
 		if (var_property.get() == NULL) return cgcNullValueInfo;
 
 		cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -733,22 +780,36 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo2(const CScriptItem::po
 		value = var_value->copy();
 	}else if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Value)
 	{
-		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue(), cgcEmptyTString, create);
+		//cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue(), scriptItem->getScope(), create);	// ** 这里有问题
+		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue(), cgcEmptyTString, create);
+		//printf("**** CSP_Operate_Value script_scope=%s,script_id=%s,script_name=%s,script_value=%s,value=0x%x\n",
+		//	scriptItem->getScope().c_str(),scriptItem->getId().c_str(),scriptItem->getName().c_str(),scriptItem->getValue().c_str(),(int)var_value.get());
 		if (var_value.get() != NULL)
+		{
 			value = var_value->copy();
+			//printf("**** value_string2=%s\n",value->getStrValue().c_str());
+		}
 	}else if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Id)
 	{
 		// support for:
 		// <?csp
 		// $var1 = $var2
 		// ?>
-		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue(), scriptItem->getScope());
-		if (var_value.get() == NULL) return cgcNullValueInfo;
+		cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue(), cgcEmptyTString);
+		//cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue(), scriptItem->getScope());
+		//printf("**** CSP_Operate_Id script_scope=%s,script_id=%s,script_name=%s,script_value=%s,value=0x%x\n",
+		//	scriptItem->getScope().c_str(),scriptItem->getId().c_str(),scriptItem->getName().c_str(),scriptItem->getValue().c_str(),(int)var_value.get());
+		if (var_value.get() == NULL)
+		{
+			return cgcNullValueInfo;
+		}
+		//printf("**** value_string1=%s\n",var_value->getStrValue().c_str());
 
 		if (var_value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty2().empty())
 		//if (var_value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
 		{
-			int nIndex = atoi(scriptItem->getProperty().c_str());
+			const int nIndex = atoi(scriptItem->getProperty2().c_str());
+			//int nIndex = atoi(scriptItem->getProperty().c_str());
 			const std::vector<cgcValueInfo::pointer>& vectors = var_value->getVector();
 			if (nIndex >=0 && nIndex < (int)vectors.size())
 			{
@@ -758,7 +819,8 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo2(const CScriptItem::po
 		//}else if (var_value->getType() == cgcValueInfo::TYPE_MAP && !scriptItem->getProperty().empty())
 		{
 			// ?? $var_time['timestamp'] = $var_getresponse['ts']; 用于获取后面 ts
-			const tstring & sIndex = !scriptItem->getType().empty() ? scriptItem->getType() : scriptItem->getProperty();
+			const tstring & sIndex = !scriptItem->getType().empty() ? scriptItem->getType() : scriptItem->getProperty2();
+			//const tstring & sIndex = !scriptItem->getType().empty() ? scriptItem->getType() : scriptItem->getProperty();
 			cgcValueInfo::pointer findValue;
 			if (var_value->getMap().find(sIndex, findValue))
 			{
@@ -768,9 +830,11 @@ cgcValueInfo::pointer CMycpHttpServer::getScriptValueInfo2(const CScriptItem::po
 		{
 			value = var_value->copy();
 		}
-
 		if (value.get() != NULL)
+		{
+			//printf("**** value_string2=%s\n",value->getStrValue().c_str());
 			return value;
+		}
 	}
 
 	bool createNew = false;
@@ -826,10 +890,10 @@ bool CMycpHttpServer::getCompareValueInfo(const CScriptItem::pointer & scriptIte
 
 	if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Name)
 	{
-		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName());
+		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getName());
 		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return false;
 
-		cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+		cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 		if (var_property.get() == NULL) return false;
 
 		cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -838,11 +902,11 @@ bool CMycpHttpServer::getCompareValueInfo(const CScriptItem::pointer & scriptIte
 		compare1_value = appAttributes->getProperty(var_property->getStr());
 		if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Id)
 		{
-			compare2_value = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			compare2_value = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			// ? totype
 		}else if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Value)
 		{
-			compare2_value = getStringValueInfo(scriptItem->getValue());
+			compare2_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 			if (compare1_value.get() != NULL && compare2_value.get() != NULL)
 				compare2_value->totype(compare1_value->getType());
 		}else
@@ -852,13 +916,13 @@ bool CMycpHttpServer::getCompareValueInfo(const CScriptItem::pointer & scriptIte
 
 	}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Id)
 	{
-		compare1_value = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+		compare1_value = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 		if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Name)
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return false;
 
-			cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			if (var_property.get() == NULL) return false;
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -868,7 +932,7 @@ bool CMycpHttpServer::getCompareValueInfo(const CScriptItem::pointer & scriptIte
 			// ? totype
 		}else if (scriptItem->getOperateObject2() == CScriptItem::CSP_Operate_Value)
 		{
-			compare2_value = getStringValueInfo(scriptItem->getValue());
+			compare2_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 			if (compare1_value.get() != NULL && compare2_value.get() != NULL)
 				compare2_value->totype(compare1_value->getType());
 		}else
@@ -898,7 +962,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		{
 			if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Id)
 			{
-				cgcValueInfo::pointer value = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+				cgcValueInfo::pointer value = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 				if (value.get() != NULL)
 				{
 					if (value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
@@ -934,7 +998,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				}
 			}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Name)
 			{
-				cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName());
+				cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getName());
 				if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT)
 				{
 					theApplication->log(LOG_INFO, "");
@@ -942,7 +1006,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 					return 0;
 				}
 
-				cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+				cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 				if (var_property.get() == NULL)
 				{
 					//theApplication->log(LOG_INFO, "");
@@ -966,7 +1030,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				}
 			}else
 			{
-				cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
+				cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 				if (var_value.get() != NULL)
 				{
 					theApplication->log(LOG_INFO, var_value->getStrValue().c_str());
@@ -977,7 +1041,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		{
 			if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Id)
 			{
-				cgcValueInfo::pointer value = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+				cgcValueInfo::pointer value = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 				if (value.get() != NULL)
 				{
 					if (value->getType() == cgcValueInfo::TYPE_VECTOR && !scriptItem->getProperty().empty())
@@ -1016,7 +1080,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				}
 			}else if (scriptItem->getOperateObject1() == CScriptItem::CSP_Operate_Name)
 			{
-				cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getName());
+				cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getName());
 				if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT)
 				{
 					response->write("");
@@ -1024,7 +1088,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 					return 0;
 				}
 
-				cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+				cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 				if (var_property.get() == NULL)
 				{
 					response->write("");
@@ -1051,7 +1115,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				}
 			}else
 			{
-				cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
+				cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 				if (var_value.get() != NULL)
 				{
 					response->write(var_value->getStr());
@@ -1070,12 +1134,12 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer value;
 			if (scriptItem->getType() == "app")
 			{
-				cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+				cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 				if (var_name.get() == NULL) return -1;
 
-				cgcValueInfo::pointer var_initProperty = getStringValueInfo(scriptItem->getProperty());
+				cgcValueInfo::pointer var_initProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
 				if (var_initProperty.get() == NULL)
-					var_initProperty = getStringValueInfo(scriptItem->getValue());
+					var_initProperty = getStringValueInfo(scriptItem, scriptItem->getValue());
 
 				// APP Service
 				cgcServiceInterface::pointer serviceInterface = theServiceManager->getService(var_name->getStr(), var_initProperty);
@@ -1085,7 +1149,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 				theApplication->getAttributes(true)->setProperty((int)OBJECT_APP, value);
 			}else if (scriptItem->getType() == "cdbc")
 			{
-				cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+				cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 				if (var_name.get() == NULL) return -1;
 
 				// CDBC Service
@@ -1097,25 +1161,73 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			}else
 			{
 				value = getScriptValueInfo2(scriptItem);
+				//printf("**** CSP_Define script_scope=%s,script_id=%s,script_name=%s,script_value=%s,value=0x%x\n",
+				//	scriptItem->getScope().c_str(),scriptItem->getId().c_str(),scriptItem->getName().c_str(),scriptItem->getValue().c_str(),(int)value.get());
 			}
 
-			cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
-			assert (attributes.get() != NULL);
+			cgcAttributes::pointer attributes1 = getAttributes(scriptItem->getScope());
+			assert (attributes1.get() != NULL);
+			if (attributes1->getProperty(scriptItem->getId(),true).get()!=NULL)
+			{
+				attributes1->setProperty(scriptItem->getId(), value);
+				break;
+			}
+			if (scriptItem->getScope().empty() && scriptItem->getScope()!=CSP_SCOPE_TYPE_SESSION)
+			{
+				cgcAttributes::pointer attributes = getAttributes(CSP_SCOPE_TYPE_SESSION);
+				if (attributes->getProperty(scriptItem->getId(),true).get()!=NULL)
+				{
+					scriptItem->setScope(CSP_SCOPE_TYPE_SESSION);
+					attributes->setProperty(scriptItem->getId(), value);
+					break;
+				}
+			}
+			if (scriptItem->getScope().empty() && scriptItem->getScope()!=CSP_SCOPE_TYPE_REQUEST)
+			{
+				cgcAttributes::pointer attributes = getAttributes(CSP_SCOPE_TYPE_REQUEST);
+				if (attributes->getProperty(scriptItem->getId(),true).get()!=NULL)
+				{
+					scriptItem->setScope(CSP_SCOPE_TYPE_REQUEST);
+					attributes->setProperty(scriptItem->getId(), value);
+					break;
+				}
+			}
+			if (scriptItem->getScope().empty() && scriptItem->getScope()!=CSP_SCOPE_TYPE_APPLICATIONL)
+			{
+				cgcAttributes::pointer attributes = getAttributes(CSP_SCOPE_TYPE_APPLICATIONL);
+				if (attributes->getProperty(scriptItem->getId(),true).get()!=NULL)
+				{
+					scriptItem->setScope(CSP_SCOPE_TYPE_APPLICATIONL);
+					attributes->setProperty(scriptItem->getId(), value);
+					break;
+				}
+			}
+			if (scriptItem->getScope().empty() && scriptItem->getScope()!=CSP_SCOPE_TYPE_SERVER)
+			{
+				cgcAttributes::pointer attributes = getAttributes(CSP_SCOPE_TYPE_SERVER);
+				if (attributes->getProperty(scriptItem->getId(),true).get()!=NULL)
+				{
+					scriptItem->setScope(CSP_SCOPE_TYPE_SERVER);
+					attributes->setProperty(scriptItem->getId(), value);
+					break;
+				}
+			}
+
 			//if (!scriptItem->getProperty().empty())
 			//{
 			//	attributes->getProperty(scriptScrItem);
 			//	int nIndex = atoi(scriptItem->getProperty().c_str());
 			//}else
 			{
-				attributes->delProperty(scriptItem->getId());
-				attributes->setProperty(scriptItem->getId(), value);
+				attributes1->delProperty(scriptItem->getId());
+				attributes1->setProperty(scriptItem->getId(), value);
 			}
 		}break;
 	case CScriptItem::CSP_Execute:
 		{
-			cgcValueInfo::pointer var_servicename = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_servicename = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_servicename.get() == NULL) return -1;
-			cgcValueInfo::pointer var_function = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_function = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_function.get() == NULL) return -1;
 
 			tstring sExecuteResult;
@@ -1135,15 +1247,15 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_AppCall:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != (int)OBJECT_APP) return -1;
 
-			cgcValueInfo::pointer var_callname = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_callname = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_callname.get() == NULL) return -1;
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
-			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem->getProperty());
-			cgcValueInfo::pointer var_outProperty = getStringValueInfo(scriptItem->getValue());
+			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
+			cgcValueInfo::pointer var_outProperty = getStringValueInfo(scriptItem, scriptItem->getValue());
 
 			bool ret = false;
 			try
@@ -1180,10 +1292,10 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			//VARIABLE_TYPE var_type = getVariableType(scriptItem->getValue());
 			//if (var_type != VARIABLE_USER) return -1;
 
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
-			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_name.get() == NULL) return -1;
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -1224,13 +1336,13 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_AppSet:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
-			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_name.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
 
 			cgcAttributes::pointer appAttributes = serviceInterface->getAttributes();
@@ -1242,13 +1354,13 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_AppAdd:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
-			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_name.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
 
 			cgcAttributes::pointer appAttributes = serviceInterface->getAttributes();
@@ -1259,13 +1371,13 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_AppDel:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
-			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_name.get() == NULL) return -1;
 
-			//cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem->getProperty());
+			//cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
 
 			cgcAttributes::pointer appAttributes = serviceInterface->getAttributes();
@@ -1279,7 +1391,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			//VARIABLE_TYPE var_type = getVariableType(scriptItem->getValue());
 			//if (var_type != VARIABLE_USER) return -1;
 
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -1301,18 +1413,18 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_AppInit:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
-			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			bool ret = serviceInterface->initService(var_inProperty);
 			m_pageParameters->delProperty(CSP_TEMP_VAR_RESULT);
 			m_pageParameters->setProperty(CSP_TEMP_VAR_RESULT, CGC_VALUEINFO(ret));
 		}break;
 	case CScriptItem::CSP_AppFinal:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_APP) return -1;
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
@@ -1324,11 +1436,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	//case CScriptItem::CSP_CDBCInit:
 	//	{
-	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 	//		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return -1;
 	//		cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-	//		cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem->getProperty());
+	//		cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
 	//		bool ret = cdbcService->initService(var_inProperty);
 	//		cgcValueInfo::pointer _resultValueInfo = m_pageParameters->getProperty(CSP_TEMP_VAR_RESULT);
 	//		_resultValueInfo->totype(cgcValueInfo::TYPE_BOOLEAN);
@@ -1336,7 +1448,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 	//	}break;
 	//case CScriptItem::CSP_CDBCFinal:
 	//	{
-	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 	//		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return -1;
 	//		cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
@@ -1348,11 +1460,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 	//	}break;
 	//case CScriptItem::CSP_CDBCOpen:
 	//	{
-	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 	//		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return -1;
 	//		cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-	//		cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem->getName());
+	//		cgcValueInfo::pointer var_name = getStringValueInfo(scriptItem, scriptItem->getName());
 	//		if (var_name.get() == NULL) return -1;
 	//		cgcCDBCInfo::pointer cdbcInfo = gSystem->getCDBCInfo(var_name->getStr());
 	//		if (cdbcInfo.get() == NULL) return -1;
@@ -1364,7 +1476,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 	//	}break;
 	//case CScriptItem::CSP_CDBCClose:
 	//	{
-	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 	//		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT) return -1;
 	//		cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
@@ -1374,11 +1486,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		{
 			//VARIABLE_TYPE var_type = getVariableType(scriptItem->getValue());
 			//if (var_type != VARIABLE_USER) return -1;
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_sql = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_sql = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_sql.get() == NULL) return -1;
 
 			const mycp::bigint ret = cdbcService->execute(var_sql->getStr().c_str());
@@ -1399,11 +1511,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			VARIABLE_TYPE var_type = getVariableType(scriptItem->getValue());
 			if (var_type != VARIABLE_USER) return -1;
 
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_sql = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_sql = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_sql.get() == NULL) return -1;
 
 			int cdbcCookie = 0;
@@ -1418,13 +1530,13 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCMoveIndex:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
-			cgcValueInfo::pointer var_index = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_index = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			if (var_index.get() == NULL) return -1;
 
 			var_index->totype(cgcValueInfo::TYPE_INT);
@@ -1443,11 +1555,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCFirst:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			cgcValueInfo::pointer var_record = cdbcService->first(var_cdbccookie->getInt());
@@ -1465,11 +1577,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCNext:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			cgcValueInfo::pointer var_record = cdbcService->next(var_cdbccookie->getInt());
@@ -1487,11 +1599,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCPrev:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			cgcValueInfo::pointer var_record = cdbcService->previous(var_cdbccookie->getInt());
@@ -1509,11 +1621,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCLast:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			cgcValueInfo::pointer var_record = cdbcService->last(var_cdbccookie->getInt());
@@ -1531,22 +1643,22 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCReset:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			cdbcService->reset(var_cdbccookie->getInt());
 		}break;
 	case CScriptItem::CSP_CDBCSize:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			const mycp::bigint size = cdbcService->size(var_cdbccookie->getInt());
@@ -1564,11 +1676,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_CDBCIndex:
 		{
-			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 			cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+			cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 			if (var_cdbccookie.get() == NULL) return -1;
 
 			const mycp::bigint index = cdbcService->index(var_cdbccookie->getInt());
@@ -1586,14 +1698,14 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	//case CScriptItem::CSP_CDBCSetIndex:
 	//	{
-	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+	//		cgcValueInfo::pointer var_app = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 	//		if (var_app.get() == NULL || var_app->getType() != cgcValueInfo::TYPE_OBJECT || var_app->getInt() != OBJECT_CDBC) return -1;
 	//		cgcCDBCService::pointer cdbcService = CGC_OBJECT_CAST<cgcCDBCService>(var_app->getObject());
 
-	//		cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem->getName());
+	//		cgcValueInfo::pointer var_cdbccookie = getStringValueInfo(scriptItem, scriptItem->getName());
 	//		if (var_cdbccookie.get() == NULL) return -1;
 
-	//		cgcValueInfo::pointer var_index = getStringValueInfo(scriptItem->getProperty());
+	//		cgcValueInfo::pointer var_index = getStringValueInfo(scriptItem, scriptItem->getProperty());
 	//		if (var_cdbccookie.get() == NULL) return -1;
 
 	//		var_index->totype(cgcValueInfo::TYPE_INT);
@@ -1617,7 +1729,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_value = getScriptValueInfo2(scriptItem);
 			if (var_value.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1657,7 +1769,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_value = getScriptValueInfo2(scriptItem);
 			if (var_value.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1676,7 +1788,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_value = getScriptValueInfo2(scriptItem);
 			if (var_value.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1695,7 +1807,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_value = getScriptValueInfo2(scriptItem);
 			if (var_value.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1714,7 +1826,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			cgcValueInfo::pointer var_value = getScriptValueInfo2(scriptItem);
 			if (var_value.get() == NULL) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1731,7 +1843,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			VARIABLE_TYPE var_type = getVariableType(scriptItem->getId());
 			if (var_type != VARIABLE_USER) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1753,7 +1865,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 			VARIABLE_TYPE var_type = getVariableType(scriptItem->getId());
 			if (var_type != VARIABLE_USER) return -1;
 
-			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer var_variable = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (var_variable.get() == NULL)
 			{
 				cgcAttributes::pointer attributes = getAttributes(scriptItem->getScope());
@@ -1772,7 +1884,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_Empty:
 		{
-			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			bool empty = var_id.get() == NULL ? true : var_id->empty();
 
 			if (!scriptItem->getValue().empty())
@@ -1789,7 +1901,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_Reset:
 		{
-			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_id.get() != NULL)
 			{
 				if (var_id->getType() == cgcValueInfo::TYPE_OBJECT)
@@ -1807,7 +1919,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_Sizeof:
 		{
-			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			int size = 0;
 			
 			if (var_id.get() == NULL)
@@ -1834,7 +1946,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_Typeof:
 		{
-			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			tstring typeString;
 			if (var_id.get() == NULL)
 				typeString = "";
@@ -1865,7 +1977,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_ToType:
 		{
-			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_id.get() != NULL)
 			{
 				if (var_id->getType() != cgcValueInfo::TYPE_OBJECT)
@@ -1877,9 +1989,9 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_Index:
 		{
-			cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			if (var_property.get() == NULL) return -1;
-			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem->getId(), scriptItem->getScope(), false);
+			cgcValueInfo::pointer var_id = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope(), false);
 			if (var_id.get() == NULL) break;
 
 			if (var_id->getType() == cgcValueInfo::TYPE_VECTOR)
@@ -1960,7 +2072,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_PageContentType:
 		{
-			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getType());
+			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getType());
 			if (var_value.get() != NULL && !var_value->getStr().empty())
 			{
 				response->setContentType(var_value->getStr());
@@ -1976,7 +2088,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_PageForward:
 		{
-			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
+			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 			if (var_value.get() == NULL || var_value->getStr().empty()) return -1;
 
 			response->forward(var_value->getStr());
@@ -1984,11 +2096,11 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_PageLocation:
 		{
-			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
+			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 			if (var_value.get() == NULL || var_value->getStr().empty()) return -1;
 
 			HTTP_STATUSCODE statusCode = STATUS_CODE_302;
-			cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem->getProperty());
+			cgcValueInfo::pointer var_property = getStringValueInfo(scriptItem, scriptItem->getProperty());
 			if (var_property.get() != NULL)
 			{
 				var_property->totype(cgcValueInfo::TYPE_INT);
@@ -2002,7 +2114,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_PageInclude:
 		{
-			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem->getValue());
+			cgcValueInfo::pointer var_value = getStringValueInfo(scriptItem, scriptItem->getValue());
 			if (var_value.get() == NULL || var_value->getStr().empty()) return -1;
 
 			request->setPageAttributes(m_pageParameters);
@@ -2032,7 +2144,7 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 		}break;
 	case CScriptItem::CSP_Foreach:
 		{
-			cgcValueInfo::pointer idValueInfo = getStringValueInfo(scriptItem->getId(), scriptItem->getScope());
+			cgcValueInfo::pointer idValueInfo = getStringValueInfo(scriptItem, scriptItem->getId(), scriptItem->getScope());
 			if (idValueInfo.get() == NULL) return -1;
 
 			cgcValueInfo::pointer copyValueInfo;

@@ -272,7 +272,7 @@ void CgcBaseClient::do_proc_cid_timeout(void)
 #else
 		usleep(10000);
 #endif
-		if (!bExistSeqTimeout && ((++index1)%50)!=1)
+		if (!bExistSeqTimeout && ((++index1)%99)!=1)	// 50
 			continue;
 
 		try
@@ -2001,10 +2001,15 @@ bool CgcBaseClient::isTimeToSendP2PTry(void) const
 	return false;
 }
 
+#define USES_WRITE_LOCK
 bool CgcBaseClient::checkSeqTimeout(void)
 {
 	//if (m_sSessionId.empty()) return false;	// ?
+#ifdef USES_WRITE_LOCK
+	BoostWriteLock wtlock(m_mapSeqInfo.mutex());
+#else
 	BoostReadLock rdlock(m_mapSeqInfo.mutex());
+#endif
 	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
 	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)
 	{
@@ -2013,6 +2018,9 @@ bool CgcBaseClient::checkSeqTimeout(void)
 		{
 			if (pCidInfo->canResendAgain())
 			{
+#ifdef USES_WRITE_LOCK
+				wtlock.unlock();
+#endif
 				pCidInfo->increaseResends();
 				pCidInfo->setSendTime();
 				// resend
@@ -2027,10 +2035,14 @@ bool CgcBaseClient::checkSeqTimeout(void)
 			}else
 			{
 				// 
+#ifdef USES_WRITE_LOCK
+				m_mapSeqInfo.erase(pIter);
+				wtlock.unlock();
+#else
 				unsigned short nSeq = pIter->first;
 				rdlock.unlock();
 				m_mapSeqInfo.remove(nSeq);
-
+#endif
 				// OnCidResend
 				if (m_pHandler)
 				{

@@ -151,17 +151,37 @@ private:
 };
 const CCGCSotpRequestInfo::pointer NullCGCSotpRequestInfo;
 
+#define USES_MODULE_SERVICE_MANAGER
+class CModuleImpl;
 class CModuleHandler
 {
 public:
 	virtual void* onGetFPGetSotpClientHandler(void) const = 0;
+
+#ifdef USES_MODULE_SERVICE_MANAGER
+	virtual void exitModule(const CModuleImpl* pFromModuleImpl) = 0;
+	virtual cgcServiceInterface::pointer getService(const CModuleImpl* pFromModuleImpl, const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo)=0;
+	virtual void resetService(const CModuleImpl* pFromModuleImpl, const cgcServiceInterface::pointer & service) = 0;
+	virtual cgcCDBCInfo::pointer getCDBDInfo(const CModuleImpl* pFromModuleImpl, const tstring& datasource) const = 0;
+	virtual cgcCDBCService::pointer getCDBDService(const CModuleImpl* pFromModuleImpl, const tstring& datasource) = 0;
+	virtual void retCDBDService(const CModuleImpl* pFromModuleImpl, cgcCDBCServicePointer& cdbcservice) = 0;
+	virtual HTTP_STATUSCODE executeInclude(const CModuleImpl* pFromModuleImpl, const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response) = 0;
+	virtual HTTP_STATUSCODE executeService(const CModuleImpl* pFromModuleImpl, const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult) = 0;
+#endif
 };
 
 // CModuleImpl
 class CModuleImpl
 	: public cgcApplication2
+#ifdef USES_MODULE_SERVICE_MANAGER
+	, public cgcServiceManager
+#endif
 	, public CgcClientHandler
 {
+public:
+#ifdef USES_MODULE_SERVICE_MANAGER
+	typedef boost::shared_ptr<CModuleImpl> pointer;
+#endif
 private:
 	ModuleItem::pointer m_module;
 	cgcAttributes::pointer m_attributes;
@@ -181,7 +201,9 @@ private:
 	wchar_t* m_debugmsg2;
 	// for sync
 	cgcCDBCServicePointer m_pSyncCdbcService;
+#ifndef USES_MODULE_SERVICE_MANAGER
 	cgcServiceManager* m_pServiceManager;
+#endif
 	CModuleHandler* m_pModuleHandler;
 	bool m_pSyncErrorStoped;
 	bool m_pSyncThreadKilled;
@@ -215,7 +237,11 @@ public:
 
 public:
 	CModuleImpl(void);
+#ifdef USES_MODULE_SERVICE_MANAGER
+	CModuleImpl(const ModuleItem::pointer& module, CModuleHandler* pModuleHandler);
+#else
 	CModuleImpl(const ModuleItem::pointer& module, cgcServiceManager* pServiceManager, CModuleHandler* pModuleHandler);
+#endif
 	virtual ~CModuleImpl(void);
 
 	void setModulePath(const tstring & modulePath) {m_sModulePath = modulePath;}
@@ -242,6 +268,17 @@ public:
 	void procSyncThread(void);
 
 private:
+#ifdef USES_MODULE_SERVICE_MANAGER
+	// cgcServiceManager handler
+	virtual cgcServiceInterface::pointer getService(const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
+	virtual void resetService(const cgcServiceInterface::pointer & service);
+	virtual cgcCDBCInfo::pointer getCDBDInfo(const tstring& datasource) const;
+	virtual cgcCDBCService::pointer getCDBDService(const tstring& datasource);
+	virtual void retCDBDService(cgcCDBCServicePointer& cdbcservice);
+	virtual HTTP_STATUSCODE executeInclude(const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
+	virtual HTTP_STATUSCODE executeService(const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult);
+#endif
+
 	// cgcApplication handler
 	virtual cgcParameterMap::pointer getInitParameters(void) const {return m_moduleParams.getParameters();}
 
