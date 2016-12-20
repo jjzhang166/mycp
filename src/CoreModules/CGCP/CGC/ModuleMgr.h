@@ -266,6 +266,7 @@ public:
 	static bool FileIsExist(const char* lpszFile);
 	bool loadSyncData(bool bCreateForce);
 	void procSyncThread(void);
+	void setAttributes(const cgcAttributes::pointer& pAttributes) {m_attributes = pAttributes;}
 
 private:
 #ifdef USES_MODULE_SERVICE_MANAGER

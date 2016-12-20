@@ -217,22 +217,22 @@ void TimerInfo::doRunTimer(void)
 		KillTimer();
 		return;
 	}
-	//ftime(&m_tLastRunTime);
-	if (m_nElapse < 100)
-	{
+//	//ftime(&m_tLastRunTime);
+//	if (m_nElapse < 100)
+//	{
+////#ifdef WIN32
+////		Sleep(2);
+////#else
+////		usleep(2000);
+////#endif
+//		return;
+//	}
+//
 //#ifdef WIN32
-//		Sleep(2);
+//	Sleep(m_nElapse > 1000 ? 1000 : (m_nElapse-5));
 //#else
-//		usleep(2000);
+//	usleep(m_nElapse > 1000 ? 1000000 : (m_nElapse-5)*1000);
 //#endif
-		return;
-	}
-
-#ifdef WIN32
-	Sleep(m_nElapse > 1000 ? 1000 : (m_nElapse-5));
-#else
-	usleep(m_nElapse > 1000 ? 1000000 : (m_nElapse-5)*1000);
-#endif
 }
 
 void TimerInfo::doTimerExit(void)

@@ -353,6 +353,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\CGCP\CGC\XmlParseAutoUpdate.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\CGCP\CGC\XmlParseCdbcs.h"
 				>
 			</File>

@@ -673,22 +673,23 @@ public:
 
 			if ((theSecondIndex%(24*3600))==23*3600)	// 一天处理一次
 			{
-				std::vector<tstring> pRemoveFileNameList;
+				//std::vector<tstring> pRemoveFileNameList;
 				if (!theIdleFileInfos.empty())
 				{
 					// 删除超过10天没用文件数据；
 #ifdef USES_BODB_SCRIPT
 					char sql[512];
 #endif
-					BoostReadLock rdlock(theIdleFileInfos.mutex());
+					BoostWriteLock wtlock(theIdleFileInfos.mutex());
+					//BoostReadLock rdlock(theIdleFileInfos.mutex());
 					CLockMap<tstring, CCSPFileInfo::pointer>::iterator pIter = theIdleFileInfos.begin();
-					for (; pIter!=theIdleFileInfos.end(); pIter++)
+					for (; pIter!=theIdleFileInfos.end(); )
 					{
 						CCSPFileInfo::pointer fileInfo = pIter->second;
 						if (fileInfo->m_tRequestTime==0 || (fileInfo->m_tRequestTime+(10*24*3600))<m_tNow)	// ** 10 days
 						{
 							const tstring sFileName(pIter->first);
-							pRemoveFileNameList.push_back(sFileName);
+							//pRemoveFileNameList.push_back(sFileName);
 							theFileInfos.remove(sFileName);
 							theFileScripts.remove(sFileName);
 #ifdef USES_BODB_SCRIPT
@@ -702,65 +703,77 @@ public:
 								theCdbcService->execute(sql);
 							}
 #endif
+							theIdleFileInfos.erase(pIter++);
+						}else
+						{
+							pIter++;
 						}
 					}
 				}
-				for (size_t i=0; i<pRemoveFileNameList.size(); i++)
-				{
-					theIdleFileInfos.remove(pRemoveFileNameList[i]);
-				}
-				pRemoveFileNameList.clear();
-
+				//for (size_t i=0; i<pRemoveFileNameList.size(); i++)
+				//{
+				//	theIdleFileInfos.remove(pRemoveFileNameList[i]);
+				//}
+				//pRemoveFileNameList.clear();
 			}
 			if ((theSecondIndex%3600)==3500)	// 3600=60分钟处理一次
 			{
-				std::vector<tstring> pRemoveFileNameList;
+				//std::vector<tstring> pRemoveFileNameList;
 				if (!theFileInfos.empty())
 				{
 					// 超过2小时没有访问文件， 放到空闲列表；
-					BoostReadLock rdlock(theFileInfos.mutex());
+					BoostWriteLock wtlock(theFileInfos.mutex());
+					//BoostReadLock rdlock(theFileInfos.mutex());
 					CLockMap<tstring, CCSPFileInfo::pointer>::iterator pIter = theFileInfos.begin();
-					for (; pIter!=theFileInfos.end(); pIter++)
+					for (; pIter!=theFileInfos.end(); )
 					{
 						CCSPFileInfo::pointer fileInfo = pIter->second;
 						if (fileInfo->m_tRequestTime>0 && (fileInfo->m_tRequestTime+(3*3600))<m_tNow)	// ** 3 hours
 						{
 							if (!theFileScripts.remove(pIter->first))
 							{
-								pRemoveFileNameList.push_back(pIter->first);
+								//pRemoveFileNameList.push_back(pIter->first);
 								theIdleFileInfos.insert(pIter->first,pIter->second,false);
+								theFileInfos.erase(pIter++);
+								continue;
 							}
 						}
+						pIter++;
 					}
 				}
-				for (size_t i=0; i<pRemoveFileNameList.size(); i++)
-				{
-					theFileInfos.remove(pRemoveFileNameList[i]);
-				}
-				pRemoveFileNameList.clear();
+				//for (size_t i=0; i<pRemoveFileNameList.size(); i++)
+				//{
+				//	theFileInfos.remove(pRemoveFileNameList[i]);
+				//}
+				//pRemoveFileNameList.clear();
 
 				StringObjectMapPointer pFileInfoList = theAppAttributes->getStringAttributes(ATTRIBUTE_FILE_INFO,false);
 				if (pFileInfoList.get() != NULL && !pFileInfoList->empty())
 				{
-					std::vector<tstring> pRemoveFilePathList;
+					//std::vector<tstring> pRemoveFilePathList;
 					{
-						BoostReadLock rdlock(pFileInfoList->mutex());
-						CObjectMap<tstring>::const_iterator pIter = pFileInfoList->begin();
-						for (;pIter!=pFileInfoList->end();pIter++)
+						BoostWriteLock wtlock(pFileInfoList->mutex());
+						//BoostReadLock rdlock(pFileInfoList->mutex());
+						CObjectMap<tstring>::iterator pIter = pFileInfoList->begin();
+						for (;pIter!=pFileInfoList->end();)
 						{
 							const CResInfo::pointer pResInfo = CGC_OBJECT_CAST<CResInfo>(pIter->second);
 							if (pResInfo->m_tRequestTime>0 && (pResInfo->m_tRequestTime+(3*3600))<m_tNow)	// ** 3 hours
 							{
-								pRemoveFilePathList.push_back(pIter->first);
+								pFileInfoList->erase(pIter++);
+								//pRemoveFilePathList.push_back(pIter->first);
+							}else
+							{
+								pIter++;
 							}
 						}
 					}
-					for (size_t i=0; i<pRemoveFilePathList.size(); i++)
-					{
-						pFileInfoList->remove(pRemoveFilePathList[i]);
-						//theAppAttributes->removeAttribute(ATTRIBUTE_FILE_INFO, pRemoveFilePathList[i]);
-					}
-					pRemoveFilePathList.clear();
+					//for (size_t i=0; i<pRemoveFilePathList.size(); i++)
+					//{
+					//	pFileInfoList->remove(pRemoveFilePathList[i]);
+					//	//theAppAttributes->removeAttribute(ATTRIBUTE_FILE_INFO, pRemoveFilePathList[i]);
+					//}
+					//pRemoveFilePathList.clear();
 				}
 			}
 

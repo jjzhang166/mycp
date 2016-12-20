@@ -392,24 +392,29 @@ void CSessionImpl::ProcHoldResponseTimeout(void)
 	//			pIter = m_pHoldResponseList.begin();
 	//	}
 	//}
-	std::vector<unsigned long> pRemoveList;
+	//std::vector<unsigned long> pRemoveList;
 	{
-		BoostReadLock rdlock(m_pHoldResponseList.mutex());
+		BoostWriteLock wtlock(m_pHoldResponseList.mutex());
+		//BoostReadLock rdlock(m_pHoldResponseList.mutex());
 		CLockMap<unsigned long,CHoldResponseInfo::pointer>::iterator pIter = m_pHoldResponseList.begin();
-		for (; pIter!=m_pHoldResponseList.end(); pIter++)
+		for (; pIter!=m_pHoldResponseList.end(); )
 		{
 			CHoldResponseInfo::pointer pHoldResponse = pIter->second;
 			if (pHoldResponse->IsExpireHold())
 			{
 				// 已经过期
-				pRemoveList.push_back(pIter->first);
+				m_pHoldResponseList.erase(pIter++);
+				//pRemoveList.push_back(pIter->first);
+			}else
+			{
+				pIter++;
 			}
 		}
 	}
-	for (size_t i=0;i<pRemoveList.size();i++)
-	{
-		m_pHoldResponseList.remove(pRemoveList[i]);
-	}
+	//for (size_t i=0;i<pRemoveList.size();i++)
+	//{
+	//	m_pHoldResponseList.remove(pRemoveList[i]);
+	//}
 }
 
 void CSessionImpl::HoldResponse(const cgcResponse::pointer& pResponse, int nHoldSecond)
@@ -766,56 +771,96 @@ ModuleItem::pointer CSessionImpl::getModuleItem(const tstring& sModuleName, bool
 	}
 	return result;
 }
-#define USES_WRITE_LOCK
+
+#define USES_M_MAPSEQINFO_ERASEPP
+bool CSessionMgr::ProcDataResend(void)
+{
+	// lock
+	bool bHasResendData = false;
+	CSessionImpl * pSessionImpl = NULL;
+	BoostReadLock rdlock(m_mapSessionImpl.mutex());
+	CLockMap<tstring, cgcSession::pointer>::iterator pIter;
+	for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
+	{
+		const cgcSession::pointer& sessionImpl = pIter->second;
+		pSessionImpl = (CSessionImpl*)sessionImpl.get();
+#ifdef USES_M_MAPSEQINFO_ERASEPP
+		if (pSessionImpl->ProcessDataResend())
+		{
+			bHasResendData = true;
+		}
+#else
+		int nResendCount = 0;
+		while (pSessionImpl->ProcessDataResend() && (nResendCount++)<50)
+		{
+			continue;
+		}
+#endif
+	}
+	return bHasResendData;
+}
+
 bool CSessionImpl::ProcessDataResend(void)
 {
 	if (m_pcgcRemote->isInvalidate()) return false;
 	if (m_tLastSeqInfoTime==0) return false;
-	//const time_t tNow = time(0);
+	//const time_t tNow = 0;//time(0);
 	//if (m_tLastSeqInfoTime==0 || m_tLastSeqInfoTime==tNow)
 	////if (m_tLastSeqInfoTime==0 || (m_tLastSeqInfoTime+1)>=tNow)
 	//	return false;
 
-#ifdef USES_WRITE_LOCK
+	int nResendCount = 0;
 	BoostWriteLock wtlock(m_mapSeqInfo.mutex());
+	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter = m_mapSeqInfo.begin();
+#ifdef USES_M_MAPSEQINFO_ERASEPP
+	for (; pIter!=m_mapSeqInfo.end();)
 #else
-	BoostReadLock rdlock(m_mapSeqInfo.mutex());
+	for (; pIter!=m_mapSeqInfo.end();pIter++)
 #endif
-	CLockMap<unsigned short, cgcSeqInfo::pointer>::iterator pIter;
-	for (pIter=m_mapSeqInfo.begin(); pIter!=m_mapSeqInfo.end(); pIter++)
 	{
 		cgcSeqInfo::pointer pCidInfo = pIter->second;
-		if (pCidInfo->isTimeout())
+		if (pCidInfo->isTimeout(0))
 		{
 			if (pCidInfo->canResendAgain() && !m_pcgcRemote->isInvalidate())
 			{
-#ifdef USES_WRITE_LOCK
+#ifndef USES_M_MAPSEQINFO_ERASEPP
 				wtlock.unlock();
 #endif
 				pCidInfo->increaseResends();
 				pCidInfo->setSendTime();
 				// resend
 				m_pcgcRemote->sendData((const unsigned char*)pCidInfo->getCallData(), pCidInfo->getDataSize());
-
+#ifdef USES_M_MAPSEQINFO_ERASEPP
+				if ((nResendCount++)>=10)	// *
+				{
+					return true;
+					//return m_mapSeqInfo.empty(false)?false:true;
+					//return false;							// ?
+				}
+#endif
 				//if (m_pHandler)
 				//	m_pHandler->OnCidTimeout(pCidInfo->getCid(), pCidInfo->getSign(), true);
 			}else
 			{
 				// 
-#ifdef USES_WRITE_LOCK
+#ifdef USES_M_MAPSEQINFO_ERASEPP
+				m_mapSeqInfo.erase(pIter++);
+				continue;
+#else
 				m_mapSeqInfo.erase(pIter);
 				wtlock.unlock();
-#else
-				unsigned short nSeq = pIter->first;
-				rdlock.unlock();
-				m_mapSeqInfo.remove(nSeq);
 #endif
 				//// OnCidResend
 				//if (m_pHandler)
 				//	m_pHandler->OnCidTimeout(pCidInfo->getCid(), pCidInfo->getSign(), false);
 			}
+#ifndef USES_M_MAPSEQINFO_ERASEPP
 			return m_mapSeqInfo.empty(false)?false:true;
+#endif
 		}
+#ifdef USES_M_MAPSEQINFO_ERASEPP
+		pIter++;
+#endif
 	}
 	return false;
 }
@@ -1079,26 +1124,6 @@ void CSessionMgr::onRemoteClose(unsigned long remoteId, int nErrorCode)
 	}
 	m_mapRemoteSessionId.remove(remoteId);
 #endif
-}
-
-
-bool CSessionMgr::ProcDataResend(void)
-{
-	// lock
-	CSessionImpl * pSessionImpl = NULL;
-	BoostReadLock rdlock(m_mapSessionImpl.mutex());
-	CLockMap<tstring, cgcSession::pointer>::iterator pIter;
-	for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
-	{
-		const cgcSession::pointer& sessionImpl = pIter->second;
-		pSessionImpl = (CSessionImpl*)sessionImpl.get();
-		int nResendCount = 0;
-		while (pSessionImpl->ProcessDataResend() && (nResendCount++)<50)
-		{
-			continue;
-		}
-	}
-	return false;
 }
 
 void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidList)

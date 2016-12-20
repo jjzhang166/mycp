@@ -37,6 +37,7 @@ unsigned long GetLastError(void)
 #else
 #include "../../../CGCClass/tchar.h"
 #endif // WIN32
+#include "XmlParseAutoUpdate.h"
 
 //#ifdef USES_HDCID
 //#include "HDComputerID/def.h"
@@ -124,18 +125,19 @@ void do_event_loop(void)
 void CGCApp::do_dataresend(void)
 {
 	unsigned int theIndex = 0;
+	bool bHasResendData = false;
 	while (isInited())
 	{
 #ifdef WIN32
-		Sleep(100);
+		Sleep(50);
 #else
-		usleep(100000);
+		usleep(50000);
 #endif
-		if (((theIndex++)%9)!=4)	// 5
+		if (!bHasResendData && ((theIndex++)%20)!=19)
 			continue;
 		try
 		{
-			ProcDataResend();
+			bHasResendData = ProcDataResend();
 		}catch(std::exception const &)
 		{
 		}catch(...){
@@ -169,6 +171,7 @@ void CGCApp::do_sessiontimeout(void)
 			if (((++theSecondIndex)%20)==19)	// 20秒处理一次
 			{
 				ProcLastAccessedTime();
+				//ProcCheckAutoUpdate();
 			}
 			if (!sProtectDataFile.empty() && (theSecondIndex%2)==0)	// 2秒处理一次
 			{
@@ -246,6 +249,216 @@ void CGCApp::do_sessiontimeout(void)
 		}
 	}
 }
+inline bool FileIsExist(const char* lpszFile)
+{
+	FILE * f = fopen(lpszFile,"r");
+	if (f==NULL)
+		return false;
+	fclose(f);
+	return true;
+}
+inline void RenameAutoUpdateFile(const tstring& sAutoUpdateXmlFile,tstring* pOutDateDir=NULL)
+{
+	// ** 重命名自动更新文件
+	const time_t tNow = time(0);
+	const struct tm * pNotTime = localtime(&tNow);
+	char lpszDateDir[60];
+	sprintf(lpszDateDir,"%04d%02d%02d-%02d%02d",pNotTime->tm_year+1900,pNotTime->tm_mon+1,pNotTime->tm_mday,pNotTime->tm_hour,pNotTime->tm_min);
+	if (pOutDateDir!=NULL)
+		*pOutDateDir = lpszDateDir;
+	char lpszBkFile[260];
+	sprintf(lpszBkFile,"%s.%s",sAutoUpdateXmlFile.c_str(),lpszDateDir);
+	namespace fs = boost::filesystem;
+	fs::path pathfrom(sAutoUpdateXmlFile.string());
+	fs::path pathto(lpszBkFile);
+	boost::system::error_code ec;
+	fs::rename(pathfrom,pathto,ec);
+}
+void RemoveAllAutoUpdateFile(const XmlParseAutoUpdate& pAutoUpdate)
+{
+	for (size_t i=0; i<pAutoUpdate.m_modules.size(); i++)
+	{
+		const ModuleItem::pointer moduleItem = pAutoUpdate.m_modules[i];
+		const tstring& sAutoUpdateModuleFile = moduleItem->getParam();
+		if (sAutoUpdateModuleFile.empty()) continue;
+		remove(sAutoUpdateModuleFile.c_str());
+	}
+}
+void CGCApp::do_autoupdate(void)
+{
+	tstring sAutoUpdateXmlFile(m_sModulePath);
+	sAutoUpdateXmlFile.append(_T("/auto_update/auto_update.xml"));
+	if (!FileIsExist(sAutoUpdateXmlFile.c_str()))
+	{
+		DetachAutoUpdateThread();
+		return;
+	}
+	// ** 需要更新组件
+	XmlParseAutoUpdate pAutoUpdate;
+	pAutoUpdate.load(sAutoUpdateXmlFile);
+	m_logModuleImpl.log(LOG_INFO, _T("AutoUpdateType=%d, UpdateModules=%d\n"), pAutoUpdate.getAutpUpdateType(),(int)pAutoUpdate.m_modules.size());
+	// 
+	// * 检查更新组件，是否完整存在，和检查复制组件到指定路径是否成功
+	int nErrorType = 0;
+	std::string sErrorModuleFile;
+	for (size_t i=0; i<pAutoUpdate.m_modules.size(); i++)
+	{
+		ModuleItem::pointer moduleItem = pAutoUpdate.m_modules[i];
+		const tstring& sModuleFile = moduleItem->getModule();
+		tstring sNewModulePath(m_sModulePath);
+		sNewModulePath.append("/auto_update/");
+		sNewModulePath.append(sModuleFile);
+		if (!FileIsExist(sNewModulePath.c_str()))
+		{
+			nErrorType = 1;
+			sErrorModuleFile = sModuleFile.string();
+			break;
+		}else
+		{
+			tstring sCurrentModulePath1(m_sModulePath);						// 1=XXX
+			sCurrentModulePath1.append("/modules/");
+			sCurrentModulePath1.append(sModuleFile);
+			tstring sCurrentModulePath2(sCurrentModulePath1);			// 2=XXX.autoupdate
+			sCurrentModulePath2.append(".autoupdate");
+			// 复制更新组件到指定目录
+			boost::system::error_code ec;
+			namespace fs = boost::filesystem;
+			fs::path pathfrom(sNewModulePath.string());
+			fs::path pathto1(sCurrentModulePath1.string());
+			if (fs::remove(pathto1,ec))	// * 先删除
+			{
+				fs::rename(pathfrom,pathto1,ec);	// * 再重命名
+				if (!ec)
+				{
+					moduleItem->setParam(sCurrentModulePath1);	// ?保存临时文件路径
+					continue;	// 1 ok
+				}
+			}
+			ec.clear();
+			fs::path pathto2(sCurrentModulePath2.string());
+			if (fs::remove(pathto2,ec))	// * 先删除
+			{
+				fs::rename(pathfrom,pathto2,ec);	// * 再重命名
+				if (!ec)
+				{
+					moduleItem->setParam(sCurrentModulePath2);	// ?保存临时文件路径
+					continue;	// 2 ok
+				}
+			}
+			// error
+			nErrorType = 2;
+			sErrorModuleFile = sModuleFile.string();
+			break;
+		}
+	}
+	if (nErrorType!=0)
+	{
+		// ** 重命名自动更新文件
+		tstring sDateDir;
+		RenameAutoUpdateFile(sAutoUpdateXmlFile,&sDateDir);
+		// ** 记录更新错误日志
+		char lpszAutoUpdateLogFile[260];
+		sprintf(lpszAutoUpdateLogFile,"%s.%s.error",sAutoUpdateXmlFile.c_str(),sDateDir.c_str());
+		FILE * f = fopen(lpszAutoUpdateLogFile,"w");
+		if (f!=NULL)
+		{
+			fwrite(sErrorModuleFile.c_str(),1,sErrorModuleFile.size(),f);
+			std::string sLog;
+			if (nErrorType==1)
+				sLog = " not exist";
+			else if (nErrorType==2)
+				sLog = " copy file error";
+			fwrite(sLog.c_str(),1,sLog.size(),f);
+			fclose(f);
+		}
+		// ** 删除临时更新文件
+		RemoveAllAutoUpdateFile(pAutoUpdate);
+		// ** 清空线程资源
+		DetachAutoUpdateThread();
+		return;
+	}
+	// ** 更新组件
+	for (size_t i=0; i<pAutoUpdate.m_modules.size(); i++)
+	{
+		const ModuleItem::pointer moduleItem = pAutoUpdate.m_modules[i];
+		const tstring& sAutoUpdateModuleFile = moduleItem->getParam();
+		if (sAutoUpdateModuleFile.empty()) continue;
+		// a 通过 file 获取所有已经启动的 cgcApplication::pointer(ModuleItem)
+		std::vector<cgcApplication::pointer> pModuleItemList;
+#ifdef USES_CMODULEMGR
+		CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
+		for (iterApp=m_pModuleMgr.m_mapModuleImpl.begin(); iterApp!=m_pModuleMgr.m_mapModuleImpl.end(); iterApp++)
+#else
+		for (iterApp=m_mapOpenModules.begin(); iterApp!=m_mapOpenModules.end(); iterApp++)
+#endif
+		{
+			cgcApplication::pointer application = iterApp->second;
+			CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
+			if (pModuleImpl->getModuleItem()->getModule()==moduleItem->getModule())
+			{
+				pModuleItemList.push_back(application);
+			}
+		}
+		// b 复制一份，然后调用 openlibrary and CGC_Module_Init2；(cgcAttributes::pointer CModuleImpl::getAttributes(bool create) 数据，重新指向即可；
+		for (size_t j=0; j<pModuleItemList.size(); j++)
+		{
+			const cgcApplication::pointer pUpdateFromApplication = pModuleItemList[j];
+			const CModuleImpl * pModuleImpl = (CModuleImpl*)pUpdateFromApplication.get();
+			ModuleItem::pointer pNewModuleItem = ModuleItem::create();
+			const MODULETYPE modultType = pModuleImpl->getModuleItem()->getType();
+			if (modultType == MODULE_COMM)
+			{
+				pNewModuleItem->setCommPort(pModuleImpl->getModuleItem()->getCommPort());
+			}
+			// APP
+			moduleItem->setName(pModuleImpl->getModuleItem()->getName());
+			moduleItem->setModule(pModuleImpl->getModuleItem()->getModule());	// ?? 这是旧的 module-file，如果，使用新的 module-file
+			moduleItem->setParam(pModuleImpl->getModuleItem()->getParam());
+			moduleItem->setType(modultType);
+			moduleItem->setProtocol(pModuleImpl->getModuleItem()->getProtocol());
+
+			// APP
+			moduleItem->setAllowAll(pModuleImpl->getModuleItem()->getAllowAll());
+			moduleItem->setAuthAccount(pModuleImpl->getModuleItem()->getAuthAccount());
+			moduleItem->setLockState(pModuleImpl->getModuleItem()->getLockState());
+			if (!OpenModuleLibrary(pNewModuleItem, pUpdateFromApplication))
+			{
+				// ??? 记录错误信息；
+
+				// ** 删除临时更新文件
+				RemoveAllAutoUpdateFile(pAutoUpdate);
+				// ** 清空线程资源
+				DetachAutoUpdateThread();
+				return;
+			}
+//
+//			cgcApplication::pointer pNewApplication;
+//#ifdef USES_CMODULEMGR
+//			if (!m_pModuleMgr.m_mapModuleImpl.find(moduleItem->getModuleHandle(), pNewApplication)) continue;
+//#else
+//			if (!m_mapOpenModules.find(moduleItem->getModuleHandle(), pNewApplication)) continue;
+//#endif
+//			{
+//				// ??? 记录错误信息；
+//
+//				// ** 删除临时更新文件
+//				RemoveAllAutoUpdateFile(pAutoUpdate);
+//				// ** 清空线程资源
+//				DetachAutoUpdateThread();
+//				reurn;
+//			}
+//
+//			InitLibModule(
+
+		}
+
+		// c 停止旧的 ModuleItem::pointer，调用 CGC_Module_Free2 （不要清空 m_attributes 数据）
+		// ** 完成更新
+
+	}
+
+	DetachAutoUpdateThread();
+}
 
 void CGCApp::ProcNotKeepAliveRmote(void)
 {
@@ -285,27 +498,32 @@ void CGCApp::ProcLastAccessedTime(void)
 
 	//static unsigned int nIndex = 0;
 	//if ((nIndex++)%2==1)	// 2*20=40秒处理一次；
-	std::vector<int> pRemoveList;
+	//std::vector<int> pRemoveList;
 	{
-		BoostReadLock rdlock(m_pRtpSession.mutex());
+		BoostWriteLock wtlock(m_pRtpSession.mutex());
+		//BoostReadLock rdlock(m_pRtpSession.mutex());
 		CLockMap<int,CSotpRtpSession::pointer>::iterator pIter = m_pRtpSession.begin();
-		for (; pIter!=m_pRtpSession.end(); pIter++)
+		for (; pIter!=m_pRtpSession.end(); )
 		{
 			CSotpRtpSession::pointer pRtpSession = pIter->second;
 			pRtpSession->CheckRegisterSourceLive(59, this, 0);
 			if (pRtpSession->IsRoomEmpty())
 			{
-				pRemoveList.push_back(pIter->first);
+				m_pRtpSession.erase(pIter++);
+				//pRemoveList.push_back(pIter->first);
+			}else
+			{
+				pIter++;
 			}
 		}
 	}
-	if (!pRemoveList.empty())
-	{
-		for (size_t i=0; i<pRemoveList.size(); i++)
-		{
-			m_pRtpSession.remove(pRemoveList[i]);
-		}
-	}
+	//if (!pRemoveList.empty())
+	//{
+	//	for (size_t i=0; i<pRemoveList.size(); i++)
+	//	{
+	//		m_pRtpSession.remove(pRemoveList[i]);
+	//	}
+	//}
 	//return false;
 	//// 检查mysessioninfo
 	//{
@@ -483,6 +701,11 @@ void CGCApp::AppExit(void)
 		m_pProcDataResend->join();
 		m_pProcDataResend.reset();
 	}
+	if (m_pProcAutoUpdate.get()!=NULL)
+	{
+		m_pProcAutoUpdate->join();
+		m_pProcAutoUpdate.reset();
+	}
 
 	AppStop();
 }
@@ -517,14 +740,6 @@ void kill_op(int signum,siginfo_t *info,void *myact)
 //}
 #endif
 
-inline bool FileIsExist(const char* lpszFile)
-{
-	FILE * f = fopen(lpszFile,"r");
-	if (f==NULL)
-		return false;
-	fclose(f);
-	return true;
-}
 void CGCApp::CheckScriptExecute(int nScriptType)
 {
 	char lpszScriptDir[260];
@@ -1267,7 +1482,7 @@ inline std::string::size_type findPathOrExt(const tstring& pBuffer, std::string:
 #ifdef USES_MODULE_SERVICE_MANAGER
 void CGCApp::exitModule(const CModuleImpl* pFromModuleImpl)
 {
-	m_pFromCDBCList.removet(pFromModuleImpl,true);
+	m_pFromCDBCList.removet(pFromModuleImpl,false);	// **true,退出会有异常
 }
 cgcCDBCInfo::pointer CGCApp::getCDBDInfo(const CModuleImpl* pFromModuleImpl, const tstring& datasource) const
 #else
@@ -2242,7 +2457,35 @@ void CGCApp::ProcCheckParserPool(void)
 		CheckHttpParserPool();
 	}
 }
-
+//#define USES_AUTO_UPDATE
+void CGCApp::ProcCheckAutoUpdate(void)
+{
+//#ifndef USES_AUTO_UPDATE
+//	return;	// *
+//#endif
+	if (m_pProcAutoUpdate.get()!=NULL)
+	{
+		// * processing auto update
+		return;
+	}
+	tstring xmlFile(m_sModulePath);
+	xmlFile.append(_T("/auto_update/auto_update.xml"));
+	if (!FileIsExist(xmlFile.c_str()))
+	{
+		return;
+	}
+	boost::thread_attributes attrs;
+	attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+	m_pProcAutoUpdate = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&CGCApp::do_autoupdate, this)));
+}
+void CGCApp::DetachAutoUpdateThread(void)
+{
+	if (m_pProcAutoUpdate.get()!=NULL)
+	{
+		m_pProcAutoUpdate->detach();	// *
+		m_pProcAutoUpdate.reset();
+	}
+}
 
 int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const cgcRemote::pointer& pcgcRemote)
 {
@@ -3210,187 +3453,369 @@ void CGCApp::InitLibModules(unsigned int mt)
 
 #define USES_TEMP_MODULE_FILE2
 
+bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcApplication::pointer& pUpdateFromApplication)
+{
+	if (moduleItem->getModuleHandle()!=NULL) return true;
+	std::string sTempFile;
+	void * hModule = moduleItem->getModuleHandle();
+	if (hModule == NULL)
+	{
+		tstring sModuleName(m_sModulePath);
+		sModuleName.append(_T("/modules/"));
+		sModuleName.append(moduleItem->getModule());
+#ifdef USES_TEMP_MODULE_FILE2
+		if (!moduleItem->getName().empty() && moduleItem->getModule().find(moduleItem->getName())==std::string::npos)
+		{
+			// * 新建临时文件
+			namespace fs = boost::filesystem;
+			boosttpath pathFileFrom(sModuleName.c_str());
+			char lpszBuffer[260];
+			sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
+			sTempFile = lpszBuffer;
+			boosttpath pathFileTo(sTempFile);
+			boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+			m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
+			sModuleName = sTempFile;
+		}
+#endif
+		//m_logModuleImpl.log(LOG_INFO, _T("OpenLibrarys:%s\n"), sModuleName.c_str());
+
+#ifdef WIN32
+		hModule = LoadLibrary(sModuleName.c_str());
+#else
+		hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
+#endif
+		if (hModule == NULL)
+		{
+			sModuleName = moduleItem->getModule();
+#ifdef WIN32
+			hModule = LoadLibrary(sModuleName.c_str());
+			if (hModule == NULL)
+			{
+				m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s \'%d\'!\n"), sModuleName.c_str(), GetLastError());
+				return false;
+			}
+#else
+			hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
+			if (hModule == NULL)
+			{
+				m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: \'%s\'!\n"), dlerror());
+				return false;
+			}
+#endif
+		}
+#ifdef USES_CMODULEMGR
+		if (m_pModuleMgr.m_mapModuleImpl.exist(hModule))
+#else
+		if (m_mapOpenModules.exist(hModule))
+#endif
+		{
+			// **多次打开，新建临时文件
+			namespace fs = boost::filesystem;
+			boosttpath pathFileFrom(sModuleName.c_str());
+			char lpszBuffer[255];
+			sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
+			sTempFile = lpszBuffer;
+			boosttpath pathFileTo(sTempFile);
+			boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+#ifdef WIN32
+			hModule = LoadLibrary(sTempFile.c_str());
+#else
+			hModule = dlopen(sTempFile.c_str(), RTLD_LAZY);
+#endif
+			if (hModule == NULL)
+			{
+				m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s!\n"), sTempFile.c_str());
+				boost::filesystem::remove(boosttpath(sTempFile));
+				return false;
+			}
+			m_logModuleImpl.log(LOG_INFO, _T("Open temp file2: %s\n"), sTempFile.c_str());
+		}
+	}
+#ifdef USES_CMODULEMGR
+	if (m_pModuleMgr.m_mapModuleImpl.exist(hModule))
+#else
+	if (m_mapOpenModules.exist(hModule))
+#endif
+	{
+		//printf("**** Open Module(0x%x) Exist: %s\n", (int)hModule, moduleItem->getName().c_str());
+		moduleItem->setModuleHandle(hModule);
+		return true;
+	}
+	//printf("**** Open Module(0x%x) -> %s\n", (int)hModule, moduleItem->getName().c_str());
+
+	//		if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && m_fpGetSotpClientHandler==NULL)
+	//		{
+	//#ifdef WIN32
+	//			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
+	//#else
+	//			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
+	//#endif
+	//			if (fpGetSotpClientHandler!=NULL)
+	//			{
+	//				m_fpGetSotpClientHandler = fpGetSotpClientHandler;
+	//				//mycp::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+	//				//pValueInfo->insertMap("abc",CGC_VALUEINFO(123));
+	//				//mycp::DoSotpClientHandler::pointer pSotpClientHandler;
+	//				//fpGetSotpClientHandler(pSotpClientHandler, pValueInfo);
+	//			}
+	//		}
+
+#ifdef USES_MODULE_SERVICE_MANAGER
+	CModuleImpl::pointer pModuleImpl = CModuleImpl::pointer(new CModuleImpl(moduleItem,this));
+#else
+	CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this,this);
+#endif
+	if (pUpdateFromApplication.get()!=NULL)
+	{
+		pModuleImpl->setAttributes(pUpdateFromApplication->getAttributes());
+	}
+	pModuleImpl->setModulePath(m_sModulePath);
+	pModuleImpl->loadSyncData(false);
+	pModuleImpl->m_sTempFile = sTempFile;
+#ifdef USES_MODULE_SERVICE_MANAGER
+	cgcApplication::pointer moduleImpl = boost::static_pointer_cast<cgcApplication, CModuleImpl>(pModuleImpl);
+#else
+	cgcApplication::pointer moduleImpl(pModuleImpl);
+#endif
+#ifdef USES_CMODULEMGR
+	m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
+#else
+	m_mapOpenModules.insert(hModule, moduleImpl);
+#endif
+
+	{
+		//
+		// CGC_SetApplicationHandler
+		FPCGC_SetApplicationHandler fp = 0;
+#ifdef WIN32
+		fp = (FPCGC_SetApplicationHandler)GetProcAddress((HMODULE)hModule, "CGC_SetApplicationHandler");
+#else
+		fp = (FPCGC_SetApplicationHandler)dlsym(hModule, "CGC_SetApplicationHandler");
+#endif
+		if (fp)
+			fp(moduleImpl);
+	}
+
+	//
+	// CGC_SetSystemHandler
+	{
+		FPCGC_SetSystemHandler fp = 0;
+#ifdef WIN32
+		fp = (FPCGC_SetSystemHandler)GetProcAddress((HMODULE)hModule, "CGC_SetSystemHandler");
+#else
+		fp = (FPCGC_SetSystemHandler)dlsym(hModule, "CGC_SetSystemHandler");
+#endif
+		if (fp)
+			fp(shared_from_this());
+	}
+
+	// FPCGC_SetServiceManagerHandler
+	//if (!pModuleImpl->getModuleItem()->isServiceModule())
+	{
+#ifdef WIN32
+		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
+#else
+		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
+#endif
+		if (fp)
+		{
+#ifdef USES_MODULE_SERVICE_MANAGER
+			const cgcServiceManager::pointer pServiceManager = boost::static_pointer_cast<cgcServiceManager, CModuleImpl>(pModuleImpl);
+			fp(pServiceManager);
+#else
+			fp(shared_from_this());
+#endif
+		}
+	}
+
+	moduleItem->setModuleHandle(hModule);
+	return true;
+}
 void CGCApp::OpenLibrarys(void)
 {
 	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
+	const cgcApplication::pointer NullcgcApplication;
 	for (size_t i=0;i<m_parseModules.m_modules.size(); i++)
 	{
 		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
+		else if (moduleItem->getModuleHandle()!=NULL)
+			continue;
 		//else if ((moduleItem->getProtocol() & MODULE_PROTOCOL_WEB_PROXY)==MODULE_PROTOCOL_WEB_PROXY)
 		//	continue;
 
-		std::string sTempFile;
-		void * hModule = moduleItem->getModuleHandle();
-		if (hModule == NULL)
-		{
-			tstring sModuleName(m_sModulePath);
-			sModuleName.append(_T("/modules/"));
-			sModuleName.append(moduleItem->getModule());
-#ifdef USES_TEMP_MODULE_FILE2
-			if (!moduleItem->getName().empty() && moduleItem->getModule().find(moduleItem->getName())==std::string::npos)
-			{
-				// * 新建临时文件
-				namespace fs = boost::filesystem;
-				boosttpath pathFileFrom(sModuleName.c_str());
-				char lpszBuffer[260];
-				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
-				sTempFile = lpszBuffer;
-				boosttpath pathFileTo(sTempFile);
-				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
-				m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
-				sModuleName = sTempFile;
-			}
-#endif
-			//m_logModuleImpl.log(LOG_INFO, _T("OpenLibrarys:%s\n"), sModuleName.c_str());
-
-#ifdef WIN32
-			hModule = LoadLibrary(sModuleName.c_str());
-#else
-			hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
-#endif
-			if (hModule == NULL)
-			{
-				sModuleName = moduleItem->getModule();
-#ifdef WIN32
-				hModule = LoadLibrary(sModuleName.c_str());
-				if (hModule == NULL)
-				{
-					m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s \'%d\'!\n"), sModuleName.c_str(), GetLastError());
-					continue;
-				}
-#else
-				hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
-				if (hModule == NULL)
-				{
-					m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: \'%s\'!\n"), dlerror());
-					continue;
-				}
-#endif
-			}
-#ifdef USES_CMODULEMGR
-			if (m_pModuleMgr.m_mapModuleImpl.exist(hModule))
-#else
-			if (m_mapOpenModules.exist(hModule))
-#endif
-			{
-				// **多次打开，新建临时文件
-				namespace fs = boost::filesystem;
-				boosttpath pathFileFrom(sModuleName.c_str());
-				char lpszBuffer[255];
-				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
-				sTempFile = lpszBuffer;
-				boosttpath pathFileTo(sTempFile);
-				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
-#ifdef WIN32
-				hModule = LoadLibrary(sTempFile.c_str());
-#else
-				hModule = dlopen(sTempFile.c_str(), RTLD_LAZY);
-#endif
-				if (hModule == NULL)
-				{
-					m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s!\n"), sTempFile.c_str());
-					boost::filesystem::remove(boosttpath(sTempFile));
-					continue;
-				}
-				m_logModuleImpl.log(LOG_INFO, _T("Open temp file2: %s\n"), sTempFile.c_str());
-			}
-		}
-		cgcApplication::pointer application;
-#ifdef USES_CMODULEMGR
-		if (m_pModuleMgr.m_mapModuleImpl.find(hModule, application))
-#else
-		if (m_mapOpenModules.find(hModule, application))
-#endif
-		{
-			moduleItem->setModuleHandle(hModule);
-			continue;
-		}
-//		if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && m_fpGetSotpClientHandler==NULL)
+		OpenModuleLibrary(moduleItem, NullcgcApplication);
+//		std::string sTempFile;
+//		void * hModule = moduleItem->getModuleHandle();
+//		if (hModule == NULL)
 //		{
-//#ifdef WIN32
-//			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
-//#else
-//			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
-//#endif
-//			if (fpGetSotpClientHandler!=NULL)
+//			tstring sModuleName(m_sModulePath);
+//			sModuleName.append(_T("/modules/"));
+//			sModuleName.append(moduleItem->getModule());
+//#ifdef USES_TEMP_MODULE_FILE2
+//			if (!moduleItem->getName().empty() && moduleItem->getModule().find(moduleItem->getName())==std::string::npos)
 //			{
-//				m_fpGetSotpClientHandler = fpGetSotpClientHandler;
-//				//mycp::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
-//				//pValueInfo->insertMap("abc",CGC_VALUEINFO(123));
-//				//mycp::DoSotpClientHandler::pointer pSotpClientHandler;
-//				//fpGetSotpClientHandler(pSotpClientHandler, pValueInfo);
+//				// * 新建临时文件
+//				namespace fs = boost::filesystem;
+//				boosttpath pathFileFrom(sModuleName.c_str());
+//				char lpszBuffer[260];
+//				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
+//				sTempFile = lpszBuffer;
+//				boosttpath pathFileTo(sTempFile);
+//				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+//				m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
+//				sModuleName = sTempFile;
+//			}
+//#endif
+//			//m_logModuleImpl.log(LOG_INFO, _T("OpenLibrarys:%s\n"), sModuleName.c_str());
+//
+//#ifdef WIN32
+//			hModule = LoadLibrary(sModuleName.c_str());
+//#else
+//			hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
+//#endif
+//			if (hModule == NULL)
+//			{
+//				sModuleName = moduleItem->getModule();
+//#ifdef WIN32
+//				hModule = LoadLibrary(sModuleName.c_str());
+//				if (hModule == NULL)
+//				{
+//					m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s \'%d\'!\n"), sModuleName.c_str(), GetLastError());
+//					continue;
+//				}
+//#else
+//				hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
+//				if (hModule == NULL)
+//				{
+//					m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: \'%s\'!\n"), dlerror());
+//					continue;
+//				}
+//#endif
+//			}
+//#ifdef USES_CMODULEMGR
+//			if (m_pModuleMgr.m_mapModuleImpl.exist(hModule))
+//#else
+//			if (m_mapOpenModules.exist(hModule))
+//#endif
+//			{
+//				// **多次打开，新建临时文件
+//				namespace fs = boost::filesystem;
+//				boosttpath pathFileFrom(sModuleName.c_str());
+//				char lpszBuffer[255];
+//				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
+//				sTempFile = lpszBuffer;
+//				boosttpath pathFileTo(sTempFile);
+//				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+//#ifdef WIN32
+//				hModule = LoadLibrary(sTempFile.c_str());
+//#else
+//				hModule = dlopen(sTempFile.c_str(), RTLD_LAZY);
+//#endif
+//				if (hModule == NULL)
+//				{
+//					m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s!\n"), sTempFile.c_str());
+//					boost::filesystem::remove(boosttpath(sTempFile));
+//					continue;
+//				}
+//				m_logModuleImpl.log(LOG_INFO, _T("Open temp file2: %s\n"), sTempFile.c_str());
 //			}
 //		}
-
-#ifdef USES_MODULE_SERVICE_MANAGER
-		CModuleImpl::pointer pModuleImpl = CModuleImpl::pointer(new CModuleImpl(moduleItem,this));
-#else
-		CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this,this);
-#endif
-		pModuleImpl->setModulePath(m_sModulePath);
-		pModuleImpl->loadSyncData(false);
-		pModuleImpl->m_sTempFile = sTempFile;
-#ifdef USES_MODULE_SERVICE_MANAGER
-		cgcApplication::pointer moduleImpl = boost::static_pointer_cast<cgcApplication, CModuleImpl>(pModuleImpl);
-#else
-		cgcApplication::pointer moduleImpl(pModuleImpl);
-#endif
-#ifdef USES_CMODULEMGR
-		m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
-#else
-		m_mapOpenModules.insert(hModule, moduleImpl);
-#endif
-
-		{
-			//
-			// CGC_SetApplicationHandler
-			FPCGC_SetApplicationHandler fp = 0;
-#ifdef WIN32
-			fp = (FPCGC_SetApplicationHandler)GetProcAddress((HMODULE)hModule, "CGC_SetApplicationHandler");
-#else
-			fp = (FPCGC_SetApplicationHandler)dlsym(hModule, "CGC_SetApplicationHandler");
-#endif
-			if (fp)
-				fp(moduleImpl);
-		}
-
-		//
-		// CGC_SetSystemHandler
-		{
-			FPCGC_SetSystemHandler fp = 0;
-#ifdef WIN32
-			fp = (FPCGC_SetSystemHandler)GetProcAddress((HMODULE)hModule, "CGC_SetSystemHandler");
-#else
-			fp = (FPCGC_SetSystemHandler)dlsym(hModule, "CGC_SetSystemHandler");
-#endif
-			if (fp)
-				fp(shared_from_this());
-		}
-
-		// FPCGC_SetServiceManagerHandler
-		//if (!pModuleImpl->getModuleItem()->isServiceModule())
-		{
-#ifdef WIN32
-			FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
-#else
-			FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
-#endif
-			if (fp)
-			{
-#ifdef USES_MODULE_SERVICE_MANAGER
-				const cgcServiceManager::pointer pServiceManager = boost::static_pointer_cast<cgcServiceManager, CModuleImpl>(pModuleImpl);
-				fp(pServiceManager);
-#else
-				fp(shared_from_this());
-#endif
-			}
-		}
-
-		moduleItem->setModuleHandle(hModule);
+//#ifdef USES_CMODULEMGR
+//		if (m_pModuleMgr.m_mapModuleImpl.exist(hModule))
+//#else
+//		if (m_mapOpenModules.exist(hModule))
+//#endif
+//		{
+//			moduleItem->setModuleHandle(hModule);
+//			continue;
+//		}
+////		if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && m_fpGetSotpClientHandler==NULL)
+////		{
+////#ifdef WIN32
+////			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
+////#else
+////			FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
+////#endif
+////			if (fpGetSotpClientHandler!=NULL)
+////			{
+////				m_fpGetSotpClientHandler = fpGetSotpClientHandler;
+////				//mycp::cgcValueInfo::pointer pValueInfo = CGC_VALUEINFO(cgcValueInfo::TYPE_MAP);
+////				//pValueInfo->insertMap("abc",CGC_VALUEINFO(123));
+////				//mycp::DoSotpClientHandler::pointer pSotpClientHandler;
+////				//fpGetSotpClientHandler(pSotpClientHandler, pValueInfo);
+////			}
+////		}
+//
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//		CModuleImpl::pointer pModuleImpl = CModuleImpl::pointer(new CModuleImpl(moduleItem,this));
+//#else
+//		CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this,this);
+//#endif
+//		pModuleImpl->setModulePath(m_sModulePath);
+//		pModuleImpl->loadSyncData(false);
+//		pModuleImpl->m_sTempFile = sTempFile;
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//		cgcApplication::pointer moduleImpl = boost::static_pointer_cast<cgcApplication, CModuleImpl>(pModuleImpl);
+//#else
+//		cgcApplication::pointer moduleImpl(pModuleImpl);
+//#endif
+//#ifdef USES_CMODULEMGR
+//		m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
+//#else
+//		m_mapOpenModules.insert(hModule, moduleImpl);
+//#endif
+//
+//		{
+//			//
+//			// CGC_SetApplicationHandler
+//			FPCGC_SetApplicationHandler fp = 0;
+//#ifdef WIN32
+//			fp = (FPCGC_SetApplicationHandler)GetProcAddress((HMODULE)hModule, "CGC_SetApplicationHandler");
+//#else
+//			fp = (FPCGC_SetApplicationHandler)dlsym(hModule, "CGC_SetApplicationHandler");
+//#endif
+//			if (fp)
+//				fp(moduleImpl);
+//		}
+//
+//		//
+//		// CGC_SetSystemHandler
+//		{
+//			FPCGC_SetSystemHandler fp = 0;
+//#ifdef WIN32
+//			fp = (FPCGC_SetSystemHandler)GetProcAddress((HMODULE)hModule, "CGC_SetSystemHandler");
+//#else
+//			fp = (FPCGC_SetSystemHandler)dlsym(hModule, "CGC_SetSystemHandler");
+//#endif
+//			if (fp)
+//				fp(shared_from_this());
+//		}
+//
+//		// FPCGC_SetServiceManagerHandler
+//		//if (!pModuleImpl->getModuleItem()->isServiceModule())
+//		{
+//#ifdef WIN32
+//			FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
+//#else
+//			FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
+//#endif
+//			if (fp)
+//			{
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//				const cgcServiceManager::pointer pServiceManager = boost::static_pointer_cast<cgcServiceManager, CModuleImpl>(pModuleImpl);
+//				fp(pServiceManager);
+//#else
+//				fp(shared_from_this());
+//#endif
+//			}
+//		}
+//
+//		moduleItem->setModuleHandle(hModule);
 	}
 }
 
@@ -3442,6 +3867,7 @@ void CGCApp::FreeLibrarys(void)
 				printf("**** name=%s, exception. 0x%x\n", moduleItem->getName().c_str(), GetLastError());
 			}
 			//printf("**** Free Module(0x%x) %02d ok\n", (int)hModule, i+1);
+			moduleItem->setModuleHandle(NULL);
 		}
 		moduleItem->m_pApiProcAddressList.clear();
 	}
@@ -3458,9 +3884,10 @@ void CGCApp::FreeLibrarys(void)
 		CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
 		if (!pModuleImpl->m_sTempFile.empty())
 		{
-			namespace fs = boost::filesystem;
-			boosttpath pathTempFile(pModuleImpl->m_sTempFile);
-			boost::filesystem::remove(pathTempFile);
+			remove(pModuleImpl->m_sTempFile.c_str());
+			//namespace fs = boost::filesystem;
+			//boosttpath pathTempFile(pModuleImpl->m_sTempFile);
+			//boost::filesystem::remove(pathTempFile);
 			m_logModuleImpl.log(LOG_INFO, _T("Close temp file: %s\n"), pModuleImpl->m_sTempFile.c_str());
 			pModuleImpl->m_sTempFile.clear();
 		}

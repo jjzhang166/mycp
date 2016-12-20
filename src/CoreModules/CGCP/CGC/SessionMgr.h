@@ -167,6 +167,7 @@ public:
 	// cgcResponse
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser);
 	void setDataResponseImpl(const tstring& sModuleName,const cgcRemote::pointer& wssRemote);	// sModuleName="": setdefault
+	//void setAttributes(const cgcAttributes::pointer& pAttributes) {m_attributes = pAttributes;}
 
 #ifndef USES_DISABLE_PREV_DATA
 	void do_prevdata(void);

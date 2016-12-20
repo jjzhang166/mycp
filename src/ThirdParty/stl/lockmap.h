@@ -141,6 +141,38 @@ public:
 		}
 		return false;
 	}
+	bool remove(const K& k, const T& t, bool is_lock, T* pOutOld=NULL)
+	{
+		if (is_lock)
+		{
+			BoostWriteLock wtlock(m_mutex);
+			typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
+			if (iter != std::map<K, T, P>::end())
+			{
+				if (pOutOld!=NULL)
+					*pOutOld = iter->second;
+				if (iter->second==t)
+				{
+					std::map<K, T, P>::erase(iter);
+					return true;
+				}
+			}
+		}else
+		{
+			typename std::map<K, T>::iterator iter = std::map<K, T>::find(k);
+			if (iter != std::map<K, T, P>::end())
+			{
+				if (pOutOld!=NULL)
+					*pOutOld = iter->second;
+				if (iter->second==t)
+				{
+					std::map<K, T, P>::erase(iter);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 	size_t removet(const T& t, bool is_lock = true)
 	{
 		size_t result = 0;

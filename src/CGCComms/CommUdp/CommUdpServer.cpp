@@ -324,24 +324,29 @@ public:
 private:
 	void eraseIsInvalidated(void)
 	{
-		std::vector<unsigned long> pRemoveList;
+		//std::vector<unsigned long> pRemoveList;
 		{
-			BoostReadLock rdlock(m_mapCgcRemote.mutex());
-			CLockMap<unsigned long, cgcRemote::pointer>::iterator pIter;
-			for (pIter=m_mapCgcRemote.begin(); pIter!=m_mapCgcRemote.end(); pIter++)
+			BoostWriteLock wtlock(m_mapCgcRemote.mutex());
+			//BoostReadLock rdlock(m_mapCgcRemote.mutex());
+			CLockMap<unsigned long, cgcRemote::pointer>::iterator pIter = m_mapCgcRemote.begin();
+			for (; pIter!=m_mapCgcRemote.end(); )
 			{
 				cgcRemote::pointer pCgcRemote = pIter->second;
 				if (pCgcRemote->isInvalidate() ||
 					(((CcgcRemote*)pCgcRemote.get())->GetLastTime()+2*60)<this->m_tNowTime)	// 超过2分钟没有收到数据
 				{
-					unsigned long nId = pIter->first;
-					//printf("*********** remove id=%d\n",nId);
-					pRemoveList.push_back(nId);
+					m_mapCgcRemote.erase(pIter++);
+					//unsigned long nId = pIter->first;
+					////printf("*********** remove id=%d\n",nId);
+					//pRemoveList.push_back(nId);
+				}else
+				{
+					pIter++;
 				}
 			}
 		}
-		for (size_t i=0;i<pRemoveList.size();i++)
-			m_mapCgcRemote.remove(pRemoveList[i]);
+		//for (size_t i=0;i<pRemoveList.size();i++)
+		//	m_mapCgcRemote.remove(pRemoveList[i]);
 	}
 
 	// cgcOnTimerHandler

@@ -67,10 +67,10 @@ public:
 		{
 			//printf("**** OnCheckTimeout(size=%d)...\n",(int)theModuleSotpClientList.size());
 			const time_t tNow = time(0);
-			int nEraseCount = 0;
-			BoostReadLock rdLock(theModuleSotpClientList.mutex());
+			//int nEraseCount = 0;
+			BoostWriteLock wtLock(theModuleSotpClientList.mutex());
 			CLockMap<tstring, mycp::CCGCSotpClient::pointer>::iterator pIter=theModuleSotpClientList.begin();
-			for (;pIter!=theModuleSotpClientList.end();pIter++)
+			for (;pIter!=theModuleSotpClientList.end();)
 			{
 				mycp::CCGCSotpClient::pointer pPOPSotpClient = pIter->second;
 				const time_t tSendRecvTime = pPOPSotpClient->sotp()->doGetLastSendRecvTime();
@@ -81,11 +81,15 @@ public:
 					// 已经通过 XX 秒没有数据，清空该sotp client
 					//printf("**** OnCheckTimeout clear um client\n");
 					CGC_LOG((mycp::LOG_TRACE, "OnCheckTimeout clear um client\n"));
-					theModuleSotpClientList.erase(pIter);
-					if ((++nEraseCount)>=500 || theModuleSotpClientList.empty(false))
-						break;
-					else
-						pIter = theModuleSotpClientList.begin();
+					theModuleSotpClientList.erase(pIter++);
+					//theModuleSotpClientList.erase(pIter);
+					//if ((++nEraseCount)>=500 || theModuleSotpClientList.empty(false))
+					//	break;
+					//else
+					//	pIter = theModuleSotpClientList.begin();
+				}else
+				{
+					pIter++;
 				}
 			}
 		}
@@ -146,7 +150,7 @@ extern "C" bool CGC_API CGC_GetSotpClientHandler(DoSotpClientHandler::pointer& p
 
 	const tstring sKey = sAddress+sAppName;
 	mycp::CCGCSotpClient::pointer pPOPSotpClient;
-	if (theModuleSotpClientList.find(sKey,pPOPSotpClient))
+	if (theModuleSotpClientList.find(sKey,pPOPSotpClient))	// ***
 	{
 		if (pPOPSotpClient->sotp()->doIsSessionOpened() && !pPOPSotpClient->sotp()->doIsInvalidate())
 		{
@@ -200,6 +204,6 @@ extern "C" bool CGC_API CGC_GetSotpClientHandler(DoSotpClientHandler::pointer& p
 	}
 	pPOPSotpClient->SetUserData(nTimeout);
 	pOutSotpClientHandler = pPOPSotpClient->sotp();
-	theModuleSotpClientList.insert(sKey,pPOPSotpClient);
+	theModuleSotpClientList.insert(sKey,pPOPSotpClient,false);
 	return true;
 }

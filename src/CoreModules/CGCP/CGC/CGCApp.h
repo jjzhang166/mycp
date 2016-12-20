@@ -149,6 +149,8 @@ public:
 	void ProcLastAccessedTime(void);
 	bool ProcDataResend(void) {return this->m_mgrSession1.ProcDataResend();}
 	void ProcCheckParserPool(void);
+	void ProcCheckAutoUpdate(void);
+	void DetachAutoUpdateThread(void);
 
 	void AppInit(bool bNTService = true);
 	void AppStart(int nWaitSeconds);
@@ -163,6 +165,7 @@ public:
 private:
 	void do_dataresend(void);
 	void do_sessiontimeout(void);
+	void do_autoupdate(void);
 
 	void LoadDefaultConf(void);
 	void LoadClustersConf(void);
@@ -248,6 +251,7 @@ private:
 	int ProcLibMethod(const ModuleItem::pointer& moduleItem, const tstring & sMethodName, const cgcSotpRequest::pointer& pRequest, const cgcSotpResponse::pointer& pResponse);
 	int ProcLibSyncMethod(const ModuleItem::pointer& moduleItem, const tstring& sSyncName, int nSyncType, const tstring & sSyncData);
 
+	bool OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcApplication::pointer& pUpdateFromApplication);
 	void OpenLibrarys(void);
 	void FreeLibrarys(void);
 	void InitLibModules(unsigned int mt);
@@ -285,6 +289,7 @@ private:
 	tstring m_sModulePath;
 	boost::shared_ptr<boost::thread> m_pProcSessionTimeout;
 	boost::shared_ptr<boost::thread> m_pProcDataResend;
+	boost::shared_ptr<boost::thread> m_pProcAutoUpdate;
 	//CLockMap<short, cgcSeqInfo::pointer> m_mapSeqInfo;
 
 	bool m_bService;
