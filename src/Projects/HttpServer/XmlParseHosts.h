@@ -60,6 +60,14 @@ public:
 		CFastcgiInfo::pointer result;
 		return m_pFastcgiList.find(name, result) ? result : NullFastcgiInfo;
 	}
+	void delAllProperty(const tstring& key)
+	{
+		CLockMap<tstring, CVirtualHost::pointer>::iterator pIter = m_virtualHost.begin();
+		for (; pIter!=m_virtualHost.end(); pIter++)
+		{
+			pIter->second->delProperty(key);
+		}
+	}
 
 	void load(const tstring & filename)
 	{

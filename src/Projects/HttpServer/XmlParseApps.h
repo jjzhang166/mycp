@@ -74,6 +74,7 @@ public:
 		m_apps.find(appid, result);
 		return result;
 	}
+	const CLockMap<tstring, CAppInfo::pointer>& getApps(void) const {return m_apps;}
 
 	void load(const tstring & filename)
 	{

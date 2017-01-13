@@ -79,11 +79,23 @@ public:
 		}
 		ModuleItem::pointer NullResult;
 		return NullResult;
-
-		//ModuleItem::pointer result;
-		//m_modules.find(appName, result);
-		//return result;
 	}
+	//ModuleItem::pointer swapModuleItemByName(const ModuleItem::pointer& pNewModuleItem)
+	//{
+	//	for (size_t i=0;i<m_modules.size();i++)
+	//	{
+	//		ModuleItem::pointer moduleItem = m_modules[i];
+	//		if (moduleItem->getName()==pNewModuleItem->getName())
+	//		{
+	//			ModuleItem::pointer result = moduleItem;
+	//			// ???
+	//			return result;
+	//		}
+	//	}
+	//	m_modules.push_back(pNewModuleItem);
+	//	ModuleItem::pointer NullResult;
+	//	return NullResult;
+	//}
 	//bool isModuleItem(const ModuleItem::pointer & pModuleItem) const;
 	bool isSupportDebug(void) const {return m_bSupportDebug;}
 	ModuleItem::pointer getSotpClientServiceModuleItem(void) const {return m_pSotpClientServiceModuleItem;}

@@ -41,6 +41,7 @@
 #include "XmlParseAllowMethods.h"
 #include "XmlParseAuths.h"
 #include "XmlParseWeb.h"
+#include "XmlParseAutoUpdate.h"
 //#include "XmlParseClusters.h"
 #include "ModuleMgr.h"
 #include "SessionMgr.h"
@@ -165,6 +166,8 @@ public:
 private:
 	void do_dataresend(void);
 	void do_sessiontimeout(void);
+	void FreeLibModule(const ModuleItem::pointer& moduleItem, bool bEraseApplication, Module_Free_Type nFreeType);
+	void RemoveAllAutoUpdateFile(const XmlParseAutoUpdate& pAutoUpdate);
 	void do_autoupdate(void);
 
 	void LoadDefaultConf(void);
@@ -174,6 +177,7 @@ private:
 	void LoadSystemParams(void);
 
 	// CSotpRtpCallback
+	bool setPortAppModuleHandle(const CPortApp::pointer& portApp);
 	virtual bool onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData);
 	virtual void onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData);
 	virtual bool onRegisterSink(bigint nRoomId, bigint nSourceId, bigint nDestId, void* pUserData);
@@ -201,6 +205,8 @@ private:
 	virtual cgcCDBCService::pointer getCDBDService(const CModuleImpl* pFromModuleImpl, const tstring& datasource);
 	virtual void retCDBDService(const CModuleImpl* pFromModuleImpl, cgcCDBCServicePointer& cdbcservice);
 	virtual cgcServiceInterface::pointer getService(const CModuleImpl* pFromModuleImpl, const tstring & serviceName, const cgcValueInfo::pointer& parameter = cgcNullValueInfo);
+	void SendModuleResetService(const CModuleImpl* pSentToModuleImpl,const tstring& sServiceName);
+	void ResetService(void * hModule, const cgcServiceInterface::pointer & service);
 	virtual void resetService(const CModuleImpl* pFromModuleImpl, const cgcServiceInterface::pointer & service);
 	virtual HTTP_STATUSCODE executeInclude(const CModuleImpl* pFromModuleImpl, const tstring & url, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response);
 	virtual HTTP_STATUSCODE executeService(const CModuleImpl* pFromModuleImpl, const tstring & serviceName, const tstring& function, const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response, tstring & outExecuteResult);
@@ -251,13 +257,18 @@ private:
 	int ProcLibMethod(const ModuleItem::pointer& moduleItem, const tstring & sMethodName, const cgcSotpRequest::pointer& pRequest, const cgcSotpResponse::pointer& pResponse);
 	int ProcLibSyncMethod(const ModuleItem::pointer& moduleItem, const tstring& sSyncName, int nSyncType, const tstring & sSyncData);
 
-	bool OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcApplication::pointer& pUpdateFromApplication);
+	void SetModuleHandler(void* hModule,const CModuleImpl::pointer& pModuleImpl);
+	//void SetModuleHandler(void* hModule,const CModuleImpl::pointer& pModuleImpl,bool* pOutModuleUpdateKey=NULL);
+	bool OpenModuleLibrary(const ModuleItem::pointer& moduleItem);
+	//bool OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcApplication::pointer& pUpdateFromApplication);
 	void OpenLibrarys(void);
 	void FreeLibrarys(void);
 	void InitLibModules(unsigned int mt);
-	bool InitLibModule(const cgcApplication::pointer& pModuleImpl, const ModuleItem::pointer& moduleItem);
+	bool InitLibModule(void* hModule, const cgcApplication::pointer& moduleImpl, Module_Init_Type nInitType=MODULE_INIT_TYPE_NORMAL);
+	bool InitLibModule(const cgcApplication::pointer& pModuleImpl, const ModuleItem::pointer& moduleItem, Module_Init_Type nInitType=MODULE_INIT_TYPE_NORMAL);
 	void FreeLibModules(unsigned int mt);
-	void FreeLibModule(const cgcApplication::pointer& pModuleImpl);
+	void FreeLibModule(void* hModule, Module_Free_Type nFreeType);
+	void FreeLibModule(const cgcApplication::pointer& pModuleImpl, Module_Free_Type nFreeType);
 
 private:
 	XmlParseDefault m_parseDefault;
@@ -277,7 +288,8 @@ private:
 	XmlParseCdbcs m_cdbcs;
 	CDataServiceMgr m_cdbcServices;
 #ifdef USES_MODULE_SERVICE_MANAGER
-	CLockMultiMap<const cgcCDBCService*,const CModuleImpl*> m_pFromCDBCList;
+	//CLockMultiMap<const cgcCDBCService*,const CModuleImpl*> m_pFromCDBCList;
+	CLockMultiMap<const cgcServiceInterface*,const CModuleImpl*> m_pFromServiceList;
 #endif
 	cgcAttributes::pointer m_attributes;
 

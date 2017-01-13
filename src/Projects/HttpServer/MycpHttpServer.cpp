@@ -40,6 +40,12 @@ public:
 	{
 		m_files.clear();
 	}
+	virtual cgcObject::pointer copyNew(void) const
+	{
+		CUploadFiles::pointer result = CUploadFiles::pointer(new CUploadFiles());
+		// ???
+		return result;
+	}
 };
 
 CMycpHttpServer::CMycpHttpServer(const cgcHttpRequest::pointer & req, cgcHttpResponse::pointer res)
@@ -191,9 +197,12 @@ cgcValueInfo::pointer CMycpHttpServer::getStringValueInfo(const CScriptItem::poi
 				else if (appInfo->getIntParam() != 0)
 					initProperty = CGC_VALUEINFO(appInfo->getIntParam());
 
+				//printf("**** OBJECT_APP %s=%s...\n",string.c_str(),appInfo->getAppName().c_str());
+
 				// APP Service
 				cgcServiceInterface::pointer serviceInterface = theServiceManager->getService(appInfo->getAppName(), initProperty);
 				if (serviceInterface.get() == NULL) return cgcNullValueInfo;
+				//printf("**** OBJECT_APP %s=%s ok\n",string.c_str(),appInfo->getAppName().c_str());
 				var_value = CGC_VALUEINFO(CGC_OBJECT_CAST<cgcObject>(serviceInterface));
 				var_value->setInt((int)OBJECT_APP);
 
@@ -1255,7 +1264,10 @@ int CMycpHttpServer::doScriptItem(const CScriptItem::pointer & scriptItem)
 
 			cgcServiceInterface::pointer serviceInterface = CGC_OBJECT_CAST<cgcServiceInterface>(var_app->getObject());
 			cgcValueInfo::pointer var_inProperty = getStringValueInfo(scriptItem, scriptItem->getProperty());
-			cgcValueInfo::pointer var_outProperty = getStringValueInfo(scriptItem, scriptItem->getValue());
+			cgcValueInfo::pointer var_outProperty = getStringValueInfo(scriptItem, scriptItem->getValue(), CSP_SCOPE_TYPE_REQUEST);	// ***
+			//cgcValueInfo::pointer var_outProperty = getStringValueInfo(scriptItem, scriptItem->getValue());	// ***
+			//if (var_outProperty.get()!=NULL)
+			//	var_outProperty->reset();
 
 			bool ret = false;
 			try

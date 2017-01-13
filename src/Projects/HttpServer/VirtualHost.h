@@ -41,6 +41,11 @@ public:
 
 	void setPropertys(cgcAttributes::pointer v) {m_propertys = v;}
 	cgcAttributes::pointer getPropertys(void) const {return m_propertys;}
+	void delProperty(const tstring& key)
+	{
+		if (m_propertys.get()!=NULL)
+			m_propertys->delProperty(key);
+	}
 	bool m_bBuildDocumentRoot;
 
 	CVirtualHost(const tstring& host)

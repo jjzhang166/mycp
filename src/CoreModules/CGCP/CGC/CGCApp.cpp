@@ -37,7 +37,6 @@ unsigned long GetLastError(void)
 #else
 #include "../../../CGCClass/tchar.h"
 #endif // WIN32
-#include "XmlParseAutoUpdate.h"
 
 //#ifdef USES_HDCID
 //#include "HDComputerID/def.h"
@@ -63,6 +62,12 @@ unsigned long GetLastError(void)
 //#endif
 
 namespace mycp {
+
+#ifdef _UNICODE
+typedef boost::filesystem::wpath boosttpath;
+#else
+typedef boost::filesystem::path boosttpath;
+#endif // _UNICODE
 
 CGCApp::CGCApp(const tstring & sPath)
 : m_bStopedApp(true)
@@ -171,8 +176,12 @@ void CGCApp::do_sessiontimeout(void)
 			if (((++theSecondIndex)%20)==19)	// 20秒处理一次
 			{
 				ProcLastAccessedTime();
-				//ProcCheckAutoUpdate();
 			}
+			if (((theSecondIndex)%60)==59)		// 60秒处理一次
+			{
+				ProcCheckAutoUpdate();
+			}
+
 			if (!sProtectDataFile.empty() && (theSecondIndex%2)==0)	// 2秒处理一次
 			{
 				FILE * pfile = fopen(sProtectDataFile.c_str(),"w");
@@ -274,16 +283,69 @@ inline void RenameAutoUpdateFile(const tstring& sAutoUpdateXmlFile,tstring* pOut
 	boost::system::error_code ec;
 	fs::rename(pathfrom,pathto,ec);
 }
-void RemoveAllAutoUpdateFile(const XmlParseAutoUpdate& pAutoUpdate)
+void CGCApp::FreeLibModule(const ModuleItem::pointer& moduleItem, bool bEraseApplication, Module_Free_Type nFreeType)
+{
+	void * hModule = moduleItem->getModuleHandle();
+	if (hModule!=NULL)
+	{
+		cgcApplication::pointer pNewApplication;
+#ifdef USES_CMODULEMGR
+		if (m_pModuleMgr.m_mapModuleImpl.find(hModule, pNewApplication,bEraseApplication))
+#else
+		if (m_mapOpenModules.find(hModule, pNewApplication,bEraseApplication))
+#endif
+		{
+			FreeLibModule(pNewApplication,nFreeType);
+		}
+
+		//printf("**** Free Module(0x%x) %02d -> %s\n", (int)hModule, i+1, moduleItem->getName().c_str());
+		//m_logModuleImpl.log(LOG_INFO, _T("Free Module %02d : name=%s, module=0x%x\n"), i+1, moduleItem->getName().c_str(),hModule);
+		if (hModule!=NULL)
+		{
+			try
+			{
+#ifdef WIN32
+				FreeLibrary((HMODULE)hModule);
+#else
+				dlclose (hModule);
+#endif
+			}catch(std::exception const & e)
+			{
+				printf("**** name=%s, exception. 0x%x(%s)\n", moduleItem->getName().c_str(), GetLastError(), e.what());
+			}catch(...){
+				printf("**** name=%s, exception. 0x%x\n", moduleItem->getName().c_str(), GetLastError());
+			}
+			//printf("**** Free Module(0x%x) %02d ok\n", (int)hModule, i+1);
+			moduleItem->setModuleHandle(NULL);
+		}
+		moduleItem->m_pApiProcAddressList.clear();
+
+		if (pNewApplication.get()!=NULL)
+		{
+			CModuleImpl * pModuleImpl = (CModuleImpl*)pNewApplication.get();
+			if (!pModuleImpl->m_sTempFile.empty())
+			{
+				remove(pModuleImpl->m_sTempFile.c_str());
+				m_logModuleImpl.log(LOG_INFO, _T("Close temp file: %s\n"), pModuleImpl->m_sTempFile.c_str());
+				pModuleImpl->m_sTempFile.clear();
+			}
+		}
+	}
+}
+void CGCApp::RemoveAllAutoUpdateFile(const XmlParseAutoUpdate& pAutoUpdate)
 {
 	for (size_t i=0; i<pAutoUpdate.m_modules.size(); i++)
 	{
 		const ModuleItem::pointer moduleItem = pAutoUpdate.m_modules[i];
+		FreeLibModule(moduleItem,true,MODULE_FREE_TYPE_NORMAL);
+
 		const tstring& sAutoUpdateModuleFile = moduleItem->getParam();
-		if (sAutoUpdateModuleFile.empty()) continue;
-		remove(sAutoUpdateModuleFile.c_str());
+		if (!sAutoUpdateModuleFile.empty())
+			remove(sAutoUpdateModuleFile.c_str());
 	}
 }
+#define USES_TEMP_MODULE_FILE2
+
 void CGCApp::do_autoupdate(void)
 {
 	tstring sAutoUpdateXmlFile(m_sModulePath);
@@ -296,18 +358,20 @@ void CGCApp::do_autoupdate(void)
 	// ** 需要更新组件
 	XmlParseAutoUpdate pAutoUpdate;
 	pAutoUpdate.load(sAutoUpdateXmlFile);
-	m_logModuleImpl.log(LOG_INFO, _T("AutoUpdateType=%d, UpdateModules=%d\n"), pAutoUpdate.getAutpUpdateType(),(int)pAutoUpdate.m_modules.size());
+	m_logModuleImpl.log(LOG_INFO, _T("AutoUpdate: AutoUpdateType=%d, UpdateModules=%d\n"), pAutoUpdate.getAutpUpdateType(),(int)pAutoUpdate.m_modules.size());
 	// 
 	// * 检查更新组件，是否完整存在，和检查复制组件到指定路径是否成功
 	int nErrorType = 0;
 	std::string sErrorModuleFile;
 	for (size_t i=0; i<pAutoUpdate.m_modules.size(); i++)
 	{
-		ModuleItem::pointer moduleItem = pAutoUpdate.m_modules[i];
-		const tstring& sModuleFile = moduleItem->getModule();
+		ModuleItem::pointer newModuleItem = pAutoUpdate.m_modules[i];
+		const tstring& sModuleFile = newModuleItem->getModule();
 		tstring sNewModulePath(m_sModulePath);
 		sNewModulePath.append("/auto_update/");
 		sNewModulePath.append(sModuleFile);
+		m_logModuleImpl.log(LOG_INFO, _T("AutoUpdate: %d, ModuleFile=%s\n"), i, sModuleFile.c_str());
+		//printf("**** sNewModulePath=%s\n",sNewModulePath.c_str());
 		if (!FileIsExist(sNewModulePath.c_str()))
 		{
 			nErrorType = 1;
@@ -320,28 +384,31 @@ void CGCApp::do_autoupdate(void)
 			sCurrentModulePath1.append(sModuleFile);
 			tstring sCurrentModulePath2(sCurrentModulePath1);			// 2=XXX.autoupdate
 			sCurrentModulePath2.append(".autoupdate");
+			//printf("**** sCurrentModulePath1=%s\n",sCurrentModulePath1.c_str());
+			//printf("**** sCurrentModulePath2=%s\n",sCurrentModulePath2.c_str());
+
 			// 复制更新组件到指定目录
 			boost::system::error_code ec;
 			namespace fs = boost::filesystem;
 			fs::path pathfrom(sNewModulePath.string());
 			fs::path pathto1(sCurrentModulePath1.string());
-			if (fs::remove(pathto1,ec))	// * 先删除
+			if (!FileIsExist(sCurrentModulePath1.c_str()) || fs::remove(pathto1,ec))	// * 先删除
 			{
 				fs::rename(pathfrom,pathto1,ec);	// * 再重命名
 				if (!ec)
 				{
-					moduleItem->setParam(sCurrentModulePath1);	// ?保存临时文件路径
+					newModuleItem->setParam(sCurrentModulePath1);	// ?保存临时文件路径
 					continue;	// 1 ok
 				}
 			}
 			ec.clear();
 			fs::path pathto2(sCurrentModulePath2.string());
-			if (fs::remove(pathto2,ec))	// * 先删除
+			if (!FileIsExist(sCurrentModulePath2.c_str()) || fs::remove(pathto2,ec))	// * 先删除
 			{
 				fs::rename(pathfrom,pathto2,ec);	// * 再重命名
 				if (!ec)
 				{
-					moduleItem->setParam(sCurrentModulePath2);	// ?保存临时文件路径
+					newModuleItem->setParam(sCurrentModulePath2);	// ?保存临时文件路径
 					continue;	// 2 ok
 				}
 			}
@@ -380,63 +447,252 @@ void CGCApp::do_autoupdate(void)
 	// ** 更新组件
 	for (size_t i=0; i<pAutoUpdate.m_modules.size(); i++)
 	{
-		const ModuleItem::pointer moduleItem = pAutoUpdate.m_modules[i];
-		const tstring& sAutoUpdateModuleFile = moduleItem->getParam();
+		const ModuleItem::pointer newModuleItem = pAutoUpdate.m_modules[i];
+		const tstring& sAutoUpdateModuleFile = newModuleItem->getParam();
 		if (sAutoUpdateModuleFile.empty()) continue;
 		// a 通过 file 获取所有已经启动的 cgcApplication::pointer(ModuleItem)
 		std::vector<cgcApplication::pointer> pModuleItemList;
 #ifdef USES_CMODULEMGR
-		CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
-		for (iterApp=m_pModuleMgr.m_mapModuleImpl.begin(); iterApp!=m_pModuleMgr.m_mapModuleImpl.end(); iterApp++)
+		CLockMap<void*, cgcApplication::pointer>::iterator iterApp = m_pModuleMgr.m_mapModuleImpl.begin();
+		for (; iterApp!=m_pModuleMgr.m_mapModuleImpl.end(); iterApp++)
 #else
 		for (iterApp=m_mapOpenModules.begin(); iterApp!=m_mapOpenModules.end(); iterApp++)
 #endif
 		{
 			cgcApplication::pointer application = iterApp->second;
+			if (application->getModuleType()==MODULE_COMM) continue;	// ??底层通讯组件，暂时不支持自动更新
 			CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
-			if (pModuleImpl->getModuleItem()->getModule()==moduleItem->getModule())
+			if (pModuleImpl->getModuleItem()->getModule()==newModuleItem->getModule())
 			{
 				pModuleItemList.push_back(application);
 			}
 		}
+		bool bUpdateOk = false;
 		// b 复制一份，然后调用 openlibrary and CGC_Module_Init2；(cgcAttributes::pointer CModuleImpl::getAttributes(bool create) 数据，重新指向即可；
 		for (size_t j=0; j<pModuleItemList.size(); j++)
 		{
 			const cgcApplication::pointer pUpdateFromApplication = pModuleItemList[j];
-			const CModuleImpl * pModuleImpl = (CModuleImpl*)pUpdateFromApplication.get();
-			ModuleItem::pointer pNewModuleItem = ModuleItem::create();
-			const MODULETYPE modultType = pModuleImpl->getModuleItem()->getType();
-			if (modultType == MODULE_COMM)
-			{
-				pNewModuleItem->setCommPort(pModuleImpl->getModuleItem()->getCommPort());
-			}
-			// APP
-			moduleItem->setName(pModuleImpl->getModuleItem()->getName());
-			moduleItem->setModule(pModuleImpl->getModuleItem()->getModule());	// ?? 这是旧的 module-file，如果，使用新的 module-file
-			moduleItem->setParam(pModuleImpl->getModuleItem()->getParam());
-			moduleItem->setType(modultType);
-			moduleItem->setProtocol(pModuleImpl->getModuleItem()->getProtocol());
+			cgcAttributes::pointer pOldAttributes = pUpdateFromApplication->getAttributes(false);
+			CModuleImpl * pModuleImpl = (CModuleImpl*)pUpdateFromApplication.get();
+			ModuleItem::pointer pCurrentModuleItem = pModuleImpl->getModuleItem();
 
-			// APP
-			moduleItem->setAllowAll(pModuleImpl->getModuleItem()->getAllowAll());
-			moduleItem->setAuthAccount(pModuleImpl->getModuleItem()->getAuthAccount());
-			moduleItem->setLockState(pModuleImpl->getModuleItem()->getLockState());
-			if (!OpenModuleLibrary(pNewModuleItem, pUpdateFromApplication))
-			{
-				// ??? 记录错误信息；
+			const void* pCurrentModuleHandle = pCurrentModuleItem->getModuleHandle();
+			const std::string sCurrentTempFile = pModuleImpl->m_sTempFile;	// 最后要删除这个临时文件
+			m_logModuleImpl.log(LOG_INFO, _T("%d, ModuleName=%s, AutoUpdate...\n"), j, pCurrentModuleItem->getName().c_str());
 
-				// ** 删除临时更新文件
-				RemoveAllAutoUpdateFile(pAutoUpdate);
-				// ** 清空线程资源
-				DetachAutoUpdateThread();
-				return;
+			std::string sTempFile;
+			tstring sModuleName(sAutoUpdateModuleFile);	// 1=XXX or 2=XXX.autoupdate
+#ifdef USES_TEMP_MODULE_FILE2
+			if (!pCurrentModuleItem->getName().empty() && pCurrentModuleItem->getModule().find(pCurrentModuleItem->getName())==std::string::npos)
+			{
+				// * 新建临时文件
+				namespace fs = boost::filesystem;
+				boosttpath pathFileFrom(sModuleName.c_str());
+				char lpszBuffer[260];
+				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),pCurrentModuleItem->getName().c_str());
+				sTempFile = lpszBuffer;
+				boosttpath pathFileTo(sTempFile);
+				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+				m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
+				sModuleName = sTempFile;
 			}
-//
+#endif
+			//m_logModuleImpl.log(LOG_INFO, _T("OpenLibrarys:%s\n"), sModuleName.c_str());
+			//printf("**** sModuleName=%s\n",sModuleName.c_str());
+#ifdef WIN32
+			void * hModule = LoadLibrary(sModuleName.c_str());
+#else
+			void * hModule = dlopen(sModuleName.c_str(), RTLD_LAZY);
+#endif
+			if (hModule == NULL)
+			{
+				m_logModuleImpl.log(LOG_ERROR, _T("Cannot open library: %s \'%d\'!\n"), sModuleName.c_str(), GetLastError());
+				// ???
+
+				if (!sTempFile.empty())
+					remove(sTempFile.c_str());
+				continue;
+				//return false;
+			}
+			pModuleImpl->m_sTempFile = sTempFile;
+#ifdef USES_MODULE_SERVICE_MANAGER
+			CModuleImpl::pointer pNewApplication = boost::static_pointer_cast<CModuleImpl,cgcApplication>(pUpdateFromApplication);
+#else
+			CModuleImpl::pointer pNewApplication(pUpdateFromApplication);
+#endif
+			SetModuleHandler(hModule, pNewApplication);
+			bool bInitOk = false;
+			if (pModuleImpl->getModuleState() == 0)
+			{
+				// 旧组件未启动成功
+				bInitOk = InitLibModule(pUpdateFromApplication, pCurrentModuleItem);
+			}else
+			{
+				// 旧组件启动成功，新组件先初始化一次后，再...
+				if (InitLibModule(hModule, pUpdateFromApplication, MODULE_INIT_TYPE_AUTO_UPDATE))
+				{
+					pCurrentModuleItem->setModuleHandle(hModule);																												// ***A（A到***B有一个时间差，这个时间差，如果访问该组件，可能会失败?）
+					bInitOk = InitLibModule(pUpdateFromApplication, pCurrentModuleItem, MODULE_INIT_TYPE_AUTO_UPDATE);	// ***B
+					if (!bInitOk)
+					{
+						pCurrentModuleItem->setModuleHandle((void*)pCurrentModuleHandle);	// *
+						FreeLibModule(hModule, MODULE_FREE_TYPE_AUTO_UPDATE);
+						// 执行多一次，修正 CGC_GetService 相关地址
+						InitLibModule(pUpdateFromApplication, pCurrentModuleItem, MODULE_INIT_TYPE_AUTO_UPDATE);
+					}else
+					{
+#ifdef WIN32
+						if (pOldAttributes.get()!=NULL)
+						{
+							// 更换
+							//printf("**** new AttributesImpl()...\n");
+							FPCGC_Module_AutoUpdateData farProc_AutoUpdateData = (FPCGC_Module_AutoUpdateData)GetProcAddress((HMODULE)hModule, "CGC_Module_AutoUpdateData");
+							//FPCGC_Module_AutoUpdateData farProc_AutoUpdateData = (FPCGC_Module_AutoUpdateData)dlsym(hModule, "CGC_Module_AutoUpdateData");
+							if (farProc_AutoUpdateData!=NULL)
+							{
+								try
+								{
+									farProc_AutoUpdateData(pOldAttributes);
+								}catch (const std::exception&)
+								{
+								}catch (...)
+								{
+								}
+							}
+							// **
+							pOldAttributes->clearAllAtrributes();
+							pOldAttributes->cleanAllPropertys();
+							pOldAttributes.reset();
+						}
+#endif
+					}
+				}
+			}
+			if (!bInitOk)
+			{
+				// 失败，清空数据
+				m_logModuleImpl.log(LOG_INFO, _T("%d, ModuleName=%s, AutoUpdate error.\n"), j, pCurrentModuleItem->getName().c_str());
+#ifdef USES_CMODULEMGR
+				m_pModuleMgr.m_mapModuleImpl.remove(hModule);
+#else
+				m_mapOpenModules.remove(hModule);
+#endif
+				try
+				{
+#ifdef WIN32
+					FreeLibrary((HMODULE)hModule);
+#else
+					dlclose (hModule);
+#endif
+				}catch(std::exception const &)
+				{
+				}catch(...){
+				}
+				if (!sTempFile.empty())
+					remove(sTempFile.c_str());
+				continue;
+			}
+			// 成功，切换到新的组件
+			// c 切换到新的组件，停止旧的 ModuleItem::pointer，调用 CGC_Module_Free2 （不要清空 m_attributes 数据）
+			bUpdateOk = true;
+			pCurrentModuleItem->setModuleHandle(hModule);
+			m_logModuleImpl.log(LOG_INFO, _T("%d, ModuleName=%s, AutoUpdate ok.\n"), j, pCurrentModuleItem->getName().c_str());
+			pOldAttributes.reset();
+			//printf("**** hModule=%x, pCurrentModuleHandle=%x\n",(int)hModule,(int)pCurrentModuleHandle);
+			// 删除旧的 modulehandle 对应数据
+			if (pCurrentModuleHandle!=NULL)
+			{
+				m_parsePortApps.resetByOldModuleHandle((void*)pCurrentModuleHandle);
+				
+				std::vector<cgcServiceInterface::pointer> pResetServiceList;
+				{
+					BoostReadLock rdServiceModileLock(m_mapServiceModule.mutex());
+					CLockMap<cgcServiceInterface::pointer, void*>::iterator pServiceModuleItem = m_mapServiceModule.begin();
+					for (; pServiceModuleItem!=m_mapServiceModule.end(); pServiceModuleItem++)
+					{
+						if (pServiceModuleItem->second==pCurrentModuleHandle)
+						{
+							pResetServiceList.push_back(pServiceModuleItem->first);
+						}
+					}
+				}
+				// ** 找到使用该组件的其他组件，通知重置组件 SendModuleResetService
+				for (size_t n=0; n<pResetServiceList.size(); n++)
+				{
+					cgcServiceInterface::pointer pService = pResetServiceList[n];
+					std::vector<const CModuleImpl*> pFromModuleList;
+					if (m_pFromServiceList.find(pService.get(),pFromModuleList,true))
+					{
+						for (size_t m=0; m<pFromModuleList.size(); m++)
+						{
+							const CModuleImpl* pFromModuleImpl = pFromModuleList[m];
+							SendModuleResetService(pFromModuleImpl,pService->getOrgServiceName());
+						}
+					}
+					ResetService((void*)pCurrentModuleHandle, pService);
+				}
+				pResetServiceList.clear();
+
+				m_mapServiceModule.removet((void*)pCurrentModuleHandle);
+
+				// ** 等待2秒，用于某些旧调用退出。
+#ifdef WIN32
+				Sleep(2000);
+#else
+				usleep(2000000);
+#endif
+				FreeLibModule((void*)pCurrentModuleHandle, MODULE_FREE_TYPE_AUTO_UPDATE);
+#ifdef USES_CMODULEMGR
+				m_pModuleMgr.m_mapModuleImpl.remove((void*)pCurrentModuleHandle);
+#else
+				m_mapOpenModules.remove((void*)pCurrentModuleHandle);
+#endif
+				try
+				{
+#ifdef WIN32
+					FreeLibrary((HMODULE)pCurrentModuleHandle);
+#else
+					dlclose ((void*)pCurrentModuleHandle);
+#endif
+				}catch(std::exception const &)
+				{
+				}catch(...){
+				}
+			}
+			// ** 自动更新完成，删除旧组件临时文件
+			if (!sCurrentTempFile.empty())
+				remove(sCurrentTempFile.c_str());
+
+			//pModuleImpl->getModuleItem()->setModule());
+			//ModuleItem::pointer pNewModuleItem = ModuleItem::create();
+			//const MODULETYPE modultType = pModuleImpl->getModuleItem()->getType();
+			//if (modultType == MODULE_COMM)
+			//{
+			//	pNewModuleItem->setCommPort(pModuleImpl->getModuleItem()->getCommPort());
+			//}
+			//pNewModuleItem->setName(pModuleImpl->getModuleItem()->getName());
+			//pNewModuleItem->setModule(pModuleImpl->getModuleItem()->getModule());	// ?? 这是旧的 module-file，还是使用新的 module-file
+			//pNewModuleItem->setParam(pModuleImpl->getModuleItem()->getParam());
+			//pNewModuleItem->setType(modultType);
+			//pNewModuleItem->setProtocol(pModuleImpl->getModuleItem()->getProtocol());
+			//pNewModuleItem->setAllowAll(pModuleImpl->getModuleItem()->getAllowAll());
+			//pNewModuleItem->setAuthAccount(pModuleImpl->getModuleItem()->getAuthAccount());
+			//pNewModuleItem->setLockState(pModuleImpl->getModuleItem()->getLockState());
+			//if (!OpenModuleLibrary(pNewModuleItem, pUpdateFromApplication))
+			//{
+			//	// ??? 记录错误信息；
+			//	// ** 删除临时更新文件
+			//	RemoveAllAutoUpdateFile(pAutoUpdate);
+			//	// ** 清空线程资源
+			//	DetachAutoUpdateThread();
+			//	return;
+			//}
+			// 
 //			cgcApplication::pointer pNewApplication;
 //#ifdef USES_CMODULEMGR
-//			if (!m_pModuleMgr.m_mapModuleImpl.find(moduleItem->getModuleHandle(), pNewApplication)) continue;
+//			if (!m_pModuleMgr.m_mapModuleImpl.find(pNewModuleItem->getModuleHandle(), pNewApplication))
 //#else
-//			if (!m_mapOpenModules.find(moduleItem->getModuleHandle(), pNewApplication)) continue;
+//			if (!m_mapOpenModules.find(pNewModuleItem->getModuleHandle(), pNewApplication))
 //#endif
 //			{
 //				// ??? 记录错误信息；
@@ -445,18 +701,71 @@ void CGCApp::do_autoupdate(void)
 //				RemoveAllAutoUpdateFile(pAutoUpdate);
 //				// ** 清空线程资源
 //				DetachAutoUpdateThread();
-//				reurn;
+//				return;
 //			}
-//
-//			InitLibModule(
+
+			//try
+			//{
+			//	if (InitLibModule(pUpdateFromApplication, pCurrentModuleItem))
+			//	{
+			//		CModuleImpl * pModuleImpl = (CModuleImpl*)pUpdateFromApplication.get();
+			//		pModuleImpl->SetInited(true);
+			//		m_logModuleImpl.log(LOG_INFO, _T("MODULE \'%s\' load succeeded\n"), pUpdateFromApplication->getApplicationName().c_str());
+			//	}else
+			//	{
+			//		m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' load failed\n"), pUpdateFromApplication->getApplicationName().c_str());
+			//	}
+			//}catch(const std::exception & e)
+			//{
+			//	m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' load exception.\n"), pUpdateFromApplication->getApplicationName().c_str());
+			//	m_logModuleImpl.log(LOG_ERROR, _T("%s\n"), e.what());
+			//}catch(...)
+			//{
+			//	m_logModuleImpl.log(LOG_ERROR, _T("MODULE \'%s\' load exception\n"), pUpdateFromApplication->getApplicationName().c_str());
+			//}
+
+			//if (pUpdateFromApplication->isInited())
+			//{
+			//	// 成功
+			//	// c 切换到新的组件，停止旧的 ModuleItem::pointer，调用 CGC_Module_Free2 （不要清空 m_attributes 数据）
+			//	// 
+			//	ModuleItem::pointer pOldModuleItem = m_parseModules.swapModuleItemByName(pNewModuleItem);
+			//	if (pOldModuleItem.get()!=NULL)
+			//	{
+			//		FreeLibModule(pOldModuleItem,true,MODULE_FREE_TYPE_AUTO_UPDATE);
+			//	}
+			//}else
+			//{
+			//	// ???失败
+
+			//}
+		}
+		// ** 完成更新
+		if (bUpdateOk)
+		{
+			// 删除组件更新文件
+			const tstring& sModuleFile = newModuleItem->getModule();
+			tstring sNewModulePath(m_sModulePath);
+			sNewModulePath.append("/auto_update/");
+			sNewModulePath.append(sModuleFile);
+			remove(sNewModulePath.c_str());
+			// 删除旧组件文件
+			tstring sRemoveFile;
+			const std::string::size_type nFind = sAutoUpdateModuleFile.find(".autoupdate");
+			if (nFind==std::string::npos)
+			{
+				sRemoveFile = sAutoUpdateModuleFile + ".autoupdate";
+			}else
+			{
+				sRemoveFile = sAutoUpdateModuleFile.substr(0,nFind);
+			}
+			remove(sRemoveFile.c_str());
+			//printf("**** sAutoUpdateModuleFile=%s, sRemoveFile=%s\n",sAutoUpdateModuleFile.c_str(),sRemoveFile.c_str());
 
 		}
-
-		// c 停止旧的 ModuleItem::pointer，调用 CGC_Module_Free2 （不要清空 m_attributes 数据）
-		// ** 完成更新
-
 	}
-
+	// ** 重命名自动更新文件
+	RenameAutoUpdateFile(sAutoUpdateXmlFile);
 	DetachAutoUpdateThread();
 }
 
@@ -542,11 +851,6 @@ void CGCApp::ProcLastAccessedTime(void)
 	//}
 }
 
-#ifdef _UNICODE
-typedef boost::filesystem::wpath boosttpath;
-#else
-typedef boost::filesystem::path boosttpath;
-#endif // _UNICODE
 void CGCApp::AppInit(bool bNTService)
 {
 	// init parameter
@@ -600,7 +904,7 @@ void CGCApp::AppStart(int nWaitSeconds)
 	}
 	m_pSotpParserPool.clear();
 	m_pHttpParserPool.clear();
-	m_bStopedApp = false;
+	//m_bStopedApp = false;
 
 	LoadDefaultConf();
 	m_logModuleImpl.log(LOG_INFO, _T("Starting %s Service......\n"), m_parseDefault.getCgcpName().c_str());
@@ -619,11 +923,12 @@ void CGCApp::AppStart(int nWaitSeconds)
 #else
 		sleep(1);
 #endif
-		if (m_bStopedApp)
-			break;
+		//if (m_bStopedApp)
+		//	break;
 	}
 
 	LoadModulesConf();
+	m_bStopedApp = false;
 }
 
 void CGCApp::AppStop(void)
@@ -838,6 +1143,7 @@ void CGCApp::CheckScriptExecute(int nScriptType)
 		}
 	}
 }
+
 int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDataFile)
 {
 	CheckScriptExecute(SCRIPT_TYPE_ONCE);
@@ -1059,7 +1365,7 @@ void CGCApp::LoadAuthsConf(void)
 
 void CGCApp::LoadModulesConf(void)
 {
-	int initModuleCount = 0;
+	//int initModuleCount = 0;
 	tstring xmlFile(m_sModulePath);
 	xmlFile.append(_T("/conf/modules.xml"));
 
@@ -1130,33 +1436,11 @@ cgcParameterMap::pointer CGCApp::getInitParameters(void) const
 	}
 	return result;
 }
-//#define USES_FUNC_HANDLE2
 
-bool CGCApp::onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData)
+//#define USES_FUNC_HANDLE2
+bool CGCApp::setPortAppModuleHandle(const CPortApp::pointer& portApp)
 {
-	const int nServerPort = pUserData==NULL?0:(int)pUserData;
-	//const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
-	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
-	if (portApp.get() == NULL)
-	{
-		return true;	// *
-	}
-#ifdef USES_FUNC_HANDLE2
-	if (portApp->getModuleHandle() == NULL)
-	{
-		ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(portApp->getApp());
-		if (moduleItem.get() == NULL || moduleItem->getModuleHandle() == NULL)
-		{
-			return false;
-		}
-		portApp->setModuleHandle(moduleItem->getModuleHandle());
-	}
-#ifdef WIN32
-		FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)GetProcAddress((HMODULE)portApp->getModuleHandle(), "CGC_Rtp_Register_Source");
-#else
-		FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)dlsym(portApp->getModuleHandle(), "CGC_Rtp_Register_Source");
-#endif
-#else
+	BOOST_ASSERT (portApp.get() != NULL);
 	if (portApp->getModuleHandle() == NULL)
 	{
 		ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(portApp->getApp());
@@ -1180,7 +1464,57 @@ bool CGCApp::onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, v
 		portApp->setFuncHandle2((void*)fp2);
 		portApp->setFuncHandle3((void*)fp3);
 	}
-
+	return true;
+}
+bool CGCApp::onRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam, void* pUserData)
+{
+	const int nServerPort = pUserData==NULL?0:(int)pUserData;
+	//const int nServerPort = pUserData==NULL?0:(*(int*)pUserData);
+	CPortApp::pointer portApp = m_parsePortApps.getPortApp(nServerPort);
+	if (portApp.get() == NULL)
+	{
+		return true;	// *
+	}
+#ifdef USES_FUNC_HANDLE2
+	if (portApp->getModuleHandle() == NULL)
+	{
+		ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(portApp->getApp());
+		if (moduleItem.get() == NULL || moduleItem->getModuleHandle() == NULL)
+		{
+			return false;
+		}
+		portApp->setModuleHandle(moduleItem->getModuleHandle());
+	}
+#ifdef WIN32
+	FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)GetProcAddress((HMODULE)portApp->getModuleHandle(), "CGC_Rtp_Register_Source");
+#else
+	FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)dlsym(portApp->getModuleHandle(), "CGC_Rtp_Register_Source");
+#endif
+#else	// USES_FUNC_HANDLE2
+	setPortAppModuleHandle(portApp);
+//	if (portApp->getModuleHandle() == NULL)
+//	{
+//		ModuleItem::pointer moduleItem = m_parseModules.getModuleItem(portApp->getApp());
+//		if (moduleItem.get() == NULL || moduleItem->getModuleHandle() == NULL)
+//		{
+//			return false;
+//		}
+//		void * hModule = moduleItem->getModuleHandle();
+//		portApp->setModuleHandle(hModule);
+//
+//#ifdef WIN32
+//		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Source");
+//		FPCGC_Rtp_UnRegister_Source fp2 = (FPCGC_Rtp_UnRegister_Source)GetProcAddress((HMODULE)hModule, "CGC_Rtp_UnRegister_Source");
+//		FPCGC_Rtp_Register_Sink fp3 = (FPCGC_Rtp_Register_Sink)GetProcAddress((HMODULE)hModule, "CGC_Rtp_Register_Sink");
+//#else
+//		FPCGC_Rtp_Register_Source fp1 = (FPCGC_Rtp_Register_Source)dlsym(hModule, "CGC_Rtp_Register_Source");
+//		FPCGC_Rtp_UnRegister_Source fp2 = (FPCGC_Rtp_UnRegister_Source)dlsym(hModule, "CGC_Rtp_UnRegister_Source");
+//		FPCGC_Rtp_Register_Sink fp3 = (FPCGC_Rtp_Register_Sink)dlsym(hModule, "CGC_Rtp_Register_Sink");
+//#endif
+//		portApp->setFuncHandle1((void*)fp1);
+//		portApp->setFuncHandle2((void*)fp2);
+//		portApp->setFuncHandle3((void*)fp3);
+//	}
 	FPCGC_Rtp_Register_Source fp = (FPCGC_Rtp_Register_Source)portApp->getFuncHandle1();
 #endif
 	if (fp==NULL)
@@ -1220,6 +1554,7 @@ void CGCApp::onUnRegisterSource(bigint nRoomId, bigint nSourceId, bigint nParam,
 		FPCGC_Rtp_UnRegister_Source fp = (FPCGC_Rtp_UnRegister_Source)dlsym(portApp->getModuleHandle(), "CGC_Rtp_UnRegister_Source");
 #endif
 #else
+	setPortAppModuleHandle(portApp);
 	FPCGC_Rtp_UnRegister_Source fp = (FPCGC_Rtp_UnRegister_Source)portApp->getFuncHandle2();
 #endif
 	if (fp==NULL) return;
@@ -1257,6 +1592,7 @@ bool CGCApp::onRegisterSink(bigint nRoomId, bigint nSourceId, bigint nDestId, vo
 		FPCGC_Rtp_Register_Sink fp = (FPCGC_Rtp_Register_Sink)dlsym(portApp->getModuleHandle(), "CGC_Rtp_Register_Sink");
 #endif
 #else
+	setPortAppModuleHandle(portApp);
 	FPCGC_Rtp_Register_Sink fp = (FPCGC_Rtp_Register_Sink)portApp->getFuncHandle3();
 #endif
 	if (fp==NULL) return false;
@@ -1482,7 +1818,7 @@ inline std::string::size_type findPathOrExt(const tstring& pBuffer, std::string:
 #ifdef USES_MODULE_SERVICE_MANAGER
 void CGCApp::exitModule(const CModuleImpl* pFromModuleImpl)
 {
-	m_pFromCDBCList.removet(pFromModuleImpl,false);	// **true,退出会有异常
+	m_pFromServiceList.removet(pFromModuleImpl,false);	// **true,退出会有异常
 }
 cgcCDBCInfo::pointer CGCApp::getCDBDInfo(const CModuleImpl* pFromModuleImpl, const tstring& datasource) const
 #else
@@ -1502,7 +1838,7 @@ cgcCDBCService::pointer CGCApp::getCDBDService(const tstring& datasource)
 	if (m_cdbcServices.find(datasource, result))
 	{
 #ifdef USES_MODULE_SERVICE_MANAGER
-		m_pFromCDBCList.insert(result.get(),pFromModuleImpl,false);
+		m_pFromServiceList.insert(result.get(),pFromModuleImpl,false);
 #endif
 		return result;
 	}
@@ -1561,9 +1897,11 @@ cgcCDBCService::pointer CGCApp::getCDBDService(const tstring& datasource)
 			((CModuleImpl*)application.get())->SetCdbcDatasource(datasource);
 		}
 	}
-#ifdef USES_MODULE_SERVICE_MANAGER
-	m_pFromCDBCList.insert(result.get(),pFromModuleImpl,false);
-#endif
+	// ***不需要处理，在 getService() 已经保存；
+	//resultService->setOrgServiceName(dataSourceInfo->getCDBCService());
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//	m_pFromServiceList.insert(result.get(),pFromModuleImpl,false);
+//#endif
 
 	m_cdbcServices.insert(datasource, result);
 	return result;
@@ -1578,30 +1916,15 @@ void CGCApp::retCDBDService(cgcCDBCServicePointer& cdbcservice)
 	{
 		// *** 如何设计，断开超时没用连接
 #ifdef USES_MODULE_SERVICE_MANAGER
-		m_pFromCDBCList.remove(cdbcservice.get(),pFromModuleImpl,true);
-		//printf("**** m_pFromCDBCList.size=%d,(%s)sizek=%d\n",m_pFromCDBCList.size(),cdbcservice->get_datasource().c_str(),m_pFromCDBCList.sizek(cdbcservice.get()));
+		m_pFromServiceList.remove(cdbcservice.get(),pFromModuleImpl,true);
+		//printf("**** m_pFromServiceList.size=%d,(%s)sizek=%d\n",m_pFromServiceList.size(),cdbcservice->get_datasource().c_str(),m_pFromServiceList.sizek(cdbcservice.get()));
 		// 检查存在返回，不存在继续执行下面。
-		if (m_pFromCDBCList.exist(cdbcservice.get()))
+		if (m_pFromServiceList.exist(cdbcservice.get()))
 		{
-			//printf("**** m_pFromCDBCList (%s) exist\n",cdbcservice->get_datasource().c_str());
+			//printf("**** m_pFromServiceList (%s) exist\n",cdbcservice->get_datasource().c_str());
 			cdbcservice.reset();	// **
 			return;
 		}
-		//{
-		//	BoostReadLock rdlock(m_pFromCDBCList.mutex());
-		//	CLockMap<const CModuleImpl*,cgcCDBCService*>::iterator pIter = m_pFromCDBCList.begin();
-		//	for (; pIter!=m_pFromCDBCList.end(); pIter++)
-		//	{
-		//		const cgcCDBCService* pCDBCService = pIter->second;
-		//		if (pCDBCService==cdbcservice.get()) 
-		//		{
-		//			printf("**** m_pFromCDBCList (%s) exist\n",cdbcservice->get_datasource().c_str());
-		//			cdbcservice.reset();	// **
-		//			return;
-		//		}
-		//	}
-		//}
-		//printf("**** m_pFromCDBCList (%s) remove\n",cdbcservice->get_datasource().c_str());
 		m_cdbcServices.remove(cdbcservice->get_datasource());
 		resetService(pFromModuleImpl,cdbcservice);
 #else
@@ -1672,23 +1995,65 @@ cgcServiceInterface::pointer CGCApp::getService(const tstring & serviceName, con
 				resultService.reset();
 			}else
 			{
+				resultService->setOrgServiceName(serviceName);
 				m_mapServiceModule.insert(resultService, hModule);
+#ifdef USES_MODULE_SERVICE_MANAGER
+				m_pFromServiceList.insert(resultService.get(),pFromModuleImpl,false);
+#endif
 			}
 		}
 	}
 	return resultService;
 }
-#ifdef USES_MODULE_SERVICE_MANAGER
-void CGCApp::resetService(const CModuleImpl* pFromModuleImpl, const cgcServiceInterface::pointer & service)
-#else
-void CGCApp::resetService(const cgcServiceInterface::pointer & service)
-#endif
+
+void CGCApp::SendModuleResetService(const CModuleImpl* pSentToModuleImpl,const tstring& sServiceName)
 {
-	if (service.get() ==  NULL) return;
+	BOOST_ASSERT (pSentToModuleImpl != NULL);
+	//BOOST_ASSERT (service.get() != NULL);
 
-	void * hModule = NULL;
-	if (!m_mapServiceModule.find(service, hModule, false)) return;
+	// *** 暂时不支持CDBC组件更新。
+	//m_cdbcServices.insert(datasource, result);
 
+#ifdef USES_CMODULEMGR
+	CLockMap<void*, cgcApplication::pointer>::iterator iterApp;
+	for (iterApp=m_pModuleMgr.m_mapModuleImpl.begin(); iterApp!=m_pModuleMgr.m_mapModuleImpl.end(); iterApp++)
+#else
+	for (iterApp=m_mapOpenModules.begin(); iterApp!=m_mapOpenModules.end(); iterApp++)
+#endif
+	{
+		const CModuleImpl * pModuleImpl = (CModuleImpl*)iterApp->second.get();
+		if (pModuleImpl == pSentToModuleImpl)
+		{
+			void * hModule = pModuleImpl->getModuleItem()->getModuleHandle();
+			if (hModule==NULL) return;
+#ifdef WIN32
+			FPCGC_Module_ResetService farProc_ResetService = (FPCGC_Module_ResetService)GetProcAddress((HMODULE)hModule, "CGC_Module_ResetService");
+#else
+			FPCGC_Module_ResetService farProc_ResetService = (FPCGC_Module_ResetService)dlsym(hModule, "CGC_Module_ResetService");
+#endif
+			if (farProc_ResetService!=NULL)
+			{
+				try
+				{
+					farProc_ResetService(sServiceName);
+				}catch (const std::exception&)
+				{
+				}catch (...)
+				{
+				}
+			}
+
+			break;
+		}
+	}
+
+
+}
+
+void CGCApp::ResetService(void * hModule, const cgcServiceInterface::pointer & service)
+{
+	BOOST_ASSERT (hModule != NULL);
+	BOOST_ASSERT (service.get() != NULL);
 #ifdef WIN32
 	FPCGC_ResetService fp = (FPCGC_ResetService)GetProcAddress((HMODULE)hModule, "CGC_ResetService");
 #else
@@ -1708,6 +2073,41 @@ void CGCApp::resetService(const cgcServiceInterface::pointer & service)
 			m_logModuleImpl.log(LOG_ERROR, _T("resetService exception! serviceName=%s\n"), service->serviceName().c_str());
 		}
 	}
+}
+
+#ifdef USES_MODULE_SERVICE_MANAGER
+void CGCApp::resetService(const CModuleImpl* pFromModuleImpl, const cgcServiceInterface::pointer & service)
+#else
+void CGCApp::resetService(const cgcServiceInterface::pointer & service)
+#endif
+{
+	if (service.get() ==  NULL) return;
+
+	void * hModule = NULL;
+	if (!m_mapServiceModule.find(service, hModule, false)) return;
+#ifdef USES_MODULE_SERVICE_MANAGER
+	m_pFromServiceList.remove(service.get(), pFromModuleImpl,true);
+#endif
+	ResetService(hModule, service);
+//#ifdef WIN32
+//	FPCGC_ResetService fp = (FPCGC_ResetService)GetProcAddress((HMODULE)hModule, "CGC_ResetService");
+//#else
+//	FPCGC_ResetService fp = (FPCGC_ResetService)dlsym(hModule, "CGC_ResetService");
+//#endif
+//
+//	if (fp != NULL)
+//	{
+//		try
+//		{
+//			fp(service);
+//		}catch (std::exception const & e)
+//		{
+//			m_logModuleImpl.log(LOG_ERROR, _T("resetService exception! serviceName=%s: %s\n"), service->serviceName().c_str(), e.what());
+//		}catch (...)
+//		{
+//			m_logModuleImpl.log(LOG_ERROR, _T("resetService exception! serviceName=%s\n"), service->serviceName().c_str());
+//		}
+//	}
 	m_mapServiceModule.remove(service);
 }
 #ifdef USES_MODULE_SERVICE_MANAGER
@@ -2457,12 +2857,9 @@ void CGCApp::ProcCheckParserPool(void)
 		CheckHttpParserPool();
 	}
 }
-//#define USES_AUTO_UPDATE
 void CGCApp::ProcCheckAutoUpdate(void)
 {
-//#ifndef USES_AUTO_UPDATE
-//	return;	// *
-//#endif
+	if (m_bStopedApp) return;
 	if (m_pProcAutoUpdate.get()!=NULL)
 	{
 		// * processing auto update
@@ -2573,7 +2970,7 @@ int CGCApp::ProcCgcData(const unsigned char * recvData, size_t dataSize, const c
 		//printf("%s\n", recvData);
 		if (pcgcParser->hasSeq())
 		{
-			short seq = pcgcParser->getSeq();
+			const short seq = pcgcParser->getSeq();
 			if (pcgcParser->isAckProto())
 			{
 				if (pSessionImpl)
@@ -3067,7 +3464,8 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 
 		if (pRemoteSessionImpl == NULL || pModuleItem.get() == NULL)
 		{
-			m_logModuleImpl.log(LOG_ERROR, _T("invalidate session handle \'%s\'!\n"), sSessionId.c_str());
+			m_logModuleImpl.log(LOG_WARNING, _T("invalidate session handle \'%s\'!\n"), sSessionId.c_str());
+			//m_logModuleImpl.log(LOG_ERROR, _T("invalidate session handle \'%s\'!\n"), sSessionId.c_str());
 			retCode = -103;
 		}else if (pcgcParser->getProtoType()!=SOTP_PROTO_TYPE_SYNC && !pModuleItem->getAllowMethod(sCallName, methodName))
 		{
@@ -3361,6 +3759,7 @@ void CGCApp::InitLibModules(unsigned int mt)
 		{
 			continue;
 		}
+
 		try
 		{
 			if (InitLibModule(application, moduleItem))
@@ -3451,9 +3850,79 @@ void CGCApp::InitLibModules(unsigned int mt)
 	}
 }
 
-#define USES_TEMP_MODULE_FILE2
+void CGCApp::SetModuleHandler(void* hModule,const CModuleImpl::pointer& pModuleImpl)
+//void CGCApp::SetModuleHandler(void* hModule,const CModuleImpl::pointer& pModuleImpl,bool* pOutModuleUpdateKey)
+{
+	BOOST_ASSERT(hModule != NULL);
+	BOOST_ASSERT(pModuleImpl.get() != NULL);
+#ifdef USES_MODULE_SERVICE_MANAGER
+	cgcApplication::pointer moduleImpl = boost::static_pointer_cast<cgcApplication, CModuleImpl>(pModuleImpl);
+#else
+	cgcApplication::pointer moduleImpl(pModuleImpl);
+#endif
 
-bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcApplication::pointer& pUpdateFromApplication)
+#ifdef USES_CMODULEMGR
+	m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
+	//void* pOldModule = pModuleImpl->getModuleItem()->getModuleHandle();
+	//if (pOldModule!=NULL && pOldModule!=hModule && m_pModuleMgr.m_mapModuleImpl.exist(pOldModule,moduleImpl,true))
+	//{
+	//	//m_pModuleMgr.m_mapModuleImpl.updatek(pOldModule, hModule);
+	//	if (pOutModuleUpdateKey!=NULL)
+	//		*pOutModuleUpdateKey = true;
+	//}else
+	//	m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
+#else
+	m_mapOpenModules.insert(hModule, moduleImpl);
+#endif
+
+	{
+		//
+		// CGC_SetApplicationHandler
+		FPCGC_SetApplicationHandler fp = 0;
+#ifdef WIN32
+		fp = (FPCGC_SetApplicationHandler)GetProcAddress((HMODULE)hModule, "CGC_SetApplicationHandler");
+#else
+		fp = (FPCGC_SetApplicationHandler)dlsym(hModule, "CGC_SetApplicationHandler");
+#endif
+		if (fp)
+			fp(moduleImpl);
+	}
+
+	//
+	// CGC_SetSystemHandler
+	{
+		FPCGC_SetSystemHandler fp = 0;
+#ifdef WIN32
+		fp = (FPCGC_SetSystemHandler)GetProcAddress((HMODULE)hModule, "CGC_SetSystemHandler");
+#else
+		fp = (FPCGC_SetSystemHandler)dlsym(hModule, "CGC_SetSystemHandler");
+#endif
+		if (fp)
+			fp(shared_from_this());
+	}
+
+	// FPCGC_SetServiceManagerHandler
+	//if (!pModuleImpl->getModuleItem()->isServiceModule())
+	{
+#ifdef WIN32
+		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
+#else
+		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
+#endif
+		if (fp)
+		{
+#ifdef USES_MODULE_SERVICE_MANAGER
+			const cgcServiceManager::pointer pServiceManager = boost::static_pointer_cast<cgcServiceManager, CModuleImpl>(pModuleImpl);
+			fp(pServiceManager);
+#else
+			fp(shared_from_this());
+#endif
+		}
+	}
+	//pModuleImpl->getModuleItem()->setModuleHandle(hModule);
+}
+bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem)
+//bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcApplication::pointer& pUpdateFromApplication)
 {
 	if (moduleItem->getModuleHandle()!=NULL) return true;
 	std::string sTempFile;
@@ -3463,6 +3932,20 @@ bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcAp
 		tstring sModuleName(m_sModulePath);
 		sModuleName.append(_T("/modules/"));
 		sModuleName.append(moduleItem->getModule());
+		if (!FileIsExist(sModuleName.c_str()))
+		{
+			// 组件文件不存在，检查自动更新组件文件
+			const tstring sAutoUpdateModuleName = sModuleName+".autoupdate";
+			if (FileIsExist(sAutoUpdateModuleName.c_str()))
+			{
+				// 自动更新组件存在，重命名组件文件
+				boost::system::error_code ec;
+				namespace fs = boost::filesystem;
+				fs::path pathfrom(sAutoUpdateModuleName.string());
+				fs::path pathto1(sModuleName.string());
+				fs::rename(pathfrom,pathto1,ec);
+			}
+		}
 #ifdef USES_TEMP_MODULE_FILE2
 		if (!moduleItem->getName().empty() && moduleItem->getModule().find(moduleItem->getName())==std::string::npos)
 		{
@@ -3566,69 +4049,70 @@ bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem,const cgcAp
 #else
 	CModuleImpl * pModuleImpl = new CModuleImpl(moduleItem,this,this);
 #endif
-	if (pUpdateFromApplication.get()!=NULL)
-	{
-		pModuleImpl->setAttributes(pUpdateFromApplication->getAttributes());
-	}
+	//if (pUpdateFromApplication.get()!=NULL)
+	//{
+	//	pModuleImpl->setAttributes(pUpdateFromApplication->getAttributes());
+	//}
 	pModuleImpl->setModulePath(m_sModulePath);
 	pModuleImpl->loadSyncData(false);
 	pModuleImpl->m_sTempFile = sTempFile;
-#ifdef USES_MODULE_SERVICE_MANAGER
-	cgcApplication::pointer moduleImpl = boost::static_pointer_cast<cgcApplication, CModuleImpl>(pModuleImpl);
-#else
-	cgcApplication::pointer moduleImpl(pModuleImpl);
-#endif
-#ifdef USES_CMODULEMGR
-	m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
-#else
-	m_mapOpenModules.insert(hModule, moduleImpl);
-#endif
-
-	{
-		//
-		// CGC_SetApplicationHandler
-		FPCGC_SetApplicationHandler fp = 0;
-#ifdef WIN32
-		fp = (FPCGC_SetApplicationHandler)GetProcAddress((HMODULE)hModule, "CGC_SetApplicationHandler");
-#else
-		fp = (FPCGC_SetApplicationHandler)dlsym(hModule, "CGC_SetApplicationHandler");
-#endif
-		if (fp)
-			fp(moduleImpl);
-	}
-
-	//
-	// CGC_SetSystemHandler
-	{
-		FPCGC_SetSystemHandler fp = 0;
-#ifdef WIN32
-		fp = (FPCGC_SetSystemHandler)GetProcAddress((HMODULE)hModule, "CGC_SetSystemHandler");
-#else
-		fp = (FPCGC_SetSystemHandler)dlsym(hModule, "CGC_SetSystemHandler");
-#endif
-		if (fp)
-			fp(shared_from_this());
-	}
-
-	// FPCGC_SetServiceManagerHandler
-	//if (!pModuleImpl->getModuleItem()->isServiceModule())
-	{
-#ifdef WIN32
-		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
-#else
-		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
-#endif
-		if (fp)
-		{
-#ifdef USES_MODULE_SERVICE_MANAGER
-			const cgcServiceManager::pointer pServiceManager = boost::static_pointer_cast<cgcServiceManager, CModuleImpl>(pModuleImpl);
-			fp(pServiceManager);
-#else
-			fp(shared_from_this());
-#endif
-		}
-	}
-
+	SetModuleHandler(hModule, pModuleImpl);
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//	cgcApplication::pointer moduleImpl = boost::static_pointer_cast<cgcApplication, CModuleImpl>(pModuleImpl);
+//#else
+//	cgcApplication::pointer moduleImpl(pModuleImpl);
+//#endif
+//#ifdef USES_CMODULEMGR
+//	m_pModuleMgr.m_mapModuleImpl.insert(hModule, moduleImpl);
+//#else
+//	m_mapOpenModules.insert(hModule, moduleImpl);
+//#endif
+//
+//	{
+//		//
+//		// CGC_SetApplicationHandler
+//		FPCGC_SetApplicationHandler fp = 0;
+//#ifdef WIN32
+//		fp = (FPCGC_SetApplicationHandler)GetProcAddress((HMODULE)hModule, "CGC_SetApplicationHandler");
+//#else
+//		fp = (FPCGC_SetApplicationHandler)dlsym(hModule, "CGC_SetApplicationHandler");
+//#endif
+//		if (fp)
+//			fp(moduleImpl);
+//	}
+//
+//	//
+//	// CGC_SetSystemHandler
+//	{
+//		FPCGC_SetSystemHandler fp = 0;
+//#ifdef WIN32
+//		fp = (FPCGC_SetSystemHandler)GetProcAddress((HMODULE)hModule, "CGC_SetSystemHandler");
+//#else
+//		fp = (FPCGC_SetSystemHandler)dlsym(hModule, "CGC_SetSystemHandler");
+//#endif
+//		if (fp)
+//			fp(shared_from_this());
+//	}
+//
+//	// FPCGC_SetServiceManagerHandler
+//	//if (!pModuleImpl->getModuleItem()->isServiceModule())
+//	{
+//#ifdef WIN32
+//		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)GetProcAddress((HMODULE)hModule, "CGC_SetServiceManagerHandler");
+//#else
+//		FPCGC_SetServiceManagerHandler fp = (FPCGC_SetServiceManagerHandler)dlsym(hModule, "CGC_SetServiceManagerHandler");
+//#endif
+//		if (fp)
+//		{
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//			const cgcServiceManager::pointer pServiceManager = boost::static_pointer_cast<cgcServiceManager, CModuleImpl>(pModuleImpl);
+//			fp(pServiceManager);
+//#else
+//			fp(shared_from_this());
+//#endif
+//		}
+//	}
+//
 	moduleItem->setModuleHandle(hModule);
 	return true;
 }
@@ -3636,7 +4120,6 @@ void CGCApp::OpenLibrarys(void)
 {
 	//CLockMap<tstring, ModuleItem::pointer,DisableCompare<tstring> >::iterator iter;
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
-	const cgcApplication::pointer NullcgcApplication;
 	for (size_t i=0;i<m_parseModules.m_modules.size(); i++)
 	{
 		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
@@ -3648,7 +4131,7 @@ void CGCApp::OpenLibrarys(void)
 		//else if ((moduleItem->getProtocol() & MODULE_PROTOCOL_WEB_PROXY)==MODULE_PROTOCOL_WEB_PROXY)
 		//	continue;
 
-		OpenModuleLibrary(moduleItem, NullcgcApplication);
+		OpenModuleLibrary(moduleItem);
 //		std::string sTempFile;
 //		void * hModule = moduleItem->getModuleHandle();
 //		if (hModule == NULL)
@@ -3899,7 +4382,108 @@ void CGCApp::FreeLibrarys(void)
 #endif
 }
 
-bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const ModuleItem::pointer& moduleItem)
+bool CGCApp::InitLibModule(void* hModule, const cgcApplication::pointer& moduleImpl, Module_Init_Type nInitType)
+{
+	BOOST_ASSERT(hModule != 0);
+	BOOST_ASSERT(moduleImpl.get() != 0);
+
+#ifdef WIN32
+	cgcAttributes::pointer pOldAttributes = moduleImpl->getAttributes(false);
+	if (pOldAttributes.get()!=NULL && nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
+	{
+		// *** cgcAttributes.reset()
+		((CModuleImpl*)moduleImpl.get())->setAttributes(cgcNullAttributes);
+	}
+#endif
+	// CGC_Module_Init
+#ifdef WIN32
+	FPCGC_Module_Init2 farProc_Init2 = (FPCGC_Module_Init2)GetProcAddress((HMODULE)hModule, "CGC_Module_Init2");
+#else
+	FPCGC_Module_Init2 farProc_Init2 = (FPCGC_Module_Init2)dlsym(hModule, "CGC_Module_Init2");
+#endif
+#ifdef WIN32
+	FPCGC_Module_Init farProc_Init = farProc_Init2!=NULL?NULL:(FPCGC_Module_Init)GetProcAddress((HMODULE)hModule, "CGC_Module_Init");
+#else
+	FPCGC_Module_Init farProc_Init = farProc_Init2!=NULL?NULL:(FPCGC_Module_Init)dlsym(hModule, "CGC_Module_Init");
+#endif
+	if (farProc_Init2!=NULL || farProc_Init!=NULL)
+	{
+		bool ret = false;
+		try
+		{
+			if (farProc_Init2!=NULL)
+				ret = farProc_Init2(nInitType);
+			else
+				ret = farProc_Init();
+			static bool theCanRetry = true;
+			if (!ret && moduleImpl->getModuleType()==MODULE_APP && theCanRetry)
+			{
+				theCanRetry = false;
+				// CGC_Module_Free
+#ifdef WIN32
+				FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)GetProcAddress((HMODULE)hModule, "CGC_Module_Free2");
+				FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
+#else
+				FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)dlsym(hModule, "CGC_Module_Free2");
+				FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
+#endif
+				const int nMaxTryCount = (nInitType!=MODULE_INIT_TYPE_NORMAL)?3:(m_parseDefault.getRetryCount()==0?0x7fffffff:m_parseDefault.getRetryCount());
+				//printf("**** RetryCount=%d,%d\n",nMaxTryCount,m_parseDefault.getRetryCount());
+				//const int nMaxTryCount = m_parseDefault.getRetryCount()>10?10:m_parseDefault.getRetryCount();
+				for (int i=0;i<nMaxTryCount;i++)
+				{
+					m_logModuleImpl.log(LOG_INFO, _T("CGC_Module_Init '%s' retry %d...\n"), moduleImpl->getApplicationName().c_str(),i+1);
+					if (farProc_Free2!=NULL)
+						farProc_Free2(nInitType==MODULE_INIT_TYPE_NORMAL?MODULE_FREE_TYPE_NORMAL:MODULE_FREE_TYPE_AUTO_UPDATE);
+					else if (farProc_Free!=NULL)
+						farProc_Free();
+#ifdef WIN32
+					Sleep(3000);
+#else
+					sleep(3);
+#endif
+					if (farProc_Init2!=NULL)
+						ret = farProc_Init2(nInitType);
+					else
+						ret = farProc_Init();
+					if (ret || m_bStopedApp)
+					{
+						break;
+					}
+				}
+			}
+		}catch(std::exception const & e)
+		{
+			m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());
+		}catch(...){
+			m_logModuleImpl.log(LOG_ERROR, _T("0x%x\n"), GetLastError());
+		}
+		if (!ret)
+		{
+			m_logModuleImpl.log(LOG_ERROR, _T("CGC_Module_Init '%s' load failed\n"), moduleImpl->getApplicationName().c_str());
+			return false;
+		}
+	}
+
+//#ifdef WIN32
+//	if (pOldAttributes.get()!=NULL && nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
+//	{
+//		// 更换
+//		CModuleImpl * pModuleImpl = (CModuleImpl*)moduleImpl.get();
+//		printf("**** new AttributesImpl()...\n");
+//		FPCGC_Module_AutoUpdateData farProc_AutoUpdateData = (FPCGC_Module_AutoUpdateData)GetProcAddress((HMODULE)hModule, "CGC_Module_AutoUpdateData");
+//		if (farProc_AutoUpdateData!=NULL)
+//			farProc_AutoUpdateData(pOldAttributes);
+//
+//		////pModuleImpl->setAttributes(((AttributesImpl*)pAttributes.get())->copyNew());
+//		//AttributesImpl * pNewAttribute = new AttributesImpl();
+//		//pNewAttribute->operator = ((AttributesImpl*)pAttributes.get());
+//		//pModuleImpl->setAttributes(cgcAttributes::pointer(pNewAttribute));
+//	}
+//#endif
+	return true;
+}
+bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const ModuleItem::pointer& moduleItem, Module_Init_Type nInitType)
 {
 	BOOST_ASSERT(moduleImpl.get() != 0);
 	BOOST_ASSERT(moduleItem.get() != 0);
@@ -4000,75 +4584,77 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			pModuleImpl->m_moduleParams.load(xmlFile);
 		}
 
-		// CGC_Module_Init
-#ifdef WIN32
-		FPCGC_Module_Init2 farProc_Init2 = (FPCGC_Module_Init2)GetProcAddress((HMODULE)hModule, "CGC_Module_Init2");
-#else
-		FPCGC_Module_Init2 farProc_Init2 = (FPCGC_Module_Init2)dlsym(hModule, "CGC_Module_Init2");
-#endif
-#ifdef WIN32
-		FPCGC_Module_Init farProc_Init = farProc_Init2!=NULL?NULL:(FPCGC_Module_Init)GetProcAddress((HMODULE)hModule, "CGC_Module_Init");
-#else
-		FPCGC_Module_Init farProc_Init = farProc_Init2!=NULL?NULL:(FPCGC_Module_Init)dlsym(hModule, "CGC_Module_Init");
-#endif
-		if (farProc_Init2!=NULL || farProc_Init!=NULL)
-		{
-			bool ret = false;
-			try
-			{
-				if (farProc_Init2!=NULL)
-					ret = farProc_Init2(MODULE_INIT_TYPE_NORMAL);
-				else
-					ret = farProc_Init();
-				static bool theCanRetry = true;
-				if (!ret && moduleImpl->getModuleType()==MODULE_APP && theCanRetry)
-				{
-					theCanRetry = false;
-					// CGC_Module_Free
-#ifdef WIN32
-					FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)GetProcAddress((HMODULE)hModule, "CGC_Module_Free2");
-					FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
-#else
-					FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)dlsym(hModule, "CGC_Module_Free2");
-					FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
-#endif
-					const int nMaxTryCount = m_parseDefault.getRetryCount()==0?0x7fffffff:m_parseDefault.getRetryCount();
-					//printf("**** RetryCount=%d,%d\n",nMaxTryCount,m_parseDefault.getRetryCount());
-					//const int nMaxTryCount = m_parseDefault.getRetryCount()>10?10:m_parseDefault.getRetryCount();
-					for (int i=0;i<nMaxTryCount;i++)
-					{
-						m_logModuleImpl.log(LOG_INFO, _T("CGC_Module_Init '%s' retry %d...\n"), moduleItem->getName().c_str(),i+1);
-						if (farProc_Free2!=NULL)
-							farProc_Free2(MODULE_FREE_TYPE_NORMAL);
-						else if (farProc_Free!=NULL)
-							farProc_Free();
-#ifdef WIN32
-						Sleep(3000);
-#else
-						sleep(3);
-#endif
-						if (farProc_Init2!=NULL)
-							ret = farProc_Init2(MODULE_INIT_TYPE_NORMAL);
-						else
-							ret = farProc_Init();
-						if (ret || m_bStopedApp)
-						{
-							break;
-						}
-					}
-				}
-			}catch(std::exception const & e)
-			{
-				m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());
-			}catch(...){
-				m_logModuleImpl.log(LOG_ERROR, _T("0x%x\n"), GetLastError());
-			}
-			if (!ret)
-			{
-				m_logModuleImpl.log(LOG_ERROR, _T("CGC_Module_Init '%s' load failed\n"), moduleItem->getName().c_str());
-				return false;
-			}
-		}
+		if (!InitLibModule(hModule, moduleImpl, nInitType))
+			return false;
+//		// CGC_Module_Init
+//#ifdef WIN32
+//		FPCGC_Module_Init2 farProc_Init2 = (FPCGC_Module_Init2)GetProcAddress((HMODULE)hModule, "CGC_Module_Init2");
+//#else
+//		FPCGC_Module_Init2 farProc_Init2 = (FPCGC_Module_Init2)dlsym(hModule, "CGC_Module_Init2");
+//#endif
+//#ifdef WIN32
+//		FPCGC_Module_Init farProc_Init = farProc_Init2!=NULL?NULL:(FPCGC_Module_Init)GetProcAddress((HMODULE)hModule, "CGC_Module_Init");
+//#else
+//		FPCGC_Module_Init farProc_Init = farProc_Init2!=NULL?NULL:(FPCGC_Module_Init)dlsym(hModule, "CGC_Module_Init");
+//#endif
+//		if (farProc_Init2!=NULL || farProc_Init!=NULL)
+//		{
+//			bool ret = false;
+//			try
+//			{
+//				if (farProc_Init2!=NULL)
+//					ret = farProc_Init2(nInitType);
+//				else
+//					ret = farProc_Init();
+//				static bool theCanRetry = true;
+//				if (!ret && moduleImpl->getModuleType()==MODULE_APP && theCanRetry)
+//				{
+//					theCanRetry = false;
+//					// CGC_Module_Free
+//#ifdef WIN32
+//					FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)GetProcAddress((HMODULE)hModule, "CGC_Module_Free2");
+//					FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
+//#else
+//					FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)dlsym(hModule, "CGC_Module_Free2");
+//					FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
+//#endif
+//					const int nMaxTryCount = m_parseDefault.getRetryCount()==0?0x7fffffff:m_parseDefault.getRetryCount();
+//					//printf("**** RetryCount=%d,%d\n",nMaxTryCount,m_parseDefault.getRetryCount());
+//					//const int nMaxTryCount = m_parseDefault.getRetryCount()>10?10:m_parseDefault.getRetryCount();
+//					for (int i=0;i<nMaxTryCount;i++)
+//					{
+//						m_logModuleImpl.log(LOG_INFO, _T("CGC_Module_Init '%s' retry %d...\n"), moduleItem->getName().c_str(),i+1);
+//						if (farProc_Free2!=NULL)
+//							farProc_Free2(MODULE_FREE_TYPE_NORMAL);
+//						else if (farProc_Free!=NULL)
+//							farProc_Free();
+//#ifdef WIN32
+//						Sleep(3000);
+//#else
+//						sleep(3);
+//#endif
+//						if (farProc_Init2!=NULL)
+//							ret = farProc_Init2(nInitType);
+//						else
+//							ret = farProc_Init();
+//						if (ret || m_bStopedApp)
+//						{
+//							break;
+//						}
+//					}
+//				}
+//			}catch(std::exception const & e)
+//			{
+//				m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());
+//			}catch(...){
+//				m_logModuleImpl.log(LOG_ERROR, _T("0x%x\n"), GetLastError());
+//			}
+//			if (!ret)
+//			{
+//				m_logModuleImpl.log(LOG_ERROR, _T("CGC_Module_Init '%s' load failed\n"), moduleItem->getName().c_str());
+//				return false;
+//			}
+//		}
 	}
 
 #ifdef WIN32
@@ -4081,33 +4667,28 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 	moduleItem->setFpGetService((void*)fpGetService);
 	moduleItem->setFpResetService((void*)fpResetService);
 
-	if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && m_fpGetSotpClientHandler==NULL)
+	if (moduleItem->getProtocol()==MODULE_PROTOCOL_SOTP_CLIENT_SERVICE && (m_fpGetSotpClientHandler==NULL || nInitType==MODULE_INIT_TYPE_AUTO_UPDATE))
 	{
 #ifdef WIN32
-		FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
+		m_fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)GetProcAddress((HMODULE)hModule, theGetSotpClientHandlerApiName.c_str());
 #else
-		FPCGC_GetSotpClientHandler fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
+		m_fpGetSotpClientHandler = (FPCGC_GetSotpClientHandler)dlsym(hModule, theGetSotpClientHandlerApiName.c_str());
 #endif
-		//printf("**** m_fpGetSotpClientHandler=0x%x\n",(int)(void*)fpGetSotpClientHandler);
-		if (fpGetSotpClientHandler!=NULL)
-		{
-			m_fpGetSotpClientHandler = fpGetSotpClientHandler;
-			//moduleItem->m_pApiProcAddressList.insert(theGetSotpClientHandlerApiName,(void*)fpGetSotpClientHandler);
-		}
+		////printf("**** m_fpGetSotpClientHandler=0x%x\n",(int)(void*)fpGetSotpClientHandler);
+		//if (fpGetSotpClientHandler!=NULL)
+		//{
+		//	m_fpGetSotpClientHandler = fpGetSotpClientHandler;
+		//	//moduleItem->m_pApiProcAddressList.insert(theGetSotpClientHandlerApiName,(void*)fpGetSotpClientHandler);
+		//}
 	}
 
 	switch (moduleItem->getType())
 	{
 	case MODULE_LOG:
 		{
-			if (m_fpGetLogService == NULL)
+			if (m_fpGetLogService == NULL || nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
 			{
 				m_fpGetLogService = (FPCGC_GetService)moduleItem->getFpGetService();
-//#ifdef WIN32
-//				m_fpGetLogService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-//#else
-//				m_fpGetLogService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-//#endif
 				if (m_fpGetLogService != NULL)
 				{
 					// LogService owner
@@ -4122,14 +4703,9 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 				}
 			}
 
-			if (m_fpResetLogService == NULL)
+			if (m_fpResetLogService == NULL || nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
 			{
 				m_fpResetLogService = (FPCGC_ResetService)moduleItem->getFpResetService();
-//#ifdef WIN32
-//				m_fpResetLogService = (FPCGC_ResetService)GetProcAddress((HMODULE)hModule, "CGC_ResetService");
-//#else
-//				m_fpResetLogService = (FPCGC_ResetService)dlsym(hModule, "CGC_ResetService");
-//#endif
 			}
 		}break;
 	case MODULE_PARSER:
@@ -4137,26 +4713,16 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 			if (moduleItem->getProtocol() & PROTOCOL_HTTP)
 			{
 				// HTTP
-				if (m_fpParserHttpService == NULL)
+				if (m_fpParserHttpService == NULL || nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
 				{
 					m_fpParserHttpService = (FPCGC_GetService)moduleItem->getFpGetService();
-//#ifdef WIN32
-//					m_fpParserHttpService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-//#else
-//					m_fpParserHttpService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-//#endif
 				}
 			}else if (moduleItem->getProtocol() == PROTOCOL_SOTP)
 			{
 				// SOTP
-				if (m_fpParserSotpService == NULL)
+				if (m_fpParserSotpService == NULL || nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
 				{
 					m_fpParserSotpService = (FPCGC_GetService)moduleItem->getFpGetService();
-//#ifdef WIN32
-//					m_fpParserSotpService = (FPCGC_GetService)GetProcAddress((HMODULE)hModule, "CGC_GetService");
-//#else
-//					m_fpParserSotpService = (FPCGC_GetService)dlsym(hModule, "CGC_GetService");
-//#endif
 				}
 			}else
 			{
@@ -4165,6 +4731,8 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 		}break;
 	case MODULE_COMM:
 		{
+			if (nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
+				return false;	// ???COMM 通讯组件暂时不支持自动更新
 			if (moduleItem->getCommPort() > 0)
 			{
 #ifdef USES_MODULE_SERVICE_MANAGER
@@ -4213,7 +4781,7 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 				if (functionName.empty())
 					functionName = "doHttpServer";
 
-				if (m_fpHttpServer == NULL)
+				if (m_fpHttpServer == NULL || nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
 				{
 					m_sHttpServerName = moduleItem->getName();
 #ifdef WIN32
@@ -4245,7 +4813,21 @@ bool CGCApp::InitLibModule(const cgcApplication::pointer& moduleImpl, const Modu
 	default:
 		break;
 	}
-
+//#ifdef WIN32
+//	if (nInitType==MODULE_INIT_TYPE_AUTO_UPDATE)
+//	{
+//		// 更换
+//		cgcAttributes::pointer pAttributes = moduleImpl->getAttributes(false);
+//		if (pAttributes.get()!=NULL)
+//		{
+//			printf("**** new AttributesImpl()...\n");
+//			pModuleImpl->setAttributes(((AttributesImpl*)pAttributes.get())->copyNew());
+//			//AttributesImpl * pNewAttribute = new AttributesImpl();
+//			//pNewAttribute->operator = ((AttributesImpl*)pAttributes.get());
+//			//pModuleImpl->setAttributes(cgcAttributes::pointer(pNewAttribute));
+//		}
+//	}
+//#endif
 	return true;
 }
 
@@ -4269,7 +4851,7 @@ void CGCApp::FreeLibModules(unsigned int mt)
 		theFreeModuleTime = time(0);
 		try
 		{
-			FreeLibModule(application);
+			FreeLibModule(application,MODULE_FREE_TYPE_NORMAL);
 			m_logModuleImpl.log(LOG_INFO, _T("MODULE \'%s\' free succeeded\n"), application->getApplicationName().c_str());
 		}catch(const std::exception & e)
 		{
@@ -4283,7 +4865,34 @@ void CGCApp::FreeLibModules(unsigned int mt)
 	}
 }
 
-void CGCApp::FreeLibModule(const cgcApplication::pointer& moduleImpl)
+void CGCApp::FreeLibModule(void* hModule, Module_Free_Type nFreeType)
+{
+	BOOST_ASSERT (hModule != NULL);
+	// CGC_Module_Free
+#ifdef WIN32
+	FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)GetProcAddress((HMODULE)hModule, "CGC_Module_Free2");
+	FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
+#else
+	FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)dlsym(hModule, "CGC_Module_Free2");
+	FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
+#endif
+	//if (farProc_Free2!=NULL || farProc_Free!=NULL)
+	{
+		//m_logModuleImpl.log(LOG_DEBUG, _T("CGC_Module_Free '%s'\n"), moduleItem->getAppName().c_str());
+		try{
+			if (farProc_Free2!=NULL)
+				farProc_Free2(nFreeType);
+			else if (farProc_Free!=NULL)
+				farProc_Free();
+		}catch(std::exception const & e)
+		{
+			m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());
+		}catch(...){
+			m_logModuleImpl.log(LOG_ERROR, _T("0x%x\n"), GetLastError());
+		}
+	}
+}
+void CGCApp::FreeLibModule(const cgcApplication::pointer& moduleImpl, Module_Free_Type nFreeType)
 {
 	if (moduleImpl.get() == NULL) return;
 
@@ -4294,24 +4903,43 @@ void CGCApp::FreeLibModule(const cgcApplication::pointer& moduleImpl)
 	void * hModule = moduleItem->getModuleHandle();
 	if (hModule != NULL)
 	{
-		CLockMap<cgcServiceInterface::pointer, void*>::iterator iterService;
-		for (iterService=m_mapServiceModule.begin(); iterService!=m_mapServiceModule.end(); )
+		std::vector<cgcServiceInterface::pointer> pResetServiceList;
+		CLockMap<cgcServiceInterface::pointer, void*>::iterator iterService = m_mapServiceModule.begin();
+		for (; iterService!=m_mapServiceModule.end(); iterService++)
 		{
 			if (iterService->second == hModule)
 			{
-#ifdef USES_MODULE_SERVICE_MANAGER
-				this->resetService(NULL,iterService->first);
-#else
-				this->resetService(iterService->first);
-#endif
-				if (m_mapServiceModule.empty())
-					break;
-				iterService=m_mapServiceModule.begin();
-			}else
-			{
-				iterService++;
+				pResetServiceList.push_back(iterService->first);
 			}
 		}
+		for (size_t i=0; i<pResetServiceList.size(); i++)
+		{
+#ifdef USES_MODULE_SERVICE_MANAGER
+			this->resetService(NULL,pResetServiceList[i]);
+#else
+			this->resetService(pResetServiceList[i]);
+#endif
+		}
+		pResetServiceList.clear();
+
+//		CLockMap<cgcServiceInterface::pointer, void*>::iterator iterService = m_mapServiceModule.begin();
+//		for (; iterService!=m_mapServiceModule.end(); )
+//		{
+//			if (iterService->second == hModule)
+//			{
+//#ifdef USES_MODULE_SERVICE_MANAGER
+//				this->resetService(NULL,iterService->first);
+//#else
+//				this->resetService(iterService->first);
+//#endif
+//				if (m_mapServiceModule.empty())
+//					break;
+//				iterService=m_mapServiceModule.begin();
+//			}else
+//			{
+//				iterService++;
+//			}
+//		}
 
 		if (moduleImpl->getModuleType() == MODULE_LOG)
 		{
@@ -4327,41 +4955,44 @@ void CGCApp::FreeLibModule(const cgcApplication::pointer& moduleImpl)
 			pModuleImpl->setModuleState(-1);
 			pModuleImpl->SetInited(false);
 			
-			// CGC_Module_Free
-#ifdef WIN32
-			FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)GetProcAddress((HMODULE)hModule, "CGC_Module_Free2");
-			FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
-#else
-			FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)dlsym(hModule, "CGC_Module_Free2");
-			FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
-#endif
-			//if (farProc_Free2!=NULL || farProc_Free!=NULL)
-			{
-				//m_logModuleImpl.log(LOG_DEBUG, _T("CGC_Module_Free '%s'\n"), moduleItem->getAppName().c_str());
-				try{
-					if (farProc_Free2!=NULL)
-						farProc_Free2(MODULE_FREE_TYPE_NORMAL);
-					else if (farProc_Free!=NULL)
-						farProc_Free();
-				}catch(std::exception const & e)
-				{
-					m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());
-				}catch(...){
-					m_logModuleImpl.log(LOG_ERROR, _T("0x%x\n"), GetLastError());
-				}
-			}
+			FreeLibModule(hModule, nFreeType);
+//			// CGC_Module_Free
+//#ifdef WIN32
+//			FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)GetProcAddress((HMODULE)hModule, "CGC_Module_Free2");
+//			FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)GetProcAddress((HMODULE)hModule, "CGC_Module_Free");
+//#else
+//			FPCGC_Module_Free2 farProc_Free2 = (FPCGC_Module_Free2)dlsym(hModule, "CGC_Module_Free2");
+//			FPCGC_Module_Free farProc_Free = farProc_Free2!=NULL?NULL:(FPCGC_Module_Free)dlsym(hModule, "CGC_Module_Free");
+//#endif
+//			//if (farProc_Free2!=NULL || farProc_Free!=NULL)
+//			{
+//				//m_logModuleImpl.log(LOG_DEBUG, _T("CGC_Module_Free '%s'\n"), moduleItem->getAppName().c_str());
+//				try{
+//					if (farProc_Free2!=NULL)
+//						farProc_Free2(nFreeType);
+//					else if (farProc_Free!=NULL)
+//						farProc_Free();
+//				}catch(std::exception const & e)
+//				{
+//					m_logModuleImpl.log(LOG_ERROR, _T("%s, 0x%x\n"), e.what(), GetLastError());
+//				}catch(...){
+//					m_logModuleImpl.log(LOG_ERROR, _T("0x%x\n"), GetLastError());
+//				}
+//			}
 		}
 	}
-
 	if (m_fpResetLogService != NULL && moduleImpl->logService().get() != NULL)
 		m_fpResetLogService(moduleImpl->logService());
 
-	moduleImpl->KillAllTimer();
-	cgcAttributes::pointer attributes = moduleImpl->getAttributes();
-	if (attributes.get() != NULL)
+	if (nFreeType==MODULE_FREE_TYPE_NORMAL)
 	{
-		attributes->clearAllAtrributes();
-		attributes->cleanAllPropertys();
+		moduleImpl->KillAllTimer();
+		cgcAttributes::pointer attributes = moduleImpl->getAttributes();
+		if (attributes.get() != NULL)
+		{
+			attributes->clearAllAtrributes();
+			attributes->cleanAllPropertys();
+		}
 	}
 }
 

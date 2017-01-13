@@ -947,6 +947,8 @@ protected:
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->size()<2) return false;
 			const tstring sString = inParam->getVector()[0]->getStr();
 			const tstring sInterval = inParam->getVector()[1]->getStr();
+			//printf("*** sString=%s\n",sString.c_str());
+			//printf("*** sInterval=%s\n",sInterval.c_str());
 
 			cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
 			pOutParam->totype(cgcValueInfo::TYPE_VECTOR);
@@ -956,6 +958,7 @@ protected:
 			SplitString2List(sString.c_str(),sInterval.c_str(),pList);
 			for (size_t i=0;i<pList.size();i++)
 			{
+				//printf("*** %d=%s\n",i,pList[i].c_str());
 				pOutParam->addVector(CGC_VALUEINFO(pList[i]));
 			}
 		}else

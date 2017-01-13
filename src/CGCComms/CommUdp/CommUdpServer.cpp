@@ -501,7 +501,8 @@ private:
 	}
 };
 
-extern "C" bool CGC_API CGC_Module_Init(void)
+extern "C" bool CGC_API CGC_Module_Init2(MODULE_INIT_TYPE nInitType)
+//extern "C" bool CGC_API CGC_Module_Init(void)
 {
 #ifdef WIN32
 	WSADATA wsaData;
@@ -521,7 +522,8 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	return true;
 }
 
-extern "C" void CGC_API CGC_Module_Free(void)
+extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
+//extern "C" void CGC_API CGC_Module_Free(void)
 {
 	VoidObjectMapPointer mapLogServices = theAppAttributes->getVoidAttributes(ATTRIBUTE_NAME, false);
 	if (mapLogServices.get() != NULL)

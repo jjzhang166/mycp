@@ -169,6 +169,21 @@ public:
 		}
 		//m_fs.close();
 	}
+	virtual cgcObject::pointer copyNew(void) const
+	{
+		CResInfo::pointer result = CResInfo::create(m_sFileName,m_sMimeType);
+		result->m_tModifyTime = m_tModifyTime;
+		result->m_sModifyTime = m_sModifyTime;
+		result->m_sETag = m_sETag;
+		result->m_tRequestTime = m_tRequestTime;
+		result->m_nSize = m_nSize;
+		// ???
+		//result->m_pData = m_pData;
+		//result->m_nDataBufferSize = m_nDataBufferSize;
+		//result->m_pFile = m_pFile;
+		return result;
+	}
+
 	boost::mutex m_mutex;
 	std::string m_sFileName;
 	std::string m_sMimeType;
@@ -1189,6 +1204,41 @@ public:
 };
 //mycp::cgcApplication2::pointer theApplication2;
 
+extern "C" void CGC_API CGC_Module_ResetService(const tstring& sServiceName)
+{
+	// 重新启动，需要处理 
+	if (sServiceName=="FileSystemService")
+	{
+		cgcServiceInterface::pointer pService = theServiceManager->getService(sServiceName);
+		if (pService.get()!=NULL)
+			theFileSystemService = pService;	// ?
+	}
+
+	//printf("**** HttpServer CGC_Module_ResetService()\n");
+	theAppAttributes->delProperty((int)OBJECT_APP);
+	
+	const CLockMap<tstring, CAppInfo::pointer>& pAppList = theApps->getApps();
+	CLockMap<tstring, CAppInfo::pointer>::const_iterator pIter = pAppList.begin();
+	for (; pIter!=pAppList.end(); pIter++)
+	{
+		CAppInfo::pointer pAppInfo = pIter->second;
+		if (pAppInfo->getAppName()==sServiceName)
+		{
+			const tstring sAppName = VTI_APP+pAppInfo->getAppId();
+			//printf("**** HttpServer CGC_Module_ResetService(), find %s, AppName=%s\n",sServiceName.c_str(),sAppName.c_str());
+			theVirtualHosts.delAllProperty(sAppName);
+		}
+	}
+
+	//std::vector<cgcValueInfo::pointer> pAppList;
+	//theAppAttributes->getProperty((int)OBJECT_APP, pAppList);
+	//for (size_t i=0; i<pAppList.size(); i++)
+	//{
+	//	// 
+
+	//}
+}
+
 const int const_one_hour_seconds = 60*60;
 const int const_one_day_seconds = 24*const_one_hour_seconds;
 const int const_memory_size = 50*1024*1024;		// max 50MB
@@ -1196,7 +1246,8 @@ const int const_memory_size = 50*1024*1024;		// max 50MB
 unsigned int theMaxSize = 120*1024*1024;		// max 120MB	// 50
 
 CLockMap<tstring,CContentTypeInfo::pointer> theContentTypeInfoList;
-extern "C" bool CGC_API CGC_Module_Init(void)
+extern "C" bool CGC_API CGC_Module_Init2(MODULE_INIT_TYPE nInitType)
+//extern "C" bool CGC_API CGC_Module_Init(void)
 {
 	theFileSystemService = theServiceManager->getService("FileSystemService");
 	if (theFileSystemService.get() == NULL)
@@ -1462,7 +1513,8 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	return true;
 }
 
-extern "C" void CGC_API CGC_Module_Free(void)
+extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
+//extern "C" void CGC_API CGC_Module_Free(void)
 {
 	theAppInitParameters.reset();
 	cgcAttributes::pointer attributes = theApplication->getAttributes();
@@ -1744,7 +1796,18 @@ inline bool GetFileMd5(FILE* f,mycp::bigint& pOutFileSize,tstring& pOutFileMd5)
 	delete[] lpszBuffer;
 	return true;
 }
-
+inline const tstring & replace(tstring & strSource, const tstring & strFind, const tstring &strReplace)
+{
+	std::string::size_type pos=0;
+	std::string::size_type findlen=strFind.size();
+	std::string::size_type replacelen=strReplace.size();
+	while ((pos=strSource.find(strFind, pos)) != std::string::npos)
+	{
+		strSource.replace(pos, findlen, strReplace);
+		pos += replacelen;
+	}
+	return strSource;
+}
 extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & request, const cgcHttpResponse::pointer& response)
 {
 	HTTP_STATUSCODE statusCode = STATUS_CODE_200;
@@ -1834,6 +1897,11 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	if (sModuleName.empty() || sFunctionName.empty())
 	{
 		sFileName = request->getRequestURI();
+		//printf("**** sFileName=%s\n",sFileName.c_str());
+		if (!request->isFrowardFrom())
+		{
+			mycp::replace_string(sFileName,"../","");
+		}
 		if (sFileName == "/")
 			sFileName.append(requestHost->getIndex());
 		else if (sFileName.substr(0,1) != "/")

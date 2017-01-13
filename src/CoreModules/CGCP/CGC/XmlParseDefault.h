@@ -109,6 +109,18 @@ public:
 	void setFunc(const tstring & v) {m_func = v;}
 	const tstring getFunc(void) const {return m_func;}	
 
+	bool resetByOldModuleHandle(void* pOldHandle)
+	{
+		if (m_hModule==pOldHandle)
+		{
+			m_hModule = NULL;
+			m_hFunc1 = NULL;
+			m_hFunc2 = NULL;
+			m_hFunc3 = NULL;
+			return true;
+		}
+		return false;
+	}
 	void setModuleHandle(void * v) {m_hModule = v;}
 	void * getModuleHandle(void) const {return m_hModule;}
 	void setFuncHandle1(void * v) {m_hFunc1 = v;}
@@ -157,6 +169,15 @@ public:
 		CPortApp::pointer result;
 		m_portApps.find(port, result);
 		return result;
+	}
+	void resetByOldModuleHandle(void* pOldHandle)
+	{
+		BoostReadLock rdlock(m_portApps.mutex());
+		CLockMap<int, CPortApp::pointer>::iterator pIter = m_portApps.begin();
+		for (; pIter!=m_portApps.end(); pIter++)
+		{
+			pIter->second->resetByOldModuleHandle(pOldHandle);
+		}
 	}
 	void clear(void) {m_portApps.clear();}
 public:

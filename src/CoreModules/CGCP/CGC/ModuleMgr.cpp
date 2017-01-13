@@ -47,6 +47,7 @@ CModuleImpl::CModuleImpl(void)
 {
 	m_debugmsg1 = new char[MAX_LOG_SIZE+1];
 	m_debugmsg2 = new wchar_t[MAX_LOG_SIZE+1];
+	m_attributes = cgcAttributes::pointer(new AttributesImpl());
 }
 
 #ifdef USES_MODULE_SERVICE_MANAGER
@@ -78,6 +79,7 @@ CModuleImpl::~CModuleImpl(void)
 	StopModule();
 	delete[] m_debugmsg1;
 	delete[] m_debugmsg2;
+	m_attributes.reset();
 }
 
 void CModuleImpl::StopModule(void)

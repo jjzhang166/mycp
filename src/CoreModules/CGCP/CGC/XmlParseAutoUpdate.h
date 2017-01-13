@@ -84,7 +84,7 @@ private:
 	{
 		if (v.first.compare("module") == 0)
 		{
-			int disable = v.second.get("disable", 0);
+			const int disable = v.second.get("disable", 0);
 			if (disable == 1) return;
 
 			std::string file = v.second.get("file", "");
