@@ -72,11 +72,11 @@ public:
 			CLockMap<tstring, mycp::CCGCSotpClient::pointer>::iterator pIter=theModuleSotpClientList.begin();
 			for (;pIter!=theModuleSotpClientList.end();)
 			{
-				mycp::CCGCSotpClient::pointer pPOPSotpClient = pIter->second;
+				const mycp::CCGCSotpClient::pointer& pPOPSotpClient = pIter->second;
 				const time_t tSendRecvTime = pPOPSotpClient->sotp()->doGetLastSendRecvTime();
 				const unsigned int nSendReceiveTimeout = pPOPSotpClient->GetUserData();
 				//printf("**** OnCheckTimeout lasttime=%lld, timeout=%d\n",(bigint)tSendRecvTime,nSendReceiveTimeout);
-				if (tSendRecvTime > 0 && (tSendRecvTime+nSendReceiveTimeout)<tNow)
+				if (tSendRecvTime > 0 && (tSendRecvTime+(time_t)nSendReceiveTimeout)<tNow)
 				{
 					// 已经通过 XX 秒没有数据，清空该sotp client
 					//printf("**** OnCheckTimeout clear um client\n");

@@ -205,7 +205,7 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 	CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
 	for (;pIter!=m_pSessionModuleList.end(); pIter++)
 	{
-		CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
+		const CSessionModuleInfo::pointer& pSessionModuleInfo = pIter->second;
 		OnRunCGC_Remote_Close(pSessionModuleInfo,nRemoteId,nErrorCode);
 
 //#ifdef USES_HTTP_REMOTE_CLOSE
@@ -223,14 +223,12 @@ void CSessionImpl::OnRunCGC_Remote_Close(unsigned long nRemoteId, int nErrorCode
 }
 void CSessionImpl::OnRunCGC_Remote_Change(const cgcRemote::pointer& pcgcRemote)
 {
+	BoostReadLock rdlock(m_pSessionModuleList.mutex());
+	CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
+	for (;pIter!=m_pSessionModuleList.end(); pIter++)
 	{
-		BoostReadLock rdlock(m_pSessionModuleList.mutex());
-		CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
-		for (;pIter!=m_pSessionModuleList.end(); pIter++)
-		{
-			CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
-			OnRunCGC_Remote_Change(pSessionModuleInfo,pcgcRemote);
-		}
+		const CSessionModuleInfo::pointer& pSessionModuleInfo = pIter->second;
+		OnRunCGC_Remote_Change(pSessionModuleInfo,pcgcRemote);
 	}
 }
 
@@ -241,7 +239,7 @@ void CSessionImpl::OnRunCGC_Remote_Change(const CSessionModuleInfo::pointer& pSe
 	if (pSessionModuleInfo->m_bOpenSessioned)
 	{
 		//pSessionModuleInfo->m_bOpenSessioned = false;
-		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+		const ModuleItem::pointer& pModuleItem = pSessionModuleInfo->m_pModuleItem;
 #ifdef USES_FUNC_HANDLE2
 		void * hModule = pModuleItem->getModuleHandle();
 		if (hModule == NULL) return;
@@ -294,7 +292,7 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 //#endif
 //		}
 		//printf("**** OnRunCGC_Remote_Close remove modulete_remoteid=%d\n",nRemoteId);
-		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+		const ModuleItem::pointer& pModuleItem = pSessionModuleInfo->m_pModuleItem;
 #ifdef USES_FUNC_HANDLE2
 		void * hModule = pModuleItem->getModuleHandle();
 		if (hModule == NULL) return;
@@ -322,16 +320,25 @@ void CSessionImpl::OnRunCGC_Remote_Close(const CSessionModuleInfo::pointer& pSes
 void CSessionImpl::OnRunCGC_Session_Close(void)
 {
 	// call CGC_Session_Close
+	try
 	{
-		BoostReadLock rdlock(m_pSessionModuleList.mutex());
-		CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
-		for (;pIter!=m_pSessionModuleList.end(); pIter++)
+		//BoostReadLock rdlock(m_pSessionModuleList.mutex());
+		//CLockMap<tstring,CSessionModuleInfo::pointer>::const_iterator pIter=m_pSessionModuleList.begin();
+		//for (;pIter!=m_pSessionModuleList.end(); pIter++)
+		BoostWriteLock wtlock(m_pSessionModuleList.mutex());
+		CLockMap<tstring,CSessionModuleInfo::pointer>::iterator pIter = m_pSessionModuleList.begin();
+		for (;pIter!=m_pSessionModuleList.end(); )
 		{
-			CSessionModuleInfo::pointer pSessionModuleInfo = pIter->second;
+			const CSessionModuleInfo::pointer& pSessionModuleInfo = pIter->second;
 			OnRunCGC_Session_Close(pSessionModuleInfo);
+			m_pSessionModuleList.erase(pIter++);
 		}
+	}catch (std::exception const &)
+	{
+	}catch(...)
+	{
 	}
-	m_pSessionModuleList.clear(false);
+	//m_pSessionModuleList.clear(false);
 	m_pHoldResponseList.clear();
 }
 void CSessionImpl::OnRunCGC_Session_Close(const CSessionModuleInfo::pointer& pSessionModuleInfo)
@@ -339,7 +346,7 @@ void CSessionImpl::OnRunCGC_Session_Close(const CSessionModuleInfo::pointer& pSe
 	if (pSessionModuleInfo->m_bOpenSessioned)
 	{
 		pSessionModuleInfo->m_bOpenSessioned = false;
-		ModuleItem::pointer pModuleItem = pSessionModuleInfo->m_pModuleItem;
+		const ModuleItem::pointer& pModuleItem = pSessionModuleInfo->m_pModuleItem;
 #ifdef USES_FUNC_HANDLE2
 		void * hModule = pModuleItem->getModuleHandle();
 		if (hModule == NULL) return;
@@ -392,29 +399,20 @@ void CSessionImpl::ProcHoldResponseTimeout(void)
 	//			pIter = m_pHoldResponseList.begin();
 	//	}
 	//}
-	//std::vector<unsigned long> pRemoveList;
+	BoostWriteLock wtlock(m_pHoldResponseList.mutex());
+	CLockMap<unsigned long,CHoldResponseInfo::pointer>::iterator pIter = m_pHoldResponseList.begin();
+	for (; pIter!=m_pHoldResponseList.end(); )
 	{
-		BoostWriteLock wtlock(m_pHoldResponseList.mutex());
-		//BoostReadLock rdlock(m_pHoldResponseList.mutex());
-		CLockMap<unsigned long,CHoldResponseInfo::pointer>::iterator pIter = m_pHoldResponseList.begin();
-		for (; pIter!=m_pHoldResponseList.end(); )
+		const CHoldResponseInfo::pointer& pHoldResponse = pIter->second;
+		if (pHoldResponse->IsExpireHold())
 		{
-			CHoldResponseInfo::pointer pHoldResponse = pIter->second;
-			if (pHoldResponse->IsExpireHold())
-			{
-				// 已经过期
-				m_pHoldResponseList.erase(pIter++);
-				//pRemoveList.push_back(pIter->first);
-			}else
-			{
-				pIter++;
-			}
+			// 已经过期
+			m_pHoldResponseList.erase(pIter++);
+		}else
+		{
+			pIter++;
 		}
 	}
-	//for (size_t i=0;i<pRemoveList.size();i++)
-	//{
-	//	m_pHoldResponseList.remove(pRemoveList[i]);
-	//}
 }
 
 void CSessionImpl::HoldResponse(const cgcResponse::pointer& pResponse, int nHoldSecond)
@@ -730,7 +728,7 @@ void CSessionImpl::delPrevDatathread(bool bJoin)
 	m_pProcPrevData.reset();
 	if (pProcPrevDataTemp.get()!=NULL)
 	{
-		if (bJoin)
+		if (bJoin && pProcPrevDataTemp->joinable())
 			pProcPrevDataTemp->join();
 		pProcPrevDataTemp.reset();
 	}
@@ -818,7 +816,7 @@ bool CSessionImpl::ProcessDataResend(void)
 	for (; pIter!=m_mapSeqInfo.end();pIter++)
 #endif
 	{
-		cgcSeqInfo::pointer pCidInfo = pIter->second;
+		const cgcSeqInfo::pointer& pCidInfo = pIter->second;
 		if (pCidInfo->isTimeout(0))
 		{
 			if (pCidInfo->canResendAgain() && !m_pcgcRemote->isInvalidate())
@@ -988,15 +986,17 @@ cgcSession::pointer CSessionMgr::SetSessionImpl(const ModuleItem::pointer& pModu
 {
 	cgcSession::pointer result;
 	if (pcgcRemote->isInvalidate()) return result;
-	unsigned long nRemoteId = pcgcRemote->getRemoteId();
+	const unsigned long nRemoteId = pcgcRemote->getRemoteId();
  
-	result = GetSessionImplByRemote(nRemoteId);
-	if (result.get() == NULL)
+	//result = GetSessionImplByRemote(nRemoteId);
+	//if (result.get() == NULL)
+	if (!m_mapRemoteSessionId.find(nRemoteId, result))
 	{
 		result = SESSIONIMPL(pModuleItem,pcgcRemote, pcgcParser);
 		// 记录二个MAP 表
 		m_mapSessionImpl.insert(result->getId(), result);
-		m_mapRemoteSessionId.insert(nRemoteId, result->getId());
+		m_mapRemoteSessionId.insert(nRemoteId, result);
+		//m_mapRemoteSessionId.insert(nRemoteId, result->getId());
 	}else
 	{
 		((CSessionImpl*)result.get())->setDataResponseImpl(pModuleItem->getName(),pcgcRemote, pcgcParser);
@@ -1027,18 +1027,18 @@ cgcSession::pointer CSessionMgr::GetSessionImplByRemote(unsigned long remoteId)
 			break;
 	}
 #else
-	// 先remoteid map查sessionid
-	tstring sessionid = _T("");
-	if (!m_mapRemoteSessionId.find(remoteId, sessionid, false))
-		return result;
-
-	// pRemoteIdIter->second: sessionid
-	result = GetSessionImpl(sessionid);
-	if (result.get() == NULL)
-	{
-		// 该remoteid 项已经无效
-		m_mapRemoteSessionId.remove(remoteId);
-	}
+	m_mapRemoteSessionId.find(remoteId, result);
+	//// 先remoteid map查sessionid
+	//tstring sessionid = _T("");
+	//if (!m_mapRemoteSessionId.find(remoteId, sessionid, false))
+	//	return result;
+	//// pRemoteIdIter->second: sessionid
+	//result = GetSessionImpl(sessionid);
+	//if (result.get() == NULL)
+	//{
+	//	// 该remoteid 项已经无效
+	//	m_mapRemoteSessionId.remove(remoteId);
+	//}
 #endif
 	return result;
 }
@@ -1049,6 +1049,17 @@ cgcSession::pointer CSessionMgr::GetSessionImpl(const tstring & sSessionId) cons
 	m_mapSessionImpl.find(sSessionId, result);
 	return result;
 }
+cgcSession::pointer CSessionMgr::GetSessionImpl(const tstring & sSessionId, unsigned long pNewRemoteId)
+{
+	cgcSession::pointer result;
+	if (m_mapSessionImpl.find(sSessionId, result) && pNewRemoteId>0)
+	{
+		m_mapRemoteSessionId.insert(pNewRemoteId,result,true);
+	}
+	return result;
+
+}
+
 //void CSessionMgr::ChangeSessionId(const tstring& sOldSessionId,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser)
 //{
 //	cgcSession::pointer pSession;
@@ -1063,21 +1074,25 @@ cgcSession::pointer CSessionMgr::GetSessionImpl(const tstring & sSessionId) cons
 //		m_mapRemoteSessionId.insert(wssRemote->getRemoteId(),sNewSessionId);
 //	}
 //}
-void CSessionMgr::SetRemoteSession(unsigned long remoteId,const tstring& sSessionId)
+void CSessionMgr::SetRemoteSession(unsigned long remoteId,const cgcSession::pointer& pSession)
+//void CSessionMgr::SetRemoteSession(unsigned long remoteId,const tstring& sSessionId)
 {
 //#ifndef USES_MULTI_REMOTE_SESSION
 //	m_mapRemoteSessionId.remove(remoteId);
 //#endif
-	m_mapRemoteSessionId.insert(remoteId, sSessionId);
+	if (remoteId>0 && pSession.get()!=NULL)
+		m_mapRemoteSessionId.insert(remoteId, pSession);
+	//m_mapRemoteSessionId.insert(remoteId, sSessionId);
 }
 
-void CSessionMgr::RemoveSessionImpl(const cgcSession::pointer & sessionImpl)
+void CSessionMgr::RemoveSessionImpl(const cgcSession::pointer & sessionImpl, bool bRemoveSessionIdMap)
 {
 	assert (sessionImpl.get() != NULL);
 	// delete remoteid map
 	m_mapRemoteSessionId.remove(sessionImpl->getRemoteId());
 	// delete sessionid map
-	m_mapSessionImpl.remove(sessionImpl->getId());
+	if (bRemoveSessionIdMap)
+		m_mapSessionImpl.remove(sessionImpl->getId());
 }
 
 //void CSessionMgr::setInterval(unsigned long remoteId, int interval)
@@ -1112,17 +1127,23 @@ void CSessionMgr::onRemoteClose(unsigned long remoteId, int nErrorCode)
 		}
 	}
 #else
-	cgcSession::pointer pSessionImpl = GetSessionImplByRemote(remoteId);
-	if (pSessionImpl.get() != NULL)
+	cgcSession::pointer pSessionImpl;
+	if (m_mapRemoteSessionId.find(remoteId, pSessionImpl, true))
 	{
-		//printf("**** onRemoteClose: Session '%s'\n", pSessionImpl->getId().c_str());
 		((CSessionImpl*)pSessionImpl.get())->onRemoteClose(remoteId,nErrorCode);
-		//if (pSessionImpl->isInvalidate())
-		//{
-		//	this->RemoveSessionImpl(pSessionImpl);
-		//}
 	}
-	m_mapRemoteSessionId.remove(remoteId);
+
+	//cgcSession::pointer pSessionImpl = GetSessionImplByRemote(remoteId);
+	//if (pSessionImpl.get() != NULL)
+	//{
+	//	//printf("**** onRemoteClose: Session '%s'\n", pSessionImpl->getId().c_str());
+	//	((CSessionImpl*)pSessionImpl.get())->onRemoteClose(remoteId,nErrorCode);
+	//	//if (pSessionImpl->isInvalidate())
+	//	//{
+	//	//	this->RemoveSessionImpl(pSessionImpl);
+	//	//}
+	//}
+	//m_mapRemoteSessionId.remove(remoteId);
 #endif
 }
 
@@ -1130,34 +1151,38 @@ void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidLis
 {
 	// lock
 	const time_t now = time(0);
-	//cgcSession::pointer pSessionImplTimeout;
 	std::vector<cgcSession::pointer> pRemoveList;
 	{
 		//printf("**** m_mapSessionImpl.size()=%d, m_mapRemoteSessionId.size()=%d\n",(int)m_mapSessionImpl.size(),(int)m_mapRemoteSessionId.size());
-		BoostReadLock rdlock(m_mapSessionImpl.mutex());
-		CLockMap<tstring, cgcSession::pointer>::iterator pIter;
-		for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
+		BoostWriteLock wtlock(m_mapSessionImpl.mutex());
+		//BoostReadLock rdlock(m_mapSessionImpl.mutex());
+		CLockMap<tstring, cgcSession::pointer>::iterator pIter = m_mapSessionImpl.begin();
+		for (; pIter!=m_mapSessionImpl.end(); )
 		{
 			const cgcSession::pointer& pSessionImpl = pIter->second;
 			((CSessionImpl*)pSessionImpl.get())->ProcHoldResponseTimeout();	// 处理超时hold response
-			// local time error
-			if (now < pSessionImpl->getLastAccessedtime())
-				continue;
+			//// local time error
+			//if (now < pSessionImpl->getLastAccessedtime())
+			//{
+			//	pIter++;
+			//	continue;
+			//}
 			const time_t timeout = now - pSessionImpl->getLastAccessedtime();
-
 			// SESSION 已经失效
 			if (timeout > pSessionImpl->getMaxInactiveInterval()*60)
 			{
 				pRemoveList.push_back(pSessionImpl);
-				//pSessionImplTimeout =  pSessionImpl;
-				//break;
+				m_mapSessionImpl.erase(pIter++);
+			}else
+			{
+				pIter++;
 			}
 		}
 	}
 	for (size_t i=0; i<pRemoveList.size(); i++)
 	{
 		pOutCloseSidList.push_back(pRemoveList[i]->getId());
-		OnSessionClosedTimeout(pRemoveList[i]);
+		OnSessionClosedTimeout(pRemoveList[i], false);
 	}
 	pRemoveList.clear();
 	//if (pSessionImplTimeout.get() != NULL)
@@ -1167,12 +1192,34 @@ void CSessionMgr::ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidLis
 	//}
 }
 
+void CSessionMgr::ProcInvalidRemoteIdList(void)
+{
+	// 每小时处理一次，清空没有用数据
+	const time_t now = time(0);
+	BoostWriteLock wtlock(m_mapRemoteSessionId.mutex());
+	CLockMap<unsigned long, cgcSession::pointer>::iterator pIter = m_mapRemoteSessionId.begin();
+	for (; pIter!=m_mapRemoteSessionId.end(); )
+	{
+		const cgcSession::pointer& pSessionImpl = pIter->second;
+		const time_t timeout = now - pSessionImpl->getLastAccessedtime();
+		// SESSION 已经失效
+		if (timeout > (pSessionImpl->getMaxInactiveInterval()+30)*60)	// 比正常增加30分钟
+		//if ((pSessionImpl->getLastAccessedtime()+40*60)<now && !m_mapSessionImpl.exist(pSessionImpl->getId()))
+		{
+			m_mapRemoteSessionId.erase(pIter++);
+		}else
+		{
+			pIter++;
+		}
+	}
+}
+
 void CSessionMgr::invalidates(bool bStop)
 {
 	CLockMap<tstring, cgcSession::pointer>::iterator pIter;
 	for (pIter=m_mapSessionImpl.begin(); pIter!=m_mapSessionImpl.end(); pIter++)
 	{
-		cgcSession::pointer pSessionImpl = pIter->second;
+		const cgcSession::pointer& pSessionImpl = pIter->second;
 		if (bStop)
 		{
 			cgcResponse::pointer responseImpl = pSessionImpl->getLastResponse("");
@@ -1201,13 +1248,13 @@ void CSessionMgr::FreeHandle(void)
 	m_mapRemoteSessionId.clear();
 }
 
-int CSessionMgr::OnSessionClosedTimeout(const cgcSession::pointer & sessionImpl)
+int CSessionMgr::OnSessionClosedTimeout(const cgcSession::pointer & sessionImpl, bool bRemoveSessionIdMap)
 {
 	assert (sessionImpl.get() != NULL);
 	try
 	{
 		sessionImpl->invalidate();
-		RemoveSessionImpl(sessionImpl);
+		RemoveSessionImpl(sessionImpl, bRemoveSessionIdMap);
 	}catch (const std::exception &)
 	{
 	}catch (...)

@@ -160,7 +160,7 @@ protected:
 			std::list<tstring>::iterator iter;
 			for (iter=m_listString.begin(); iter!=m_listString.end(); iter++)
 			{
-				const tstring sPath(*iter);
+				const tstring& sPath = *iter;
 				tstring sValue(v.second.get(sPath.c_str(), ""));
 				theAppAttributes->setProperty((tstring)buffer, CGC_VALUEINFO(sValue));
 			}

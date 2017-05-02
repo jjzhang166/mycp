@@ -19,7 +19,7 @@
 #define USES_SQLITECDBC		1		// [0,1]
 
 #ifdef WIN32
-#pragma warning(disable:4267 4311)
+#pragma warning(disable:4819 4267 4311)
 #include <winsock2.h>
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -60,75 +60,132 @@ using namespace mycp;
 #endif // WIN32
 mycp::cgcApplication2::pointer theApplication2;
 
+//#define USES_STMT
+
 class CCDBCResultSet
+	//: public cgcObject
 {
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
+	CCDBCResultSet::pointer copyNew(void) const
+	{
+		CCDBCResultSet::pointer result = CCDBCResultSet::pointer(new CCDBCResultSet((char**)NULL,m_rows,m_fields));
+		result->m_pColsName = this->m_pColsName;
+		CLockMap<mycp::bigint, cgcValueInfo::pointer>::const_iterator pIter = m_pResults.begin();
+		for (; pIter!=m_pResults.end(); pIter++)
+		{
+			result->m_pResults.insert(pIter->first, pIter->second, NULL, NULL, false);
+			//cgcValueInfo::pointer pResult = pIter->second->copy();
+			//result->m_pResults.insert(pIter->first, pResult, NULL, NULL, false);
+		}
+		return result;
+	}
+	void BuildAllRecords(void)
+	{
+		cols_name();
+		cgcValueInfo::pointer record = first();
+		while (record.get()!=NULL)
+		{
+			record = next();
+		}
+		m_currentIndex = 0;
+	}
+	//void SetCacheTime(time_t t) {m_tCacheTime = t;}
+	bool IsCreateTimeout(int nCacehMinutes) const {return (m_tCreateTime+nCacehMinutes*60)<time(0)?true:false;}
+	void SetMemoryTimeout(time_t t) {m_tMemoryTimeout = t;}
+	bool IsMemoryTimeout(time_t tNow) {return (m_tMemoryTimeout>0 && m_tMemoryTimeout<tNow)?true:false;}
+
 	mycp::bigint size(void) const {return m_rows;}
 	int cols(void) const {return (int)m_fields;}
-
-	mycp::bigint index(void) const
-	{
-		return m_currentIndex;
-	}
+	mycp::bigint index(void) const {return m_currentIndex;}
 	cgcValueInfo::pointer cols_name(void) const
 	{
-		if (m_resultset == NULL || m_rows == 0 || m_fields==0) return cgcNullValueInfo;
-		std::vector<cgcValueInfo::pointer> record;
-		try
+		if (m_rows == 0 || m_fields==0) return cgcNullValueInfo;
+		if (m_pColsName.get()==NULL)
 		{
-			const mycp::bigint offset = 0;
-			for (int i=0 ; i<m_fields; i++ )
+#ifdef USES_STMT
+			if (m_resultset == NULL && m_pstmt==NULL) return cgcNullValueInfo;
+#else
+			if (m_resultset == NULL) return cgcNullValueInfo;
+#endif
+			std::vector<cgcValueInfo::pointer> record;
+			try
 			{
-				tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
-				const std::string::size_type find = s.find(".");
-				if (find!=std::string::npos)
-					s = s.substr(find+1);
-				record.push_back(CGC_VALUEINFO(s));
+				const mycp::bigint offset = 0;
+				for (int i=0 ; i<m_fields; i++ )
+				{
+#ifdef USES_STMT
+					const char * sColumnName = m_pstmt!=NULL?sqlite3_column_name(m_pstmt,i) : m_resultset[offset+i];
+					tstring s(sColumnName==NULL?"":sColumnName);
+#else
+					tstring s(m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
+#endif
+					const std::string::size_type find = s.find(".");
+					if (find!=std::string::npos)
+						s = s.substr(find+1);
+					record.push_back(CGC_VALUEINFO(s));
+				}
+			}catch(...)
+			{
+				// ...
 			}
-		}catch(...)
-		{
-			// ...
+			const_cast<CCDBCResultSet*>(this)->m_pColsName = CGC_VALUEINFO(record);
 		}
-		return CGC_VALUEINFO(record);
+		return m_pColsName;
 	}
 	cgcValueInfo::pointer index(mycp::bigint moveIndex)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (moveIndex < 0 || (moveIndex+1) > m_rows) return cgcNullValueInfo;
 		m_currentIndex = moveIndex;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer first(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		m_currentIndex = 0;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer next(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (m_currentIndex+1 == m_rows) return cgcNullValueInfo;
 		++m_currentIndex;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer previous(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (m_currentIndex == 0) return cgcNullValueInfo;
 		--m_currentIndex;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer last(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		m_currentIndex = m_rows - 1;
 		return getCurrentRecord();
 	}
 	void reset(void)
 	{
-		if (m_resultset != 0)
+#ifdef USES_STMT
+		if (m_pstmt!=NULL)
+		{
+			try
+			{
+				sqlite3_finalize( m_pstmt );
+			}catch(...)
+			{}
+			m_pstmt = NULL;
+		}
+#endif
+		if (m_resultset != NULL)
 		{
 			try
 			{
@@ -137,46 +194,107 @@ public:
 			{}
 			m_resultset = NULL;
 		}
-		m_rows = 0;
+		//m_rows = 0;
+		//m_fields = 0;
+		//m_pColsName.reset();
+		//m_pResults.clear();
 	}
 
-	CCDBCResultSet(char** resultset, mycp::bigint rows, short fields)
-		: m_resultset(resultset), m_rows(rows), m_fields(fields)
+#ifdef USES_STMT
+	CCDBCResultSet(sqlite3_stmt *pstmt,mycp::bigint rows, short fields)
+		: m_resultset(NULL), m_pstmt(pstmt), m_rows(rows), m_fields(fields)
+		, m_tMemoryTimeout(0)//, m_tCacheTime(0)
 	{
+		m_tCreateTime = time(0);
+	}
+#endif
+	CCDBCResultSet(char** resultset, mycp::bigint rows, short fields)
+		: m_resultset(resultset)
+#ifdef USES_STMT
+		, m_pstmt(NULL)
+#endif
+		, m_rows(rows), m_fields(fields)
+		, m_tMemoryTimeout(0)//, m_tCacheTime(0)
+	{
+		m_tCreateTime = time(0);
 	}
 	virtual ~CCDBCResultSet(void)
 	{
 		reset();
+		m_rows = 0;
+		m_fields = 0;
+		m_pColsName.reset();
+		m_pResults.clear();
 	}
 
 protected:
 	cgcValueInfo::pointer getCurrentRecord(void) const
 	{
-		assert (m_resultset != NULL);
-		assert (m_currentIndex >= 0 && m_currentIndex < m_rows);
-
-		std::vector<cgcValueInfo::pointer> record;
-		try
+		cgcValueInfo::pointer result;
+		if (!m_pResults.find(m_currentIndex,result))
 		{
-			const mycp::bigint offset = (m_currentIndex+1)*m_fields;	// +1 is column head info
-			for (int i=0 ; i<m_fields; i++ )
+#ifdef USES_STMT
+			if (m_resultset == NULL && m_pstmt==NULL) return cgcNullValueInfo;
+#else
+			if (m_resultset == NULL) return cgcNullValueInfo;
+#endif
+			assert (m_currentIndex >= 0 && m_currentIndex < m_rows);
+			std::vector<cgcValueInfo::pointer> record;
+			try
 			{
-				const tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
-				record.push_back(CGC_VALUEINFO(s));
-			}
-		}catch(...)
-		{
-			// ...
-		}
+#ifdef USES_STMT
+				if (m_pstmt!=NULL)
+				{
+					for (int row=0; row<(int)m_rows; row++)
+					{
+						const int ret = sqlite3_step(m_pstmt);
+						if ( ret != SQLITE_ROW ) break;
 
-		return CGC_VALUEINFO(record);
+						std::vector<cgcValueInfo::pointer> record;
+						for (int i=0; i<m_fields; i++)
+						{
+							const char * sColumnText = (const char*)sqlite3_column_text(m_pstmt, i);
+							CGC_LOG((mycp::LOG_INFO, "**** row %d, ColumnText %d=%s\n", row,i,sColumnText));
+							record.push_back(CGC_VALUEINFO((const char*)(sColumnText==NULL?"":sColumnText)));
+						}
+						cgcValueInfo::pointer p = CGC_VALUEINFO(record);
+						result = CGC_VALUEINFO(record);
+						const_cast<CCDBCResultSet*>(this)->m_pResults.insert(row,p);
+						if (row==m_currentIndex)
+							result = p;
+					}
+				}else
+#endif
+				{
+					const mycp::bigint offset = (m_currentIndex+1)*m_fields;	// +1 because 0 is column head name
+					for (int i=0 ; i<m_fields; i++ )
+					{
+						const tstring s( m_resultset[offset+i]==NULL ? "" : (const char*)m_resultset[offset+i]);
+						record.push_back(CGC_VALUEINFO(s));
+					}
+				}
+			}catch(...)
+			{
+				// ...
+			}
+			result = CGC_VALUEINFO(record);
+			const_cast<CCDBCResultSet*>(this)->m_pResults.insert(m_currentIndex,result);
+		}
+		return result;
 	}
 
 private:
 	char** m_resultset;
+#ifdef USES_STMT
+	sqlite3_stmt *m_pstmt;
+#endif
 	mycp::bigint	m_rows;
 	short		m_fields;
 	mycp::bigint	m_currentIndex;
+	cgcValueInfo::pointer m_pColsName;
+	CLockMap<mycp::bigint, cgcValueInfo::pointer> m_pResults;
+	time_t m_tMemoryTimeout;
+	time_t m_tCreateTime;
 };
 
 #define CDBC_RESULTSET(r,row,field) CCDBCResultSet::pointer(new CCDBCResultSet(r,row,field))
@@ -226,6 +344,44 @@ public:
 		m_cdbcInfo.reset();
 		m_bServiceInited = false;
 	}
+	
+	void CheckMemoryResultsTimeout(void)
+	{
+		{
+			const time_t tNow = time(0);
+			BoostWriteLock wtlock(m_pMemorySqlResults.mutex());
+			CLockMap<tstring, CCDBCResultSet::pointer>::iterator pIter = m_pMemorySqlResults.begin();
+			for (; pIter!=m_pMemorySqlResults.end(); )
+			{
+				const CCDBCResultSet::pointer& pResultSet = pIter->second;
+				if (pResultSet->IsMemoryTimeout(tNow))
+				{
+					//CGC_LOG((mycp::LOG_INFO, "**** erase data\n"));
+					m_pMemorySqlResults.erase(pIter++);
+				}else
+					pIter++;
+			}
+		}
+		// 
+		static unsigned int theIndex = 0;
+		theIndex++;
+		if ((theIndex%60)==59)	// 10分钟判断一次	
+		{
+			BoostWriteLock wtlock(m_results.mutex());
+			CLockMap<int, CCDBCResultSet::pointer>::iterator pIter = m_results.begin();
+			for (; pIter!=m_results.end(); )
+			{
+				const CCDBCResultSet::pointer& pResultSet = pIter->second;
+				if (pResultSet->IsCreateTimeout(30))	// *** 30分钟
+				{
+					m_results.erase(pIter++);
+				}else
+					pIter++;
+			}
+		}
+
+	}
+
 private:
 	virtual tstring serviceName(void) const {return _T("SQLITECDBC");}
 
@@ -333,6 +489,7 @@ private:
 		{
 		}
 		m_results.clear();
+		m_pMemorySqlResults.clear();
 	}
 	virtual bool isopen(void) const
 	{
@@ -455,10 +612,21 @@ private:
 		return ret;
 	}
 
-	virtual mycp::bigint select(const char * selectSql, int& outCookie)
+	virtual mycp::bigint select(const char * selectSql, int& outCookie, int nCacheMinutes)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
+
+		const tstring sSqlString(selectSql);
+		CCDBCResultSet::pointer pSqlResultSetTemp;
+		if (nCacheMinutes>0 && m_pMemorySqlResults.find(sSqlString,pSqlResultSetTemp) && !pSqlResultSetTemp->IsCreateTimeout(nCacheMinutes))
+		{
+			//CGC_LOG((mycp::LOG_INFO, "**** %s, Get Exist Data\n", sSqlString.c_str()));
+			CCDBCResultSet::pointer pSqlResultSetNew = pSqlResultSetTemp->copyNew();
+			outCookie = (int)pSqlResultSetNew.get();
+			m_results.insert(outCookie, pSqlResultSetNew);
+			return pSqlResultSetNew->size();
+		}
 
 		mycp::bigint rows = 0;
 		try
@@ -472,6 +640,62 @@ private:
 				else
 					break;
 			}
+			//sqlite3_stmt *pstmt = 0;
+			//int rettemp = sqlite3_prepare_v2(m_pSqlite, selectSql, -1, &pstmt, NULL);
+			//CGC_LOG((mycp::LOG_INFO, "**** sqlite3_prepare=%d,(%s)\n", rettemp,selectSql));
+			//if (rettemp==SQLITE_OK)
+			//{
+			//	rows = (mycp::bigint)sqlite3_data_count(pstmt);
+			//	const int ncolumn = sqlite3_column_count(pstmt);
+			//	CGC_LOG((mycp::LOG_INFO, "**** nrow=%lld,nColumnCount=%d\n", rows,ncolumn));
+
+			//	//if (pstmt != NULL && rows>0 && ncolumn>0)
+			//	//{
+			//	//	outCookie = (int)pstmt;
+			//	//	CCDBCResultSet::pointer pSqlResultSet = CDBC_RESULTSET(pstmt, rows, (short)ncolumn);
+			//	//	m_results.insert(outCookie, pSqlResultSet);
+			//	//	if (nCacheMinutes>0)
+			//	//		//if (nCacheMinutes>0 && pSqlResultSetTemp.get()==NULL)
+			//	//	{
+			//	//		pSqlResultSet->BuildAllRecords();
+			//	//		const time_t tNow = time(0);
+			//	//		//pSqlResultSet->SetCacheTime(tNow);
+			//	//		pSqlResultSet->SetMemoryTimeout(tNow+nCacheMinutes*60);
+			//	//		m_pMemorySqlResults.insert(sSqlString,pSqlResultSet);
+			//	//	}
+			//	//}else
+			//	//{
+			//	//	rows = 0;
+			//	//	sqlite3_finalize(pstmt);
+			//	//}
+
+			//	//for (int i=0; i<nColumnCount; i++)
+			//	//{
+			//	//	const char * sColumnName = sqlite3_column_name(pstmt,i);
+			//	//	CGC_LOG((mycp::LOG_INFO, "**** ColumnName %d=%s\n", i,sColumnName));
+			//	//}
+
+			//	//int nRow = 0;
+			//	//while (nRow<nDataCount)
+			//	//{
+			//	//	rettemp = sqlite3_step(pstmt);
+			//	//	if( rettemp != SQLITE_ROW ) break;
+
+			//	//	for (int i=0; i<nColumnCount; i++)
+			//	//	{
+			//	//		const char * sColumnText = (const char*)sqlite3_column_text(pstmt, i);
+			//	//		CGC_LOG((mycp::LOG_INFO, "**** row %d, ColumnText %d=%s\n", i,sColumnText));
+			//	//	}
+			//	//	nRow++;
+			//	//	//void * value = sqlite3_column_blob(pstmt, 1);
+			//	//	//int len = sqlite3_column_bytes(pstmt,1 );
+			//	//}
+			//	//sqlite3_finalize(pstmt);
+			////}else
+			////{
+			////	CGC_LOG((mycp::LOG_WARNING, "Can't select SQL: (%s); %d=%s\n", selectSql,rettemp,sqlite3_errmsg(m_pSqlite)));
+			////	return -1;
+			//}
 
 			int nrow = 0, ncolumn = 0;  
 			char *zErrMsg = 0;
@@ -492,8 +716,18 @@ private:
 			if (azResult != NULL && nrow>0 && ncolumn>0)
 			{
 				outCookie = (int)azResult;
-				m_results.insert(outCookie, CDBC_RESULTSET(azResult, nrow, ncolumn));
+				CCDBCResultSet::pointer pSqlResultSet = CDBC_RESULTSET(azResult, nrow, ncolumn);
+				m_results.insert(outCookie, pSqlResultSet);
 				rows = nrow;
+				if (nCacheMinutes>0)
+				//if (nCacheMinutes>0 && pSqlResultSetTemp.get()==NULL)
+				{
+					pSqlResultSet->BuildAllRecords();
+					const time_t tNow = time(0);
+					//pSqlResultSet->SetCacheTime(tNow);
+					pSqlResultSet->SetMemoryTimeout(tNow+nCacheMinutes*60);
+					m_pMemorySqlResults.insert(sSqlString,pSqlResultSet);
+				}
 			}else
 			{
 				rows = 0;
@@ -722,7 +956,8 @@ private:
 	boost::mutex m_mutex;
 
 	time_t m_tLastTime;
-	CLockMap<int, CCDBCResultSet::pointer> m_results;
+	CLockMap<int, CCDBCResultSet::pointer> m_results;			// cookie->
+	CLockMap<tstring, CCDBCResultSet::pointer> m_pMemorySqlResults;	// sql->
 	cgcCDBCInfo::pointer m_cdbcInfo;
 	tstring m_sAppConfPath;
 };
@@ -731,20 +966,70 @@ const int ATTRIBUTE_NAME = 1;
 cgcAttributes::pointer theAppAttributes;
 tstring theAppConfPath;
 
+const unsigned int TIMER_CHECK_ONE_SECOND = 1;	// 1秒钟检查一次
+unsigned int theSecondIndex = 0;
+
+void CheckMemoryResourcesTimeout(void)
+{
+	if (theAppAttributes.get()==NULL) return;
+	VoidObjectMapPointer mapLogServices = theAppAttributes->getVoidAttributes(ATTRIBUTE_NAME, false);
+	if (mapLogServices.get() != NULL)
+	{
+		BoostReadLock rdlock(mapLogServices->mutex());
+		CObjectMap<void*>::iterator iter = mapLogServices->begin();
+		for (; iter!=mapLogServices->end(); iter++)
+		{
+			CSqliteCdbc::pointer service = CGC_OBJECT_CAST<CSqliteCdbc>(iter->second);
+			service->CheckMemoryResultsTimeout();
+		}
+	}
+}
+class CTimeHandler
+	: public cgcOnTimerHandler
+{
+public:
+	typedef boost::shared_ptr<CTimeHandler> pointer;
+	static CTimeHandler::pointer create(void)
+	{
+		return CTimeHandler::pointer(new CTimeHandler());
+	}
+	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
+	{
+		if (nIDEvent==TIMER_CHECK_ONE_SECOND)
+		{
+			theSecondIndex++;
+			if ((theSecondIndex%10)==9)	// 10秒处理一次
+			{
+				CheckMemoryResourcesTimeout();
+			}
+		}
+	}
+
+	CTimeHandler(void)
+	{
+	}
+};
+CTimeHandler::pointer theTimerHandler;
+
 // 模块初始化函数，可选实现函数
-extern "C" bool CGC_API CGC_Module_Init(void)
+extern "C" bool CGC_API CGC_Module_Init2(MODULE_INIT_TYPE nInitType)
+//extern "C" bool CGC_API CGC_Module_Init(void)
 {
 	theApplication2 = CGC_APPLICATION2_CAST(theApplication);
 	assert (theApplication2.get() != NULL);
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);
 
+	theTimerHandler = CTimeHandler::create();
+	theApplication->SetTimer(TIMER_CHECK_ONE_SECOND, 1000, theTimerHandler);	// 1秒检查一次
+
 	theAppConfPath = theApplication->getAppConfPath();
 	return true;
 }
 
 // 模块退出函数，可选实现函数
-extern "C" void CGC_API CGC_Module_Free(void)
+extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
+//extern "C" void CGC_API CGC_Module_Free(void)
 {
 	VoidObjectMapPointer mapLogServices = theAppAttributes->getVoidAttributes(ATTRIBUTE_NAME, false);
 	if (mapLogServices.get() != NULL)
@@ -760,7 +1045,10 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		}
 	}
 	theAppAttributes.reset();
+	if (nFreeType==MODULE_FREE_TYPE_NORMAL)
+		theApplication->KillAllTimer();
 	theApplication2.reset();
+	theTimerHandler.reset();
 }
 
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)

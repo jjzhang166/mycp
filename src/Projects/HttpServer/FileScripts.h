@@ -90,7 +90,7 @@ public:
 
 	}SCRIPTOBJECT_TYPE;
 
-	static bool sotpCompare(const char * pBuffer, const char * pCompare, int & leftIndex);
+	static bool sotpCompare(const char * pBuffer, const char * pCompare, int & leftIndex,bool bSupportEnterChar=true);
 
 private:
 	std::string m_fileName;
@@ -109,19 +109,22 @@ public:
 private:
 	bool parserCSPContent(const char * cspContent);
 
-	bool getCSPObject(const char * pLineBuffer, CScriptItem::pointer scriptItem, int & leftIndex, int scriptObjectType = TYPE_DEFAULT);
+	bool getCSPObject(const char * pLineBuffer, const CScriptItem::pointer& scriptItem, int & leftIndex, int scriptObjectType = TYPE_DEFAULT);
+	void getCSPScriptObject1(char * lpszBufferLine, int bufferSize, const CScriptItem::pointer& scriptItem);
+	void getCSPScriptObject2(char * lpszBufferLine, int bufferSize, const CScriptItem::pointer& scriptItem);
 
 	// <csp:equal
 	// <csp:greater
 	// ...
 	// <csp:else>
 	// <csp:end>
-	bool getCSPIF(const char * pLineBuffer, CScriptItem::pointer scriptItem, int & leftIndex, int scriptObjectType = TYPE_DEFAULT);
-	const char * parseOneLine(const char * pLineBuffer, CScriptItem::pointer scriptItem = NullScriptItem);
+	bool getCSPIF(const char * pLineBuffer, const CScriptItem::pointer& scriptItem, int & leftIndex, int scriptObjectType = TYPE_DEFAULT, bool bEndReturn=false);
+	bool isRootScriptItem(const CScriptItem::pointer& scriptItem) const;
+	const char * parseOneLine(const char * pLineBuffer, const CScriptItem::pointer& scriptItem = NullScriptItem, bool bEndReturn=false);
 
-	bool addMethodScriptItem(CScriptItem::pointer scriptItem, CScriptItem::ItemType scriptItemType, const std::string & sMethodParam, 
+	bool addMethodScriptItem(const CScriptItem::pointer& scriptItem, CScriptItem::ItemType scriptItemType, const std::string & sMethodParam, 
 		int needParamCount, bool popLastScript, const std::string & sValue = "");
-	void addScriptItem(std::vector<CScriptItem::pointer>& addTo, CScriptItem::pointer scriptItem) const;
+	void addScriptItem(std::vector<CScriptItem::pointer>& addTo, const CScriptItem::pointer& scriptItem) const;
 
 
 	// ' ','\t'

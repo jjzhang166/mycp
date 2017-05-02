@@ -331,7 +331,7 @@ private:
 			CLockMap<unsigned long, cgcRemote::pointer>::iterator pIter = m_mapCgcRemote.begin();
 			for (; pIter!=m_mapCgcRemote.end(); )
 			{
-				cgcRemote::pointer pCgcRemote = pIter->second;
+				const cgcRemote::pointer& pCgcRemote = pIter->second;
 				if (pCgcRemote->isInvalidate() ||
 					(((CcgcRemote*)pCgcRemote.get())->GetLastTime()+2*60)<this->m_tNowTime)	// 超过2分钟没有收到数据
 				{
@@ -356,7 +356,7 @@ private:
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
-		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)
+		if ((int)nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)
 		{
 			m_nDoCommEventCount++;
 			if ((m_nDoCommEventCount%500)==0)	// 5 second
@@ -401,7 +401,7 @@ private:
 		CCommEventData * pCommEventData = m_listMgr.front();
 		if (pCommEventData == NULL)
 		{
-			if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID+1)
+			if ((int)nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID+1)
 			{
 				m_pCommEventDataPool.Idle();
 			}

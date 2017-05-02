@@ -292,7 +292,7 @@ private:
 		return -1;
 	}
 
-	virtual mycp::bigint select(const char * selectSql, int& outCookie)
+	virtual mycp::bigint select(const char * selectSql, int& outCookie, int nCacheMinutes)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;

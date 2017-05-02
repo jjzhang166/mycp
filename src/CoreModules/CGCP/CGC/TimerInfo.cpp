@@ -41,7 +41,14 @@ TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTim
 
 TimerInfo::~TimerInfo(void)
 {
-	m_timerThread.reset();
+	if (m_timerThread.get()!=NULL)
+	{
+		if (m_bOneShot)
+		{
+			m_timerThread->detach();
+		}
+		m_timerThread.reset();
+	}
 	//if (m_timerThread.g != 0)
 	//	delete m_timerThread;
 }
@@ -66,6 +73,14 @@ void TimerInfo::do_timer(void)
 			{
 				pTimerInfo->doRunTimer();
 			}
+			else
+			{
+#ifdef WIN32
+				Sleep(2);
+#else
+				usleep(2000);
+#endif
+			}
 		}
 		pTimerInfo->doTimerExit();
 #else
@@ -74,6 +89,13 @@ void TimerInfo::do_timer(void)
 			if (getTimerState() == TimerInfo::TS_Running)
 			{
 				doRunTimer();
+			}else
+			{
+#ifdef WIN32
+				Sleep(2);
+#else
+				usleep(2000);
+#endif
 			}
 		}
 		doTimerExit();
@@ -93,10 +115,18 @@ void TimerInfo::do_timer(void)
 #ifdef USES_ONE_SHOT_NEWVERSION
 #ifdef USES_STATIC_DO_TIMER
 	if (pTimerInfo->getOneShot())
+	{
 		delete pTimerInfo;
+		pTimerInfo = NULL;
+	}
 #else	// USES_STATIC_DO_TIMER
 	if (m_bOneShot)
+	{
+		// *** 这种方式，也发生异常情况
+		//if (m_timerThread.get()!=NULL)
+		//	m_timerThread->detach();
 		delete this;
+	}
 #endif	// USES_STATIC_DO_TIMER
 #endif	// USES_ONE_SHOT_NEWVERSION
 }
@@ -104,7 +134,10 @@ void TimerInfo::do_timer(void)
 
 void TimerInfo::RunTimer(void)
 {
-	m_timerState = TS_Running;
+	if (getOneShot())
+		m_timerState = TS_Pause;
+	else
+		m_timerState = TS_Running;
 	ftime(&m_tLastRunTime);
 	if (m_timerThread.get() == NULL)
 	{
@@ -114,7 +147,12 @@ void TimerInfo::RunTimer(void)
 			attrs.set_stack_size(CGC_THREAD_STACK_MIN);
 			m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
 			if (getOneShot())
-				m_timerThread->detach();
+			{
+				// 在退出时再调用 detach
+				//if (m_timerThread.get()!=NULL)
+				//	m_timerThread->detach();
+				m_timerState = TS_Running;
+			}
 		}catch (const boost::exception &)
 		{
 			m_timerState = TS_Exit;
@@ -141,7 +179,7 @@ void TimerInfo::KillTimer(void)
 	m_timerThread.reset();
 	if (timerThreadTemp.get()!=NULL)
 	{
-		//if (!m_bOneShot)
+		if (timerThreadTemp->joinable())
 			timerThreadTemp->join();
 		timerThreadTemp.reset();
 	}
@@ -165,9 +203,9 @@ void TimerInfo::doRunTimer(void)
 	if (tNow.time < m_tLastRunTime.time + m_nElapse/1000)
 	{
 #ifdef WIN32
-		Sleep(100);
+		Sleep(200);
 #else
-		usleep(100000);
+		usleep(200000);
 #endif
 		return;
 	}
@@ -190,11 +228,11 @@ void TimerInfo::doRunTimer(void)
 	// OnTimer
 	if (m_timerHandler.get() != NULL)
 	{
-		boost::mutex::scoped_lock * lock = NULL;
+		//boost::mutex::scoped_lock * lock = NULL;
 		try
 		{
-			if (m_timerHandler->IsThreadSafe())
-				lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
+			//if (m_timerHandler->IsThreadSafe())
+			//	lock = new boost::mutex::scoped_lock(m_timerHandler->GetMutex());
 			if (!m_bOneShot)
 				ftime(&m_tLastRunTime);
 			m_timerHandler->OnTimeout(m_nIDEvent, m_pvParam);
@@ -209,8 +247,8 @@ void TimerInfo::doRunTimer(void)
 		{
 			printf("******* timeout exception.\n");
 		}
-		if (lock != NULL)
-			delete lock;
+		//if (lock != NULL)
+		//	delete lock;
 	}
 	if (m_bOneShot)
 	{
@@ -263,7 +301,8 @@ unsigned int TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, c
 	if (bOneShot)
 	{
 		TimerInfo * pTimerInfo = new TimerInfo(nIDEvent, nElapse, handler, bOneShot, pvParam);
-		pTimerInfo->RunTimer();
+		if (pTimerInfo!=NULL)
+			pTimerInfo->RunTimer();
 		return (unsigned int)pTimerInfo;
 	}
 #endif
@@ -272,6 +311,7 @@ unsigned int TimerTable::SetTimer(unsigned int nIDEvent, unsigned int nElapse, c
 	if (pTimerInfo == 0)
 	{
 		pTimerInfo = new TimerInfo(nIDEvent, nElapse, handler, bOneShot, pvParam);
+		if (pTimerInfo==NULL) return 0;
 		m_mapTimerInfo.insert(nIDEvent, pTimerInfo);
 	}else
 	{

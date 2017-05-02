@@ -177,6 +177,7 @@ void CGCApp::do_sessiontimeout(void)
 			{
 				ProcLastAccessedTime();
 			}
+			//if (((theSecondIndex)%30)==29)		// 30秒处理一次 for test
 			if (((theSecondIndex)%60)==59)		// 60秒处理一次
 			{
 				ProcCheckAutoUpdate();
@@ -227,9 +228,15 @@ void CGCApp::do_sessiontimeout(void)
 //			}
 
 			if ((theSecondIndex%3600)==3500)						// 一小时处理一次
+			{
 				CheckScriptExecute(SCRIPT_TYPE_HOURLY);
+				this->m_mgrSession1.ProcInvalidRemoteIdList();
+				this->m_mgrSession2.ProcInvalidRemoteIdList();
+			}
 			if (theSecondIndex%(3600*24)==(3600*23))				// 3600*24=60*24分钟=一天处理一次
+			{
 				CheckScriptExecute(SCRIPT_TYPE_DAILY);
+			}
 			if (theSecondIndex%(3600*24*7)==(3600*24*6))			// 每7天处理一次
 				CheckScriptExecute(SCRIPT_TYPE_WEEKLY);
 			if (theSecondIndex%(3600*24*30)==(3600*24*29))			// 每30天处理一次
@@ -462,7 +469,7 @@ void CGCApp::do_autoupdate(void)
 			cgcApplication::pointer application = iterApp->second;
 			if (application->getModuleType()==MODULE_COMM) continue;	// ??底层通讯组件，暂时不支持自动更新
 			CModuleImpl * pModuleImpl = (CModuleImpl*)application.get();
-			if (pModuleImpl->getModuleItem()->getModule()==newModuleItem->getModule())
+			if (pModuleImpl->getModuleItem()->getModule()==newModuleItem->getModule())	// file
 			{
 				pModuleItemList.push_back(application);
 			}
@@ -482,6 +489,7 @@ void CGCApp::do_autoupdate(void)
 
 			std::string sTempFile;
 			tstring sModuleName(sAutoUpdateModuleFile);	// 1=XXX or 2=XXX.autoupdate
+			//m_logModuleImpl.log(LOG_INFO, _T("**** sModuleName=%s\n"), sModuleName.c_str());
 #ifdef USES_TEMP_MODULE_FILE2
 			if (!pCurrentModuleItem->getName().empty() && pCurrentModuleItem->getModule().find(pCurrentModuleItem->getName())==std::string::npos)
 			{
@@ -491,14 +499,28 @@ void CGCApp::do_autoupdate(void)
 				char lpszBuffer[260];
 				sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),pCurrentModuleItem->getName().c_str());
 				sTempFile = lpszBuffer;
-				boosttpath pathFileTo(sTempFile);
-				boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+				//m_logModuleImpl.log(LOG_INFO, _T("**** sTempFile=%s\n"), sTempFile.c_str());
+				boosttpath pathFileTo1(sTempFile);
+				boost::system::error_code ec;
+				boost::filesystem::copy_file(pathFileFrom,pathFileTo1,fs::copy_option::overwrite_if_exists,ec);
+				if (ec)
+				{
+					sprintf(lpszBuffer,"%s.%s.autoupdate",sModuleName.c_str(),pCurrentModuleItem->getName().c_str());
+					sTempFile = lpszBuffer;
+					boosttpath pathFileTo2(sTempFile);
+					ec.clear();
+					boost::filesystem::copy_file(pathFileFrom,pathFileTo2,fs::copy_option::overwrite_if_exists,ec);
+					if (ec)
+					{
+						m_logModuleImpl.log(LOG_ERROR, _T("copy_file: %s!\n"), sTempFile.c_str());
+						continue;
+					}
+				}
 				m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
 				sModuleName = sTempFile;
 			}
 #endif
 			//m_logModuleImpl.log(LOG_INFO, _T("OpenLibrarys:%s\n"), sModuleName.c_str());
-			//printf("**** sModuleName=%s\n",sModuleName.c_str());
 #ifdef WIN32
 			void * hModule = LoadLibrary(sModuleName.c_str());
 #else
@@ -541,13 +563,16 @@ void CGCApp::do_autoupdate(void)
 						InitLibModule(pUpdateFromApplication, pCurrentModuleItem, MODULE_INIT_TYPE_AUTO_UPDATE);
 					}else
 					{
-#ifdef WIN32
+//#ifdef WIN32
 						if (pOldAttributes.get()!=NULL)
 						{
 							// 更换
 							//printf("**** new AttributesImpl()...\n");
+#ifdef WIN32
 							FPCGC_Module_AutoUpdateData farProc_AutoUpdateData = (FPCGC_Module_AutoUpdateData)GetProcAddress((HMODULE)hModule, "CGC_Module_AutoUpdateData");
-							//FPCGC_Module_AutoUpdateData farProc_AutoUpdateData = (FPCGC_Module_AutoUpdateData)dlsym(hModule, "CGC_Module_AutoUpdateData");
+#else
+							FPCGC_Module_AutoUpdateData farProc_AutoUpdateData = (FPCGC_Module_AutoUpdateData)dlsym(hModule, "CGC_Module_AutoUpdateData");
+#endif
 							if (farProc_AutoUpdateData!=NULL)
 							{
 								try
@@ -564,7 +589,7 @@ void CGCApp::do_autoupdate(void)
 							pOldAttributes->cleanAllPropertys();
 							pOldAttributes.reset();
 						}
-#endif
+//#endif
 					}
 				}
 			}
@@ -593,13 +618,14 @@ void CGCApp::do_autoupdate(void)
 				continue;
 			}
 			// 成功，切换到新的组件
-			// c 切换到新的组件，停止旧的 ModuleItem::pointer，调用 CGC_Module_Free2 （不要清空 m_attributes 数据）
+			// c 切换到新的组件，停止旧的 ModuleItem::pointer，调用 CGC_Module_Free2 （~~不要清空 m_attributes 数据）（**可以清空）
 			bUpdateOk = true;
 			pCurrentModuleItem->setModuleHandle(hModule);
 			m_logModuleImpl.log(LOG_INFO, _T("%d, ModuleName=%s, AutoUpdate ok.\n"), j, pCurrentModuleItem->getName().c_str());
 			pOldAttributes.reset();
-			//printf("**** hModule=%x, pCurrentModuleHandle=%x\n",(int)hModule,(int)pCurrentModuleHandle);
+			//m_logModuleImpl.log(LOG_INFO, "**** hModule=%x, pCurrentModuleHandle=%x\n",(int)hModule,(int)pCurrentModuleHandle);
 			// 删除旧的 modulehandle 对应数据
+			//pCurrentModuleHandle = NULL;	// for test
 			if (pCurrentModuleHandle!=NULL)
 			{
 				m_parsePortApps.resetByOldModuleHandle((void*)pCurrentModuleHandle);
@@ -814,7 +840,7 @@ void CGCApp::ProcLastAccessedTime(void)
 		CLockMap<int,CSotpRtpSession::pointer>::iterator pIter = m_pRtpSession.begin();
 		for (; pIter!=m_pRtpSession.end(); )
 		{
-			CSotpRtpSession::pointer pRtpSession = pIter->second;
+			const CSotpRtpSession::pointer& pRtpSession = pIter->second;
 			pRtpSession->CheckRegisterSourceLive(59, this, 0);
 			if (pRtpSession->IsRoomEmpty())
 			{
@@ -998,17 +1024,20 @@ void CGCApp::AppExit(void)
 
 	if (m_pProcSessionTimeout.get()!=NULL)
 	{
-		m_pProcSessionTimeout->join();
+		if (m_pProcSessionTimeout->joinable())
+			m_pProcSessionTimeout->join();
 		m_pProcSessionTimeout.reset();
 	}
 	if (m_pProcDataResend.get()!=NULL)
 	{
-		m_pProcDataResend->join();
+		if (m_pProcDataResend->joinable())
+			m_pProcDataResend->join();
 		m_pProcDataResend.reset();
 	}
 	if (m_pProcAutoUpdate.get()!=NULL)
 	{
-		m_pProcAutoUpdate->join();
+		if (m_pProcAutoUpdate->joinable())
+			m_pProcAutoUpdate->join();
 		m_pProcAutoUpdate.reset();
 	}
 
@@ -1138,7 +1167,8 @@ void CGCApp::CheckScriptExecute(int nScriptType)
 			namespace fs = boost::filesystem;
 			fs::path pathfrom(sUpdateScriptFile.string());
 			fs::path pathto(lpszBkFile);
-			fs::copy_file(pathfrom,pathto);
+			boost::system::error_code ec;
+			fs::copy_file(pathfrom,pathto,ec);
 			remove(sUpdateScriptFile.c_str());
 		}
 	}
@@ -1269,6 +1299,10 @@ int CGCApp::MyMain(int nWaitSeconds,bool bService, const std::string& sProtectDa
 		{
 			AppStop();
 			AppStart(0);
+		//}else if (command.compare(_T("update")) == 0)
+		//{
+		//	// *** for test
+		//	do_autoupdate();
 		}else
 		{
 			std::cout << "ERROR CMD: ";
@@ -2518,21 +2552,37 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 			currentMultiPart.reset();
 		}
 
+		bool bSetRemoveSession = false;
 		cgcSession::pointer sessionImpl;
 		if (phttpParser->isEmptyCookieMySessionId())
 		{
 			sessionImpl = m_mgrSession2.GetSessionImplByRemote(pcgcRemote->getRemoteId());
 			if (sessionImpl.get()!=NULL)
+			{
 				SetNewMySessionId(phttpParser,sessionImpl->getId());
-			else
+			}else
+			{
 				SetNewMySessionId(phttpParser);
+			}
 		}else
 		{
 			sessionImpl = m_mgrSession2.GetSessionImpl(phttpParser->getCookieMySessionId());
 			if (sessionImpl.get()==NULL)
 			{
-				printf("**** Can not find Session'%s',changed!\n", phttpParser->getCookieMySessionId().c_str());
-				SetNewMySessionId(phttpParser);
+				sessionImpl = m_mgrSession2.GetSessionImplByRemote(pcgcRemote->getRemoteId());
+				if (sessionImpl.get()!=NULL)
+				{
+					SetNewMySessionId(phttpParser,sessionImpl->getId());
+				}else
+				{
+					printf("**** Can not find Session'%s',changed!\n", phttpParser->getCookieMySessionId().c_str());
+					SetNewMySessionId(phttpParser);
+				}
+				//printf("**** Can not find Session'%s',changed!\n", phttpParser->getCookieMySessionId().c_str());
+				//SetNewMySessionId(phttpParser);
+			}else
+			{
+				bSetRemoveSession = true;
 			}
 		}
 
@@ -2560,8 +2610,11 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 		*/
 
 		CSessionImpl * pHttpSessionImpl = (CSessionImpl*)sessionImpl.get();
-		if (phttpParser->getStatusCode()==STATUS_CODE_200)
-			m_mgrSession2.SetRemoteSession(pcgcRemote->getRemoteId(),phttpParser->getCookieMySessionId()); 
+		if (phttpParser->getStatusCode()==STATUS_CODE_200 && bSetRemoveSession)
+		{
+			m_mgrSession2.SetRemoteSession(pcgcRemote->getRemoteId(),sessionImpl);
+			//m_mgrSession2.SetRemoteSession(pcgcRemote->getRemoteId(),phttpParser->getCookieMySessionId());
+		}
 
 		// ****解决IE多窗口COOKIE丢失问题
 		phttpParser->setHeader("P3P","CP=\"CAO PSA OUR\"");
@@ -2802,6 +2855,7 @@ HTTP_STATUSCODE CGCApp::ProcHttpData(const unsigned char * recvData, size_t data
 	//if (statusCode == STATUS_CODE_413)
 	//if (!requestImpl->isKeepAlive())
 	if (!phttpParser->isKeepAlive())
+	//if (!phttpParser->isKeepAlive() || (statusCode!=STATUS_CODE_200 && statusCode!=STATUS_CODE_206 && statusCode!=STATUS_CODE_100))
 	{
 		if (statusCode != STATUS_CODE_200)	// STATUS_CODE_413
 			pcgcRemote->invalidate(true);
@@ -3142,7 +3196,7 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 			}else
 			{
 				// delete sessionimpl
-				m_mgrSession1.RemoveSessionImpl(remoteSessionImpl);
+				m_mgrSession1.RemoveSessionImpl(remoteSessionImpl,true);
 				retCode = -105;
 			}
 		}
@@ -3152,10 +3206,11 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 		sSessionId = pcgcParser->getSid();
 		if (NULL == remoteSessionImpl.get())
 		{
-			remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId);
+			remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId);	// close session, 不需要记录，因为后面也会删除
+			//remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId, pcgcRemote->getRemoteId());
 			if (remoteSessionImpl.get()!=NULL)
 			{
-				m_mgrSession1.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
+				//m_mgrSession1.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
 				((CSessionImpl*)remoteSessionImpl.get())->setDataResponseImpl("",pcgcRemote);
 			}
 		}
@@ -3167,10 +3222,10 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 		sSessionId = pcgcParser->getSid();
 		if (NULL == remoteSessionImpl.get())
 		{
-			remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId);
+			remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId, pcgcRemote->getRemoteId());
 			if (remoteSessionImpl.get()!=NULL)
 			{
-				m_mgrSession1.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
+				//m_mgrSession1.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
 				((CSessionImpl*)remoteSessionImpl.get())->setDataResponseImpl("",pcgcRemote);
 				((CSessionImpl*)remoteSessionImpl.get())->OnRunCGC_Remote_Change(pcgcRemote);
 			}
@@ -3197,7 +3252,7 @@ int CGCApp::ProcSesProto(const cgcSotpRequest::pointer& pRequestImpl, const cgcP
 	{
 		m_logModuleImpl.log(LOG_INFO, _T("SID \'%s\' closed\n"), sSessionId.c_str());
 		remoteSessionImpl->invalidate();
-		m_mgrSession1.RemoveSessionImpl(remoteSessionImpl);
+		m_mgrSession1.RemoveSessionImpl(remoteSessionImpl,true);
 	}
 	return 0;
 }
@@ -3377,13 +3432,13 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 		if (pRemoteSessionImpl == NULL && !sSessionId.empty())
 		{
 			//printf("**** ProcAppProto Session NULL sid=%s\n",sSessionId.c_str());
-			remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId);
+			remoteSessionImpl = m_mgrSession1.GetSessionImpl(sSessionId, pResponseImpl->getCgcRemote()->getRemoteId());
 			pRemoteSessionImpl = (CSessionImpl*)remoteSessionImpl.get();
 			//printf("**** ProcAppProto Session NULL sid=%s,session=%d\n",sSessionId.c_str(),(int)pRemoteSessionImpl);
 			if (pRemoteSessionImpl!=NULL)
 			{
 				const cgcRemote::pointer pcgcRemote = pResponseImpl->getCgcRemote();
-				m_mgrSession1.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
+				//m_mgrSession1.SetRemoteSession(pcgcRemote->getRemoteId(),sSessionId);
 				pRemoteSessionImpl->setDataResponseImpl("",pcgcRemote);
 				pRemoteSessionImpl->OnRunCGC_Remote_Change(pcgcRemote);
 			}else
@@ -3446,7 +3501,7 @@ int CGCApp::ProcAppProto(const cgcSotpRequest::pointer& requestImpl, const cgcSo
 					}else
 					{
 						// 删除 sessionimpl
-						m_mgrSession1.RemoveSessionImpl(remoteSessionImpl);
+						m_mgrSession1.RemoveSessionImpl(remoteSessionImpl,true);
 						pRemoteSessionImpl = NULL;
 						retCode = -105;
 					}
@@ -3740,7 +3795,7 @@ void CGCApp::InitLibModules(unsigned int mt)
 	int nExceptionTryCount = 0;
 	for (int i=0;i<(int)m_parseModules.m_modules.size();i++)
 	{
-		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
+		const ModuleItem::pointer& moduleItem = m_parseModules.m_modules[i];
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
@@ -3956,7 +4011,8 @@ bool CGCApp::OpenModuleLibrary(const ModuleItem::pointer& moduleItem)
 			sprintf(lpszBuffer,"%s.%s",sModuleName.c_str(),moduleItem->getName().c_str());
 			sTempFile = lpszBuffer;
 			boosttpath pathFileTo(sTempFile);
-			boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists);
+			boost::system::error_code ec;
+			boost::filesystem::copy_file(pathFileFrom,pathFileTo,fs::copy_option::overwrite_if_exists,ec);
 			m_logModuleImpl.log(LOG_INFO, _T("Open temp file1: %s\n"), sTempFile.c_str());
 			sModuleName = sTempFile;
 		}
@@ -4122,7 +4178,7 @@ void CGCApp::OpenLibrarys(void)
 	//for (iter=m_parseModules.m_modules.begin(); iter!=m_parseModules.m_modules.end(); iter++)
 	for (size_t i=0;i<m_parseModules.m_modules.size(); i++)
 	{
-		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
+		const ModuleItem::pointer& moduleItem = m_parseModules.m_modules[i];
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
@@ -4324,7 +4380,7 @@ void CGCApp::FreeLibrarys(void)
 	//m_logModuleImpl.log(LOG_INFO, _T("Module Size = %d\n"), m_parseModules.m_modules.size());
 	for (size_t i=0;i<m_parseModules.m_modules.size();i++)
 	{
-		ModuleItem::pointer moduleItem = m_parseModules.m_modules[i];
+		const ModuleItem::pointer& moduleItem = m_parseModules.m_modules[i];
 		//ModuleItem::pointer moduleItem = iter->second;
 		if (moduleItem->getDisable())
 			continue;
@@ -4843,7 +4899,7 @@ void CGCApp::FreeLibModules(unsigned int mt)
 	for (iter=m_mapOpenModules.rbegin(); iter!=m_mapOpenModules.rend(); iter++)
 #endif
 	{
-		cgcApplication::pointer application = iter->second;
+		const cgcApplication::pointer& application = iter->second;
 		MODULETYPE moduleMT = application->getModuleType();
 		if ((mt & (int)moduleMT) != (int)moduleMT)
 			continue;

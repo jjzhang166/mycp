@@ -63,9 +63,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <ThirdParty/stl/lockmap.h>
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/TcpAcceptor.h>
-#ifdef USES_TCP_TEST_CONNECT
+//#ifdef USES_TCP_TEST_CONNECT
 #include <ThirdParty/Boost/asio/TcpClient.h>
-#endif
+//#endif
 using namespace mycp;
 
 #include "../CgcRemoteInfo.h"
@@ -76,7 +76,7 @@ class CRemoteHandler
 {
 public:
 //#ifndef USES_SUPPORT_HTTP_CONNECTION
-	virtual void onCloseConnection(const mycp::asio::TcpConnectionPointer& connection, int nWaitSecond) = 0;
+	virtual void onCloseConnection(const mycp::asio::TcpConnectionPointer& connection, int nWaitSecond, bool bCloseSocket) = 0;
 //#endif
 };
 
@@ -182,7 +182,7 @@ public:
 #endif
 
 #ifdef USES_SUPPORT_HTTP_CONNECTION
-		m_handler->onCloseConnection(m_connection, 5);
+		m_handler->onCloseConnection(m_connection, 5, false);
 		m_connection.reset();
 #else
 		if (m_pCloseConnection.get()!=NULL)
@@ -199,6 +199,7 @@ public:
 	}
 	
 	time_t GetCloseTime(void) const {return m_tCloseTime;}
+	bool getIsInvalidate(void) const {return m_bIsInvalidate;}
 	void UpdateConnection(const mycp::asio::TcpConnectionPointer& pConnection)
 	{
 		if (pConnection.get()==NULL || pConnection->is_closed()) return;
@@ -206,7 +207,7 @@ public:
 		{
 			boost::mutex::scoped_lock lock(m_pConnectionMutex);
 #ifdef USES_SUPPORT_HTTP_CONNECTION
-			m_handler->onCloseConnection(m_connection, 5);
+			m_handler->onCloseConnection(m_connection, 5, false);
 #endif
 			m_connection = pConnection;
 			m_remoteId = m_connection->getId(); 
@@ -558,6 +559,7 @@ public:
 			{
 				if (m_sslctx==NULL)
 				{
+					mycp::asio::TcpClient::Test_To_SSL_library_init();
 					namespace ssl = boost::asio::ssl;
 					m_sslctx = new boost::asio::ssl::context (ssl::context::sslv23_client);	// OK
 					m_sslctx->set_default_verify_paths();
@@ -826,6 +828,7 @@ public:
 #ifdef USES_OPENSSL
 		if (m_bIsSsl)
 		{
+			mycp::asio::TcpClient::Test_To_SSL_library_init();
 			namespace ssl = boost::asio::ssl;
 			m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
 			m_sslctx->set_options(ssl::context::default_workarounds|ssl::context::verify_none);	// verify_none
@@ -942,7 +945,7 @@ public:
 	{
 		if (!m_bServiceInited) return;
 
-		for (unsigned int i=this->m_nIndex*MAX_EVENT_THREAD+1; i<=this->m_nIndex*MAX_EVENT_THREAD+m_nCurrentThread; i++)
+		for (unsigned int i=this->m_nIndex*MAX_EVENT_THREAD+1; (int)i<=this->m_nIndex*MAX_EVENT_THREAD+m_nCurrentThread; i++)
 			theApplication->KillTimer(i);
 		//cgcObject::pointer eventPointer = theAppAttributes->removeAttribute(EVENT_ATTRIBUTE, this);
 		//CIDEvent * pIDEvent = (CIDEvent*)eventPointer.get();
@@ -990,18 +993,18 @@ protected:
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
-		if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)	// 这是管理线程；
+		if ((int)nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID)	// 这是管理线程；
 		{
 			const size_t nSize = m_listMgr.size();
 			const bool bCreateNewThread = (nSize>0 && m_tProcessReceDataTime>0 && (time(0)-m_tProcessReceDataTime)>1)?true:false;
-			if (bCreateNewThread || nSize>(m_nCurrentThread+20))
+			if (bCreateNewThread || (int)nSize>(m_nCurrentThread+20))
 			{
 				if (m_nCurrentThread)
 					m_tProcessReceDataTime = 0;
 				m_nNullEventDataCount = 0;
 				m_nFindEventDataCount++;
 				if (bCreateNewThread || 
-					(m_nCurrentThread<MAX_EVENT_THREAD && (nSize>(MAX_EVENT_THREAD*2) || (nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100)))	// 100*10ms=1S
+					(m_nCurrentThread<MAX_EVENT_THREAD && ((int)nSize>(MAX_EVENT_THREAD*2) || ((int)nSize>(m_nCurrentThread*2)&&m_nFindEventDataCount>20) || m_nFindEventDataCount>100)))	// 100*10ms=1S
 				{
 					m_nFindEventDataCount = 0;
 					const unsigned int nNewTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+(++m_nCurrentThread);
@@ -1012,7 +1015,7 @@ protected:
 			{
 				m_nFindEventDataCount = 0;
 				m_nNullEventDataCount++;
-				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || (nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>500) || m_nNullEventDataCount>600))	// 300*10ms=3S
+				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&(int)nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || ((int)nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>500) || m_nNullEventDataCount>600))	// 300*10ms=3S
 				{
 					m_nNullEventDataCount = 0;
 					const unsigned int nKillTimerId = (this->m_nIndex*MAX_EVENT_THREAD)+m_nCurrentThread;
@@ -1099,7 +1102,7 @@ protected:
 		CCommEventData * pCommEventData = m_listMgr.front();
 		if (pCommEventData == NULL)
 		{
-			if (nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID+1)
+			if ((int)nIDEvent==(this->m_nIndex*MAX_EVENT_THREAD)+MAIN_MGR_EVENT_ID+1)
 			{
 				m_pCommEventDataPool.Idle();
 			}
@@ -1262,6 +1265,7 @@ protected:
 #ifdef USES_OPENSSL
 				if (m_bIsSsl)
 				{
+					mycp::asio::TcpClient::Test_To_SSL_library_init();
 					namespace ssl = boost::asio::ssl;
 					//m_sslctx = new ssl::context(ssl::context::sslv23);
 					m_sslctx = new ssl::context(m_ioservice->ioservice(),ssl::context::sslv23);
@@ -1297,9 +1301,9 @@ protected:
 	{
 	public:
 		typedef boost::shared_ptr<CCloseConnectionInfo> pointer;
-		static CCloseConnectionInfo::pointer create(const mycp::asio::TcpConnectionPointer& pConnection, int nWaitSecond = 5)
+		static CCloseConnectionInfo::pointer create(const mycp::asio::TcpConnectionPointer& pConnection, int nWaitSecond = 5, bool bCloseSocket=false)
 		{
-			return CCloseConnectionInfo::pointer(new CCloseConnectionInfo(pConnection, nWaitSecond));
+			return CCloseConnectionInfo::pointer(new CCloseConnectionInfo(pConnection, nWaitSecond, bCloseSocket));
 		}
 
 		bool CheckClose(time_t tNow)
@@ -1309,7 +1313,8 @@ protected:
 			{
 				//theAcceptRemoteCount--;
 				//printf("**** CheckClose CloseConnection, theAcceptRemoteCount=%d (%x)\n",theAcceptRemoteCount,(int)m_pCloseConnection.get());
-
+				if (m_bCloseSocket)
+					m_pCloseConnection->close();
 #ifndef USES_SUPPORT_HTTP_CONNECTION
 				m_pCloseConnection->close();
 #endif
@@ -1318,13 +1323,15 @@ protected:
 			}
 			return false;
 		}
-		CCloseConnectionInfo(const mycp::asio::TcpConnectionPointer& pConnection, int nWaitSecond)
+		CCloseConnectionInfo(const mycp::asio::TcpConnectionPointer& pConnection, int nWaitSecond, bool bCloseSocket)
 			: m_pCloseConnection(pConnection)
+			, m_bCloseSocket(bCloseSocket)
 		{
 			m_tCloseTime = time(0)+nWaitSecond;
 		}
 		CCloseConnectionInfo(void)
 			: m_tCloseTime(0)
+			, m_bCloseSocket(false)
 		{}
 		virtual ~CCloseConnectionInfo(void)
 		{
@@ -1334,13 +1341,14 @@ protected:
 	private:
 		mycp::asio::TcpConnectionPointer m_pCloseConnection;
 		time_t m_tCloseTime;
+		bool m_bCloseSocket;
 	};
 	// CRemoteHandler
 	CLockList<CCloseConnectionInfo::pointer> theCloseList;
-	virtual void onCloseConnection(const mycp::asio::TcpConnectionPointer& connection, int nWaitSecond)
+	virtual void onCloseConnection(const mycp::asio::TcpConnectionPointer& connection, int nWaitSecond, bool bCloseSocket)
 	{
 		if (connection.get()!=NULL)
-			theCloseList.add(CCloseConnectionInfo::create(connection, nWaitSecond));
+			theCloseList.add(CCloseConnectionInfo::create(connection, nWaitSecond, bCloseSocket));
 	}
 //#endif
 
@@ -1354,117 +1362,120 @@ protected:
 	virtual bool OnRemoteRecv(const mycp::asio::TcpConnectionPointer& pRemote, const mycp::asio::ReceiveBuffer::pointer& data)
 	{
 		BOOST_ASSERT(pRemote.get() != 0);
-		if (data->size() == 0 || pRemote == 0) return true;
+		if (data->size() == 0 || pRemote.get() == 0) return true;
+		if (m_commHandler.get() == NULL) return false;
+
 		const unsigned long nRemoteId = pRemote->getId();
 		//printf("******** OnRemoteRecv:%lu size=%d\n",nRemoteId,data->size());
-		if (m_commHandler.get() != NULL)
+		cgcRemote::pointer pCgcRemote;
+		if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote))
 		{
-			cgcRemote::pointer pCgcRemote;
-			if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote))
-			{
-				//printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
-				return false;
-			}
-			if (pCgcRemote->isInvalidate())
-			{
-				if (m_bIsHttp)
-				{
-					pRemote->close();
-					m_mapCgcRemote.remove(nRemoteId);
-					return false;
-					//if (this->m_tNowTime>(((CcgcRemote*)pCgcRemote.get())->GetCloseTime()+2))
-					//{
-					//	printf("******* set close flag\n");
-					//	pRemote->close();
-					//	return false;
-					//}
-					//theCloseList.add(CCloseConnectionInfo::create(pRemote, 2, true));
-					//return true;	// **HTTP不处理，直接返回
-				}
-				//printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
-				((CcgcRemote*)pCgcRemote.get())->UpdateConnection(pRemote);
-			}
-			//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
-			CCommEventData * pEventData = m_pCommEventDataPool.Get();
-			pEventData->setCommEventType(CCommEventData::CET_Recv);
-			pEventData->setRemote(pCgcRemote);
-			pEventData->setRemoteId(pCgcRemote->getRemoteId());
-#ifdef USES_PROTOCOL_HSOTP
-			if (m_protocol & (int)PROTOCOL_HSOTP)
-			{
-				//printf("****recv****\n%s\n",data->data());
-				const cgcParserHttp::pointer& pParserHttp = ((CcgcRemote*)pCgcRemote.get())->GetParserhttp();
-				if (pParserHttp.get()!=NULL)
-				{
-					if (((CcgcRemote*)pCgcRemote.get())->m_nRequestSize == data->size())
-					{
-						// 之前http post错误的真正内容
-						//printf("****sotp****\n%s\n",data->data());
-						((CcgcRemote*)pCgcRemote.get())->m_nRequestSize = 0;
-						pEventData->setRecvData(data->data(), data->size());
-						//}else if (m_nRequestSize==data->size()+((CcgcRemote*)pCgcRemote.get())->m_sPrevData.size())
-						//{
-						//	std::string& sPrevData = ((CcgcRemote*)pCgcRemote.get())->m_sPrevData;
-						//	sPrevData.append((const char*)data->data(), data->size());
-						//	pEventData->setRecvData(sPrevData.c_str(),sPrevData.size());
-						//	sPrevData.clear();
-					}else
-					{
-						bool parseResult = pParserHttp->doParse(data->data(), data->size());
-						if (parseResult)
-						{
-							//printf("****sotp****%d\n%s\n",(int)pParserHttp->getHttpMethod(),pParserHttp->getContentData());
-							switch(pParserHttp->getHttpMethod())
-							{
-							case HTTP_OPTIONS:
-								{
-									pCgcRemote->sendData((const unsigned char*)"",0);
-								}break;
-							case HTTP_POST:
-								{
-									pEventData->setRecvData((const unsigned char*)pParserHttp->getContentData(), pParserHttp->getContentLength());
-								}break;
-							default:
-								break;
-							}
-						}else
-						{
-							((CcgcRemote*)pCgcRemote.get())->m_nRequestSize = pParserHttp->getContentLength();
-						}
-					}
-				}
-			}else
-#endif
-			{
-				pEventData->setRecvData(data->data(), data->size());
-			}
+			//printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
+			return false;
+		}
+		// 
+		if (((CcgcRemote*)pCgcRemote.get())->getIsInvalidate())	// **判断业务是否已经关闭，不需要判断 TcpConnectionPointer socket 连接状态；
+			//if (pCgcRemote->isInvalidate())		// ** 这个会判断 TcpConnectionPointer socket 连接状态；
+		{
 			if (m_bIsHttp)
 			{
-				CRemoteWaitData::pointer pHttpRemoteWaitData;
-				if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
-				{
-					return true;
-				}
-				pHttpRemoteWaitData->m_listMgr.add(pEventData);
+				// *** 业务关闭连接，HTTP，直接返回并关闭；
+				onCloseConnection(pRemote,2,true);
+				//pRemote->close();
+				m_mapCgcRemote.remove(nRemoteId);
+				return false;
+				//if (this->m_tNowTime>(((CcgcRemote*)pCgcRemote.get())->GetCloseTime()+2))
+				//{
+				//	printf("******* set close flag\n");
+				//	pRemote->close();
+				//	return false;
+				//}
+				//theCloseList.add(CCloseConnectionInfo::create(pRemote, 2, true));
+				//return true;	// **HTTP不处理，直接返回
 			}
-
-			//printf("******** m_listMgr.add:%d\n",nRemoteId);
-#ifdef USES_PRINT_DEBUG
-			static int theIndex = 0;
-			pEventData->SetErrorCode(theIndex++);
-			static FILE * f = NULL;
-			if (f==NULL)
-				f = fopen("c:\\http_remote_recv.txt","w");
-			if (f!=NULL)
-			{
-				char lpszBuf[100];
-				sprintf(lpszBuf,"**** index=%d, size=%d remoteid=%d\r\n",pEventData->GetErrorCode(),data->size(), nRemoteId);
-				fwrite(lpszBuf,1,strlen(lpszBuf),f);
-				fflush(f);
-			}
-#endif
-			m_listMgr.add(pEventData);
+			//printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
+			((CcgcRemote*)pCgcRemote.get())->UpdateConnection(pRemote);
 		}
+		//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
+		CCommEventData * pEventData = m_pCommEventDataPool.Get();
+		pEventData->setCommEventType(CCommEventData::CET_Recv);
+		pEventData->setRemote(pCgcRemote);
+		pEventData->setRemoteId(pCgcRemote->getRemoteId());
+#ifdef USES_PROTOCOL_HSOTP
+		if (m_protocol & (int)PROTOCOL_HSOTP)
+		{
+			//printf("****recv****\n%s\n",data->data());
+			const cgcParserHttp::pointer& pParserHttp = ((CcgcRemote*)pCgcRemote.get())->GetParserhttp();
+			if (pParserHttp.get()!=NULL)
+			{
+				if (((CcgcRemote*)pCgcRemote.get())->m_nRequestSize == data->size())
+				{
+					// 之前http post错误的真正内容
+					//printf("****sotp****\n%s\n",data->data());
+					((CcgcRemote*)pCgcRemote.get())->m_nRequestSize = 0;
+					pEventData->setRecvData(data->data(), data->size());
+					//}else if (m_nRequestSize==data->size()+((CcgcRemote*)pCgcRemote.get())->m_sPrevData.size())
+					//{
+					//	std::string& sPrevData = ((CcgcRemote*)pCgcRemote.get())->m_sPrevData;
+					//	sPrevData.append((const char*)data->data(), data->size());
+					//	pEventData->setRecvData(sPrevData.c_str(),sPrevData.size());
+					//	sPrevData.clear();
+				}else
+				{
+					bool parseResult = pParserHttp->doParse(data->data(), data->size());
+					if (parseResult)
+					{
+						//printf("****sotp****%d\n%s\n",(int)pParserHttp->getHttpMethod(),pParserHttp->getContentData());
+						switch(pParserHttp->getHttpMethod())
+						{
+						case HTTP_OPTIONS:
+							{
+								pCgcRemote->sendData((const unsigned char*)"",0);
+							}break;
+						case HTTP_POST:
+							{
+								pEventData->setRecvData((const unsigned char*)pParserHttp->getContentData(), pParserHttp->getContentLength());
+							}break;
+						default:
+							break;
+						}
+					}else
+					{
+						((CcgcRemote*)pCgcRemote.get())->m_nRequestSize = pParserHttp->getContentLength();
+					}
+				}
+			}
+		}else
+#endif
+		{
+			pEventData->setRecvData(data->data(), data->size());
+		}
+		if (m_bIsHttp)
+		{
+			CRemoteWaitData::pointer pHttpRemoteWaitData;
+			if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
+			{
+				return true;
+			}
+			pHttpRemoteWaitData->m_listMgr.add(pEventData);
+		}
+
+		//printf("******** m_listMgr.add:%d\n",nRemoteId);
+#ifdef USES_PRINT_DEBUG
+		static int theIndex = 0;
+		pEventData->SetErrorCode(theIndex++);
+		static FILE * f = NULL;
+		if (f==NULL)
+			f = fopen("c:\\http_remote_recv.txt","w");
+		if (f!=NULL)
+		{
+			char lpszBuf[100];
+			sprintf(lpszBuf,"**** index=%d, size=%d remoteid=%d\r\n",pEventData->GetErrorCode(),data->size(), nRemoteId);
+			fwrite(lpszBuf,1,strlen(lpszBuf),f);
+			fflush(f);
+		}
+#endif
+		m_listMgr.add(pEventData);
 		return true;
 	}
 	//unsigned long GetNextRemoteId(void)

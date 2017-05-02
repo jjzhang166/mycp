@@ -54,7 +54,8 @@ template <typename T>
 const T * pstrstrl(const T * sourceBuffer, const T * findBuffer, size_t sourceSize, size_t fineSize);
 
 template <typename T>
-static size_t pgetstr(T * outBuffer, size_t bufferSize, const T * src, T endCh);
+static size_t pgetstr(T * outBuffer, size_t bufferSize, const T * src, T endCh, int* pOutFindIndex=NULL);	// pOutFindIndex 1=start
+//static size_t pgetstr(T * outBuffer, size_t bufferSize, const T * src, T endCh);
 
 template <typename T>
 static size_t psetstr(T * outBuffer, size_t bufferSize, const T * src, T findCh, T addCh);
@@ -362,26 +363,63 @@ const T * pstrstrl(const T * sourceBuffer, const T * findBuffer, size_t sourceSi
 }
 
 template <typename T>
-size_t pgetstr(T * outBuffer, size_t bufferSize, const T * src, T endCh)
+size_t pgetstr(T * outBuffer, size_t bufferSize, const T * src, T endCh, int* pOutFindIndex)
 {
+	// *增加支持遇到 '\'' 字符串，继续处理
 	size_t result = 0;
 	size_t srcIndex = 0;
 	T tnull = sizeof(T) == 1 ? '\0' : L'\0';
+	int nFindStringHead = 0;
+	int nFindStringEnd = 0;
+
+	if (pOutFindIndex!=0)
+		*pOutFindIndex = -1;
+	int nTranCodeCount = 0;
 	while (result < bufferSize && src[srcIndex] != tnull)
 	{
+		if (src[srcIndex]=='\'')
+		{
+			if (nFindStringHead==0)
+			{
+				// 找到第一个 '
+				nFindStringHead = 1;
+			}else if (outBuffer[result-1] == '\\')
+			{
+				// 第N个 ' 被转久
+				outBuffer[--result] = endCh;
+				srcIndex++;
+				nTranCodeCount++;
+				continue;
+			}else
+			{
+				nFindStringEnd = 1;
+			}
+		}
 		if (src[srcIndex] == endCh)
 		{
-			if (outBuffer[result-1] != '\\')
+			if (nFindStringHead==1 && nFindStringEnd==0)
 			{
+				// ** 找到未结束字符串，继续处理
+				outBuffer[result++] = src[srcIndex++];
+				continue;
+			}
+			if (result==0 || outBuffer[result-1] != '\\')
+			{
+				if (result==0)
+					nTranCodeCount = 1;
 				break;
 			}
 			outBuffer[result-1] = endCh;
 			srcIndex++;
 			continue;
 		}
+		if (nTranCodeCount==0)
+			nTranCodeCount = 1;	// 至少标识为1，最后汇总计算才会正确
 		outBuffer[result++] = src[srcIndex++];
 	}
 	outBuffer[result] = tnull;
+	if (pOutFindIndex!=0)
+		*pOutFindIndex = (result+nTranCodeCount);
 	return result;
 }
 
@@ -434,7 +472,7 @@ size_t pstrtrim_right(T * inOutBuffer)
 	T tnull = sizeof(T) == 1 ? '\0' : L'\0';
 	T tspace = sizeof(T) == 1 ? ' ' : L' ';
 	T ttab = sizeof(T) == 1 ? '\t' : L'\t';
-	while (inOutBuffer[result-1] == tspace || inOutBuffer[result-1] == ttab)
+	while (result>0 && inOutBuffer[result-1] == tspace || inOutBuffer[result-1] == ttab)
 	{
 		inOutBuffer[--result] = tnull;
 	}

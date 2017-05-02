@@ -106,7 +106,8 @@ void CModuleImpl::StopModule(void)
 	if (m_pSyncThread.get()!=NULL)
 	{
 		m_pSyncThreadKilled = true;
-		m_pSyncThread->join();
+		if (m_pSyncThread->joinable())
+			m_pSyncThread->join();
 		m_pSyncThread.reset();
 	}
 	m_pSyncErrorStoped = false;
@@ -201,11 +202,11 @@ long CModuleImpl::getMinorVersion(void) const
 unsigned int CModuleImpl::SetTimer(unsigned int nIDEvent, unsigned int nElapse, cgcOnTimerHandler::pointer handler, bool bOneShot, const void * pvParam)
 {
 #ifndef WIN32
-	log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam);
+	//log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam);
 #endif
 	const unsigned int ret = m_timerTable.SetTimer(nIDEvent, nElapse, handler, bOneShot, pvParam);
 #ifndef WIN32
-	log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d, return = 0x%x", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam, (int)ret);
+	//log(LOG_INFO,"SetTimer IDEvent=%d, Elapse=%d, handler=0x%x, OneShot=%d, pvParam=%d, return = 0x%x", (int)nIDEvent, (int)nElapse, (int)handler.get(), (int)(bOneShot?1:0), (int)pvParam, (int)ret);
 #endif
 	return ret;
 }
@@ -332,7 +333,7 @@ int CModuleImpl::sendSyncData(const tstring& sSyncName, int nDataType, const cha
 		CLockMap<tstring,mycp::DoSotpClientHandler::pointer>::const_iterator pIter = m_pSyncSotpClientList.begin();
 		for (; pIter!=m_pSyncSotpClientList.end(); pIter++)
 		{
-			const tstring sHost = pIter->first;
+			const tstring& sHost = pIter->first;
 			sprintf(lpszBuffer,"INSERT INTO mycp_sync_request_t(request_id,data_id,host) VALUES(%lld,%lld,'%s')",GetNextBigId(true),nDataId,sHost.c_str());
 			m_pSyncCdbcService->execute(lpszBuffer);
 		}
@@ -608,7 +609,7 @@ bool CModuleImpl::ProcSyncHosts(void)
 	tstring sWhereInHostString;	// 'host1','host2'
 	for (size_t i=0; i<m_pHostList.size(); i++)
 	{
-		const tstring sSyncHost = m_pHostList[i];
+		const tstring& sSyncHost = m_pHostList[i];
 #ifdef USES_PRINT_SYNC_DEBUG
 		printf("***** %d : SyncHost=%s\n",(int)i,sSyncHost.c_str());
 #endif
@@ -754,7 +755,7 @@ void CModuleImpl::procSyncThread(void)
 				CLockMap<tstring,mycp::DoSotpClientHandler::pointer>::const_iterator pIter = m_pSyncSotpClientList.begin();
 				for (; pIter!=m_pSyncSotpClientList.end(); pIter++)
 				{
-					const tstring sHost = pIter->first;
+					const tstring& sHost = pIter->first;
 #ifdef USES_PRINT_SYNC_DEBUG
 					printf("***** send to (%s)\n",sHost.c_str());
 #endif

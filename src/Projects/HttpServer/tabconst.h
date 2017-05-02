@@ -155,7 +155,8 @@ const std::string CSP_TAB_PAGE_INCLUDE			= "<page:include";
 const std::string CSP_TAB_AUTHENTICATE			= "<csp:authenticate>";
 
 const std::string CSP_TAB_IF_EQUAL				= "<csp:if:==";
-const std::string CSP_TAB_IF_NOTEQUAL			= "<csp:if:!=";
+const std::string CSP_TAB_IF_NOTEQUAL1			= "<csp:if:!=";
+const std::string CSP_TAB_IF_NOTEQUAL2			= "<csp:if:<>";
 const std::string CSP_TAB_IF_GREATEREQUAL		= "<csp:if:>=";
 const std::string CSP_TAB_IF_GREATER			= "<csp:if:>";
 const std::string CSP_TAB_IF_LESSEQUAL			= "<csp:if:<=";
@@ -167,8 +168,22 @@ const std::string CSP_TAB_IF_NOTEMPTY			= "<csp:if:notEmpty";
 const std::string CSP_TAB_IF_EXIST				= "<csp:if:exist";
 const std::string CSP_TAB_IF_NOTEXIST			= "<csp:if:notExist";
 const std::string CSP_TAB_IF_ELSE				= "<csp:if:else>";
+const std::string CSP_TAB_ELSEIF_EQUAL		= "<csp:else:if:==";
+const std::string CSP_TAB_ELSEIF_NOTEQUAL1			= "<csp:else:if:!=";
+const std::string CSP_TAB_ELSEIF_NOTEQUAL2			= "<csp:else:if:<>";
+const std::string CSP_TAB_ELSEIF_GREATEREQUAL		= "<csp:else:if:>=";
+const std::string CSP_TAB_ELSEIF_GREATER			= "<csp:else:if:>";
+const std::string CSP_TAB_ELSEIF_LESSEQUAL			= "<csp:else:if:<=";
+const std::string CSP_TAB_ELSEIF_LESS				= "<csp:else:if:<";
+const std::string CSP_TAB_ELSEIF_AND				= "<csp:else:if:&&";
+const std::string CSP_TAB_ELSEIF_OR					= "<csp:else:if:||";
+const std::string CSP_TAB_ELSEIF_EMPTY				= "<csp:else:if:empty";
+const std::string CSP_TAB_ELSEIF_NOTEMPTY			= "<csp:else:if:notEmpty";
+const std::string CSP_TAB_ELSEIF_EXIST				= "<csp:else:if:exist";
+const std::string CSP_TAB_ELSEIF_NOTEXIST			= "<csp:else:if:notExist";
 const std::string CSP_TAB_WHILE_EQUAL			= "<csp:while:==";
-const std::string CSP_TAB_WHILE_NOTEQUAL		= "<csp:while:!=";
+const std::string CSP_TAB_WHILE_NOTEQUAL1		= "<csp:while:!=";
+const std::string CSP_TAB_WHILE_NOTEQUAL2		= "<csp:while:<>";
 const std::string CSP_TAB_WHILE_GREATEREQUAL	= "<csp:while:>=";
 const std::string CSP_TAB_WHILE_GREATER			= "<csp:while:>";
 const std::string CSP_TAB_WHILE_LESSEQUAL		= "<csp:while:<=";
@@ -204,6 +219,9 @@ const std::string CSP_TAB_METHOD_SIZEOF			= "sizeof";
 const std::string CSP_TAB_METHOD_TYPEOF			= "typeof";
 const std::string CSP_TAB_METHOD_TO_TYPE		= "to_type";
 const std::string CSP_TAB_METHOD_RESET			= "reset";
+const std::string CSP_TAB_CODE_RETURN				= "return";		// page:return
+const std::string CSP_TAB_CODE_CONTINUE			= "continue";	// for while/foreach continue
+const std::string CSP_TAB_CODE_BREAK				= "break";	// for while/foreach continue
 const std::string CSP_TAB_METHOD_EXE_SERVLET	= "exe_servlet";
 const std::string CSP_TAB_METHOD_APP_CALL		= "app_call";
 const std::string CSP_TAB_METHOD_APP_GET		= "app_get";
@@ -275,6 +293,18 @@ const std::string FASTCGI_PARAM_PATH_INFO			= "PATH_INFO";
 const std::string FASTCGI_PARAM_GATEWAY_INTERFACE	= "GATEWAY_INTERFACE";
 const std::string FASTCGI_PARAM_HTTP_HOST			= "HTTP_HOST";
 //const std::string FASTCGI_PARAM_PHP_SELF			= "PHP_SELF";
+
+// trim from start
+static inline std::string &ltrim(std::string &s) {
+	s.erase(0,s.find_first_not_of(" "));
+	return s;
+}
+// trim from end
+static inline std::string &rtrim(std::string &s) {
+	s.erase(s.find_last_not_of(" ") + 1);
+	return s;
+}
+static inline std::string &trim(std::string &s) {return ltrim(rtrim(s));} 
 
 } // namespace mycp
 

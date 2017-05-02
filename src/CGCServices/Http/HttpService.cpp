@@ -169,10 +169,12 @@ protected:
 			{
 				pOutData = inParam->getVector()[1]->getStr();
 			}
+			//printf("**** out-data=%s\n",pOutData.c_str());
 			if (inParam->size()>=3)
 			{
 				pOutHeader = inParam->getVector()[2]->getStr();
 			}
+			//printf("**** out-header=%s\n",pOutHeader.c_str());
 			if (inParam->size()>=4)
 				pOutSaveFile = inParam->getVector()[3]->getStr();
 			return true;
@@ -328,6 +330,7 @@ protected:
 			boost::asio::ssl::context * m_sslctx = NULL;
 			if (bIsSSL)
 			{
+				mycp::asio::TcpClient::Test_To_SSL_library_init();
 				namespace ssl = boost::asio::ssl;
 				m_sslctx = new boost::asio::ssl::context (ssl::context::sslv23_client);	// OK
 				m_sslctx->set_default_verify_paths();

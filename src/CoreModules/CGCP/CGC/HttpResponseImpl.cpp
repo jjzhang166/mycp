@@ -71,7 +71,9 @@ int CHttpResponseImpl::sendResponse(bool bSendForce)
 {
 	try
 	{
+		//printf("**** sendResponse(bSendForce=%d)\n",(int)(bSendForce?1:0));
 		if (isInvalidate() || m_cgcParser.get() == 0) return -1;
+		//printf("**** sendResponse(bSendForce=%d), m_bNotResponse=%d\n",(int)(bSendForce?1:0),(int)(m_bNotResponse?1:0));
 		if (m_bNotResponse || (m_bResponseSended && !bSendForce))
 		{
 			// ** setNotResponse()已经保存，不需要重复处理；
@@ -112,11 +114,14 @@ int CHttpResponseImpl::sendResponse(bool bSendForce)
 			delete pSendLockTemp;
 		const int ret = m_cgcRemote->sendData((const unsigned char*)responseData, outSize);
 		const Http_StatusCode nHttpStatusCode = getStatusCode();
+		//printf("**** nHttpStatusCode=%d\n",(int)nHttpStatusCode);
 		//if (nHttpStatusCode==STATUS_CODE_302)
 		//	printf("**** CHttpResponseImpl::getHttpResult...\n%s\n",responseData);
 		//printf("**** CHttpResponseImpl->m_cgcRemote->sendData ok, StatusCode=%d, reset(?)\n",(int)nHttpStatusCode);
 		if (nHttpStatusCode != STATUS_CODE_206 && nHttpStatusCode != STATUS_CODE_100)
+		{
 			reset();
+		}
 		return ret;
 	}catch (const boost::exception &)
 	{

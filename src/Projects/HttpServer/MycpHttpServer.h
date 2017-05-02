@@ -24,6 +24,9 @@
 unsigned long GetLastError(void);
 #endif
 
+#define USES_OBJECT_LIST_APP
+#define USES_OBJECT_LIST_CDBC
+
 // cgc head
 #include <CGCBase/includeall.h>
 #include <CGCBase/cgcCDBCService.h>
@@ -82,10 +85,13 @@ private:
 
 	// -1 : error
 	// 0  : continue
-	// 1  : break;			<csp:break
+	// ~1  : break;			<csp:break
+	// 1  : compare return true
 	// 2  : re continue;	<csp:continue
 	// 3  : page return		<csp:page:return>
+	// 4  : break;				<csp:break
 	int doScriptItem(const CScriptItem::pointer & scriptItem);
+	int doScriptElse(const CScriptItem::pointer & scriptItem);
 
 	cgcAttributes::pointer getAttributes(const tstring& scopy) const;
 	cgcValueInfo::pointer getScriptValueInfo1(const CScriptItem::pointer & scriptItem, bool create = true);

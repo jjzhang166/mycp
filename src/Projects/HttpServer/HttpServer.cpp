@@ -633,7 +633,7 @@ public:
 		CLockList<CRequestPassInfo::pointer>::iterator pIter = m_pRequestPassInfoList.begin();
 		for (; pIter!=m_pRequestPassInfoList.end(); pIter++)
 		{
-			CRequestPassInfo::pointer pRequestPassInfo = *pIter;
+			const CRequestPassInfo::pointer& pRequestPassInfo = *pIter;
 			if (pRequestPassInfo->GetProcessId()==0 || pRequestPassInfo->GetProcessHandle()==NULL)
 			{
 				continue;
@@ -645,10 +645,11 @@ public:
 			{
 				//printf("**** RequestId=%d,RequestCount=%d\n",pRequestPassInfo->GetRequestId(),pRequestPassInfo->GetRequestCount());
 				// * 控制一次只退出一个process
+				const CRequestPassInfo::pointer pRequestPassInfoTemp = pRequestPassInfo;
 				m_pRequestPassInfoList.erase(pIter);
 				wtlock.unlock();
-				pRequestPassInfo->KillProcess();
-				m_pIdlePassInfoList.add(pRequestPassInfo);
+				pRequestPassInfoTemp->KillProcess();
+				m_pIdlePassInfoList.add(pRequestPassInfoTemp);
 				break;
 			}
 #ifdef WIN32
@@ -703,7 +704,7 @@ public:
 						CCSPFileInfo::pointer fileInfo = pIter->second;
 						if (fileInfo->m_tRequestTime==0 || (fileInfo->m_tRequestTime+(10*24*3600))<m_tNow)	// ** 10 days
 						{
-							const tstring sFileName(pIter->first);
+							const tstring& sFileName = pIter->first;
 							//pRemoveFileNameList.push_back(sFileName);
 							theFileInfos.remove(sFileName);
 							theFileScripts.remove(sFileName);
@@ -742,7 +743,7 @@ public:
 					CLockMap<tstring, CCSPFileInfo::pointer>::iterator pIter = theFileInfos.begin();
 					for (; pIter!=theFileInfos.end(); )
 					{
-						CCSPFileInfo::pointer fileInfo = pIter->second;
+						const CCSPFileInfo::pointer& fileInfo = pIter->second;
 						if (fileInfo->m_tRequestTime>0 && (fileInfo->m_tRequestTime+(3*3600))<m_tNow)	// ** 3 hours
 						{
 							if (!theFileScripts.remove(pIter->first))
@@ -1207,6 +1208,7 @@ public:
 extern "C" void CGC_API CGC_Module_ResetService(const tstring& sServiceName)
 {
 	// 重新启动，需要处理 
+	//printf("**** HttpServer CGC_Module_ResetService(), sServiceName=%s\n",sServiceName.c_str());
 	if (sServiceName=="FileSystemService")
 	{
 		cgcServiceInterface::pointer pService = theServiceManager->getService(sServiceName);
@@ -1215,17 +1217,39 @@ extern "C" void CGC_API CGC_Module_ResetService(const tstring& sServiceName)
 	}
 
 	//printf("**** HttpServer CGC_Module_ResetService()\n");
+#ifdef USES_OBJECT_LIST_APP
+	ObjectListPointer apps = theAppAttributes->getListAttributes((int)OBJECT_APP, false);
+	if (apps.get()!=NULL && !apps->empty())
+	{
+		BoostWriteLock wtlock(apps->mutex());
+		CLockList<cgcObject::pointer>::iterator pIter = apps->begin();
+		for (; pIter!=apps->end(); )
+		{
+			cgcValueInfo::pointer pVarApp = CGC_OBJECT_CAST<cgcValueInfo>(*pIter);
+			if (pVarApp->getType() == cgcValueInfo::TYPE_OBJECT && pVarApp->getInt() == (int)OBJECT_APP && pVarApp->getStr()==sServiceName)
+			{
+				//printf("**** HttpServer CGC_Module_ResetService(), resetService AppName=%s\n",sServiceName.c_str());
+				theServiceManager->resetService(CGC_OBJECT_CAST<cgcServiceInterface>(pVarApp->getObject()));
+				apps->erase(pIter++);
+			}else
+			{
+				pIter++;
+			}
+		}
+	}
+#else
 	theAppAttributes->delProperty((int)OBJECT_APP);
-	
+#endif
+
 	const CLockMap<tstring, CAppInfo::pointer>& pAppList = theApps->getApps();
 	CLockMap<tstring, CAppInfo::pointer>::const_iterator pIter = pAppList.begin();
 	for (; pIter!=pAppList.end(); pIter++)
 	{
-		CAppInfo::pointer pAppInfo = pIter->second;
+		const CAppInfo::pointer& pAppInfo = pIter->second;
 		if (pAppInfo->getAppName()==sServiceName)
 		{
 			const tstring sAppName = VTI_APP+pAppInfo->getAppId();
-			//printf("**** HttpServer CGC_Module_ResetService(), find %s, AppName=%s\n",sServiceName.c_str(),sAppName.c_str());
+			//printf("**** HttpServer CGC_Module_ResetService(), delAllProperty %s, AppName=%s\n",sServiceName.c_str(),sAppName.c_str());
 			theVirtualHosts.delAllProperty(sAppName);
 		}
 	}
@@ -1521,6 +1545,22 @@ extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
 	if (attributes.get() != NULL)
 	{
 		// C++ APP
+#ifdef USES_OBJECT_LIST_APP
+		ObjectListPointer apps = attributes->getListAttributes((int)OBJECT_APP, false);
+		if (apps.get()!=NULL && !apps->empty())
+		{
+			BoostReadLock rdlock(apps->mutex());
+			CLockList<cgcObject::pointer>::const_iterator pIter = apps->begin();
+			for (; pIter!=apps->end(); pIter++)
+			{
+				cgcValueInfo::pointer pVarApp = CGC_OBJECT_CAST<cgcValueInfo>(*pIter);
+				if (pVarApp->getType() == cgcValueInfo::TYPE_OBJECT && pVarApp->getInt() == (int)OBJECT_APP)
+				{
+					theServiceManager->resetService(CGC_OBJECT_CAST<cgcServiceInterface>(pVarApp->getObject()));
+				}
+			}
+		}
+#else
 		std::vector<cgcValueInfo::pointer> apps;
 		attributes->getProperty((int)OBJECT_APP, apps);
 		for (size_t i=0; i<apps.size(); i++)
@@ -1531,8 +1571,25 @@ extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
 				theServiceManager->resetService(CGC_OBJECT_CAST<cgcServiceInterface>(var->getObject()));
 			}
 		}
+#endif
 
 		// C++ CDBC
+#ifdef USES_OBJECT_LIST_CDBC
+		ObjectListPointer cdbcs = attributes->getListAttributes((int)OBJECT_CDBC, false);
+		if (cdbcs.get()!=NULL && !cdbcs->empty())
+		{
+			BoostReadLock rdlock(cdbcs->mutex());
+			CLockList<cgcObject::pointer>::const_iterator pIter = cdbcs->begin();
+			for (; pIter!=apps->end(); pIter++)
+			{
+				cgcValueInfo::pointer pVarCdbc = CGC_OBJECT_CAST<cgcValueInfo>(*pIter);
+				if (pVarCdbc->getType() == cgcValueInfo::TYPE_OBJECT && pVarCdbc->getInt() == (int)OBJECT_CDBC)
+				{
+					theServiceManager->resetService(CGC_OBJECT_CAST<cgcServiceInterface>(pVarCdbc->getObject()));
+				}
+			}
+		}
+#else
 		std::vector<cgcValueInfo::pointer> cdbcs;
 		attributes->getProperty((int)OBJECT_CDBC, cdbcs);
 		for (size_t i=0; i<cdbcs.size(); i++)
@@ -1542,9 +1599,8 @@ extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
 			{
 				theServiceManager->resetService(CGC_OBJECT_CAST<cgcServiceInterface>(var->getObject()));
 			}
-
 		}
-
+#endif
 		attributes->cleanAllPropertys();
 	}
 	theApplication->KillAllTimer();
@@ -2542,7 +2598,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 							break;
 						nReadedSize += nReadSize;
 						nBufferOffset += nReadSize;
-						if (nBufferOffset+sBoundaryEnd.size()<=const_send_buffer)
+						if (nBufferOffset+sBoundaryEnd.size()<=(size_t)const_send_buffer)
 						{
 							memcpy(lpszSendBuffer+nBufferOffset,sBoundaryEnd.c_str(),sBoundaryEnd.size());
 							nBufferOffset += sBoundaryEnd.size();
@@ -2722,7 +2778,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				pResInfo->m_sModifyTime = lpszModifyTime;
 				boost::mutex::scoped_lock lockFile(pResInfo->m_mutexFile);
 				// 读文件内容到内存（只读取小于50MB，超过的直接从文件读取）
-				if (pResInfo->m_nSize<=const_memory_size)
+				if ((int)pResInfo->m_nSize<=const_memory_size)
 				{
 					if (pResInfo->m_pData==NULL)
 					{

@@ -19,7 +19,7 @@
 #define USES_MYSQLCDBC		1		// [0,1]
 
 #ifdef WIN32
-#pragma warning(disable:4267)
+#pragma warning(disable:4819 4267)
 #include <winsock2.h>
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -68,43 +68,71 @@ class CCDBCResultSet
 public:
 	typedef boost::shared_ptr<CCDBCResultSet> pointer;
 
+	CCDBCResultSet::pointer copyNew(void) const
+	{
+		CCDBCResultSet::pointer result = CCDBCResultSet::pointer(new CCDBCResultSet(m_rows,m_fields));
+		result->m_pColsName = this->m_pColsName;
+		CLockMap<mycp::bigint, cgcValueInfo::pointer>::const_iterator pIter = m_pResults.begin();
+		for (; pIter!=m_pResults.end(); pIter++)
+		{
+			result->m_pResults.insert(pIter->first, pIter->second, NULL, NULL, false);
+			//cgcValueInfo::pointer pResult = pIter->second->copy();
+			//result->m_pResults.insert(pIter->first, pResult, NULL, NULL, false);
+		}
+		return result;
+	}
+	void BuildAllRecords(void)
+	{
+		cols_name();
+		cgcValueInfo::pointer record = first();
+		while (record.get()!=NULL)
+		{
+			record = next();
+		}
+		m_currentIndex = 0;
+	}
+	//void SetCacheTime(time_t t) {m_tCacheTime = t;}
+	bool IsCreateTimeout(int nCacehMinutes) const {return (m_tCreateTime+nCacehMinutes*60)<time(0)?true:false;}
+	void SetMemoryTimeout(time_t t) {m_tMemoryTimeout = t;}
+	bool IsMemoryTimeout(time_t tNow) {return (m_tMemoryTimeout>0 && m_tMemoryTimeout<tNow)?true:false;}
+
 	mycp::bigint size(void) const {return m_rows;}
 	mycp::bigint cols(void) const {return m_fields;}
-	mycp::bigint index(void) const
-	{
-		//return m_resultset == NULL ? -1 : (int)m_resultset->getRow();
-		return m_currentIndex;
-	}
+	mycp::bigint index(void) const {return m_currentIndex;}
 	cgcValueInfo::pointer cols_name(void) const
 	{
-		if (m_resultset == NULL || m_rows == 0 || m_resultset->field_count==0) return cgcNullValueInfo;
-	
-		std::vector<cgcValueInfo::pointer> record;
-		try
+		if (m_pColsName.get()==NULL)
 		{
-			char lpszFieldName[12];
-			for(unsigned int i=0; i<m_resultset->field_count; i++)
+			if (m_resultset == NULL || m_rows == 0 || m_resultset->field_count==0) return cgcNullValueInfo;
+			std::vector<cgcValueInfo::pointer> record;
+			try
 			{
-				MYSQL_FIELD * pField = mysql_fetch_field(m_resultset);
-				if (pField!=NULL && pField->name!=NULL)
-					record.push_back(CGC_VALUEINFO(pField->name));
-				else
+				char lpszFieldName[12];
+				for(unsigned int i=0; i<m_resultset->field_count; i++)
 				{
-					sprintf(lpszFieldName,"%d",i);
-					record.push_back(CGC_VALUEINFO(lpszFieldName));
+					MYSQL_FIELD * pField = mysql_fetch_field(m_resultset);
+					if (pField!=NULL && pField->name!=NULL)
+						record.push_back(CGC_VALUEINFO(pField->name));
+					else
+					{
+						sprintf(lpszFieldName,"%d",i);
+						record.push_back(CGC_VALUEINFO(lpszFieldName));
+					}
 				}
+			}catch(std::exception&)
+			{
+			}catch(...)
+			{
+				// ...
 			}
-		}catch(std::exception&)
-		{
-		}catch(...)
-		{
-			// ...
+			const_cast<CCDBCResultSet*>(this)->m_pColsName = CGC_VALUEINFO(record);
 		}
-		return CGC_VALUEINFO(record);
+		return m_pColsName;
 	}
 	cgcValueInfo::pointer index(mycp::bigint moveIndex)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (moveIndex < 0 || (moveIndex+1) > m_rows) return cgcNullValueInfo;
 		//if (!m_resultset->relative(moveIndex)) return cgcNullValueInfo;
 
@@ -113,40 +141,37 @@ public:
 	}
 	cgcValueInfo::pointer first(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
-		//if (!m_resultset->first()) return cgcNullValueInfo;
-
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		m_currentIndex = 0;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer next(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (m_currentIndex+1 == m_rows) return cgcNullValueInfo;
-		//if (!m_resultset->next()) return cgcNullValueInfo;
-
 		++m_currentIndex;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer previous(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		if (m_currentIndex == 0) return cgcNullValueInfo;
-		//if (!m_resultset->previous()) return cgcNullValueInfo;
-
 		--m_currentIndex;
 		return getCurrentRecord();
 	}
 	cgcValueInfo::pointer last(void)
 	{
-		if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
-		//if (!m_resultset->last()) return cgcNullValueInfo;
+		if (m_rows == 0) return cgcNullValueInfo;
+		//if (m_resultset == NULL || m_rows == 0) return cgcNullValueInfo;
 		m_currentIndex = m_rows - 1;
 		return getCurrentRecord();
 	}
 	void reset(void)
 	{
-		if (m_resultset)
+		if (m_resultset!=NULL)
 		{
 			try
 			{
@@ -158,25 +183,10 @@ public:
 			CMysqlPool::SinkPut(m_pSink);
 			m_resultset = NULL;
 		}
-		m_rows = 0;
-		m_fields = 0;
-		//try
-		//{
-		//	if (m_resultset)
-		//	{
-		//		m_resultset->close();
-		//		delete m_resultset;
-		//		m_resultset = NULL;
-		//	}
-		//	if (m_stmt)
-		//	{
-		//		delete m_stmt;
-		//		m_stmt = NULL;
-		//	}
-		//}catch(sql::SQLException &e)
-		//{
-		//}
-		//m_currentIndex = 0;
+		//m_rows = 0;
+		//m_fields = 0;
+		//m_pColsName.reset();
+		//m_pResults.clear();
 	}
 
 	//CCDBCResultSet(sql::ResultSet * resultset, sql::Statement * stmt)
@@ -184,63 +194,64 @@ public:
 	//{}
 	CCDBCResultSet(CMysqlSink* pSink,MYSQL_RES * resultset, mycp::bigint nRows)
 		: m_pSink(pSink),m_resultset(resultset), m_rows(nRows), m_fields(0)
+		, m_tMemoryTimeout(0)//, m_tCacheTime(0)
 	{
 		//m_rows = mysql_num_rows(m_resultset);
 		m_fields = mysql_num_fields(m_resultset);
+		m_tCreateTime = time(0);
+	}
+	CCDBCResultSet(mycp::bigint nRows, int nFields)
+		: m_pSink(NULL),m_resultset(NULL), m_rows(nRows), m_fields(nFields)
+		, m_tMemoryTimeout(0)//, m_tCacheTime(0)
+	{
+		m_tCreateTime = time(0);
 	}
 	virtual ~CCDBCResultSet(void)
 	{
 		reset();
+		m_rows = 0;
+		m_fields = 0;
+		m_pColsName.reset();
+		m_pResults.clear();
 	}
 
 protected:
 	cgcValueInfo::pointer getCurrentRecord(void) const
 	{
-		assert (m_resultset != NULL);
-		assert (m_currentIndex >= 0 && m_currentIndex < m_rows);
-		//if (m_resultset->isBeforeFirst() || m_resultset->isAfterLast() || m_resultset->isClosed())
-		//	return cgcNullValueInfo;
-
-		std::vector<cgcValueInfo::pointer> record;
-		try
+		cgcValueInfo::pointer result;
+		if (!m_pResults.find(m_currentIndex,result))
 		{
-			mysql_data_seek(m_resultset, (my_ulonglong)m_currentIndex);
-			MYSQL_ROW_OFFSET rowoffset = mysql_row_tell(m_resultset);
-			if (rowoffset == NULL)
-				return cgcNullValueInfo;
-			//MYSQL_ROW row = mysql_fetch_row(m_resultset);
-			//MYSQL_ROW row = m_resultset->current_row;
-			MYSQL_ROW row = rowoffset->data;
-			if (row != NULL)
+			if (m_resultset == NULL) return cgcNullValueInfo;
+			//assert (m_resultset != NULL);
+			assert (m_currentIndex >= 0 && m_currentIndex < m_rows);
+			std::vector<cgcValueInfo::pointer> record;
+			try
 			{
-				for(unsigned int i=0; i<m_resultset->field_count; i++)
+				mysql_data_seek(m_resultset, (my_ulonglong)m_currentIndex);
+				MYSQL_ROW_OFFSET rowoffset = mysql_row_tell(m_resultset);
+				if (rowoffset == NULL)
+					return cgcNullValueInfo;
+				//MYSQL_ROW row = mysql_fetch_row(m_resultset);
+				//MYSQL_ROW row = m_resultset->current_row;
+				MYSQL_ROW row = rowoffset->data;
+				if (row != NULL)
 				{
-					tstring s = row[i] ? (const char*)row[i] : "";
-					record.push_back(CGC_VALUEINFO(s));
+					for(unsigned int i=0; i<m_resultset->field_count; i++)
+					{
+						tstring s = row[i] ? (const char*)row[i] : "";
+						record.push_back(CGC_VALUEINFO(s));
+					}
 				}
+			}catch(std::exception&)
+			{
+			}catch(...)
+			{
+				// ...
 			}
-		}catch(std::exception&)
-		{
-		}catch(...)
-		{
-			// ...
+			result = CGC_VALUEINFO(record);
+			const_cast<CCDBCResultSet*>(this)->m_pResults.insert(m_currentIndex,result);
 		}
-
-		//for (int i=1; i<35; i++)
-		//{
-		//	try
-		//	{
-		//		//if (m_resultset->isNull(i))
-		//		//	break;
-		//		//int s = m_resultset->getInt(i);
-		//		sql::SQLString s = m_resultset->getString(i);
-		//		record.push_back(CGC_VALUEINFO(s));
-		//	} catch (sql::SQLException &e)
-		//	{
-		//		break;
-		//	}
-		//}
-		return CGC_VALUEINFO(record);
+		return result;
 	}
 
 private:
@@ -251,6 +262,10 @@ private:
 	//sql::ResultSet *	m_resultset;
 	//sql::Statement *	m_stmt;
 	mycp::bigint		m_currentIndex;
+	cgcValueInfo::pointer m_pColsName;
+	CLockMap<mycp::bigint, cgcValueInfo::pointer> m_pResults;
+	time_t m_tMemoryTimeout;
+	time_t m_tCreateTime;
 };
 
 #define CDBC_RESULTSET(s,rs,rows) CCDBCResultSet::pointer(new CCDBCResultSet(s,rs,rows))
@@ -316,6 +331,40 @@ public:
 		m_bServiceInited = false;
 		m_sDbHost.clear();
 		m_nDbPort = 0;
+	}
+
+	void CheckMemoryResultsTimeout(void)
+	{
+		{
+			const time_t tNow = time(0);
+			BoostWriteLock wtlock(m_pMemorySqlResults.mutex());
+			CLockMap<tstring, CCDBCResultSet::pointer>::iterator pIter = m_pMemorySqlResults.begin();
+			for (; pIter!=m_pMemorySqlResults.end(); )
+			{
+				const CCDBCResultSet::pointer& pResultSet = pIter->second;
+				if (pResultSet->IsMemoryTimeout(tNow))
+					m_pMemorySqlResults.erase(pIter++);
+				else
+					pIter++;
+			}
+		}
+		static unsigned int theIndex = 0;
+		theIndex++;
+		if ((theIndex%60)==59)	// 10分钟判断一次	
+		{
+			BoostWriteLock wtlock(m_results.mutex());
+			CLockMap<int, CCDBCResultSet::pointer>::iterator pIter = m_results.begin();
+			for (; pIter!=m_results.end(); )
+			{
+				const CCDBCResultSet::pointer& pResultSet = pIter->second;
+				if (pResultSet->IsCreateTimeout(30))	// *** 30分钟
+				{
+					m_results.erase(pIter++);
+				}else
+					pIter++;
+			}
+		}
+
 	}
 private:
 	virtual tstring serviceName(void) const {return _T("MYSQLCDBC");}
@@ -430,6 +479,7 @@ private:
 		{
 		}
 		m_results.clear();
+		m_pMemorySqlResults.clear();
 	}
 	virtual bool isopen(void) const
 	{
@@ -718,10 +768,20 @@ private:
 		return ret;
 	}
 
-	virtual mycp::bigint select(const char * selectSql, int& outCookie)
+	virtual mycp::bigint select(const char * selectSql, int& outCookie, int nCacheMinutes)
 	{
 		if (selectSql == NULL || !isServiceInited()) return -1;
 		if (!open()) return -1;
+
+		const tstring sSqlString(selectSql);
+		CCDBCResultSet::pointer pSqlResultSetTemp;
+		if (nCacheMinutes>0 && m_pMemorySqlResults.find(sSqlString,pSqlResultSetTemp) && !pSqlResultSetTemp->IsCreateTimeout(nCacheMinutes))
+		{
+			CCDBCResultSet::pointer pSqlResultSetNew = pSqlResultSetTemp->copyNew();
+			outCookie = (int)pSqlResultSetNew.get();
+			m_results.insert(outCookie, pSqlResultSetNew);
+			return pSqlResultSetNew->size();
+		}
 
 		CMysqlSink * pSink = NULL;
 		mycp::bigint rows = 0;
@@ -795,11 +855,27 @@ private:
 			}
 			m_nLastErrorCode = 0;
 			MYSQL_RES * resultset = mysql_store_result(pMysql);
+			if (resultset==NULL)
+			{
+				CGC_LOG((mycp::LOG_ERROR, "mysql_store_result NULL.(%s)\n", selectSql));
+				CMysqlPool::SinkPut(pSink);
+				return -1;
+			}
 			rows = (mycp::bigint)mysql_num_rows(resultset);
 			if (rows > 0)
 			{
 				outCookie = (int)resultset;
-				m_results.insert(outCookie, CDBC_RESULTSET(pSink,resultset,rows));
+				CCDBCResultSet::pointer pSqlResultSet = CDBC_RESULTSET(pSink,resultset,rows);
+				m_results.insert(outCookie, pSqlResultSet);
+				if (nCacheMinutes>0)
+				//if (nCacheMinutes>0 && pSqlResultSetTemp.get()==NULL)
+				{
+					pSqlResultSet->BuildAllRecords();
+					const time_t tNow = time(0);
+					//pSqlResultSet->SetCacheTime(tNow);
+					pSqlResultSet->SetMemoryTimeout(tNow+nCacheMinutes*60);
+					m_pMemorySqlResults.insert(sSqlString,pSqlResultSet);
+				}
 			}else
 			{
 				mysql_free_result(resultset);
@@ -968,7 +1044,7 @@ private:
 	virtual int cols(int cookie) const
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
-		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
+		return m_results.find(cookie, cdbcResultSet) ? (int)cdbcResultSet->cols() : -1;
 	}
 
 	virtual mycp::bigint index(int cookie) const
@@ -1221,6 +1297,7 @@ private:
 
 	time_t m_tLastTime;
 	CLockMap<int, CCDBCResultSet::pointer> m_results;
+	CLockMap<tstring, CCDBCResultSet::pointer> m_pMemorySqlResults;	// sql->
 	cgcCDBCInfo::pointer m_cdbcInfo;
 	tstring m_sDbHost;
 	int m_nDbPort;
@@ -1232,8 +1309,54 @@ cgcAttributes::pointer theAppAttributes;
 tstring theAppConfPath;
 //cgcServiceInterface::pointer theSyncService;
 
+const unsigned int TIMER_CHECK_ONE_SECOND = 1;	// 1秒钟检查一次
+unsigned int theSecondIndex = 0;
+
+void CheckMemoryResourcesTimeout(void)
+{
+	if (theAppAttributes.get()==NULL) return;
+	VoidObjectMapPointer mapLogServices = theAppAttributes->getVoidAttributes(ATTRIBUTE_NAME, false);
+	if (mapLogServices.get() != NULL)
+	{
+		BoostReadLock rdlock(mapLogServices->mutex());
+		CObjectMap<void*>::iterator iter = mapLogServices->begin();
+		for (; iter!=mapLogServices->end(); iter++)
+		{
+			CMysqlCdbc::pointer service = CGC_OBJECT_CAST<CMysqlCdbc>(iter->second);
+			service->CheckMemoryResultsTimeout();
+		}
+	}
+}
+class CTimeHandler
+	: public cgcOnTimerHandler
+{
+public:
+	typedef boost::shared_ptr<CTimeHandler> pointer;
+	static CTimeHandler::pointer create(void)
+	{
+		return CTimeHandler::pointer(new CTimeHandler());
+	}
+	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
+	{
+		if (nIDEvent==TIMER_CHECK_ONE_SECOND)
+		{
+			theSecondIndex++;
+			if ((theSecondIndex%10)==9)	// 10秒处理一次
+			{
+				CheckMemoryResourcesTimeout();
+			}
+		}
+	}
+
+	CTimeHandler(void)
+	{
+	}
+};
+CTimeHandler::pointer theTimerHandler;
+
 // 模块初始化函数，可选实现函数
-extern "C" bool CGC_API CGC_Module_Init(void)
+extern "C" bool CGC_API CGC_Module_Init2(MODULE_INIT_TYPE nInitType)
+//extern "C" bool CGC_API CGC_Module_Init(void)
 {
 	theApplication2 = CGC_APPLICATION2_CAST(theApplication);
 	assert (theApplication2.get() != NULL);
@@ -1241,12 +1364,16 @@ extern "C" bool CGC_API CGC_Module_Init(void)
 	theAppAttributes = theApplication->getAttributes(true);
 	assert (theAppAttributes.get() != NULL);
 
+	theTimerHandler = CTimeHandler::create();
+	theApplication->SetTimer(TIMER_CHECK_ONE_SECOND, 1000, theTimerHandler);	// 1秒检查一次
+
 	theAppConfPath = theApplication->getAppConfPath();
 	return true;
 }
 
 // 模块退出函数，可选实现函数
-extern "C" void CGC_API CGC_Module_Free(void)
+extern "C" void CGC_API CGC_Module_Free2(MODULE_FREE_TYPE nFreeType)
+//extern "C" void CGC_API CGC_Module_Free(void)
 {
 	VoidObjectMapPointer mapLogServices = theAppAttributes->getVoidAttributes(ATTRIBUTE_NAME, false);
 	if (mapLogServices.get() != NULL)
@@ -1262,7 +1389,10 @@ extern "C" void CGC_API CGC_Module_Free(void)
 		}
 	}
 	theAppAttributes.reset();
+	if (nFreeType==MODULE_FREE_TYPE_NORMAL)
+		theApplication->KillAllTimer();
 	theApplication2.reset();
+	theTimerHandler.reset();
 }
 
 extern "C" void CGC_API CGC_GetService(cgcServiceInterface::pointer & outService, const cgcValueInfo::pointer& parameter)

@@ -93,7 +93,7 @@ private:
 			ModuleItem::pointer moduleItem = ModuleItem::create();
 #ifdef WIN32
 #ifdef _DEBUG
-			if (m_bSupportDebug)
+			//if (m_bSupportDebug)
 				file.append("d");
 #endif // _DEBUG
 			file.append(".dll");

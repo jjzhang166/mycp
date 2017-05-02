@@ -36,7 +36,8 @@ public:
 	typedef boost::shared_ptr<CScriptItem> pointer;
 	enum ItemType
 	{
-		CSP_Println		= 0x100		// 不要轻易改
+		CSP_Unknown								// 未知
+		, CSP_Println		= 0x100		// 不要轻易改
 		, CSP_Write
 		, CSP_NewLine
 		, CSP_OutPrint

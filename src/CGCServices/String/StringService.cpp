@@ -17,7 +17,7 @@
 */
 
 #ifdef WIN32
-#pragma warning(disable:4996)
+#pragma warning(disable:4996 4819 4267)
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -53,6 +53,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 //#include <boost/foreach.hpp>
 using namespace boost::property_tree;
 using namespace boost::locale;
+#include <boost/regex.hpp>
 
 // cgc head
 #include "cgcString.h"
@@ -335,6 +336,8 @@ public:
 protected:
 	virtual bool callService(const tstring& function, const cgcValueInfo::pointer& inParam, cgcValueInfo::pointer outParam)
 	{
+		//printf("**** function=%s\n",function.c_str());
+
 		if (function == "md5")
 		{
 			if (inParam.get() == NULL || outParam.get() == NULL) return false;
@@ -384,7 +387,7 @@ protected:
 				memcpy(lpszIn,inParam->getVector()[1]->getBuffer(),nInSize);
 			}else
 			{
-				const tstring& sInString = inParam->getVector()[1]->getStr();
+				const tstring sInString = inParam->getVector()[1]->getStr();
 				//printf("**** key=%s\n",sKey.c_str());
 				//printf("**** string=%s\n",sInString.c_str());
 				nInSize = sInString.size();
@@ -396,7 +399,7 @@ protected:
 			unsigned char * lpszOut = new unsigned char[nInSize+8];
 			memset(lpszOut,0,nInSize+8);
 
-			DesEncrypt(sKey.c_str(),lpszIn,lpszOut,nInSize);
+			DesEncrypt(sKey.c_str(),lpszIn,lpszOut,(int)nInSize);
 			const size_t nEncLen = ((nInSize+7)/8)*8;	// 加密后数据长度；
 
 			//std::string sOutString;
@@ -426,14 +429,14 @@ protected:
 			if (bConvert2t16)
 			{
 				pOutParam->totype(cgcValueInfo::TYPE_STRING);
-				pOutParam->setStr(convert_2t16(lpszOut,nEncLen));
+				pOutParam->setStr(convert_2t16(lpszOut,(unsigned int)nEncLen));
 				delete[] lpszOut;
 				delete[] lpszIn;
 			}else
 			{
 				pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
 				pOutParam->reset();
-				pOutParam->setBuffer(lpszOut,nEncLen);
+				pOutParam->setBuffer(lpszOut,(unsigned int)nEncLen);
 				delete[] lpszIn;
 			}
 		}else if (function == "des_dec")
@@ -466,7 +469,7 @@ protected:
 				}
 			}else
 			{
-				const tstring& sInString = inParam->getVector()[1]->getStr();
+				const tstring sInString = inParam->getVector()[1]->getStr();
 				nInLen = sInString.size();
 				lpszIn = new unsigned char[nInLen+8];
 				if (bConvert16t2)
@@ -494,7 +497,7 @@ protected:
 
 			unsigned char * lpszOut = new unsigned char[nInLen+8];
 			memset(lpszOut,0,nInLen+8);
-			DesDecrypt(sKey.c_str(),lpszIn,lpszOut,nInLen);
+			DesDecrypt(sKey.c_str(),lpszIn,lpszOut,(int)nInLen);
 
 			//返回结果
 			cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
@@ -502,7 +505,7 @@ protected:
 			{
 				pOutParam->totype(cgcValueInfo::TYPE_BUFFER);
 				pOutParam->reset();
-				pOutParam->setBuffer(lpszOut,nInLen);
+				pOutParam->setBuffer(lpszOut,(unsigned int)nInLen);
 				delete[] lpszIn;
 			}else
 			{
@@ -523,17 +526,17 @@ protected:
 		}else if (function == "aes_ecb_enc")
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
-			const tstring& userKey = inParam->getVector()[0]->getStr();
+			const tstring userKey = inParam->getVector()[0]->getStr();
 			if (userKey.empty()) return false;
-			const tstring& in = inParam->getVector()[1]->getStr();
+			const tstring in = inParam->getVector()[1]->getStr();
 			bool bConvert2t16 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert2t16 = inParam->getVector()[2]->getBoolean();
-			const int nOutLen = ((in.size()+15)/16)*16;
+			const int nOutLen = (((int)in.size()+15)/16)*16;
 			//const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
 			unsigned char* out = new unsigned char[nOutLen+1];
 			memset(out,0,nOutLen+1);
-			const int ret = aes_ecb_encrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),(int)in.size(),out);
+			const int ret = aes_ecb_encrypt_full((const unsigned char*)userKey.c_str(),(int)userKey.length(),(const unsigned char*)in.c_str(),(int)in.size(),out);
 			if (ret==0)
 			{
 				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
@@ -555,7 +558,7 @@ protected:
 		}else if (function == "aes_ecb_dec")
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
-			const tstring& userKey = inParam->getVector()[0]->getStr();
+			const tstring userKey = inParam->getVector()[0]->getStr();
 			bool bConvert16t2 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert16t2 = inParam->getVector()[2]->getBoolean();
@@ -574,7 +577,7 @@ protected:
 				}
 			}else
 			{
-				const tstring& sInString = inParam->getVector()[1]->getStr();
+				const tstring sInString = inParam->getVector()[1]->getStr();
 				nInLen = sInString.size();
 				lpszIn = new unsigned char[nInLen+8];
 				if (bConvert16t2)
@@ -592,10 +595,10 @@ protected:
 
 			unsigned char* out = new unsigned char[nInLen+1];
 			out[nInLen] = '\0';
-			const int ret = aes_ecb_decrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
+			const int ret = aes_ecb_decrypt_full((const unsigned char*)userKey.c_str(),(int)userKey.length(),lpszIn,(int)nInLen,out);
 			if (ret==0)
 			{
-				int nOutLen = nInLen;
+				int nOutLen = (int)nInLen;
 				for (int i=0;i<16;i++)
 				{
 					if (out[nInLen-i-1]!=(unsigned char)0)
@@ -631,16 +634,16 @@ protected:
 		}else if (function == "aes_cbc_enc")
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
-			const tstring& userKey = inParam->getVector()[0]->getStr();
+			const tstring userKey = inParam->getVector()[0]->getStr();
 			if (userKey.empty()) return false;
-			const tstring& in = inParam->getVector()[1]->getStr();
+			const tstring in = inParam->getVector()[1]->getStr();
 			bool bConvert2t16 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert2t16 = inParam->getVector()[2]->getBoolean();
-			const int nOutLen = ((in.size()+15)/16)*16;
+			const int nOutLen = (((int)in.size()+15)/16)*16;
 			//const int nOutLen = ((in.size()/userKey.size())+1)*userKey.size();
 			unsigned char* out = new unsigned char[nOutLen+1];
-			const int ret = aes_cbc_encrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),(const unsigned char*)in.c_str(),in.length(),out);
+			const int ret = aes_cbc_encrypt_full((const unsigned char*)userKey.c_str(),(int)userKey.length(),(const unsigned char*)in.c_str(),(int)in.length(),out);
 			if (ret==0)
 			{
 				cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
@@ -662,7 +665,7 @@ protected:
 		}else if (function == "aes_cbc_dec")
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->getVector().size()<2) return false;
-			const tstring& userKey = inParam->getVector()[0]->getStr();
+			const tstring userKey = inParam->getVector()[0]->getStr();
 			bool bConvert16t2 = true;
 			if (inParam->getVector().size()>=3)
 				bConvert16t2 = inParam->getVector()[2]->getBoolean();
@@ -681,7 +684,7 @@ protected:
 				}
 			}else
 			{
-				const tstring& sInString = inParam->getVector()[1]->getStr();
+				const tstring sInString = inParam->getVector()[1]->getStr();
 				nInLen = sInString.size();
 				lpszIn = new unsigned char[nInLen+8];
 				if (bConvert16t2)
@@ -698,10 +701,10 @@ protected:
 				bSave2Buffer = inParam->getVector()[3]->getBoolean();
 
 			unsigned char* out = new unsigned char[nInLen+1];
-			const int ret = aes_cbc_decrypt_full((const unsigned char*)userKey.c_str(),userKey.length(),lpszIn,nInLen,out);
+			const int ret = aes_cbc_decrypt_full((const unsigned char*)userKey.c_str(),(int)userKey.length(),lpszIn,(int)nInLen,out);
 			if (ret==0)
 			{
-				int nOutLen = nInLen;
+				int nOutLen = (int)nInLen;
 				for (int i=0;i<16;i++)
 				{
 					if (out[nInLen-i-1]!=(unsigned char)0)
@@ -744,8 +747,7 @@ protected:
 		}else if (function == "url_enc")
 		{
 			if (inParam.get() == NULL) return false;
-			const tstring & sInString = inParam->getStr();
-			const std::string sOutString = URLEncode(sInString.c_str());
+			const std::string sOutString = URLEncode(inParam->getStr().c_str());
 			//返回结果
 			cgcValueInfo::pointer pOutParam = outParam.get()==NULL?inParam:outParam;
 			pOutParam->totype(cgcValueInfo::TYPE_STRING);
@@ -839,7 +841,7 @@ protected:
 				outParam->setStr(tstring(_T("")));
 			}else
 			{
-				int size = sInString.size()*1.4+1;
+				int size = (int)(sInString.size()*1.4+1);
 				char * buffer = new char[size];
 				unsigned int len = Base64Encode(buffer, (const unsigned char*)sInString.c_str(), (unsigned int)sInString.size());
 				if (len > 0)
@@ -862,7 +864,7 @@ protected:
 				outParam->setStr(tstring(_T("")));
 			}else
 			{
-				int size = sInString.size()*0.8+1;
+				int size = (int)(sInString.size()*0.8+1);
 				char * buffer = new char[size];
 				unsigned int len = Base64Decode((unsigned char*)buffer, sInString.c_str());
 				if (len > 0)
@@ -938,11 +940,17 @@ protected:
 					outParam->insertMap(p, CGC_VALUEINFO(v));
 				}while (find != std::string::npos);
 			}
-		}else if (function == "to_json")
+		}
+		else if (function == "to_json")
 		{
 			if (inParam.get() == NULL) return false;
 			return toJson(inParam,outParam);
-		}else if (function == "split_str2list")
+		}
+		else if (function == "regex_search")
+		{
+			return regexSearch(inParam,outParam);
+		}
+		else if (function == "split_str2list")
 		{
 			if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->size()<2) return false;
 			const tstring sString = inParam->getVector()[0]->getStr();
@@ -1035,6 +1043,65 @@ protected:
 				//	ptResponse.put(conv::utf_to_utf<wchar_t>(sKey), conv::utf_to_utf<wchar_t>(pValueInfo->toString()));
 			}break;
 		}
+	}
+	bool regexSearch(const cgcValueInfo::pointer& inParam,cgcValueInfo::pointer outParam)
+	{
+		//输入vector参数：
+		//0: 要查找字符串
+		//1: 正则表达式字符串
+		//2: limit 限制查找多少条；0不限制
+		//3: [可选]是否忽略大小写 默认0, 1=忽略大小写
+		//4: [可选]是否换行停止 默认0=不停止（全局匹配）, 1=换行停止
+		//输出vector参数：
+		//0: 匹配到多少个记录 0没有匹配记录
+		//1: 第0条匹配记录，以下同；
+		//2: 第1条匹配记录
+		//3: ...
+
+		//printf("**** regexSearch...\n");
+		if (inParam.get() == NULL || inParam->getType()!=cgcValueInfo::TYPE_VECTOR || inParam->size()<3) return false;
+		const tstring sString = inParam->getVector()[0]->getStr();
+		const tstring sExpression = inParam->getVector()[1]->getStr();
+		const int nLimit = inParam->getVector()[2]->getIntValue();
+		const int nICase = inParam->size()>=4?inParam->getVector()[3]->getIntValue():0;	// 忽略大小写 0/1
+		const int match_not_dot_newline = inParam->size()>=5?inParam->getVector()[4]->getIntValue():0;	// 0=默认全局; 1=换行停止
+
+		//printf("**** sString=%s,sExpression=%s,limit=%d\n", sString.c_str(),sExpression.c_str(),nLimit);
+
+		cgcValueInfo::pointer pOutParam = outParam.get() == NULL?inParam:outParam;
+		pOutParam->totype(cgcValueInfo::TYPE_VECTOR);
+		pOutParam->reset();
+
+		cgcValueInfo::pointer pResultCount = CGC_VALUEINFO((int)0);
+		pOutParam->addVector(pResultCount);
+
+		//const char * theRegexFunc = "(#[a-zA-Z0-9_]+)\\s*\\(([^()]+)*\\)";
+		//const boost::regex expressionFunc(theRegexFunc);
+		boost::regex::flag_type nRegexFlagType = boost::regex_constants::normal;
+		if (nICase==1)
+			nRegexFlagType |= boost::regex_constants::icase;
+		const boost::regex expressionFunc(sExpression,nRegexFlagType);
+
+		std::string::const_iterator start = sString.begin();
+		boost::match_results<std::string::const_iterator> what;
+		boost::match_flag_type nMatchFlagType = boost::match_default;
+		if (match_not_dot_newline==1)
+			nMatchFlagType |= boost::match_not_dot_newline;
+		while (boost::regex_search(start, sString.end(), what, expressionFunc, nMatchFlagType))
+		{
+			const int nCount = pResultCount->getInt()+1;
+			const std::string sFuncName0(what[0].first,what[0].second);
+			//const std::string sFuncName1(what[1].first,what[1].second);
+			//const std::string sFuncName2(what[2].first,what[2].second);
+			//printf("**** %d: find0=%s\n", nCount,sFuncName0.c_str());
+			//printf("**** %d: find0=(%s),find1=(%s), find2=%s\n", nCount,sFuncName0.c_str(),sFuncName1.c_str(),sFuncName2.c_str());
+			pResultCount->setInt(nCount);
+			pOutParam->addVector(CGC_VALUEINFO(sFuncName0.c_str()));
+			if (nLimit>0 && nCount>=nLimit) break;
+			start = what[0].second;
+		}
+		//printf("**** regexSearch end=%d\n",pResultCount->getInt());
+		return true;
 	}
 	bool toJson(const cgcValueInfo::pointer& inParam,cgcValueInfo::pointer outParam)
 	{
@@ -1259,11 +1326,11 @@ protected:
 	static void W2C(const wchar_t *pw, char *pc)
 	{
 		if (*pw < 255)
-			*pc = *pw;
+			*pc = (char)*pw;
 		else
 		{
 			*pc++ = *pw >> 8 ;
-			*pc = *pw;
+			*pc = (char)*pw;
 		}
 	}
 	//

@@ -245,7 +245,8 @@ public:
 		m_threadLog.reset();
 		if (threadLogTemp.get()!=NULL)
 		{
-			threadLogTemp->join();
+			if (threadLogTemp->joinable())
+				threadLogTemp->join();
 			threadLogTemp.reset();
 		}
 		m_stream.close();
@@ -489,7 +490,8 @@ protected:
 		if (targetLen > 0)
 		{
 			char * pTargetData = new char[targetLen];
-			memset(pTargetData, 0, (targetLen)*sizeof(char));
+			memset(pTargetData, 0, targetLen);
+			//memset(pTargetData, 0, (targetLen)*sizeof(char));
 			wcsrtombs(pTargetData, &strSource, targetLen, NULL);
 			result = pTargetData;
 			delete[] pTargetData;

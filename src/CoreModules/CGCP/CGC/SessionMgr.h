@@ -241,26 +241,30 @@ public:
 	cgcSession::pointer SetSessionImpl(const ModuleItem::pointer& pModuleItem,const cgcRemote::pointer& pRemote,const cgcParserBase::pointer& pcgcParser);
 	cgcSession::pointer GetSessionImplByRemote(unsigned long remoteId);
 	cgcSession::pointer GetSessionImpl(const tstring & sSessionId) const;
+	cgcSession::pointer GetSessionImpl(const tstring & sSessionId, unsigned long pNewRemoteId);
 	//void ChangeSessionId(const tstring& sOldSessionId,const cgcRemote::pointer& wssRemote, const cgcParserBase::pointer& pcgcParser);	// for HTTP
-	void SetRemoteSession(unsigned long remoteId,const tstring& sSessionId);
+	void SetRemoteSession(unsigned long remoteId,const cgcSession::pointer& pSession);
+	//void SetRemoteSession(unsigned long remoteId,const tstring& sSessionId);
 
-	void RemoveSessionImpl(const cgcSession::pointer & pSessionImpl);
+	void RemoveSessionImpl(const cgcSession::pointer & pSessionImpl, bool bRemoveSessionIdMap);
 	//void setInterval(unsigned long remoteId, int interval);
 	void onRemoteClose(unsigned long remoteId, int nErrorCode);
 
 	bool ProcDataResend(void);
 	void ProcLastAccessedTime(std::vector<std::string>& pOutCloseSidList);
+	void ProcInvalidRemoteIdList(void);
 	void invalidates(bool bStop);
 	void FreeHandle(void);
 
 private:
-	int OnSessionClosedTimeout(const cgcSession::pointer & pSessionImpl);
+	int OnSessionClosedTimeout(const cgcSession::pointer & pSessionImpl, bool bRemoveSessionIdMap);
 
 private:
 #ifdef USES_MULTI_REMOTE_SESSION
 	CLockMultiMap<unsigned long, tstring> m_mapRemoteSessionId;		// remoteid to sessionid
 #else
-	CLockMap<unsigned long, tstring> m_mapRemoteSessionId;		// remoteid to sessionid
+	CLockMap<unsigned long, cgcSession::pointer> m_mapRemoteSessionId;		// remoteid to sessionimpl
+	//CLockMap<unsigned long, tstring> m_mapRemoteSessionId;		// remoteid to sessionid
 #endif
 	CLockMap<tstring, cgcSession::pointer> m_mapSessionImpl;	// sessionid to sessionimpl
 

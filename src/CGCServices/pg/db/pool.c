@@ -213,11 +213,12 @@ Sink * sink_pool_add()
 	}
 
 	if(sink_connect(sink) < 0) {
-		//sink_reset(sink);	// ?
+		//sink_reset(sink);	// add by hd 2017-04-05
 		sink_unlock(sink);
 		return 0;
 	}
 	if(sink_state(sink) != CONN_OK) {
+		sink_reset(sink);	// add by hd 2017-04-05
 		sink_unlock(sink);
 		return 0;
 	}
@@ -253,6 +254,8 @@ Sink*  sink_pool_get(void)
 			/* check connection status */
 			if(sink_state(sink) == CONN_BAD) {
 				sink_reset(sink);
+				sink_unlock(sink);	// add by hd 2017-04-05
+				continue;						// add by hd 2017-04-05
 			}
 
 			sink_set_busy(sink, 1);

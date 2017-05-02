@@ -19,7 +19,7 @@
 
 // ParserSotp.cpp : Defines the exported functions for the DLL application.
 #ifdef WIN32
-#pragma warning(disable:4267 4996)
+#pragma warning(disable:4267 4819 4996)
 #include <windows.h>
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
