@@ -43,7 +43,8 @@ typedef unsigned short			uint16;
 typedef unsigned int			uint32;
 typedef bigint					uint64;
 
-#ifdef WIN32
+//#ifdef WIN32
+#ifndef __MACH__
 inline mycp::ubigint htonll(mycp::ubigint val) {
 	return (((mycp::ubigint)htonl((unsigned int)((val << 32) >> 32))) << 32) | (unsigned int)htonl((unsigned int)(val >> 32));
 	//return  (((mycp::ubigint) htonl(val))  <<   32 )  +  htonl(val  >>   32 );
