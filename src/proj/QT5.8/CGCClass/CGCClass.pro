@@ -22,7 +22,7 @@ DEFINES += _QT_MAKE_
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
-win32{
+win32 {
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
 #LIBS +=F:/THIRDPARTY/boost_1_62_0/stage/lib/libboost_system-mgw53-mt-1_62.a
 #LIBS +=F:/THIRDPARTY/boost_1_62_0/stage/lib/libboost_filesystem-mgw53-mt-1_62.a

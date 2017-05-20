@@ -22,8 +22,14 @@ DEFINES += _QT_MAKE_
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+win32 {
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
-INCLUDEPATH += D:/openssl/include
+#INCLUDEPATH += D:/openssl/include
+}
+else:unix: {
+# for OSX
+INCLUDEPATH += "/Users/akee/src/boost_1_62_0"
+}
 
 SOURCES += ../../../CGCLib/CgcBaseClient.cpp \
     ../../../CGCLib/CgcRtpClient.cpp \
