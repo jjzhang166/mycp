@@ -370,8 +370,8 @@ private:
 	{
 		// **这里不做TRY CATCH，由IOSERVICE统一处理，有问题，会自动重启服务
 		// 2017-04-18 有异常，去掉 try 测试情况；
-		//try
-		//{
+		try
+		{
 			//printf("**** start_read->async_read_some,socket=%x,buffer=%x\n",m_socket,m_pBuffer.get());
 			m_socket->async_read_some(boost::asio::buffer(const_cast<unsigned char*>(m_pBuffer->data()), Max_ReceiveBuffer_ReceiveSize),
 				boost::bind(&TcpConnection::read_some_handler, this, m_pBuffer,
@@ -386,18 +386,18 @@ private:
 			//m_socket.async_read_some(boost::asio::buffer(const_cast<unsigned char*>(newBuffer->data()), m_maxbuffersize),
 			//	boost::bind(&TcpConnection::read_some_handler, this, newBuffer,
 			//	boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
-//		}catch (std::exception &)
-//		{
-////#ifdef WIN32
-////			printf("start_read exception. %s, lasterror=%d\n", e.what(), GetLastError());
-////#else
-////			printf("start_read exception. %s\n", e.what());
-////#endif
-//		}catch (boost::exception&)
-//		{
-//		}catch(...)
-//		{
-//		}
+		}catch (std::exception &)
+		{
+//#ifdef WIN32
+//			printf("start_read exception. %s, lasterror=%d\n", e.what(), GetLastError());
+//#else
+//			printf("start_read exception. %s\n", e.what());
+//#endif
+		}catch (boost::exception&)
+		{
+		}catch(...)
+		{
+		}
 	}
 
 #ifdef USES_OPENSSL

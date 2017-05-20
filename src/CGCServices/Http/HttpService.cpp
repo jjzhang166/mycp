@@ -81,7 +81,7 @@ public:
 protected:
 	virtual tstring serviceName(void) const {return _T("HTTPSERVICE");}
 
-	bool GetRequestInfo(const cgcValueInfo::pointer& inParam,tstring& pOutHost,tstring& pOutPort,tstring& pOutUrl,tstring& pOutHeader,tstring& pOutData, bool& pOutIsSSL, tstring& pOutSaveFile) const
+	bool GetRequestInfo(const cgcValueInfo::pointer& inParam,tstring& pOutHost,tstring& pOutPort,tstring& pOutUrl,tstring& pOutHeader,tstring& pOutData, bool& pOutIsSSL, tstring& pOutSaveFile, int & pOutTimeoutSeconds) const
 	{
 		if (inParam.get() == NULL) return false;
 		if (inParam->getType() == cgcValueInfo::TYPE_MAP)
@@ -108,6 +108,8 @@ protected:
 				pOutData = varFind->toString();
 			if (inParam->getMap().find("save_file", varFind))
 				pOutSaveFile = varFind->getStr();
+			if (inParam->getMap().find("timeout_seconds", varFind))
+				pOutTimeoutSeconds = varFind->getIntValue();
 			return true;
 		}else if (inParam->getType() == cgcValueInfo::TYPE_STRING)
 		{
@@ -163,7 +165,7 @@ protected:
 			// 1=data	// for post data
 			// 2=header
 			const tstring sFullUrl = inParam->getVector()[0]->getStr();
-			if (!GetRequestInfo(CGC_VALUEINFO(sFullUrl),pOutHost,pOutPort,pOutUrl,pOutHeader,pOutData,pOutIsSSL, pOutSaveFile))
+			if (!GetRequestInfo(CGC_VALUEINFO(sFullUrl),pOutHost,pOutPort,pOutUrl,pOutHeader,pOutData,pOutIsSSL, pOutSaveFile,pOutTimeoutSeconds))
 				return false;
 			if (inParam->size()>=2)
 			{
@@ -177,6 +179,8 @@ protected:
 			//printf("**** out-header=%s\n",pOutHeader.c_str());
 			if (inParam->size()>=4)
 				pOutSaveFile = inParam->getVector()[3]->getStr();
+			if (inParam->size()>=5)
+				pOutTimeoutSeconds = inParam->getVector()[4]->getIntValue();
 			return true;
 		}else
 		{
@@ -210,7 +214,8 @@ protected:
 			tstring sData;
 			bool bIsSSL = false;
 			tstring sSaveFile;
-			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL,sSaveFile))
+			int nTimeoutSeconds = 30;
+			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL,sSaveFile,nTimeoutSeconds))
 				return false;
 			tstring sHostIp(sHost);
 			//tstring sHostIp = getipbyname(sHost.c_str());
@@ -238,7 +243,7 @@ protected:
 			sHostIp.append(sPort);			// default 80
 			try
 			{
-				return HttpRequest(sSaveFile, bIsSSL, sHostIp, sHttpRequest, sUrl, outParam);
+				return HttpRequest(nTimeoutSeconds,sSaveFile, bIsSSL, sHostIp, sHttpRequest, sUrl, outParam);
 			}catch (const std::exception &)
 			{
 			}catch (const boost::exception &)
@@ -258,7 +263,8 @@ protected:
 			tstring sData;		// for POST command
 			bool bIsSSL = false;
 			tstring sSaveFile;
-			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL,sSaveFile))
+			int nTimeoutSeconds = 30;
+			if (!GetRequestInfo(inParam,sHost,sPort,sUrl,sHeader,sData,bIsSSL,sSaveFile,nTimeoutSeconds))
 				return false;
 
 			//cgcValueInfo::pointer varFind;
@@ -308,7 +314,7 @@ protected:
 			sHostIp.append(sPort);			// default 80
 			try
 			{
-				return HttpRequest(sSaveFile, bIsSSL, sHostIp, sHttpRequest, sUrl, outParam);
+				return HttpRequest(nTimeoutSeconds,sSaveFile, bIsSSL, sHostIp, sHttpRequest, sUrl, outParam);
 			}catch (const std::exception &)
 			{
 			}catch (const boost::exception &)
@@ -324,7 +330,7 @@ protected:
 	}
 
 	protected:
-		bool HttpRequest(const tstring& sSaveFile, bool bIsSSL, const tstring & sHostIp, const tstring & sHttpRequest, const tstring& sUrl, cgcValueInfo::pointer outParam)
+		bool HttpRequest(int nTimeoutSeconds,const tstring& sSaveFile, bool bIsSSL, const tstring & sHostIp, const tstring & sHttpRequest, const tstring& sUrl, cgcValueInfo::pointer outParam)
 		{
 			bool result = false;
 			boost::asio::ssl::context * m_sslctx = NULL;
@@ -363,6 +369,8 @@ protected:
 				tcpClient->sendData((const unsigned char *)sHttpRequest.c_str(), sHttpRequest.size());
 				//const int nMaxSecond = sSaveFile.empty()?30:300;	// 300=5*60
 				//int counter = 0;
+				if (nTimeoutSeconds==0)
+					nTimeoutSeconds = 30;
 				do
 				{
 #ifdef WIN32

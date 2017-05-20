@@ -547,12 +547,25 @@ bool CPpHttp::UnZipWriteFileCallBack(uLong nSourceIndex, const unsigned char* pD
 	}
 	return true;
 }
+//#define USES_PRINT_DEBUG
+//#define USES_WRITE_FILE
+#ifdef USES_WRITE_FILE
+FILE * theFile = NULL;
+#endif
+
 bool CPpHttp::UnZipWriteCurrentMultiPartCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
 {
 	if (nSize>0 && nUserData!=0)
 	{
 		CPpHttp * pHttp = (CPpHttp*)nUserData;
 		pHttp->m_currentMultiPart->write((const char*)pData,nSize);
+#ifdef USES_WRITE_FILE
+		if (theFile!=NULL)
+		{
+			fwrite((const char*)pData,1,nSize,theFile);
+			fflush(theFile);
+		}
+#endif
 	}
 	return true;
 }
@@ -1100,7 +1113,6 @@ inline bool FindHttpHeader(const char * httpRequest, const char ** pOutFind1, co
 	return false;
 }
 
-//#define USES_PRINT_DEBUG
 //inline long hstring2int(const char*s) 
 //{  
 //	int i,t;  
@@ -1132,7 +1144,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 	static FILE * f = NULL;
 	if (f==NULL)
 #ifdef WIN32
-		f = fopen("c:\\entboost_http_recv.txt","wb");
+		f = fopen("d:\\entboost_http_recv.txt","wb");
 #else
 		f = fopen("/entboost_http_recv.txt","wb");
 #endif
@@ -1144,6 +1156,15 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 		fwrite(httpRequest,1,requestSize,f);
 		fflush(f);
 	}
+#endif
+
+#ifdef USES_WRITE_FILE
+	if (theFile==NULL)
+#ifdef WIN32
+		theFile = fopen("d:\\entboost_http_recv_file.f","wb");
+#else
+		theFile = fopen("/entboost_http_recv_file.f","wb");
+#endif
 #endif
 
 	//printf("CPpHttp::IsComplete  size=%d\n",requestSize);
@@ -1416,7 +1437,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				if (find != NULL)
 				{
 					findBoundary = true;
-					if (m_currentMultiPart->getUploadFile()->getFileSize() > 0)
+					//if (m_currentMultiPart->getUploadFile()->getFileSize() > 0)
 					{
 						bool bUnZipOk = false;
 #ifdef USES_ZLIB
@@ -1429,7 +1450,16 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 						}
 #endif
 						if (!bUnZipOk)
+						{
 							m_currentMultiPart->write((const char*)httpRequest, find-(const char*)httpRequest);
+#ifdef USES_WRITE_FILE
+							if (theFile!=NULL)
+							{
+								fwrite((const char*)httpRequest,1,find-(const char*)httpRequest,theFile);
+								fflush(theFile);
+							}
+#endif
+						}
 						m_currentMultiPart->close();
 						m_currentMultiPart->setParser(cgcNullParserBaseService);
 						m_files.push_back(m_currentMultiPart);
@@ -1487,6 +1517,14 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 			if (!bUnZipOk)
 			{
 				m_currentMultiPart->write((const char*)httpRequest, requestSize);
+#ifdef USES_WRITE_FILE
+				if (theFile!=NULL)
+				{
+					fwrite((const char*)httpRequest,1,requestSize,theFile);
+					fflush(theFile);
+				}
+#endif
+
 				//m_receiveSize += requestSize;
 			}
 			// getMaxFileSize & isGreaterMaxSize
@@ -1923,6 +1961,15 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				tstring boundaryEnd("\r\n");
 				boundaryEnd.append(m_currentMultiPart->getBoundary());
 				const char * find = strstrl((const char*)findSearchEnd, boundaryEnd.c_str(), requestSize-(findSearchEnd-httpRequestOld), boundaryEnd.size());
+#ifdef USES_PRINT_DEBUG
+				if (f!=NULL)
+				{
+					char lpszBuf[1024];
+					sprintf(lpszBuf,"\r\n**** strstrl=%d",(int)(find==0?0:1));
+					fwrite(lpszBuf,1,strlen(lpszBuf),f);
+					fflush(f);
+				}
+#endif
 				if (find == NULL)
 				{
 					bool bUnZipOk = false;
@@ -1939,6 +1986,13 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 					{
 						m_currentMultiPart->write(findSearchEnd+4, requestSize-size_t(findSearchEnd-httpRequestOld)-4);
 						//m_currentMultiPart->write(findSearchEnd+4, m_contentLength-size_t(findSearchEnd-httpRequestOld)-4);
+#ifdef USES_WRITE_FILE
+						if (theFile!=NULL)
+						{
+							fwrite((const char*)findSearchEnd+4,1,requestSize-size_t(findSearchEnd-httpRequestOld)-4,theFile);
+							fflush(theFile);
+						}
+#endif
 					}
 					m_sCurrentParameterData.clear();
 					return false;
@@ -1954,7 +2008,16 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				}
 #endif
 				if (!bUnZipOk)
+				{
 					m_currentMultiPart->write(findSearchEnd+4, find-findSearchEnd-4);
+#ifdef USES_WRITE_FILE
+					if (theFile!=NULL)
+					{
+						fwrite((const char*)findSearchEnd+4,1,find-findSearchEnd-4,theFile);
+						fflush(theFile);
+					}
+#endif
+				}
 				m_currentMultiPart->close();
 				m_currentMultiPart->setParser(cgcNullParserBaseService);
 				if (!m_currentMultiPart->getFileName().empty())
