@@ -782,7 +782,7 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		if (m_sReqAcceptEncoding.find("gzip")!=std::string::npos)
 		{
 			const_cast<CPpHttp*>(this)->m_nZipCallBackDataSize = 0;
-			if (GZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned int)this)==Z_OK)
+            if (GZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned long)this)==Z_OK)
 			{
 				//printf("*********** GZipDataCb m_sReqAcceptEncoding=%s,bodysize=%d,m_nZipCallBackDataSize=%d\n",m_sReqAcceptEncoding.c_str(),(int)m_bodySize,(int)m_nZipCallBackDataSize);
 				const_cast<CPpHttp*>(this)->m_bodySize = m_nZipCallBackDataSize;
@@ -793,7 +793,7 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		}else if (m_sReqAcceptEncoding.find("deflate")!=std::string::npos)
 		{
 			const_cast<CPpHttp*>(this)->m_nZipCallBackDataSize = 0;
-			if (ZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,0,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned int)this)==Z_OK)
+            if (ZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,0,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned long)this)==Z_OK)
 			{
 				//printf("*********** GZipDataCb m_sReqAcceptEncoding=%s,bodysize=%d,m_nZipCallBackDataSize=%d\n",m_sReqAcceptEncoding.c_str(),(int)m_bodySize,(int)m_nZipCallBackDataSize);
 				const_cast<CPpHttp*>(this)->m_bodySize = m_nZipCallBackDataSize;
@@ -1269,7 +1269,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 					if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 					{
-						if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteFileCallBack,(unsigned int)m_pResponseSaveFile)==Z_OK)
+                        if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteFileCallBack,(unsigned long)m_pResponseSaveFile)==Z_OK)
 						{
 							bUnZipOk = true;
 						}
@@ -1286,7 +1286,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 				if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 				{
 					m_postString.clear();
-					if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+                    if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned long)this)==Z_OK)
 					{
 						bUnZipOk = true;
 						m_queryString = m_postString;
@@ -1318,7 +1318,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 					if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 					{
-						if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteFileCallBack,(unsigned int)m_pResponseSaveFile)==Z_OK)
+                        if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteFileCallBack,(unsigned long)m_pResponseSaveFile)==Z_OK)
 						{
 							bUnZipOk = true;
 						}
@@ -1332,7 +1332,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 				if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 				{
-					if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+                    if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned long)this)==Z_OK)
 					{
 						bUnZipOk = true;
 						m_queryString = m_postString;
@@ -1395,7 +1395,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 			if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 			{
 				unsigned int nUnZipSize = 0;
-				if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+                if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipPostStringCallBack,(unsigned long)this)==Z_OK)
 				{
 					bUnZipOk = true;
 					m_queryString = m_postString;
@@ -1443,7 +1443,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 						if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 						{
-							if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)(find-(const char*)httpRequest),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+                            if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)(find-(const char*)httpRequest),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned long)this)==Z_OK)
 							{
 								bUnZipOk = true;
 							}
@@ -1507,7 +1507,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 			if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 			{
 				unsigned int nUnZipSize = 0;
-				if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+                if (UnGZipDataCb((const unsigned char*)httpRequest,(uLong)requestSize,&nUnZipSize,UnZipWriteCurrentMultiPartCallBack,(unsigned long)this)==Z_OK)
 				{
 					bUnZipOk = true;
 					//m_receiveSize += nUnZipSize;
@@ -1976,7 +1976,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 					if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 					{
-						if (UnGZipDataCb((const unsigned char*)findSearchEnd+4,(uLong)(m_contentLength-size_t(findSearchEnd-httpRequestOld)-4),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+                        if (UnGZipDataCb((const unsigned char*)findSearchEnd+4,(uLong)(m_contentLength-size_t(findSearchEnd-httpRequestOld)-4),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned long)this)==Z_OK)
 						{
 							bUnZipOk = true;
 						}
@@ -2001,7 +2001,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 				if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 				{
-					if (UnGZipDataCb((const unsigned char*)findSearchEnd+4,(uLong)(find-findSearchEnd-4),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned int)this)==Z_OK)
+                    if (UnGZipDataCb((const unsigned char*)findSearchEnd+4,(uLong)(find-findSearchEnd-4),NULL,UnZipWriteCurrentMultiPartCallBack,(unsigned long)this)==Z_OK)
 					{
 						bUnZipOk = true;
 					}
@@ -2139,7 +2139,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 #ifdef USES_ZLIB
 									if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 									{
-										if (UnGZipDataCb((const unsigned char*)findContent,(uLong)m_receiveSize,NULL,UnZipWriteFileCallBack,(unsigned int)m_pResponseSaveFile)==Z_OK)
+                                        if (UnGZipDataCb((const unsigned char*)findContent,(uLong)m_receiveSize,NULL,UnZipWriteFileCallBack,(unsigned long)m_pResponseSaveFile)==Z_OK)
 										{
 											bUnZipOk = true;
 										}
@@ -2166,7 +2166,7 @@ bool CPpHttp::IsComplete(const char * httpRequest, size_t requestSize,bool& pOut
 									if (m_sReqContentEncoding.find("gzip")!=std::string::npos)
 									{
 										m_postString.clear();
-										if (UnGZipDataCb((const unsigned char*)m_queryString.c_str(),(uLong)m_queryString.size(),NULL,UnZipPostStringCallBack,(unsigned int)this)==Z_OK)
+                                        if (UnGZipDataCb((const unsigned char*)m_queryString.c_str(),(uLong)m_queryString.size(),NULL,UnZipPostStringCallBack,(unsigned long)this)==Z_OK)
 										{
 											bUnZipOk = true;
 											m_queryString = m_postString;

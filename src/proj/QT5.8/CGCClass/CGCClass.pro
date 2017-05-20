@@ -26,7 +26,7 @@ win32{
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
 #LIBS +=F:/THIRDPARTY/boost_1_62_0/stage/lib/libboost_system-mgw53-mt-1_62.a
 #LIBS +=F:/THIRDPARTY/boost_1_62_0/stage/lib/libboost_filesystem-mgw53-mt-1_62.a
-INCLUDEPATH += D:/openssl/include
+#INCLUDEPATH += D:/openssl/include
 #  LIBS+=-L/usr/lib  -lz -lpcap -lm -lnsl  -lmysqlclient
 # libeay32.lib,ssleay32.lib,Ws2_32.lib
  release {
@@ -37,10 +37,8 @@ INCLUDEPATH += D:/openssl/include
   }
 }
 else:unix: {
-INCLUDEPATH += "/Volumes/VMware Shared Folders/F/THIRDPARTY/boost_1_62_0"
-}
-else {
-#INCLUDEPATH += "/Volumes/VMware Shared Folders/F/THIRDPARTY/boost_1_62_0"
+# for OSX
+INCLUDEPATH += "/Users/akee/src/boost_1_62_0"
 }
 
 
