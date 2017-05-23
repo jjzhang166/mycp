@@ -379,7 +379,7 @@ protected:
 					usleep(200000);
 #endif
 #ifdef USES_PARSER_HTTP
-				}while (!tcpClient->IsOvertime(30) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
+				}while (!tcpClient->IsOvertime(nTimeoutSeconds) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
 				//}while ((++counter < 5*nMaxSecond) && !tcpClient->IsDisconnection() && !tcpClient->IsHttpResponseOk());	// 30S
 
 				mycp::cgcParserHttp::pointer pParserHttp = tcpClient->GetParserHttp();

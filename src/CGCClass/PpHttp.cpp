@@ -519,7 +519,7 @@ inline std::string GetMonthName(int nMonth)
 }
 
 #ifdef USES_ZLIB
-bool CPpHttp::MyZipDataCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+bool CPpHttp::MyZipDataCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned long nUserData)
 {
 	if (nSize>0 && nUserData!=0)
 	{
@@ -529,7 +529,7 @@ bool CPpHttp::MyZipDataCallBack(uLong nSourceIndex, const unsigned char* pData, 
 	}
 	return true;
 }
-bool CPpHttp::UnZipPostStringCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+bool CPpHttp::UnZipPostStringCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned long nUserData)
 {
 	if (nSize>0 && nUserData!=0)
 	{
@@ -538,7 +538,7 @@ bool CPpHttp::UnZipPostStringCallBack(uLong nSourceIndex, const unsigned char* p
 	}
 	return true;
 }
-bool CPpHttp::UnZipWriteFileCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+bool CPpHttp::UnZipWriteFileCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned long nUserData)
 {
 	if (nSize>0 && nUserData!=0)
 	{
@@ -553,7 +553,7 @@ bool CPpHttp::UnZipWriteFileCallBack(uLong nSourceIndex, const unsigned char* pD
 FILE * theFile = NULL;
 #endif
 
-bool CPpHttp::UnZipWriteCurrentMultiPartCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned int nUserData)
+bool CPpHttp::UnZipWriteCurrentMultiPartCallBack(uLong nSourceIndex, const unsigned char* pData, uLong nSize, unsigned long nUserData)
 {
 	if (nSize>0 && nUserData!=0)
 	{
@@ -782,7 +782,7 @@ const char * CPpHttp::getHttpResult(size_t& outSize) const
 		if (m_sReqAcceptEncoding.find("gzip")!=std::string::npos)
 		{
 			const_cast<CPpHttp*>(this)->m_nZipCallBackDataSize = 0;
-            if (GZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned long)this)==Z_OK)
+			if (GZipDataCb((const unsigned char*)m_resultBuffer+MAX_HTTPHEAD_SIZE,(uLong)m_bodySize,Z_DEFAULT_COMPRESSION,MyZipDataCallBack,(unsigned long)this)==Z_OK)
 			{
 				//printf("*********** GZipDataCb m_sReqAcceptEncoding=%s,bodysize=%d,m_nZipCallBackDataSize=%d\n",m_sReqAcceptEncoding.c_str(),(int)m_bodySize,(int)m_nZipCallBackDataSize);
 				const_cast<CPpHttp*>(this)->m_bodySize = m_nZipCallBackDataSize;
