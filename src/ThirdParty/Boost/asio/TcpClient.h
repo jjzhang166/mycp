@@ -57,7 +57,7 @@ public:
 		if (!theTestInit)
 		{
 			theTestInit = true;
-			SSL_CTX * handle_ = ::SSL_CTX_new(SSLv2_client_method());	// 返回0
+			SSL_CTX * handle_ = SSL_CTX_new(SSLv2_client_method());	// return 0
 			if (handle_==NULL)
 			{
 				SSL_library_init();	// *** 初始化SSL环境，解决组件在线更新 context error 异常问题；
