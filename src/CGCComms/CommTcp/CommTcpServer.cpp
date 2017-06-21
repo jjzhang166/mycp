@@ -49,8 +49,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <arpa/inet.h>
 #include <semaphore.h>
 #include <time.h>
-#define USES_TCP_TEST_CONNECT	// linux
+//#define USES_TCP_TEST_CONNECT	// linux
 #endif // WIN32
+#define USES_TCP_TEST_CONNECT	// **all
 
 //#define USES_PRINT_DEBUG
 // cgc head
@@ -64,7 +65,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #include <ThirdParty/Boost/asio/IoService.h>
 #include <ThirdParty/Boost/asio/TcpAcceptor.h>
 //#ifdef USES_TCP_TEST_CONNECT
-#include <ThirdParty/Boost/asio/TcpClient.h>
+#include <ThirdParty/Boost/asio/TcpClient.h>	// for uses mycp::asio::TcpClient::Test_To_SSL_library_init();
 //#endif
 using namespace mycp;
 
@@ -537,7 +538,7 @@ bool FileIsExist(const char* pFile)
 }
 //#define USES_PRINT_DEBUG
 #ifdef USES_TCP_TEST_CONNECT
-short theLocalIpTestCount = 0;
+//short theLocalIpTestCount = 0;
 class CTcpTestConnect
 	: public mycp::asio::TcpClient_Handler
 	, public boost::enable_shared_from_this<CTcpTestConnect>
@@ -555,10 +556,8 @@ public:
 		try
 		{
 			boost::asio::ssl::context * sslctx = NULL;
-			if (bSsl)
-			{
-				if (m_sslctx==NULL)
-				{
+			if (bSsl) {
+				if (m_sslctx==NULL) {
 					mycp::asio::TcpClient::Test_To_SSL_library_init();
 					namespace ssl = boost::asio::ssl;
 					m_sslctx = new boost::asio::ssl::context (ssl::context::sslv23_client);	// OK
@@ -579,8 +578,7 @@ public:
 			m_tcpClient->connect(m_ipService->ioservice(), endpoint, sslctx, false);
 			m_ipService->start();
 
-			for (int i=0;i<50;i++)	// * 5S
-			{
+			for (int i=0;i<50;i++) {	// * 5S
 				if (m_connectReturned || !theApplication->isInited())
 					break;
 #ifdef WIN32
@@ -590,8 +588,7 @@ public:
 #endif
 			}
 			bResult = !m_bDisconnect;
-			if (bResult)
-			{
+			if (bResult) {
 				m_tcpClient->write((const unsigned char*)"test",4);
 			}
 #ifdef USES_PRINT_DEBUG
@@ -614,12 +611,13 @@ public:
 			printf("**** %d TestConnect.... m_ipService.reset ok finished\n",nPort);
 #endif
 			//printf("**** OK\n");
-		}catch (const std::exception &)
-		{
-		}catch (const boost::exception &)
-		{
-		}catch(...)
-		{}	
+		}
+		catch (const std::exception &) {
+		}
+		catch (const boost::exception &) {
+		}
+		catch(...) {
+		}	
 		return bResult;
 	}
 	CTcpTestConnect(void)
@@ -704,6 +702,8 @@ private:
 	bool m_bIsHttp;
 	bool m_bIsSsl;
 	bool m_bCheckComm;
+	int m_nSendTestDataCount;
+	int m_nCheckCommSeconds;
 
 #ifdef USES_OPENSSL
 	boost::asio::ssl::context* m_sslctx;
@@ -737,7 +737,7 @@ private:
 	//unsigned long m_nCurrentRemoteId;
 public:
 	CTcpServer(int nIndex)
-		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0), m_bIsHttp(false), m_bIsSsl(false), m_bCheckComm(true)
+		: m_nIndex(nIndex), m_commPort(0), /*m_capacity(1), */m_protocol(0), m_bIsHttp(false), m_bIsSsl(false), m_bCheckComm(true), m_nSendTestDataCount(0),m_nCheckCommSeconds(20)
 		, m_pCommEventDataPool(mycp::asio::Max_ReceiveBuffer_ReceiveSize,30,300)
 		, m_nCurrentThread(0), m_nNullEventDataCount(0), m_nFindEventDataCount(0)
 #ifdef USES_OPENSSL
@@ -824,6 +824,7 @@ public:
 			m_ioservice = mycp::asio::IoService::create();
 		if (m_acceptor.get()==NULL)
 			m_acceptor = mycp::asio::TcpAcceptor::create();
+		//m_acceptor->SetReadSleep(10);
 		m_ioservice->start(shared_from_this());
 #ifdef USES_OPENSSL
 		if (m_bIsSsl)
@@ -984,12 +985,56 @@ public:
 	}
 	
 	CLockMap<unsigned long,CRemoteWaitData::pointer> m_pRecvRemoteIdWaitList;
-	CLockMap<unsigned long,bool> m_pRecvRemoteIdList;
+	CLockMap<unsigned long,bool> m_pRecvRemoteIdList;	// *记录正在处理接收数据remoteid（包括普通TCP和HTTP等）
 	//unsigned long m_nLastRemoteId;
 protected:
 	// cgcOnTimerHandler
 	time_t m_tNowTime;
 	time_t m_tProcessReceDataTime;
+#ifdef USES_TCP_TEST_CONNECT
+	void ProcCommTest(size_t nSize)
+	{
+		if (!m_bCheckComm) return;
+
+		static unsigned int theIndex = 0;
+		theIndex++;
+		if ((theIndex%1000)!=999) return;	// 10 second
+		const time_t tNowTime = time(0);
+		static time_t theLastCheckTime = 0;
+		if (nSize>0) {
+			//m_bCheckComm = false;	// **检查一次，有数据就退出
+			theLastCheckTime = tNowTime;	// ** 有数据记下最新时间，延长下次5分钟时间
+		}
+		else if (theLastCheckTime==0 || (tNowTime-theLastCheckTime)>m_nCheckCommSeconds) {	// 开始检查一次，后期每5分钟检查一次
+		//else if (theLastCheckTime==0 || (tNowTime-theLastCheckTime)>20) {	// 开始检查一次，后期每20秒检查一次
+			theLastCheckTime = tNowTime;
+			if ((++m_nSendTestDataCount)>1) {
+				m_nCheckCommSeconds = 20;	// ** 第二次，开始设为20秒后继续测试
+			}
+			//CGC_LOG((LOG_INFO, _T("**** TestConnect... m_nSendTestDataCount=%d,m_nCheckCommSeconds=%d ****\n"),m_nSendTestDataCount,m_nCheckCommSeconds));
+			CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
+			pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl);	// 
+			//if (!pTestConnect->TestConnect(sLocalIp.c_str(),this->m_commPort,m_bIsSsl))
+			//if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
+			{
+				//CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) Error ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
+				if (m_nSendTestDataCount>2) {	// 123 ，总共测试三次
+					m_nSendTestDataCount = 0;
+				//if ((++theLocalIpTestCount)>=2){
+					//theLocalIpTestCount = 0;
+					CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) OnIoServiceException Restart ****\n"),m_commPort));
+					OnIoServiceException();
+				}
+				//}else
+				//{
+				//	CGC_LOG((LOG_INFO, _T("**** TestConnect(%s:%d) OK ssl=%d ****\n"),sLocalIp.c_str(),m_commPort,(int)(m_bIsSsl?1:0)));
+				//	// * 发送数据成功，对方会自动设为 false
+				//	//m_bCheckComm = false;			// ** 检查成功，直接退出，只检查一次
+			}
+			pTestConnect.reset();
+		}
+	}
+#endif
 	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam)
 	{
 		if (m_commHandler.get() == NULL) return;
@@ -997,8 +1042,7 @@ protected:
 		{
 			const size_t nSize = m_listMgr.size();
 			const bool bCreateNewThread = (nSize>0 && m_tProcessReceDataTime>0 && (time(0)-m_tProcessReceDataTime)>1)?true:false;
-			if (bCreateNewThread || (int)nSize>(m_nCurrentThread+20))
-			{
+			if (bCreateNewThread || (int)nSize>(m_nCurrentThread+20)) {
 				if (m_nCurrentThread)
 					m_tProcessReceDataTime = 0;
 				m_nNullEventDataCount = 0;
@@ -1011,8 +1055,8 @@ protected:
 					CGC_LOG((LOG_INFO, _T("**** TCPServer:NewTimerId=%d size=%d ****\n"),nNewTimerId,nSize));
 					theApplication->SetTimer(nNewTimerId, 10, shared_from_this());	// 10ms
 				}
-			}else
-			{
+			}
+			else {
 				m_nFindEventDataCount = 0;
 				m_nNullEventDataCount++;
 				if (m_nCurrentThread>MIN_EVENT_THREAD && ((m_nCurrentThread>20&&(int)nSize<(m_nCurrentThread/8)&&m_nNullEventDataCount>30) || ((int)nSize<(m_nCurrentThread/3)&&m_nNullEventDataCount>500) || m_nNullEventDataCount>600))	// 300*10ms=3S
@@ -1025,70 +1069,30 @@ protected:
 				}
 
 #ifdef USES_TCP_TEST_CONNECT
-				if (m_bCheckComm)
-				{
-					static unsigned int theIndex = 0;
-					theIndex++;
-					if ((theIndex%1000)==999)	// 10 second
-					{
-						const time_t tNowTime = time(0);
-						static time_t theLastCheckTime = 0;
-						if (nSize>0)
-						{
-							m_bCheckComm = false;
-						}else if (theLastCheckTime==0 || (tNowTime-theLastCheckTime)>20)	// 开始检查一次，后期每20秒检查一次
-						{
-							theLastCheckTime = tNowTime;
-							CTcpTestConnect::pointer pTestConnect = CTcpTestConnect::create();
-							pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl);
-							//if (!pTestConnect->TestConnect(sLocalIp.c_str(),this->m_commPort,m_bIsSsl))
-							//if (!pTestConnect->TestConnect("127.0.0.1",this->m_commPort,m_bIsSsl))
-							{
-								//CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) Error ssl=%d ****\n"),m_commPort,(int)(m_bIsSsl?1:0)));
-								if ((++theLocalIpTestCount)>=2)
-								{
-									theLocalIpTestCount = 0;
-									CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) OnIoServiceException Restart ****\n"),m_commPort));
-									OnIoServiceException();
-								}
-							//}else
-							//{
-							//	CGC_LOG((LOG_INFO, _T("**** TestConnect(%s:%d) OK ssl=%d ****\n"),sLocalIp.c_str(),m_commPort,(int)(m_bIsSsl?1:0)));
-							//	// * 发送数据成功，对方会自动设为 false
-							//	//m_bCheckComm = false;			// ** 检查成功，直接退出，只检查一次
-							}
-							pTestConnect.reset();
-						}
-					}
-				}
+				ProcCommTest(nSize);
 #endif
 			}
 
 			static unsigned int theIndex = 0;
 			theIndex++;
-			if ((theIndex%400)==399)	// 3 second
-			{
+			if ((theIndex%400)==399) {	// 3 second
 				m_tNowTime = time(0);
 				//#ifndef USES_SUPPORT_HTTP_CONNECTION
 				CCloseConnectionInfo::pointer pCloseInfo;
 				CCloseConnectionInfo::pointer pFirstErrorCloseInfo;
-				while (theCloseList.front(pCloseInfo))
-				{
-					if (pCloseInfo->CheckClose(m_tNowTime))
-					{
+				while (theCloseList.front(pCloseInfo)) {
+					if (pCloseInfo->CheckClose(m_tNowTime)) {
 						continue;
 					}
-					if (theCloseList.empty())									// * last
-					{
+					if (theCloseList.empty()) {									// * last
 						theCloseList.add(pCloseInfo);
 						break;
 					}
-					if (pFirstErrorCloseInfo.get()==NULL)						// * first
-					{
+					if (pFirstErrorCloseInfo.get()==NULL) {						// * first
 						pFirstErrorCloseInfo = pCloseInfo;
 						theCloseList.add(pCloseInfo);
-					}else if (pFirstErrorCloseInfo.get()==pCloseInfo.get())		// * first again
-					{
+					}
+					else if (pFirstErrorCloseInfo.get()==pCloseInfo.get()) {	// * first again
 						theCloseList.add(pCloseInfo);
 						break;
 					}
@@ -1111,7 +1115,13 @@ protected:
 #ifdef USES_TCP_TEST_CONNECT
 		}else if (m_bCheckComm)
 		{
-			m_bCheckComm = false;
+			if (m_nSendTestDataCount>0) {
+				m_nSendTestDataCount = 0;
+			}
+			if (m_nCheckCommSeconds<300) {
+				m_nCheckCommSeconds = 300;	// **5分钟
+			}
+			//m_bCheckComm = false;	// ** 检查一次，有数据就退出
 #endif
 		}
 
@@ -1123,11 +1133,9 @@ protected:
 			break;
 		case CCommEventData::CET_Close:
 			{
-				for (int i=0;i<50;i++)
-				{
+				for (int i=0;i<50;i++) {
 					CRemoteWaitData::pointer pHttpRemoteWaitData;
-					if (m_bIsHttp && m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pHttpRemoteWaitData) && !pHttpRemoteWaitData->m_listMgr.empty())
-					{
+					if (m_bIsHttp && m_pRecvRemoteIdWaitList.find(pCommEventData->getRemoteId(),pHttpRemoteWaitData) && !pHttpRemoteWaitData->m_listMgr.empty()) {
 #ifdef WIN32
 						Sleep(100);
 #else
@@ -1136,8 +1144,7 @@ protected:
 						continue;
 					}
 
-					if (!m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId()))
-					{
+					if (!m_pRecvRemoteIdList.exist(pCommEventData->getRemoteId())) {
 						break;
 					}
 #ifdef WIN32
@@ -1146,18 +1153,21 @@ protected:
 					usleep(100000);
 #endif // WIN32
 				}
-				if (m_bIsHttp)
-				{
+				if (m_bIsHttp) {
 					m_pRecvRemoteIdWaitList.remove(pCommEventData->getRemoteId());
 				}
 
 				//printf("**** CCommEventData::CET_Close: remoteid=%d\n",pCommEventData->getRemoteId());
 				//printf("**** CommTcpServer CET_Close, 111\n");
 				m_commHandler->onRemoteClose(pCommEventData->getRemoteId(),pCommEventData->GetErrorCode());
-				pCommEventData->getRemote()->invalidate(true);
+				cgcRemote::pointer pCgcRemote = pCommEventData->getRemote();
+				pCgcRemote->invalidate(true);
+				//pCommEventData->getRemote()->invalidate(true);
 //				printf("**** CommTcpServer CET_Close, 222\n");
 #ifdef USES_CONNECTION_CLOSE_EVENT
-				((CcgcRemote*)pCommEventData->getRemote().get())->SetCloseEvent();
+				((CcgcRemote*)pCgcRemote.get())->SetCloseEvent();
+				pCgcRemote.reset();
+				//((CcgcRemote*)pCommEventData->getRemote().get())->SetCloseEvent();
 #else
 #ifdef WIN32
 				SetEvent(m_hDoCloseEvent);
@@ -1170,31 +1180,26 @@ protected:
 		case CCommEventData::CET_Recv:
 			{
 				const unsigned long nRemoteId = pCommEventData->getRemoteId();
-				if (!m_pRecvRemoteIdList.insert(nRemoteId,true,false) && m_bIsHttp)	// *HTTP失败（前面已经在处理）返回，其他失败不返回
-				{
+				if (!m_pRecvRemoteIdList.insert(nRemoteId,true,false) && m_bIsHttp) {	// *HTTP失败（前面已经在处理）返回，其他失败不返回
 					//m_pCommEventDataPool.Set(pCommEventData);	// *** 不能放进去
 					return;
 				}
 				CRemoteWaitData::pointer pHttpRemoteWaitData;
-				if (m_bIsHttp)
-				{
-					if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
-					{
+				if (m_bIsHttp) {
+					if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData)) {
 						m_pCommEventDataPool.Set(pCommEventData);
 						m_pRecvRemoteIdList.remove(nRemoteId);
 						return;
 					}
-					// ** 取第一个
+					// ** 取第一个，下面会 while 处理所有数据
 					pCommEventData = pHttpRemoteWaitData->m_listMgr.front();
 				}
-				while (pCommEventData != NULL)
-				{
+				while (pCommEventData != NULL) {
 #ifdef USES_PRINT_DEBUG
 					static FILE * f = NULL;
 					if (f==NULL)
 						f = fopen("c:\\http_on_data.txt","w");
-					if (f!=NULL)
-					{
+					if (f!=NULL) {
 						char lpszBuf[100];
 						sprintf(lpszBuf,"**** index=%d, size=%d\r\n",pCommEventData->GetErrorCode(),pCommEventData->getRecvSize());
 						fwrite(lpszBuf,1,strlen(lpszBuf),f);
@@ -1212,8 +1217,9 @@ protected:
 					pCommEventData = pHttpRemoteWaitData.get()==NULL?NULL:pHttpRemoteWaitData->m_listMgr.front();
 				}
 				m_pRecvRemoteIdList.remove(nRemoteId);
-				if (m_bIsHttp)
-					return;
+				if (m_bIsHttp) {
+					return;	// *** HTTP 需要返回
+				}
 				//m_nLastRemoteId = 0;
 			}break;
 		case CCommEventData::CET_Exception:
@@ -1358,6 +1364,9 @@ protected:
 		CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Exception);
 		m_listMgr.add(pEventData);
 	}
+
+//#define USES_DEBUG_RECV_LOG
+
 	// TcpConnection_Handler
 	virtual bool OnRemoteRecv(const mycp::asio::TcpConnectionPointer& pRemote, const mycp::asio::ReceiveBuffer::pointer& data)
 	{
@@ -1366,23 +1375,35 @@ protected:
 		if (m_commHandler.get() == NULL) return false;
 
 		const unsigned long nRemoteId = pRemote->getId();
-		//printf("******** OnRemoteRecv:%lu size=%d\n",nRemoteId,data->size());
+#ifdef USES_DEBUG_RECV_LOG
+		printf("******** OnRemoteRecv:%lu size=%d\n",nRemoteId,data->size());
+#endif
+		//CGC_LOG((LOG_INFO, _T("OnRemoteRecv, %x RemoteId=%d, size=%d **********\n"), (int)pRemote.get(), (int)nRemoteId,(int)data->size() ));
 		cgcRemote::pointer pCgcRemote;
 		if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote))
 		{
-			//printf("******** OnRemoteRecv:%d not find\n",nRemoteId);
+#ifdef USES_DEBUG_RECV_LOG
+			printf("******** OnRemoteRecv:%lu size=%d, m_mapCgcRemote.find not exist return.\n",nRemoteId,data->size());
+#endif
 			return false;
 		}
 		// 
-		if (((CcgcRemote*)pCgcRemote.get())->getIsInvalidate())	// **判断业务是否已经关闭，不需要判断 TcpConnectionPointer socket 连接状态；
+		CcgcRemote* pRemoteTemp = (CcgcRemote*)pCgcRemote.get();
+		if (pRemoteTemp->getIsInvalidate())	// **判断业务是否已经关闭，不需要判断 TcpConnectionPointer socket 连接状态；
 			//if (pCgcRemote->isInvalidate())		// ** 这个会判断 TcpConnectionPointer socket 连接状态；
 		{
 			if (m_bIsHttp)
 			{
+#ifdef USES_DEBUG_RECV_LOG
+				printf("******** OnRemoteRecv:%lu size=%d, m_bIsHttp close \n",nRemoteId,data->size());
+#endif
 				// *** 业务关闭连接，HTTP，直接返回并关闭；
 				onCloseConnection(pRemote,2,true);
 				//pRemote->close();
-				m_mapCgcRemote.remove(nRemoteId);
+				//m_mapCgcRemote.remove(nRemoteId);	// add by 2017-06-12
+#ifdef USES_DEBUG_RECV_LOG
+				printf("******** OnRemoteRecv:%lu size=%d, m_bIsHttp close,ok**** \n",nRemoteId,data->size());
+#endif
 				return false;
 				//if (this->m_tNowTime>(((CcgcRemote*)pCgcRemote.get())->GetCloseTime()+2))
 				//{
@@ -1394,13 +1415,21 @@ protected:
 				//return true;	// **HTTP不处理，直接返回
 			}
 			//printf("******** OnRemoteRecv:isInvalidate().UpdateConnection\n");
-			((CcgcRemote*)pCgcRemote.get())->UpdateConnection(pRemote);
+			pRemoteTemp->UpdateConnection(pRemote);
 		}
 		//CCommEventData * pEventData = new CCommEventData(CCommEventData::CET_Recv);
 		CCommEventData * pEventData = m_pCommEventDataPool.Get();
 		pEventData->setCommEventType(CCommEventData::CET_Recv);
+#ifdef USES_DEBUG_RECV_LOG
+		printf("******** OnRemoteRecv:%lu size=%d, setRemote...\n",nRemoteId,data->size());
+#endif
 		pEventData->setRemote(pCgcRemote);
-		pEventData->setRemoteId(pCgcRemote->getRemoteId());
+#ifdef USES_DEBUG_RECV_LOG
+		printf("******** OnRemoteRecv:%lu size=%d, setRemote ok****\n",nRemoteId,data->size());
+#endif
+		// 这里就异常了
+		pEventData->setRemoteId(nRemoteId);
+		//pEventData->setRemoteId(pCgcRemote->getRemoteId());
 #ifdef USES_PROTOCOL_HSOTP
 		if (m_protocol & (int)PROTOCOL_HSOTP)
 		{
@@ -1448,16 +1477,33 @@ protected:
 		}else
 #endif
 		{
+#ifdef USES_DEBUG_RECV_LOG
+			printf("******** OnRemoteRecv:%lu size=%d, setRecvData...\n",nRemoteId,data->size());
+#endif
 			pEventData->setRecvData(data->data(), data->size());
+#ifdef USES_DEBUG_RECV_LOG
+			printf("******** OnRemoteRecv:%lu size=%d, setRecvData ok****\n",nRemoteId,data->size());
+#endif
 		}
 		if (m_bIsHttp)
 		{
 			CRemoteWaitData::pointer pHttpRemoteWaitData;
 			if (!m_pRecvRemoteIdWaitList.find(nRemoteId,pHttpRemoteWaitData))
 			{
-				return true;
+#ifdef USES_DEBUG_RECV_LOG
+				printf("******** OnRemoteRecv:%lu size=%d, m_pRecvRemoteIdWaitList.find not exist, ***\n",nRemoteId,data->size());
+#endif
+				m_pCommEventDataPool.Set(pEventData);
+				return false;
+				//return true;
 			}
+#ifdef USES_DEBUG_RECV_LOG
+			printf("******** OnRemoteRecv:%lu size=%d, pHttpRemoteWaitData->m_listMgr.add...\n",nRemoteId,data->size());
+#endif
 			pHttpRemoteWaitData->m_listMgr.add(pEventData);
+#ifdef USES_DEBUG_RECV_LOG
+			printf("******** OnRemoteRecv:%lu size=%d, pHttpRemoteWaitData->m_listMgr.add ok ****\n",nRemoteId,data->size());
+#endif
 		}
 
 		//printf("******** m_listMgr.add:%d\n",nRemoteId);
@@ -1475,7 +1521,14 @@ protected:
 			fflush(f);
 		}
 #endif
+#ifdef USES_DEBUG_RECV_LOG
+		printf("******** OnRemoteRecv:%lu size=%d, m_listMgr.add...\n",nRemoteId,data->size());
+#endif
 		m_listMgr.add(pEventData);
+#ifdef USES_DEBUG_RECV_LOG
+		printf("******** OnRemoteRecv:%lu size=%d, m_listMgr.add ok**** end\n",nRemoteId,data->size());
+#endif
+		//CGC_LOG((LOG_INFO, _T("OnRemoteRecv, %x RemoteId=%d, size=%d ********** ok\n"), (int)pRemote.get(), (int)nRemoteId,(int)data->size() ));
 		return true;
 	}
 	//unsigned long GetNextRemoteId(void)
@@ -1485,10 +1538,14 @@ protected:
 	//}
 	virtual void OnRemoteAccept(const mycp::asio::TcpConnectionPointer& pRemote)
 	{
-		BOOST_ASSERT(pRemote.get() != 0);
+		//BOOST_ASSERT(pRemote.get() != 0);
+		//if (pRemote.get()==NULL) return;
 		if (m_commHandler.get() != NULL)
 		{
 			const unsigned long nRemoteId = pRemote->getId();
+			//CGC_LOG((LOG_INFO, _T("OnRemoteAccept, %x RemoteId=%d, m_mapCgcRemote.size=%d,m_pRecvRemoteIdWaitList.size=%d\n"),
+			//	(int)pRemote.get(), (int)nRemoteId,(int)m_mapCgcRemote.size(),(int)m_pRecvRemoteIdWaitList.size() ));
+
 			if (m_bIsHttp)
 			{
 				m_pRecvRemoteIdWaitList.insert(nRemoteId,CRemoteWaitData::create(),false);
@@ -1521,7 +1578,8 @@ protected:
 			CCommEventData * pEventData = m_pCommEventDataPool.Get();
 			pEventData->setCommEventType(CCommEventData::CET_Accept);
 			pEventData->setRemote(pCgcRemote);
-			pEventData->setRemoteId(pCgcRemote->getRemoteId());
+			pEventData->setRemoteId(nRemoteId);
+			//pEventData->setRemoteId(pCgcRemote->getRemoteId());
 			m_listMgr.add(pEventData);
 		}
 	}
@@ -1537,6 +1595,9 @@ protected:
 
 			// 9=Bad file descriptor
 			const unsigned long nRemoteId = pRemote->getId();
+			//CGC_LOG((LOG_INFO, _T("OnRemoteClose, %x RemoteId=%d, m_mapCgcRemote.size=%d,m_pRecvRemoteIdWaitList.size=%d\n"),
+			//	(int)pRemote, (int)nRemoteId,(int)m_mapCgcRemote.size(),(int)m_pRecvRemoteIdWaitList.size() ));
+
 			//printf("******** OnRemoteClose:%lu\n",nRemoteId);
 			cgcRemote::pointer pCgcRemote;
 			if (!m_mapCgcRemote.find(nRemoteId, pCgcRemote, true))
@@ -1547,13 +1608,15 @@ protected:
 			pEventData->setCommEventType(CCommEventData::CET_Close);
 			pEventData->SetErrorCode(nErrorCode);
 			pEventData->setRemote(pCgcRemote);
-			pEventData->setRemoteId(pCgcRemote->getRemoteId());
+			pEventData->setRemoteId(nRemoteId);
+			//pEventData->setRemoteId(pCgcRemote->getRemoteId());
 			m_listMgr.add(pEventData);
 			// *** 需要做下面，可以让前面数据正常返回
 			//return;
 			// Do CET_Close Event, or StopServer
 #ifdef USES_CONNECTION_CLOSE_EVENT
 			((CcgcRemote*)pCgcRemote.get())->WaitForCloseEvent();
+			//CGC_LOG((LOG_INFO, _T("OnRemoteClose, %x RemoteId=%d ok=============\n"), (int)pRemote, (int)nRemoteId ));
 #else
 #ifdef WIN32
 			WaitForSingleObject(m_hDoCloseEvent, 3000);

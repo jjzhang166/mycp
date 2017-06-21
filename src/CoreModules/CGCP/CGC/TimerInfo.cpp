@@ -43,10 +43,10 @@ TimerInfo::~TimerInfo(void)
 {
 	if (m_timerThread.get()!=NULL)
 	{
-		if (m_bOneShot)
-		{
-			m_timerThread->detach();
-		}
+		//if (m_bOneShot)
+		//{
+		//	m_timerThread->detach();
+		//}
 		m_timerThread.reset();
 	}
 	//if (m_timerThread.g != 0)

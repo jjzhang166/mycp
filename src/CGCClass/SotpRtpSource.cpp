@@ -43,7 +43,7 @@ int clock_gettime(int clk_id, struct timespec *t){
 }
 #endif
 
-#ifdef _MSC_VER //WIN32
+#ifdef WIN32
 #include <Windows.h>
 #include <Mmsystem.h>
 #ifdef _MSC_VER

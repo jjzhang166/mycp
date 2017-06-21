@@ -100,6 +100,7 @@ public:
 		//}
 		m_recvSize = recvSize;
 		memcpy(m_recvData, recvData, m_recvSize);
+		//memmove(m_recvData, recvData, m_recvSize);
 		m_recvData[m_recvSize] = '\0';
 		return true;
 	}
@@ -168,6 +169,7 @@ public:
 		}
 #endif
 #endif
+		m_remote.reset();
 	}
 #ifdef USES_CONNECTION_CLOSE_EVENT
 #ifdef WIN32
@@ -210,13 +212,13 @@ public:
 	void Idle(void)
 	{
 		const time_t tNow = time(0);
-		if (m_tIdle==0)
+		if (m_tIdle==0) {
 			m_tIdle = tNow;
-		else if (tNow-m_tIdle>=3)
-		{
+		}
+		else if (tNow-m_tIdle>=3) {
 			m_tIdle = tNow;
-			if (m_pPool.size()>m_nInitPoolSize)
-			{
+			// ??? uses while
+			if (m_pPool.size()>m_nInitPoolSize) {
 				CCommEventData * pEventData = m_pPool.front();
 				if (pEventData!=0)
 					delete pEventData;

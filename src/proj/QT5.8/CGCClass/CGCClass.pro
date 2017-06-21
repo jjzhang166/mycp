@@ -6,7 +6,13 @@
 
 QT       -= gui
 
-TARGET = CGCClass
+Release {
+TARGET = "../../../../build/CGCClass"
+}
+Debug {
+TARGET = "../../../../build/CGCClassd"
+}
+#TARGET = CGCClass
 TEMPLATE = lib
 CONFIG += staticlib
 
@@ -24,6 +30,7 @@ DEFINES += _QT_MAKE_
 
 win32 {
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
+INCLUDEPATH += F:/THIRDPARTY/openssl-1.0.2k/inc32
 #LIBS +=F:/THIRDPARTY/boost_1_62_0/stage/lib/libboost_system-mgw53-mt-1_62.a
 #LIBS +=F:/THIRDPARTY/boost_1_62_0/stage/lib/libboost_filesystem-mgw53-mt-1_62.a
 #INCLUDEPATH += D:/openssl/include

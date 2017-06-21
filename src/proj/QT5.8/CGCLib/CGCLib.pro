@@ -6,7 +6,13 @@
 
 QT       -= gui
 
-TARGET = CGCLib
+Release {
+TARGET = "../../../../build/CGCLib"
+}
+Debug {
+TARGET = "../../../../build/CGCLibd"
+}
+#TARGET = CGCLib
 TEMPLATE = lib
 CONFIG += staticlib
 
@@ -25,6 +31,7 @@ DEFINES += _QT_MAKE_
 win32 {
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
 #INCLUDEPATH += D:/openssl/include
+INCLUDEPATH += F:/THIRDPARTY/openssl-1.0.2k/inc32
 }
 else:unix: {
 # for OSX

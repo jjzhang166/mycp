@@ -6,6 +6,7 @@
 #define USES_OPENSSL
 #endif
 
+#include <openssl/ssl.h>
 #include <boost/asio.hpp>
 #ifdef USES_OPENSSL
 #include "boost_socket.h"
@@ -365,7 +366,8 @@ private:
 			}
 		}
 	}
-	void read_some_handler(mycp::asio::ReceiveBuffer::pointer newBuffer, const boost::system::error_code& error, std::size_t size)
+	void read_some_handler(const mycp::asio::ReceiveBuffer::pointer& newBuffer, const boost::system::error_code& error, std::size_t size)
+	//void read_some_handler(mycp::asio::ReceiveBuffer::pointer newBuffer, const boost::system::error_code& error, std::size_t size)
 	{
 		if (m_socket == 0) return;
 		// ???·µ»Ø2´íÎó£»
