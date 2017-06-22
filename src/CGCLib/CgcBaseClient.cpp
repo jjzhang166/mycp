@@ -546,11 +546,7 @@ tstring CgcBaseClient::onGetSslPassword(const tstring& sSessionId) const
 #ifndef min
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
-#ifdef __MACH__
 bool CgcBaseClient::doSetConfig(int nConfig, unsigned long nInValue)
-#else
-bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
-#endif
 {
 	bool ret = true;
 	switch (nConfig)
@@ -735,11 +731,7 @@ bool CgcBaseClient::doSetConfig(int nConfig, unsigned int nInValue)
 	return ret;
 }
 
-#ifdef __MACH__
-void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
-#else
-void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
-#endif
+void CgcBaseClient::doGetConfig(int nConfig, unsigned long* nOutValue) const
 {
 	switch (nConfig)
 	{
@@ -768,11 +760,7 @@ void CgcBaseClient::doGetConfig(int nConfig, unsigned int* nOutValue) const
 	}
 }
 
-#ifdef __MACH__
 void CgcBaseClient::doFreeConfig(int nConfig, unsigned long nInValue) const
-#else
-void CgcBaseClient::doFreeConfig(int nConfig, unsigned int nInValue) const
-#endif
 {
 }
 

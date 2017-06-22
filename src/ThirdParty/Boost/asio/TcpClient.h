@@ -6,7 +6,6 @@
 #define USES_OPENSSL
 #endif
 
-#include <openssl/ssl.h>
 #include <boost/asio.hpp>
 #ifdef USES_OPENSSL
 #include "boost_socket.h"

@@ -122,15 +122,9 @@ protected:
 	virtual const CgcClientHandler * doGetResponseHandler(void) const {return getHandler();}
 	virtual void doSetDisableSotpParser(bool newv) {m_bDisableSotpparser = newv;}
 
-#ifdef __MACH__
-	virtual bool doSetConfig(int nConfig, unsigned int nInValue);
-	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const;
-	virtual void doFreeConfig(int nConfig, unsigned int nInValue) const;
-#else
-	virtual bool doSetConfig(int nConfig, unsigned int nInValue);
-	virtual void doGetConfig(int nConfig, unsigned int* nOutValue) const;
-	virtual void doFreeConfig(int nConfig, unsigned int nInValue) const;
-#endif
+	virtual bool doSetConfig(int nConfig, unsigned long nInValue);
+	virtual void doGetConfig(int nConfig, unsigned long* nOutValue) const;
+	virtual void doFreeConfig(int nConfig, unsigned long nInValue) const;
 
 	virtual void doSetIoService(mycp::asio::IoService::pointer pIoService, bool bExitStop = false) {m_ipService = pIoService; m_bExitStopIoService=bExitStop;}
 	virtual void doResetIoService(void) {m_ipService.reset();}
