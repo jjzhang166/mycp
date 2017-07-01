@@ -527,6 +527,8 @@ const int ATTRIBUTE_NAME	= 1;
 //};
 cgcAttributes::pointer theAppAttributes;
 tstring theSSLPasswd;
+int theLimitRestartCount = 3;	/// 限制检查重启次数；默认 3 次，0 不限制
+int theCheckRestartCount = 0;	/// 已经重启次数，不限制，不计数
 
 bool FileIsExist(const char* pFile)
 {
@@ -994,7 +996,8 @@ protected:
 #ifdef USES_TCP_TEST_CONNECT
 	void ProcCommTest(size_t nSize)
 	{
-		if (!m_bCheckComm) return;
+		// 不检查重启，或者已经超过配置重启次数
+		if (!m_bCheckComm || (theLimitRestartCount>0 && theCheckRestartCount>=theLimitRestartCount)) return;
 
 		static unsigned int theIndex = 0;
 		theIndex++;
@@ -1023,6 +1026,9 @@ protected:
 				//if ((++theLocalIpTestCount)>=2){
 					//theLocalIpTestCount = 0;
 					CGC_LOG((LOG_ERROR, _T("**** TestConnect(%d) OnIoServiceException Restart ****\n"),m_commPort));
+					if (theLimitRestartCount>0) {
+						theCheckRestartCount++;
+					}
 					OnIoServiceException();
 				}
 				//}else
@@ -1281,14 +1287,29 @@ protected:
 					m_sslctx->set_verify_depth(10,error);
 					if (!theSSLPasswd.empty())
 						m_sslctx->set_password_callback(boost::bind(&CTcpServer::get_password, this));
-					if (!m_sSSLPublicCrtFile.empty())
+					if (!FileIsExist(m_sSSLPublicCrtFile.c_str())) {
+						m_bCheckComm = false;
+						m_sSSLPublicCrtFile.clear();
+					}
+					else {
 						m_sslctx->use_certificate_file(m_sSSLPublicCrtFile,ssl::context_base::pem,error);
-					m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
-					if (!m_sSSLServerChainFile.empty())
+						//m_sslctx->use_certificate_chain_file(m_sSSLPublicCrtFile,error);
+					}
+					if (!FileIsExist(m_sSSLServerChainFile.c_str())) {
+						m_bCheckComm = false;
+						m_sSSLServerChainFile.clear();
+					}
+					else {
 						m_sslctx->use_certificate_chain_file(m_sSSLServerChainFile,error);
-					if (!m_sSSLPrivateKeyFile.empty())
+					}
+					if (!FileIsExist(m_sSSLPrivateKeyFile.c_str())) {
+						m_bCheckComm = false;
+						m_sSSLPrivateKeyFile.clear();
+					}
+					else {
 						m_sslctx->use_private_key_file(m_sSSLPrivateKeyFile,ssl::context_base::pem,error);
-					tstring sTempFile = theApplication->getAppConfPath() + "/ssl";
+					}
+					const tstring sTempFile = theApplication->getAppConfPath() + "/ssl";
 					m_sslctx->add_verify_path(sTempFile.c_str(),error);
 					m_acceptor->set_ssl_ctx(m_sslctx);
 				}
@@ -1670,6 +1691,7 @@ extern "C" bool CGC_API CGC_Module_Init2(MODULE_INIT_TYPE nInitType)
 
 	theAppInitParameters = theApplication->getInitParameters();
 	theSSLPasswd = theAppInitParameters->getParameterValue("ssl-passwd", "");
+	theLimitRestartCount = theAppInitParameters->getParameterValue("limit-restart-count", 3);
 	//printf("**** %s\n",theSSLPasswd.c_str());
 
 	theAppAttributes = theApplication->getAttributes(true);

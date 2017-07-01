@@ -39,7 +39,9 @@
 #elif (_MSC_VER == 1400)
 #pragma comment(lib, "CGCClass80d.lib")
 #elif (_MSC_VER == 1500)
-#pragma comment(lib, "CGCClass90d.lib")
+#pragma comment(lib, "CGCClass90d.lib")		/// vc2008
+#elif (_MSC_VER == 1900)
+#pragma comment(lib, "CGCClass140d.lib")	/// vc2015
 #endif
 
 #else // _DEBUG
@@ -54,6 +56,8 @@
 #pragma comment(lib, "CGCClass80.lib")
 #elif (_MSC_VER == 1500)
 #pragma comment(lib, "CGCClass90.lib")
+#elif (_MSC_VER == 1900)
+#pragma comment(lib, "CGCClass140.lib")
 #endif
 
 #endif // _DEBUG
@@ -72,6 +76,8 @@
 #pragma comment(lib, "CGCClass80sd.lib")
 #elif (_MSC_VER == 1500)
 #pragma comment(lib, "CGCClass90sd.lib")
+#elif (_MSC_VER == 1900)
+#pragma comment(lib, "CGCClass140sd.lib")
 #endif
 
 #else // _DEBUG
@@ -86,6 +92,8 @@
 #pragma comment(lib, "CGCClass80s.lib")
 #elif (_MSC_VER == 1500)
 #pragma comment(lib, "CGCClass90s.lib")
+#elif (_MSC_VER == 1900)
+#pragma comment(lib, "CGCClass140s.lib")
 #endif
 
 #endif // _DEBUG

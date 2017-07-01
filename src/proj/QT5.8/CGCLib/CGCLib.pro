@@ -29,8 +29,8 @@ DEFINES += _QT_MAKE_
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 win32 {
+INCLUDEPATH += F:/THIRDPARTY/zlib-1.2.8
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
-#INCLUDEPATH += D:/openssl/include
 INCLUDEPATH += F:/THIRDPARTY/openssl-1.0.2k/inc32
 }
 else:unix: {
