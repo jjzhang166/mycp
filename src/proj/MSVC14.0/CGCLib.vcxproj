@@ -72,18 +72,23 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(ProjectName)\$(Configuration)\</OutDir>
     <IntDir>$(ProjectName)\$(Configuration)\</IntDir>
+    <IncludePath>F:\THIRDPARTY\boost_1_62_0;F:\THIRDPARTY\openssl-1.0.2k\inc32;F:\THIRDPARTY\zlib-1.2.8;$(IncludePath)</IncludePath>
+    <LibraryPath>F:\THIRDPARTY\boost_1_62_0\stage\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(ProjectName)\$(Configuration)\</IntDir>
+    <IncludePath>F:\THIRDPARTY\boost_1_62_0;F:\THIRDPARTY\openssl-1.0.2k\inc32;F:\THIRDPARTY\zlib-1.2.8;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_S|Win32'">
     <OutDir>$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
+    <IncludePath>F:\THIRDPARTY\boost_1_62_0;F:\THIRDPARTY\openssl-1.0.2k\inc32;F:\THIRDPARTY\zlib-1.2.8;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_S|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
+    <IncludePath>F:\THIRDPARTY\boost_1_62_0;F:\THIRDPARTY\openssl-1.0.2k\inc32;F:\THIRDPARTY\zlib-1.2.8;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Midl>
@@ -110,7 +115,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Lib>
-      <OutputFile>../../build/$(ProjectName)90d.lib</OutputFile>
+      <OutputFile>../../build/$(ProjectName)140d.lib</OutputFile>
       <AdditionalLibraryDirectories>..\..\ThirdParty\build;$(BOOST_ROOT)\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
@@ -135,7 +140,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Lib>
-      <OutputFile>../../build/$(ProjectName)90.lib</OutputFile>
+      <OutputFile>../../build/$(ProjectName)140.lib</OutputFile>
       <AdditionalLibraryDirectories>..\..\ThirdParty\build;$(BOOST_ROOT)\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
