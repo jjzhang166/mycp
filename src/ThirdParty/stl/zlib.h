@@ -10,9 +10,9 @@
 #include <zlib.h>
 #ifdef _MSC_VER	//WIN32
 #ifdef _DEBUG
-#pragma comment(lib,"zlibd.lib")
+#pragma comment(lib,"zlibstatd.lib")
 #else
-#pragma comment(lib,"zlib.lib")
+#pragma comment(lib,"zlibstat.lib")
 #endif
 #endif // WIN32
 

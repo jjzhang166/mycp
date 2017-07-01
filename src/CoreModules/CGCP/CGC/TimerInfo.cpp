@@ -41,16 +41,12 @@ TimerInfo::TimerInfo(unsigned int nIDEvent, unsigned int nElapse, const cgcOnTim
 
 TimerInfo::~TimerInfo(void)
 {
-	if (m_timerThread.get()!=NULL)
-	{
-		//if (m_bOneShot)
-		//{
-		//	m_timerThread->detach();
-		//}
-		m_timerThread.reset();
-	}
-	//if (m_timerThread.g != 0)
-	//	delete m_timerThread;
+	//if (m_timerThread.get()!=NULL) {
+	//	if (m_bOneShot) {
+	//		m_timerThread->detach();
+	//	}
+	//	m_timerThread.reset();
+	//}
 }
 
 void TimerInfo::PauseTimer(void)
