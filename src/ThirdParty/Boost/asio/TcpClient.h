@@ -149,7 +149,7 @@ public:
 			);
 #endif
 	}
-	void disconnect(void)
+	void disconnect(bool resetHandler=true)
 	{
 		close(true);
 		try
@@ -168,6 +168,9 @@ public:
 
 		m_datas.clear();
 		m_unused.clear();
+		if (resetHandler)
+			m_handler.reset();
+
 	}
 	void close(bool bDeleteSocket=false)
 	{
@@ -423,7 +426,7 @@ public:
 	virtual ~TcpClient(void)
 	{
 		disconnect();
-		m_handler.reset();
+		//m_handler.reset();
 	}
 private:
 #ifdef USES_OPENSSL

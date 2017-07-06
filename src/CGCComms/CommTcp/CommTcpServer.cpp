@@ -527,7 +527,7 @@ const int ATTRIBUTE_NAME	= 1;
 //};
 cgcAttributes::pointer theAppAttributes;
 tstring theSSLPasswd;
-int theLimitRestartCount = 3;	/// 限制检查重启次数；默认 3 次，0 不限制
+int theLimitRestartCount = 3;	/// 限制检查重启次数；默认 3 次，0 不重启
 int theCheckRestartCount = 0;	/// 已经重启次数，不限制，不计数
 
 bool FileIsExist(const char* pFile)
@@ -997,7 +997,7 @@ protected:
 	void ProcCommTest(size_t nSize)
 	{
 		// 不检查重启，或者已经超过配置重启次数
-		if (!m_bCheckComm || (theLimitRestartCount>0 && theCheckRestartCount>=theLimitRestartCount)) return;
+		if (!m_bCheckComm || theCheckRestartCount>=theLimitRestartCount) return;
 
 		static unsigned int theIndex = 0;
 		theIndex++;
