@@ -32,6 +32,7 @@ win32 {
 INCLUDEPATH += F:/THIRDPARTY/zlib-1.2.8
 INCLUDEPATH += F:/THIRDPARTY/boost_1_62_0
 INCLUDEPATH += F:/THIRDPARTY/openssl-1.0.2k/inc32
+INCLUDEPATH += F:/THIRDPARTY/zlib-1.2.8
 }
 else:unix: {
 # for OSX
