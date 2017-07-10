@@ -24,6 +24,15 @@
 #include "PpSotp2.h"
 #include "PpHttp.h"
 
+#ifdef _QT_MAKE_
+
+#ifdef _DEBUG
+#pragma comment(lib, "CGCClassQtd.lib")
+#else
+#pragma comment(lib, "CGCClassQt.lib")
+#endif
+
+#else /// _QT_MAKE_
 
 #ifdef WIN32
 
@@ -100,5 +109,7 @@
 #endif
 
 #endif // WIN32
+
+#endif // _QT_MAKE_
 
 #endif // __cgcclassinclude_h__

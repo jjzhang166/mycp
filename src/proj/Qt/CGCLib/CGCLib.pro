@@ -7,10 +7,10 @@
 QT       -= gui
 
 Release {
-TARGET = "../../../../build/CGCLib140"
+TARGET = "../../../../build/CGCLibQt"
 }
 Debug {
-TARGET = "../../../../build/CGCLib140d"
+TARGET = "../../../../build/CGCLibQtd"
 }
 #TARGET = CGCLib
 TEMPLATE = lib

@@ -44,8 +44,8 @@ public:
 
 	virtual bool IsThreadSafe(void) const {return false;}
 
-	virtual void OnTimeout(unsigned int nIDEvent, const void * pvParam) = 0;
-	virtual void OnTimerExit(unsigned int nIDEvent, const void * pvParam) {}
+        virtual void OnTimeout(unsigned int /*nIDEvent*/, const void * /*pvParam*/) = 0;
+        virtual void OnTimerExit(unsigned int /*nIDEvent*/, const void * /*pvParam*/) {}
 };
 
 const cgcOnTimerHandler::pointer cgcNullOnTimerHandler;
