@@ -392,7 +392,7 @@ private:
 				m_cdbcInfo->getSecure().c_str());
 			if (ret < 0)
 			{
-				CGC_LOG((mycp::LOG_ERROR, "Can't open database: %s(%s)\n", m_cdbcInfo->getDatabase().c_str()));
+				CGC_LOG((mycp::LOG_ERROR, "Can't open database: %s\n", m_cdbcInfo->getDatabase().c_str()));
 				//printf("%s\n", "connect to database failed!, start failed!");
 				return false;
 			}

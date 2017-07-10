@@ -527,7 +527,7 @@ const int ATTRIBUTE_NAME	= 1;
 //};
 cgcAttributes::pointer theAppAttributes;
 tstring theSSLPasswd;
-int theLimitRestartCount = 3;	/// 限制检查重启次数；默认 3 次，0 不重启
+int theLimitRestartCount = 0;	/// 限制检查重启次数；默认 0 次，0 不重启
 int theCheckRestartCount = 0;	/// 已经重启次数，不限制，不计数
 
 bool FileIsExist(const char* pFile)
@@ -1691,7 +1691,7 @@ extern "C" bool CGC_API CGC_Module_Init2(MODULE_INIT_TYPE nInitType)
 
 	theAppInitParameters = theApplication->getInitParameters();
 	theSSLPasswd = theAppInitParameters->getParameterValue("ssl-passwd", "");
-	theLimitRestartCount = theAppInitParameters->getParameterValue("limit-restart-count", 3);
+	theLimitRestartCount = theAppInitParameters->getParameterValue("limit-restart-count", (int)0);
 	//printf("**** %s\n",theSSLPasswd.c_str());
 
 	theAppAttributes = theApplication->getAttributes(true);

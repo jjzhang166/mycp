@@ -670,7 +670,11 @@ private:
 				//mysql_ping(nMysqlError); // mysql_ping需要定时做心跳
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", exeSql,m_nLastErrorCode,mysql_error(pMysql)));
+				const char * sMysqlError = mysql_error(pMysql);
+				if (sMysqlError==0)
+					CGC_LOG((mycp::LOG_WARNING, "%s(%d)\n", exeSql,m_nLastErrorCode));
+				else
+					CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", exeSql,m_nLastErrorCode,sMysqlError));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -802,7 +806,11 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
+				const char * sMysqlError = mysql_error(pMysql);
+				if (sMysqlError==0)
+					CGC_LOG((mycp::LOG_WARNING, "%s(%d)\n", selectSql,m_nLastErrorCode));
+				else
+					CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,sMysqlError));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -956,7 +964,11 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,mysql_error(pMysql)));
+				const char * sMysqlError = mysql_error(pMysql);
+				if (sMysqlError==0)
+					CGC_LOG((mycp::LOG_WARNING, "%s(%d)\n", selectSql,m_nLastErrorCode));
+				else
+					CGC_LOG((mycp::LOG_WARNING, "%s(%d:%s)\n", selectSql,m_nLastErrorCode,sMysqlError));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -1116,7 +1128,11 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				const char * sMysqlError = mysql_error(pMysql);
+				if (sMysqlError==0)
+					CGC_LOG((mycp::LOG_WARNING, "%d\n", m_nLastErrorCode));
+				else
+					CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,sMysqlError));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -1167,7 +1183,11 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				const char * sMysqlError = mysql_error(pMysql);
+				if (sMysqlError==0)
+					CGC_LOG((mycp::LOG_WARNING, "%d\n", m_nLastErrorCode));
+				else
+					CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,sMysqlError));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
@@ -1219,7 +1239,11 @@ private:
 			{
 				m_tLastErrorTime = time(0);
 				m_nLastErrorCode = mysql_errno(pMysql);
-				CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,mysql_error(pMysql)));
+				const char * sMysqlError = mysql_error(pMysql);
+				if (sMysqlError==0)
+					CGC_LOG((mycp::LOG_WARNING, "%d\n", m_nLastErrorCode));
+				else
+					CGC_LOG((mycp::LOG_WARNING, "%d:%s\n", m_nLastErrorCode,sMysqlError));
 				if (CMysqlPool::IsServerError(m_nLastErrorCode))
 				{
 					// **重新连接
