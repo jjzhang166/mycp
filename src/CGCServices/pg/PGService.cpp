@@ -267,7 +267,7 @@ public:
 	{
 		if (isServiceInited()) return true;
 		m_bServiceInited = true;
-		theApplication->SetTimer(m_nIndex+1, 1000, shared_from_this());
+		theApplication->SetTimer(m_nIndex+1, 2000, shared_from_this());
 		return isServiceInited();
 	}
 	virtual void finalService(void)
@@ -323,6 +323,7 @@ private:
 			if (isopen())
 			{
 				// 主要用于整理数据库连接池；
+				//printf("*********** OnTimeout...\n");
 				Sink *sink = sink_pool_get();
 				if (sink!=NULL)
 					sink_pool_put(sink);
@@ -485,6 +486,7 @@ private:
 		Sink *sink = (Sink*)nTransaction;
 		try
 		{
+			//printf("*********** execute(%s)...\n",exeSql);
 			m_tLastTime = time(0);
 			if (nTransaction==0)
 				sink = sink_pool_get();
@@ -568,6 +570,7 @@ private:
 		Sink *sink = NULL;
 		try
 		{
+			//printf("*********** select(%s)...\n",selectSql);
 			m_tLastTime = time(0);
 			sink = sink_pool_get();
 			if (sink==NULL)
@@ -628,6 +631,7 @@ private:
 		Sink *sink = NULL;
 		try
 		{
+			//printf("*********** select2(%s)...\n",selectSql);
 			m_tLastTime = time(0);
 			sink = sink_pool_get();
 			if (sink==NULL)
@@ -665,55 +669,82 @@ private:
 
 	virtual mycp::bigint size(int cookie) const
 	{
+		if (cookie==0) {
+			return -1;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
 	virtual int cols(int cookie) const
 	{
+		if (cookie==0) {
+			return -1;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? (int)cdbcResultSet->cols() : -1;
 	}
 
 	virtual mycp::bigint index(int cookie) const
 	{
+		if (cookie==0) {
+			return -1;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
 	virtual cgcValueInfo::pointer cols_name(int cookie) const
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
 	}
 
 	virtual cgcValueInfo::pointer index(int cookie, mycp::bigint moveIndex)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index((int)moveIndex) : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer first(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->first() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer next(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->next() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer previous(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->previous() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer last(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->last() : cgcNullValueInfo;
 	}
 	virtual void reset(int cookie)
 	{
 		CCDBCResultSet::pointer cdbcResultSet;
-		if (m_results.find(cookie, cdbcResultSet, true))
+		if (cookie!=0 && m_results.find(cookie, cdbcResultSet, true))
 		{
 			cdbcResultSet->reset();
 		}

@@ -262,6 +262,7 @@ int main(int argc, char* argv[])
 						fwrite(lpszDateDir,1,strlen(lpszDateDir),pProtectLog);
 						fclose(pProtectLog);
 					}
+
 #ifdef WIN32
 					KillCGCP();
 					if (strstr(lpszBuffer,",1")!=NULL)

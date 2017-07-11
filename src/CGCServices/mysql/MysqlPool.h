@@ -32,7 +32,7 @@ public:
 
 	bool Connect(int* pOutErrorCode = NULL);
 	bool IsConnect(void) const {return m_mysql==NULL?false:true;}
-	void Disconnect(void);
+	bool Disconnect(void);
 	bool Reconnect(int * pOutErrorCode=NULL);
 	time_t GetCloseTime(void) const {return m_nCloseTime;}
 

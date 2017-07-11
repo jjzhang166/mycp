@@ -58,25 +58,28 @@ bool CMysqlSink::Connect(int* pOutErrorCode)
 	m_nCloseTime = 0;
 	return true;
 }
-void CMysqlSink::Disconnect(void)
+bool CMysqlSink::Disconnect(void)
 {
+	const bool result = (m_mysql!=NULL)?true:false;
 	if (m_mysql!=NULL)
 	{
 		mysql_close(m_mysql);
 		m_mysql = NULL;
 	}
 	m_nCloseTime = time(0);
+	return result;
 }
 bool CMysqlSink::Reconnect(int * pOutErrorCode)
 {
 	try
 	{
-		Disconnect();
+		if ( Disconnect() ) {
 #ifdef WIN32
-		Sleep(1000);
+			Sleep(1000);
 #else
-		sleep(1);
+			sleep(1);
 #endif
+		}
 		return Connect(pOutErrorCode);
 	}catch(std::exception&)
 	{
@@ -178,8 +181,10 @@ CMysqlSink* CMysqlPool::SinkGet(int & pOutErrorCode)
 			for (int i=0; i<m_nSinkSize; i++)
 			{
 				CMysqlSink* pSink = m_sinks[i];
-				if (!pSink->IsIdleAndSetBusy())
+				if (!pSink->IsIdleAndSetBusy()) {
 					continue;
+				}
+
 				if (!pSink->IsConnect())
 				{
 					if ((time(0)-pSink->GetCloseTime())>60)

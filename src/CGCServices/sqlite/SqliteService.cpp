@@ -775,47 +775,74 @@ private:
 	}
 	virtual mycp::bigint size(int cookie) const
 	{
+		if (cookie==0) {
+			return -1;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->size() : -1;
 	}
 	virtual int cols(int cookie) const
 	{
+		if (cookie==0) {
+			return -1;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols() : -1;
 	}
 
 	virtual mycp::bigint index(int cookie) const
 	{
+		if (cookie==0) {
+			return -1;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index() : -1;
 	}
 	virtual cgcValueInfo::pointer cols_name(int cookie) const
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->cols_name() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer index(int cookie, mycp::bigint moveIndex)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->index(moveIndex) : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer first(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->first() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer next(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->next() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer previous(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->previous() : cgcNullValueInfo;
 	}
 	virtual cgcValueInfo::pointer last(int cookie)
 	{
+		if (cookie==0) {
+			return cgcNullValueInfo;
+		}
 		CCDBCResultSet::pointer cdbcResultSet;
 		return m_results.find(cookie, cdbcResultSet) ? cdbcResultSet->last() : cgcNullValueInfo;
 	}

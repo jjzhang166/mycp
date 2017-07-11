@@ -197,11 +197,14 @@ int sink_pool_del()
 	return 1;
 }
 
-Sink * sink_pool_add()
+//#define USES_PRINT_DEBUG
+
+Sink * sink_pool_add(int * pOutCanRetry)
 {
 	Sink *sink = 0;
-	if (sink_number >= sink_maxnumber)
+	if (sink_number >= sink_maxnumber) {
 		return 0;
+	}
 
 	//printf("================ sink_pool_add\n");
 	sink = sinks[sink_number];
@@ -209,6 +212,11 @@ Sink * sink_pool_add()
 	sink_lock(sink);
 	if(sink_is_busy(sink)) {
 		sink_unlock(sink);
+		if (pOutCanRetry!=0)
+			*pOutCanRetry = 1;
+#ifdef USES_PRINT_DEBUG
+		//printf("================ sink_pool_add NULL busy\n");
+#endif
 		return 0;
 	}
 
@@ -217,6 +225,7 @@ Sink * sink_pool_add()
 		sink_unlock(sink);
 		return 0;
 	}
+
 	if(sink_state(sink) != CONN_OK) {
 		sink_reset(sink);	// add by hd 2017-04-05
 		sink_unlock(sink);
@@ -237,7 +246,11 @@ Sink*  sink_pool_get(void)
 	int nosinkcount = 0;
 	static int theminnumbercount = 0;
 	int nErrorCount = 0;
+	int nAddCanRetry = 0;
+
+#ifdef USES_PRINT_DEBUG
 	//printf("================ %d\n", sink_number);
+#endif
 	while(thecleanup==0) 
 	{
 		//sink = sinks[random() % sink_number];
@@ -253,9 +266,7 @@ Sink*  sink_pool_get(void)
 
 			/* check connection status */
 			if(sink_state(sink) == CONN_BAD) {
-				sink_reset(sink);
-				sink_unlock(sink);	// add by hd 2017-04-05
-				continue;						// add by hd 2017-04-05
+				sink_reset(sink);		/// ** 重连数据库 (2017-07-11)
 			}
 
 			sink_set_busy(sink, 1);
@@ -272,7 +283,9 @@ Sink*  sink_pool_get(void)
 					if (sink_pool_del()!=0)
 					{
 						theminnumbercount = 0;	// add by hd,2014-8-2
-						//printf("*********** sink_pool_del OK size:%d\n",sink_number);
+#ifdef USES_PRINT_DEBUG
+						printf("*********** sink_pool_del OK size:%d\n",sink_number);
+#endif
 					}
 					UNLOCK (&theAddDelLock);
 				}
@@ -280,6 +293,9 @@ Sink*  sink_pool_get(void)
 			{
 				theminnumbercount = 0;
 			}
+#ifdef USES_PRINT_DEBUG
+			printf("*********** return sink=0x%x\n", (int)sink);
+#endif
 			return sink;
 		}
 
@@ -287,15 +303,21 @@ Sink*  sink_pool_get(void)
 		if (sink_number==0 || (nosinkcount++)>25)	// 全部忙，并且等25次以上（25*10=250ms左右），增加一个数据库连接，（**25这个值不能太低，低了不好；**)
 		{
 			nosinkcount = 0;	// 如果找不到还可以重新开始等
+			nAddCanRetry = 0;
 			LOCK (&theAddDelLock);
-			sink = sink_pool_add();
+			sink = sink_pool_add(&nAddCanRetry);
 			UNLOCK (&theAddDelLock);
 			if (sink)
 			{
-				//printf("*********** sink_pool_add OK size:%d\n",sink_number);
+#ifdef USES_PRINT_DEBUG
+				printf("*********** sink_pool_add OK size:%d\n",sink_number);
+#endif
 				return sink;
-			}else if ((nErrorCount++)>=3)
+			}else if (nAddCanRetry==0 || (nErrorCount++)>=3)
 			{
+#ifdef USES_PRINT_DEBUG
+				printf("*********** return NULL\n");
+#endif
 				return NULL;
 			}
 		}
