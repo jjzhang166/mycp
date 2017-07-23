@@ -28,7 +28,7 @@
 
 namespace mycp {
 
-class CSotpClient
+class CGCLIB_CLASS CSotpClient
 //class LIBSOTPCLIENT_CLASS CSotpClient
 {
 public:
