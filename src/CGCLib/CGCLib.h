@@ -24,6 +24,17 @@
 #include "SotpClient.h"
 
 #ifdef WIN32
+
+#ifdef _QT_MAKE_
+
+#ifdef _DEBUG
+#pragma comment(lib, "CGCLibQtd.lib")
+#else
+#pragma comment(lib, "CGCLibQt.lib")
+#endif
+
+#else /// _QT_MAKE_
+
 #ifdef _DLL
 
 #ifdef _DEBUG
@@ -97,6 +108,8 @@
 #endif // _DEBUG
 
 #endif // _DLL
+
+#endif /// _QT_MAKE_
 
 #endif // WIN32
 

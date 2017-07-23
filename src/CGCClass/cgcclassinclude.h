@@ -24,6 +24,8 @@
 #include "PpSotp2.h"
 #include "PpHttp.h"
 
+#ifdef WIN32
+
 #ifdef _QT_MAKE_
 
 #ifdef _DEBUG
@@ -33,8 +35,6 @@
 #endif
 
 #else /// _QT_MAKE_
-
-#ifdef WIN32
 
 #ifdef _DLL
 #ifdef _DEBUG
@@ -108,8 +108,8 @@
 #endif // _DEBUG
 #endif
 
-#endif // WIN32
-
 #endif // _QT_MAKE_
+
+#endif // WIN32
 
 #endif // __cgcclassinclude_h__
