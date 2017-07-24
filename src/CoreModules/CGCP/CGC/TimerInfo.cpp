@@ -140,7 +140,8 @@ void TimerInfo::RunTimer(void)
 		try
 		{
 			boost::thread_attributes attrs;
-			attrs.set_stack_size(CGC_THREAD_STACK_MIN);
+			attrs.set_stack_size(CGC_THREAD_STACK_MAX);
+			//attrs.set_stack_size(CGC_THREAD_STACK_MIN);
 			m_timerThread = boost::shared_ptr<boost::thread>(new boost::thread(attrs,boost::bind(&TimerInfo::do_timer, this)));
 			if (getOneShot())
 			{

@@ -243,36 +243,32 @@ public:
 	{
 		//printf("******** KillProcess PID=%d\n",(int)m_nProceessId);
 #ifdef USES_FASTCGI_KEEP_CONN
-		if (m_pFastCgiServer.get()!=NULL)
-		{
+		if (m_pFastCgiServer.get()!=0) {
 			m_pFastCgiServer->stopClient();
 			m_pFastCgiServer.reset();
 		}
 #endif
-		if (m_nProceessId>0)
-		{
+		if (m_nProceessId>0) {
 			//if (bSetKillTime)
 			//	m_tKillTime = time(0);
 #ifdef WIN32
 			HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, m_nProceessId);
-			if (hProcess!=NULL)
-			{
+			if (hProcess!=0) {
 				TerminateProcess(hProcess, 0);
-			}else if (m_pProcessHandle!=NULL)
-			{
+			}
+			else if (m_pProcessHandle!=0) {
 				TerminateProcess((HANDLE)m_pProcessHandle, 0);
 			}
 #else
-			if (!m_sFastcgiPass.empty())
-			{
-				// ps -ef|grep '127.0.0.1:9000' | awk '{print $2}' | xargs kill
+			if (!m_sFastcgiPass.empty()) {
+				/// ps -ef|grep '127.0.0.1:9000' | awk '{print $2}' | xargs kill
 				char lpszBuffer[256];
 				sprintf(lpszBuffer,"ps -ef|grep -v 'grep'|grep '%s' | awk '{print $2}' | xargs kill -9",m_sFastcgiPass.c_str());
 				system(lpszBuffer);
 			}
 #endif
 			m_nProceessId = 0;
-			m_pProcessHandle = NULL;
+			m_pProcessHandle = 0;
 		}
 		m_nRequestCount = 0;
 		//printf("******** KillProcess end\n");
@@ -497,6 +493,7 @@ public:
 		if (f==NULL)
 			return -1;
 		memset(lpszCmd,0,sizeof(lpszCmd));
+		int index = 0;
 		while (fgets(lpszCmd,128,f)!=NULL)
 		{
 			const int ret = atoi(lpszCmd);
@@ -506,6 +503,10 @@ public:
 				nPid = ret;
 				//printf("**** 11 pid=%d,%s\n",nPid,lpszCmd);
 				return nPid;
+			}
+			if ( (index++)>100 ) {
+				pclose(f);
+				return 0;
 			}
 		}
 		pclose(f);
@@ -525,7 +526,7 @@ public:
 				BoostWriteLock wtlock(thePHPFastcgiInfo->m_mutex);
 				if (thePHPFastcgiInfo->m_nCurrentFcgiPassPortIndex>=thePHPFastcgiInfo->m_nMaxProcess)
 				{
-					// 超时最大进程数，使用默认等待
+					/// 超过最大进程数，使用默认等待
 					return NullFastcgiRequestInfo;
 				}else
 				{
@@ -558,7 +559,7 @@ public:
 		{
 			pRequestPassInfo->KillProcess();
 			m_pIdlePassInfoList.add(pRequestPassInfo);
-			return GetFastcgiRequestInfo(nScriptFileType,response);	// get next
+			return GetFastcgiRequestInfo(nScriptFileType,response);	/// get next
 		}
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo = CFastcgiRequestInfo::create(pRequestPassInfo,response);
 		m_pFastcgiRequestList.insert(pRequestPassInfo->GetRequestId(),pFastcgiRequestInfo);
@@ -576,10 +577,12 @@ public:
 
 	void CreateRequestPassInfoProcess(const CRequestPassInfo::pointer& pRequestPassInfo)
 	{
-		if (pRequestPassInfo.get()==NULL || (pRequestPassInfo->GetProcessId()>0 && pRequestPassInfo->GetProcessHandle()!=NULL)) return;
+		if (pRequestPassInfo.get()==0 || (pRequestPassInfo->GetProcessId()>0 && pRequestPassInfo->GetProcessHandle()!=0)) {
+			return;
+		}
 		char lpszBuffer[512];
 #ifdef WIN32
-		// php-cgi.exe -b 127.0.0.1:9000 -c php.ini
+		/// php-cgi.exe -b 127.0.0.1:9000 -c php.ini
 		if (thePHPFastcgiInfo->m_sFastcgiPath.empty())
 			sprintf(lpszBuffer,"php-cgi.exe -b %s -c php.ini",pRequestPassInfo->GetFastcgiPass().c_str());
 		else
@@ -596,7 +599,7 @@ public:
 		pRequestPassInfo->SetProcessId(pi.dwProcessId);
 		//printf("**** CreateProcess Id=%d,Handle=%d,LastError=%d\n",pi.dwProcessId,(int)pi.hProcess,GetLastError());
 #else
-		// php-cgi -b 127.0.0.1:9000 -c php.ini
+		/// php-cgi -b 127.0.0.1:9000 -c php.ini
 		if (thePHPFastcgiInfo->m_sFastcgiPath.empty())
 			sprintf(lpszBuffer,"php-cgi -b %s -c \"/etc/php.ini\" &",pRequestPassInfo->GetFastcgiPass().c_str());
 		else
@@ -625,26 +628,26 @@ public:
 	}
 	void PHP_FCGIPM(void)
 	{
-		if (thePHPFastcgiInfo.get()==NULL)
+		if (thePHPFastcgiInfo.get()==0) {
 			return;
+		}
 
 		int nFastcgiProcessCount = 0;
 		BoostWriteLock wtlock(m_pRequestPassInfoList.mutex());
 		CLockList<CRequestPassInfo::pointer>::iterator pIter = m_pRequestPassInfoList.begin();
-		for (; pIter!=m_pRequestPassInfoList.end(); pIter++)
-		{
+		for (; pIter!=m_pRequestPassInfoList.end(); ) {
 			const CRequestPassInfo::pointer& pRequestPassInfo = *pIter;
-			if (pRequestPassInfo->GetProcessId()==0 || pRequestPassInfo->GetProcessHandle()==NULL)
-			{
+			if (pRequestPassInfo->GetProcessId()==0 || pRequestPassInfo->GetProcessHandle()==0) {
+				pIter++;
 				continue;
 			}
 			nFastcgiProcessCount++;
 
-			if (pRequestPassInfo->GetRequestCount()>=thePHPFastcgiInfo->m_nMaxRequestRestart ||		// 超时最大请求次数，关闭
-				(nFastcgiProcessCount>thePHPFastcgiInfo->m_nMinProcess && (pRequestPassInfo->GetLastRequestTime()+10)<this->m_tNow ))	// 超过最小进程数量，并且超过10秒没有访问，关闭
+			if (pRequestPassInfo->GetRequestCount()>=thePHPFastcgiInfo->m_nMaxRequestRestart ||		/// 超时最大请求次数，关闭
+				(nFastcgiProcessCount>thePHPFastcgiInfo->m_nMinProcess && (pRequestPassInfo->GetLastRequestTime()+60)<this->m_tNow ))	/// 超过最小进程数量，并且超过60秒没有访问，关闭
 			{
 				//printf("**** RequestId=%d,RequestCount=%d\n",pRequestPassInfo->GetRequestId(),pRequestPassInfo->GetRequestCount());
-				// * 控制一次只退出一个process
+				/// * 控制一次只退出一个process
 				const CRequestPassInfo::pointer pRequestPassInfoTemp = pRequestPassInfo;
 				m_pRequestPassInfoList.erase(pIter);
 				wtlock.unlock();
@@ -656,19 +659,21 @@ public:
 			DWORD ExitCode = STILL_ACTIVE;
 			GetExitCodeProcess((HANDLE)pRequestPassInfo->GetProcessHandle(),&ExitCode);
 			//printf("**** GetExitCodeProcess %d -> %d\n",pRequestPassInfo->GetProcessId(),ExitCode);
-			if (ExitCode!=STILL_ACTIVE)
-			{
-				pRequestPassInfo->KillProcess();
-				CreateRequestPassInfoProcess(pRequestPassInfo);
-			}
+			if (ExitCode!=STILL_ACTIVE) {
 #else
 			const int nPID = FindPidByName(pRequestPassInfo->GetFastcgiPass().c_str());
-			if (nPID<=0)
-			{
-				pRequestPassInfo->KillProcess();
-				CreateRequestPassInfoProcess(pRequestPassInfo);
-			}
+			if (nPID<=0) {
 #endif
+				const CRequestPassInfo::pointer pRequestPassInfoTemp = pRequestPassInfo;
+				m_pRequestPassInfoList.erase(pIter++);
+				pRequestPassInfoTemp->KillProcess();
+				m_pIdlePassInfoList.add(pRequestPassInfoTemp);
+				//pRequestPassInfo->KillProcess();
+				//CreateRequestPassInfoProcess(pRequestPassInfo);
+			}
+			else {
+				pIter++;
+			}
 		}
 	}
 
@@ -681,13 +686,13 @@ public:
 			theSecondIndex++;
 			m_tNow = time(0);
 
-			if ((theSecondIndex%10)==9)	// 10秒处理一次
+			if ((theSecondIndex%10)==9)		/// 10秒处理一次
 			{
 				PHP_FCGIPM();
 				m_pFastcgiClearList.clear();
 			}
 
-			if ((theSecondIndex%(24*3600))==23*3600)	// 一天处理一次
+			if ((theSecondIndex%(24*3600))==23*3600)	/// 一天处理一次
 			{
 				//std::vector<tstring> pRemoveFileNameList;
 				if (!theIdleFileInfos.empty())
@@ -2220,30 +2225,26 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 	
 	if (nScriptFileType==SCRIPT_FILE_TYPE_PHP)
 	{
-		if (thePHPFastcgiInfo.get()==NULL || thePHPFastcgiInfo->m_sFastcgiPass.empty())
-		{
+		if (thePHPFastcgiInfo.get()==0 || thePHPFastcgiInfo->m_sFastcgiPass.empty()) {
 			response->println("PHP fastcgi setting error.");
 			CGC_LOG((mycp::LOG_ERROR, "PHP fastcgi setting error.\n"));
 			return STATUS_CODE_501;
 		}
 
 		CFastcgiRequestInfo::pointer pFastcgiRequestInfo;
-		for (int i=0;i<5; i++)
-		{
+		for (int i=0;i<10; i++) {
 			pFastcgiRequestInfo = theTimerHandler->GetFastcgiRequestInfo(nScriptFileType,response);
-			if (pFastcgiRequestInfo.get()!=NULL)
-			{
+			if (pFastcgiRequestInfo.get()!=0) {
 				pFastcgiRequestInfo->SetResponseState(REQUEST_INFO_STATE_WAITTING_RESPONSE);
 				break;
 			}
 #ifdef WIN32
-			Sleep(1000);
+			Sleep(500);
 #else
-			usleep(1000000);
+			usleep(500000);
 #endif
 		}
-		if (pFastcgiRequestInfo.get()==NULL)
-		{
+		if (pFastcgiRequestInfo.get()==0) {
 			response->println("PHP fastcgi busy.");
 			CGC_LOG((mycp::LOG_ERROR, "PHP fastcgi busy.\n"));
 			return STATUS_CODE_501;
@@ -2256,22 +2257,18 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 #else
 		mycp::httpserver::CgcTcpClient::pointer m_pFastCgiServer = pFastcgiRequestInfo->m_pFastCgiServer;
 #endif
-		if (m_pFastCgiServer.get()!=NULL && m_pFastCgiServer->IsDisconnection())
-		{
+		if (m_pFastCgiServer.get()!=0 && m_pFastCgiServer->IsDisconnection()) {
 			m_pFastCgiServer->stopClient();
 			m_pFastCgiServer.reset();
 		}
 		
-		if (m_pFastCgiServer.get()==NULL)
-		{
+		if (m_pFastCgiServer.get()==0) {
 			m_pFastCgiServer = mycp::httpserver::CgcTcpClient::create(theTimerHandler.get(),nRequestId);
 			//m_pFastCgiServer->SetIoService(theApplication2->getIoService(), false);
-			if (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection())
-			{
+			if (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection()) {
 				bool bConnectError = true;
 				const CRequestPassInfo::pointer& pRequestPassInfo = pFastcgiRequestInfo->GetRequestPassInfo();
-				if (pRequestPassInfo->GetProcessId()>0)
-				{
+				if (pRequestPassInfo->GetProcessId()>0) {
 					//printf("**** restart fastcgi\n");
 					CGC_LOG((mycp::LOG_ERROR, "restart fastcgi (%s)\n", pFastcgiRequestInfo->GetFastcgiPass().c_str()));
 					pRequestPassInfo->KillProcess();
@@ -2286,8 +2283,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					bConnectError = (m_pFastCgiServer->startClient(pFastcgiRequestInfo->GetFastcgiPass().c_str(),0)!=0 || m_pFastCgiServer->IsDisconnection());
 					CGC_LOG((mycp::LOG_ERROR, "restart fastcgi (%s) ok=%d\n", pFastcgiRequestInfo->GetFastcgiPass().c_str(),(int)(bConnectError?0:1)));
 				}
-				if (bConnectError)
-				{
+				if (bConnectError) {
 					m_pFastCgiServer->stopClient();
 					theTimerHandler->RemoveRequestInfo(pFastcgiRequestInfo);
 					response->println("PHP fastcgi connect error, FastcgiPass=%s",thePHPFastcgiInfo->m_sFastcgiPass.c_str());
@@ -2327,16 +2323,14 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 		const tstring sHttpCookie(request->getHeader(Http_Cookie,""));
 		//printf("******** sHttpCookie=%s\n",sHttpCookie.c_str());
-		if (!sHttpCookie.empty())
-		{
+		if (!sHttpCookie.empty()) {
 			FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_HTTP_COOKIE.c_str(),FASTCGI_PARAM_HTTP_COOKIE.size(),sHttpCookie.c_str(),sHttpCookie.size(),&nNameValue1Size,lpszSendBuffer);
 			//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 			pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
 		}
 		const tstring sHttpUserAgent(request->getHeader(Http_UserAgent,""));
 		//printf("******** sHttpUserAgent=%s\n",sHttpUserAgent.c_str());
-		if (!sHttpUserAgent.empty())
-		{
+		if (!sHttpUserAgent.empty()) {
 			FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_HTTP_USER_AGENT.c_str(),FASTCGI_PARAM_HTTP_USER_AGENT.size(),sHttpUserAgent.c_str(),sHttpUserAgent.size(),&nNameValue1Size,lpszSendBuffer);
 			//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 			pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
@@ -2403,8 +2397,7 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		// SERVER_PROTOCOL
 		const tstring& sHttpVersion = request->getHttpVersion();
 		//printf("******** sHttpVersion=%s\n",sHttpVersion.c_str());
-		if (!sHttpVersion.empty())
-		{
+		if (!sHttpVersion.empty()) {
 			FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_SERVER_PROTOCOL.c_str(),FASTCGI_PARAM_SERVER_PROTOCOL.size(),sHttpVersion.c_str(),sHttpVersion.size(),&nNameValue1Size,lpszSendBuffer);
 			//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 			pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
@@ -2424,45 +2417,43 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
 		// QUERY_STRING
 		const tstring& sHttpQueryString = request->getQueryString();
-		if (request->getHttpMethod()==HTTP_GET && !sHttpQueryString.empty())
-		{
+		if (request->getHttpMethod()==HTTP_GET && !sHttpQueryString.empty()) {
 			//printf("******** sQueryString=%s\n",sHttpQueryString.c_str());
 			unsigned char* pBufferTemp = (sHttpQueryString.size()+FCGI_HEADER_LEN+16)>DEFAULT_SEND_BUFFER_SIZE?NULL:lpszSendBuffer;
 			pBufferTemp = FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_QUERY_STRING.c_str(),FASTCGI_PARAM_QUERY_STRING.size(),sHttpQueryString.c_str(),sHttpQueryString.size(),&nNameValue1Size,pBufferTemp);
 			//m_pFastCgiServer->sendData((const unsigned char*)pBufferTemp,nNameValue1Size);
 			pFastcgiRequestInfo->SendData(m_pFastCgiServer,pBufferTemp,nNameValue1Size);
-			if (pBufferTemp!=lpszSendBuffer)
+			if (pBufferTemp!=lpszSendBuffer) {
 				delete[] pBufferTemp;
-		}else if (request->getHttpMethod()==HTTP_POST)
-		{
-			if (request->getContentLength()==0)	// *content-length=0，表示没有POST 数据
-			{
-				if (!sHttpQueryString.empty())
-				{
+			}
+		}
+		else if (request->getHttpMethod()==HTTP_POST) {
+			if (request->getContentLength()==0) {	/// *content-length=0，表示没有POST 数据
+				if (!sHttpQueryString.empty()) {
 					//printf("******** sQueryString=%s\n",sHttpQueryString.c_str());
 					unsigned char* pBufferTemp = (sHttpQueryString.size()+FCGI_HEADER_LEN+16)>DEFAULT_SEND_BUFFER_SIZE?NULL:lpszSendBuffer;
 					pBufferTemp = FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_QUERY_STRING.c_str(),FASTCGI_PARAM_QUERY_STRING.size(),sHttpQueryString.c_str(),sHttpQueryString.size(),&nNameValue1Size,pBufferTemp);
 					//m_pFastCgiServer->sendData((const unsigned char*)pBufferTemp,nNameValue1Size);
 					pFastcgiRequestInfo->SendData(m_pFastCgiServer,pBufferTemp,nNameValue1Size);
-					if (pBufferTemp!=lpszSendBuffer)
+					if (pBufferTemp!=lpszSendBuffer) {
 						delete[] pBufferTemp;
+					}
 				}
-			}else	// *content-length>0，POST 数据由下面处理，这里只处理URL ?后面的 "p=v&..."
-			{
+			}
+			else {	/// *content-length>0，POST 数据由下面处理，这里只处理URL ?后面的 "p=v&..."
 				const tstring& sRequestURL = request->getRequestURL();
 				const std::string::size_type find = sRequestURL.find("?");
-				if (find!=std::string::npos)
-				{
+				if (find!=std::string::npos) {
 					const tstring sQueryString(sRequestURL.substr(find+1));
-					if (!sQueryString.empty())
-					{
+					if (!sQueryString.empty()) {
 						//printf("******** sQueryString=%s\n",sQueryString.c_str());
 						unsigned char* pBufferTemp = (sQueryString.size()+FCGI_HEADER_LEN+16)>DEFAULT_SEND_BUFFER_SIZE?NULL:lpszSendBuffer;
 						pBufferTemp = FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_QUERY_STRING.c_str(),FASTCGI_PARAM_QUERY_STRING.size(),sQueryString.c_str(),sQueryString.size(),&nNameValue1Size,pBufferTemp);
 						//m_pFastCgiServer->sendData((const unsigned char*)pBufferTemp,nNameValue1Size);
 						pFastcgiRequestInfo->SendData(m_pFastCgiServer,pBufferTemp,nNameValue1Size);
-						if (pBufferTemp!=lpszSendBuffer)
+						if (pBufferTemp!=lpszSendBuffer) {
 							delete[] pBufferTemp;
+						}
 					}
 				}
 			}
@@ -2501,14 +2492,13 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 		}
 		// REQUEST_METHOD
 		bool bAlreadySetContentType = false;
-		if (request->getHttpMethod()==HTTP_GET)
-		{
+		if (request->getHttpMethod()==HTTP_GET) {
 			sValue1 = "GET";
 			FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_REQUEST_METHOD.c_str(),FASTCGI_PARAM_REQUEST_METHOD.size(),sValue1.c_str(),sValue1.size(),&nNameValue1Size,lpszSendBuffer);
 			//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 			pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
-		}else if (request->getHttpMethod()==HTTP_POST)
-		{
+		}
+		else if (request->getHttpMethod()==HTTP_POST) {
 			sValue1 = "POST";
 			FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_REQUEST_METHOD.c_str(),FASTCGI_PARAM_REQUEST_METHOD.size(),sValue1.c_str(),sValue1.size(),&nNameValue1Size,lpszSendBuffer);
 			//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
@@ -2517,11 +2507,10 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			std::vector<cgcUploadFile::pointer> outFils;
 			request->getUploadFile(outFils);
 			//printf("******** UploadFile size=%d\n",outFils.size());
-			if (!outFils.empty())
-			{
+			if (!outFils.empty()) {
 				bAlreadySetContentType = true;
 				char lpszBoundary[24];
-				sprintf(lpszBoundary,"------%lld%03d%03d",(mycp::bigint)theTimerHandler->m_tNow,rand(),nRequestId);
+				sprintf(lpszBoundary,"------%lld%03d%03d",(mycp::bigint)theTimerHandler->m_tNow,(int)rand(),nRequestId);
 				std::string sContentType("multipart/form-data; boundary=");
 				sContentType.append(lpszBoundary);
 				// CONTENT_TYPE
@@ -2533,19 +2522,17 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 				std::vector<std::string> pBoundaryHeadList;
 				std::vector<std::string> pBoundaryEndList;
 				char lpszBuffer[512];
-				for (size_t i=0;i<outFils.size();i++)
-				{
+				for (size_t i=0;i<outFils.size();i++) {
 					const cgcUploadFile::pointer& pUploadFile = outFils[i];
 					sprintf(lpszBuffer,"--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n",
 						lpszBoundary,pUploadFile->getName().c_str(),pUploadFile->getFileName().c_str(),pUploadFile->getContentType().c_str());
 					pBoundaryHeadList.push_back(lpszBuffer);
 					nContentLength += strlen(lpszBuffer);
 					nContentLength += pUploadFile->getFileSize();
-					if (i+1==outFils.size())
-					{
+					if (i+1==outFils.size()) {
 						sprintf(lpszBuffer,"\r\n--%s--\r\n",lpszBoundary);
-					}else
-					{
+					}
+					else {
 						sprintf(lpszBuffer,"\r\n--%s\r\n",lpszBoundary);
 					}
 					pBoundaryEndList.push_back(lpszBuffer);
@@ -2574,15 +2561,13 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 
 				const int const_send_buffer = DEFAULT_SEND_BUFFER_SIZE;
 				//int nPaddingLength = 0;
-				for (size_t i=0;i<outFils.size();i++)
-				{
+				for (size_t i=0;i<outFils.size();i++) {
 					const std::string& sBoundaryHead = pBoundaryHeadList[i];
 					const std::string& sBoundaryEnd = pBoundaryEndList[i];
 					const cgcUploadFile::pointer& pUploadFile = outFils[i];
 					const size_t nFileSize = pUploadFile->getFileSize();
 					FILE * f = fopen(pUploadFile->getFilePath().c_str(),"rb");
-					if (f==NULL)
-					{
+					if (f==0) {
 						CGC_LOG((mycp::LOG_ERROR, "File not exist (%s)\n",pUploadFile->getFilePath().c_str()));
 						break;
 					}
@@ -2591,15 +2576,14 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					size_t nReadedSize = 0;
 					memcpy(lpszSendBuffer+FCGI_HEADER_LEN,sBoundaryHead.c_str(),sBoundaryHead.size());
 					size_t nBufferOffset = FCGI_HEADER_LEN+sBoundaryHead.size();
-					while (nReadedSize<nFileSize)
-					{
+					while (nReadedSize<nFileSize) {
 						const size_t nReadSize = fread(lpszSendBuffer+nBufferOffset,1,nToReadSize,f);
-						if (nReadSize==0)
+						if (nReadSize==0) {
 							break;
+						}
 						nReadedSize += nReadSize;
 						nBufferOffset += nReadSize;
-						if (nBufferOffset+sBoundaryEnd.size()<=(size_t)const_send_buffer)
-						{
+						if (nBufferOffset+sBoundaryEnd.size()<=(size_t)const_send_buffer) {
 							memcpy(lpszSendBuffer+nBufferOffset,sBoundaryEnd.c_str(),sBoundaryEnd.size());
 							nBufferOffset += sBoundaryEnd.size();
 						}						
@@ -2610,13 +2594,12 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 					}
 					fclose(f);
 				}
-			}else if (request->getContentLength()>0 && !sHttpQueryString.empty())	// * 这里只处理 POST 数据
-			{
+			}
+			else if (request->getContentLength()>0 && !sHttpQueryString.empty()) {	/// * 这里只处理 POST 数据
 				bAlreadySetContentType = true;
 				const tstring& sContentType = request->getContentType();
 				//printf("******** sContentType=%s,sQueryString=%s,content_length=%d\n",sContentType.c_str(),sHttpQueryString.c_str(),(int)request->getContentLength());
-				if (!sContentType.empty())
-				{
+				if (!sContentType.empty()) {
 					FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_CONTENT_TYPE.c_str(),FASTCGI_PARAM_CONTENT_TYPE.size(),sContentType.c_str(),sContentType.size(),&nNameValue1Size,lpszSendBuffer);
 					//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 					pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
@@ -2641,12 +2624,10 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 			}
 		}
 		// CONTENT_TYPE
-		if (!bAlreadySetContentType)
-		{
+		if (!bAlreadySetContentType) {
 			const tstring& sContentType = request->getContentType();
 			//printf("******** sContentType=%s\n",sContentType.c_str());
-			if (!sContentType.empty())
-			{
+			if (!sContentType.empty()) {
 				FCGI_BuildParamsBody(nRequestId,FASTCGI_PARAM_CONTENT_TYPE.c_str(),FASTCGI_PARAM_CONTENT_TYPE.size(),sContentType.c_str(),sContentType.size(),&nNameValue1Size,lpszSendBuffer);
 				//m_pFastCgiServer->sendData((const unsigned char*)lpszSendBuffer,nNameValue1Size);
 				pFastcgiRequestInfo->SendData(m_pFastCgiServer,lpszSendBuffer,nNameValue1Size);
@@ -2681,28 +2662,26 @@ extern "C" HTTP_STATUSCODE CGC_API doHttpServer(const cgcHttpRequest::pointer & 
 //		}
 
 		//const time_t tTimeBegin = time(0);
-		for (int i=0;i<thePHPFastcgiInfo->m_nResponseTimeout*200;i++)	// default 30S
-		//while (true)
-		{
-			if (pFastcgiRequestInfo->GetResponseState()>=REQUEST_INFO_STATE_FCGI_END_REQUEST)
-			{
+		for (int i=0;i<thePHPFastcgiInfo->m_nResponseTimeout*200;i++) {	/// default 30S
+			if (pFastcgiRequestInfo->GetResponseState()>=REQUEST_INFO_STATE_FCGI_END_REQUEST) {
 				const bool bResponseError = pFastcgiRequestInfo->GetResponseError();
 #ifdef USES_FASTCGI_KEEP_CONN
-				if (bResponseError)
-				{
+				if (bResponseError) {
 					CRequestPassInfo::pointer pRequestPassInfo = pFastcgiRequestInfo->GetRequestPassInfo();
 					pRequestPassInfo->KillProcess();
 					theTimerHandler->CreateRequestPassInfoProcess(pRequestPassInfo);
-				}else
-				{
+				}
+				else {
 					pFastcgiRequestInfo->GetRequestPassInfo()->ResetErrorCount();
 				}
 				theTimerHandler->RemoveRequestInfo(pFastcgiRequestInfo);
 #endif
 				//CGC_LOG((mycp::LOG_TRACE, "RequestId=%d return STATUS_CODE_200, error=%d\n", nRequestId, (int)(bResponseError?1:0)));
 				return STATUS_CODE_200;
-			}else if (!theApplication->isInited())
+			}
+			else if (!theApplication->isInited()) {
 				break;
+			}
 #ifdef WIN32
 			Sleep(5);
 #else
